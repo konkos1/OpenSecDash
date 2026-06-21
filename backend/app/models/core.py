@@ -17,7 +17,7 @@ class PluginRecord(Base):
     api_version: Mapped[str] = mapped_column(String(20), default="1")
     capabilities: Mapped[list | None] = mapped_column(JSON, nullable=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
-    status: Mapped[str] = mapped_column(String(20), default="healthy")
+    status: Mapped[str] = mapped_column(String(20), default="healthy", index=True)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
