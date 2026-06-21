@@ -32,6 +32,22 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     document.addEventListener("click", event => {
+        const helpButton = event.target.closest(".help[data-tooltip]");
+
+        document.querySelectorAll(".help-tooltip")
+            .forEach(tooltip => tooltip.remove());
+
+        if (helpButton) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            const tooltip = document.createElement("div");
+            tooltip.className = "help-tooltip";
+            tooltip.textContent = helpButton.dataset.tooltip;
+            helpButton.appendChild(tooltip);
+            return;
+        }
+
         if (dirtyForms.size === 0) {
             return;
         }
