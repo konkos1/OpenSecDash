@@ -48,7 +48,7 @@
       <h3 class="font-semibold mb-3">Latest security events</h3>
       {% for event in latest_security_events %}
         <a class="row" href="/ip/{{ event.ip or '' }}">
-          <span>{{ event.event_time }} · {{ event.event_type }} · {{ event.ip or '-' }}</span>
+          <span>{{ event.event_time|datetime }} · {{ event.event_type }} · {{ event.ip or '-' }}</span>
           <b>{{ event.country or '' }}</b>
         </a>
       {% else %}

@@ -58,7 +58,7 @@
             <h3 class="font-semibold mb-3">Recent actions</h3>
             {% for action in actions %}
                 <div class="row">
-                    <span>{{ action.timestamp }} · {{ action.action_type }} · {{ action.target }}
+                    <span>{{ action.timestamp|datetime }} · {{ action.action_type }} · {{ action.target }}
                         <br>
                         <small class="muted">{{ action.result or '' }}</small>
                     </span>

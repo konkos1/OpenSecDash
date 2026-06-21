@@ -37,7 +37,7 @@
       <tbody>
         {% for event in events %}
           <tr>
-            <td>{{ event.event_time }}</td>
+            <td>{{ event.event_time|datetime }}</td>
             <td>{{ event.event_type }}</td>
             <td>{{ event.severity }}</td>
             <td>
@@ -64,7 +64,7 @@
     {% for event in events %}
       <article class="card">
         <div class="font-semibold">{{ event.event_type }}</div>
-        <div class="muted">{{ event.event_time }}</div>
+        <div class="muted">{{ event.event_time|datetime }}</div>
         <div>IP: 
           {% if event.ip %}<a href="/ip/{{ event.ip }}">{{ event.ip }}</a>
           {% else %}

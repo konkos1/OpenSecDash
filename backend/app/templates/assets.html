@@ -7,72 +7,59 @@
 {% block content %}
 
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
-        <h2 class="text-2xl font-semibold">Asset Explorer</h2>
-        
+        <div>
+            <h2 class="text-2xl font-semibold">Asset Explorer</h2>
+            <p class="muted mt-1">Systems with their installed apps. Click a system row to open its app list.</p>
+        </div>
+
         <div class="flex gap-2">
             <form method="post" action="/assets/import-source">
                 <button class="btn">{{ t("assets.import") }}</button>
             </form>
-            
             <form method="post" action="/assets/refresh-updates">
                 <button class="btn">{{ t("assets.check_updates") }}</button>
             </form>
         </div>
     </div>
 
-    <section class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
-        <div class="card lg:col-span-1">
-            <h3 class="font-semibold mb-3">Apps</h3>
-            <a class="text-blue-300" href="{{ '/assets' if show_inactive else '/assets?show_inactive=true' }}">{{ t("assets.hide_inactive") if show_inactive else t("assets.show_inactive") }}</a>
-
-            <h3 class="font-semibold mb-3 mt-6">Systems</h3>
-            {% for system in systems %}
-                <div class="row">
-                    <span>{{ system.hostname }}
-                        <br>
-                        <small class="muted">{{ system.system_type }} · VMID {{ system.vmid }}</small>
-                    </span>
-                    <b>{{ system.assets|length }}</b>
-                </div>
-            {% else %}
-                <p class="muted">No systems imported</p>
-            {% endfor %}
-        </div>
-    </section>
+    <div class="card mb-5 flex items-center justify-between gap-4">
+        <span class="muted">{{ "Inactive systems/apps are included" if show_inactive else "Only active apps are counted" }}</span>
+        <a class="text-blue-300" href="{{ '/assets' if show_inactive else '/assets?show_inactive=true' }}">
+            {{ t("assets.hide_inactive") if show_inactive else t("assets.show_inactive") }}
+        </a>
+    </div>
 
     <div class="hidden md:block card overflow-x-auto">
         <table class="w-full text-sm">
             <thead>
                 <tr>
                     <th>System</th>
-                    <th>Name</th>
-                    <th>Version</th>
-                    <th>Latest</th>
-                    <th>Update</th>
-                    <th>Release</th>
-                    <th>Status</th>
+                    <th>Type</th>
+                    <th>VMID</th>
+                    <th>Installed apps</th>
+                    <th>Any update?</th>
+                    <th>Last seen</th>
                 </tr>
             </thead>
-
             <tbody>
-                {% for asset in assets %}
-                    <tr>
-                        <td>{{ asset.system.hostname if asset.system else '-' }}</td>
-                        <td><a href="/assets/{{ asset.id }}">{{ asset.name }}</a></td>
-                        <td>{{ asset.version }}</td>
-                        <td>{{ asset.latest_version or '-' }}</td>
-                        <td>{{ t("common.yes") if asset.update_available else t("common.no") }}</td>
-                        <td>{% if asset.release_url %}
-                                <a href="{{ asset.release_url }}" target="_blank" rel="noopener noreferrer">{{ t("common.open") }}</a>
+                {% for row in system_rows %}
+                    <tr class="cursor-pointer hover:bg-slate-900" onclick="window.location='/assets/system/{{ row.system.id }}'">
+                        <td><a href="/assets/system/{{ row.system.id }}" class="font-semibold">{{ row.system.hostname }}</a></td>
+                        <td>{{ row.system.system_type }}</td>
+                        <td>{{ row.system.vmid }}</td>
+                        <td><strong>{{ row.app_count }}</strong> apps</td>
+                        <td>
+                            {% if row.update_available %}
+                                <span class="badge">{{ t("common.yes") }}</span>
                             {% else %}
-                                {{ t("common.none") }}
+                                {{ t("common.no") }}
                             {% endif %}
                         </td>
-                        <td>{{ t("assets.active") if asset.is_active else t("assets.inactive") }}</td>
+                        <td>{{ row.last_seen|datetime }}</td>
                     </tr>
                 {% else %}
                     <tr>
-                        <td colspan="7">{{ t("assets.no_assets") }}</td>
+                        <td colspan="6">No systems imported</td>
                     </tr>
                 {% endfor %}
             </tbody>
@@ -80,14 +67,16 @@
     </div>
 
     <div class="grid md:hidden gap-3">
-        {% for asset in assets %}
-            <article class="card">
-                <a class="font-semibold" href="/assets/{{ asset.id }}">{{ asset.name }}</a>
-                <div class="muted">{{ asset.system.hostname if asset.system else '-' }}</div>
-                <div>Version: {{ asset.version }}</div>
-                <div>Latest: {{ asset.latest_version or '-' }}</div>
-                <div>Update: {{ t("common.yes") if asset.update_available else t("common.no") }}</div>
-            </article>
+        {% for row in system_rows %}
+            <a class="card block" href="/assets/system/{{ row.system.id }}">
+                <div class="font-semibold">{{ row.system.hostname }}</div>
+                <div class="muted">{{ row.system.system_type }} · VMID {{ row.system.vmid }}</div>
+                <div><strong>{{ row.app_count }}</strong> installed apps</div>
+                <div>Any update: {% if row.update_available %}<span class="badge">{{ t("common.yes") }}</span>{% else %}{{ t("common.no") }}{% endif %}</div>
+                <div>Last seen: {{ row.last_seen|datetime }}</div>
+            </a>
+        {% else %}
+            <article class="card">No systems imported</article>
         {% endfor %}
     </div>
 

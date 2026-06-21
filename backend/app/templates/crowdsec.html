@@ -55,7 +55,7 @@
       <tbody>
         {% for ban in bans %}
           <tr>
-            <td>{{ ban.event_time }}</td>
+            <td>{{ ban.event_time|datetime }}</td>
             <td><a href="/ip/{{ ban.ip }}">{{ ban.ip }}</a></td>
             <td>{{ ban.data_json.scenario if ban.data_json else '-' }}</td>
             <td>{{ ban.data_json.duration if ban.data_json else '-' }}</td>

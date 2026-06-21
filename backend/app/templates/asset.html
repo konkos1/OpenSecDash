@@ -1,57 +1,90 @@
 {% extends "base.html" %}
 
 {% block title %}
-    {{ t("app.name") }} · {{ asset.name }}
+    {{ t("app.name") }} · {{ system.hostname }}
 {% endblock %}
 
 {% block content %}
 
-    <h2 class="text-2xl font-semibold mb-5">{{ asset.name }}</h2>
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
+        <div>
+            <h2 class="text-2xl font-semibold">{{ system.hostname }}</h2>
+            <p class="muted">{{ system.system_type }} · VMID {{ system.vmid }}</p>
+        </div>
+    </div>
 
     <section class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
         <div class="card flex flex-col items-center text-center">
-            <span class="muted">Version</span>
-            <strong class="text-2xl">{{ asset.version }}</strong>
+            <span class="muted">Installed apps</span>
+            <strong class="text-2xl">{{ apps|length }}</strong>
         </div>
-        
         <div class="card flex flex-col items-center text-center">
-            <span class="muted">Latest</span>
-            <strong class="text-2xl">{{ asset.latest_version or '-' }}</strong>
+            <span class="muted">Updates available</span>
+            <strong class="text-2xl">{{ apps|selectattr('update_available')|list|length }}</strong>
         </div>
-        
         <div class="card flex flex-col items-center text-center">
-            <span class="muted">Update</span>
-            <strong class="text-2xl">{{ t("common.yes") if asset.update_available else t("common.no") }}</strong>
+            <span class="muted">Inactive apps</span>
+            <strong class="text-2xl">{{ apps|rejectattr('is_active')|list|length }}</strong>
         </div>
     </section>
-    
-    <div class="card mb-5">
-        <h3 class="font-semibold mb-3">Overview</h3>
-        <div class="grid md:grid-cols-2 gap-2">
-            <div>System: {{ asset.system.hostname if asset.system else '-' }}</div>
-            <div>Status: {{ t("assets.active") if asset.is_active else t("assets.inactive") }}</div>
-            <div>Release: {% if asset.release_url %}
-                <a href="{{ asset.release_url }}" target="_blank">{{ asset.release_url }}</a>
+
+    <div class="card mb-5 overflow-x-auto">
+        <h3 class="font-semibold mb-3">Apps in this system</h3>
+        <table class="w-full text-sm">
+            <thead>
+                <tr>
+                    <th>App</th>
+                    <th>Version</th>
+                    <th>Latest</th>
+                    <th>Update</th>
+                    <th>Status</th>
+                    <th>Release</th>
+                    <th>Last seen</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for app in apps %}
+                    <tr>
+                        <td class="font-semibold">{{ app.name }}</td>
+                        <td>{{ app.version }}</td>
+                        <td>{{ app.latest_version or '-' }}</td>
+                        <td>
+                            {% if not app.release_url %}
+                                -
+                            {% elif app.update_available %}
+                                <span class="badge">{{ t("common.yes") }}</span>
+                            {% else %}
+                                {{ t("common.no") }}
+                            {% endif %}
+                        </td>
+                        <td>{{ t("assets.active") if app.is_active else t("assets.inactive") }}</td>
+                        <td>
+                            {% if app.release_url %}
+                                <a href="{{ app.release_url }}" target="_blank" rel="noopener noreferrer">{{ t("common.open") }}</a>
+                            {% else %}
+                                {{ t("common.none") }}
+                            {% endif %}
+                        </td>
+                        <td>{{ app.last_seen|datetime }}</td>
+                    </tr>
                 {% else %}
-                    -
-                {% endif %}
-            </div>
-            <div>Last seen: {{ asset.last_seen or '-' }}</div>
-        </div>
+                    <tr>
+                        <td colspan="7">No apps in this system</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 
     <div class="card mb-5">
         <h3 class="font-semibold mb-3">Insights</h3>
         {% for insight in insights %}
             <div class="row">
-                <span>{{ insight.title }}
-                    <br>
-                    <small class="muted">{{ insight.description }}</small>
-                </span>
+                <span>{{ insight.title }}<br><small class="muted">{{ insight.description }}</small></span>
                 <b>{{ insight.level }}</b>
             </div>
         {% else %}
-            <p class="muted">No asset insights</p>
+            <p class="muted">No system insights</p>
         {% endfor %}
     </div>
 
@@ -67,11 +100,10 @@
                     <th>Path</th>
                 </tr>
             </thead>
-            
             <tbody>
                 {% for event in events %}
                     <tr>
-                        <td>{{ event.event_time }}</td>
+                        <td>{{ event.event_time|datetime }}</td>
                         <td>{{ event.event_type }}</td>
                         <td>{{ event.ip or '-' }}</td>
                         <td>{{ event.status_code or '-' }}</td>

@@ -63,7 +63,7 @@
             <tbody>
                 {% for event in events %}
                     <tr>
-                        <td>{{ event.event_time }}</td>
+                        <td>{{ event.event_time|datetime }}</td>
                         <td>{{ event.event_type }}</td>
                         <td>{{ event.severity }}</td>
                         <td>{{ event.status_code or '-' }}</td>

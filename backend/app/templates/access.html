@@ -28,7 +28,7 @@
             <tbody>
                 {% for event in events %}
                     <tr>
-                        <td>{{ event.event_time }}</td>
+                        <td>{{ event.event_time|datetime }}</td>
                         <td><a href="/ip/{{ event.ip }}">{{ event.ip or '-' }}</a></td>
                         <td>{{ event.hostname or '-' }}</td>
                         <td>{{ event.method or '-' }}</td>

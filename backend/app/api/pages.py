@@ -23,6 +23,15 @@ router = APIRouter(tags=["pages"])
 templates = Jinja2Templates(directory="app/templates")
 
 
+def format_datetime(value: datetime | None) -> str:
+    if value is None:
+        return "-"
+    return value.strftime("%Y-%m-%d %H:%M:%S")
+
+
+templates.env.filters["datetime"] = format_datetime
+
+
 def save_setting(db: Session, key: str, value: str) -> None:
     setting = db.query(Setting).filter(Setting.key == key).first()
     if setting is None:
@@ -153,22 +162,69 @@ def ip_explorer_page(ip: str, request: Request, db: Session = Depends(get_db)):
 
 @router.get("/assets")
 def assets_page(request: Request, show_inactive: bool = False, db: Session = Depends(get_db)):
-    query = db.query(Asset).join(System, Asset.system_id == System.id)
-    if not show_inactive:
-        query = query.filter(Asset.is_active == True)
-    assets = query.order_by(System.hostname, Asset.name).all()
     systems = db.query(System).order_by(System.hostname).all()
-    return render(request, db, "assets.html", assets=assets, systems=systems, show_inactive=show_inactive)
+    system_rows = []
+    for system in systems:
+        apps_query = db.query(Asset).filter(Asset.system_id == system.id)
+        if not show_inactive:
+            apps_query = apps_query.filter(Asset.is_active == True)
+        app_count = apps_query.count()
+        update_available = (
+            apps_query.filter(Asset.update_available == True).count() > 0
+        )
+        last_seen = (
+            apps_query.order_by(Asset.last_seen.desc()).first().last_seen
+            if app_count
+            else system.last_seen
+        )
+        system_rows.append(
+            {
+                "system": system,
+                "app_count": app_count,
+                "update_available": update_available,
+                "last_seen": last_seen,
+            }
+        )
+    return render(request, db, "assets.html", system_rows=system_rows, show_inactive=show_inactive)
 
 
-@router.get("/assets/{asset_id}")
-def asset_page(asset_id: int, request: Request, db: Session = Depends(get_db)):
+@router.get("/assets/system/{system_id}")
+def asset_page(system_id: int, request: Request, show_inactive: bool = False, db: Session = Depends(get_db)):
+    system = db.query(System).filter(System.id == system_id).first()
+    if system is None:
+        raise HTTPException(status_code=404, detail="System not found")
+    apps_query = db.query(Asset).filter(Asset.system_id == system.id)
+    if not show_inactive:
+        apps_query = apps_query.filter(Asset.is_active == True)
+    apps = apps_query.order_by(Asset.name).all()
+    app_ids = [asset.id for asset in apps]
+    events = (
+        db.query(Event)
+        .filter(Event.asset_id.in_(app_ids))
+        .order_by(Event.event_time.desc())
+        .limit(100)
+        .all()
+        if app_ids
+        else []
+    )
+    insights = (
+        db.query(Insight)
+        .filter(Insight.asset_id.in_(app_ids))
+        .order_by(Insight.timestamp.desc())
+        .limit(50)
+        .all()
+        if app_ids
+        else []
+    )
+    return render(request, db, "asset.html", system=system, apps=apps, events=events, insights=insights, show_inactive=show_inactive)
+
+
+@router.get("/assets/app/{asset_id}")
+def app_asset_page(asset_id: int, request: Request, db: Session = Depends(get_db)):
     asset = db.query(Asset).filter(Asset.id == asset_id).first()
     if asset is None:
         raise HTTPException(status_code=404, detail="Asset not found")
-    events = db.query(Event).filter(Event.asset_id == asset.id).order_by(Event.event_time.desc()).limit(100).all()
-    insights = db.query(Insight).filter(Insight.asset_id == asset.id).order_by(Insight.timestamp.desc()).limit(50).all()
-    return render(request, db, "asset.html", asset=asset, events=events, insights=insights)
+    return RedirectResponse(url=f"/assets/system/{asset.system_id}", status_code=303)
 
 
 @router.post("/assets/import-source")
