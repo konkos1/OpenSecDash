@@ -177,6 +177,7 @@ EN = {
     "settings.mqtt_username": "MQTT username",
     "settings.mqtt_password": "MQTT password",
     "settings.mqtt_topic_prefix": "MQTT topic prefix",
+    "settings.unsaved_changes": "Discard unsaved settings changes?",
 
     "confirm.delete_inactive_assets": "Delete inactive assets permanently?",
 }

@@ -9,6 +9,56 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             });
         });
+
+    const dirtyForms = new Set();
+
+    document.querySelectorAll("form[data-unsaved-warning]")
+        .forEach(form => {
+            const markDirty = () => dirtyForms.add(form);
+            const markClean = () => dirtyForms.delete(form);
+
+            form.addEventListener("input", markDirty);
+            form.addEventListener("change", markDirty);
+            form.addEventListener("submit", markClean);
+        });
+
+    window.addEventListener("beforeunload", event => {
+        if (dirtyForms.size === 0) {
+            return;
+        }
+
+        event.preventDefault();
+        event.returnValue = "";
+    });
+
+    document.addEventListener("click", event => {
+        if (dirtyForms.size === 0) {
+            return;
+        }
+
+        const link = event.target.closest("a[href]");
+        const backButton = event.target.closest("button[data-check-unsaved]");
+
+        if (!link && !backButton) {
+            return;
+        }
+
+        if (link) {
+            const href = link.getAttribute("href") || "";
+
+            if (href.startsWith("#") || link.target === "_blank") {
+                return;
+            }
+        }
+
+        const form = Array.from(dirtyForms)[0];
+        const message = form.dataset.unsavedWarning;
+
+        if (!confirm(message)) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+    }, true);
 });
 
 function openSecDashLiveMode(initialLive) {

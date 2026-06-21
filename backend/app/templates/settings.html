@@ -8,7 +8,7 @@
 
     <h2 class="text-2xl font-semibold mb-5">{{ t("settings.title") }}</h2>
 
-    <form class="card grid grid-cols-1 md:grid-cols-2 gap-4" method="post" action="/settings" x-data="{ mqttEnabled: '{{ mqtt_enabled }}' }">
+    <form class="card grid grid-cols-1 md:grid-cols-2 gap-4" method="post" action="/settings" x-data="{ mqttEnabled: '{{ mqtt_enabled }}' }" data-unsaved-warning="{{ t('settings.unsaved_changes') }}">
         <label>{{ t("settings.domain") }}
             <input class="input" type="text" name="domain" value="{{ domain }}" placeholder="mydomain.com">
         </label>

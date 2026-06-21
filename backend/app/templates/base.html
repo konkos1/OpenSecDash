@@ -55,7 +55,7 @@
 
         <main class="max-w-7xl mx-auto px-4 py-6">
             {% if current_path not in top_level_paths %}
-                <button type="button" class="btn-small mb-5" onclick="if (history.length > 1) { history.back(); } else { window.location.href = '/'; }">
+                <button type="button" class="btn-small mb-5" data-check-unsaved onclick="if (history.length > 1) { history.back(); } else { window.location.href = '/'; }">
                     ← {{ t("common.back") }}
                 </button>
             {% endif %}

@@ -177,6 +177,7 @@ DE = {
     "settings.mqtt_username": "MQTT Benutzername",
     "settings.mqtt_password": "MQTT Passwort",
     "settings.mqtt_topic_prefix": "MQTT Topic-Präfix",
+    "settings.unsaved_changes": "Ungespeicherte Änderungen an den Einstellungen verwerfen?",
 
     "confirm.delete_inactive_assets": "Inaktive Assets wirklich endgültig löschen?",
 }
