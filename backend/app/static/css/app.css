@@ -16,4 +16,6 @@ tbody tr:hover { background: rgba(15, 23, 42, .65); }
 .btn-small { min-height: 2rem; padding: .35rem .65rem; font-size: .875rem; }
 .input { background: #020617; border: 1px solid #334155; border-radius: .65rem; color: #f8fafc; margin-top: .25rem; min-height: 2.5rem; padding: .5rem .7rem; width: 100%; }
 .badge { background: #064e3b; border: 1px solid #047857; border-radius: 999px; color: #d1fae5; padding: .35rem .7rem; }
+.badge-live { background: #064e3b; border-color: #047857; color: #d1fae5; }
+.badge-snapshot { background: #334155; border-color: #64748b; color: #e2e8f0; }
 .muted { color: #94a3b8; }
