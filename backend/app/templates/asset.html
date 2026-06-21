@@ -9,17 +9,17 @@
     <h2 class="text-2xl font-semibold mb-5">{{ asset.name }}</h2>
 
     <section class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
-        <div class="card">
+        <div class="card flex flex-col items-center text-center">
             <span class="muted">Version</span>
             <strong class="text-2xl">{{ asset.version }}</strong>
         </div>
         
-        <div class="card">
+        <div class="card flex flex-col items-center text-center">
             <span class="muted">Latest</span>
             <strong class="text-2xl">{{ asset.latest_version or '-' }}</strong>
         </div>
         
-        <div class="card">
+        <div class="card flex flex-col items-center text-center">
             <span class="muted">Update</span>
             <strong class="text-2xl">{{ t("common.yes") if asset.update_available else t("common.no") }}</strong>
         </div>

@@ -15,10 +15,7 @@ sys.path.insert(
 
 # Our models
 from app.database.base import Base
-from app.models.settings import Setting
-from app.models.events import Event
-from app.models.systems import System
-from app.models.assets import Asset
+from app.models import *  # noqa: F401,F403 - register all models for Alembic metadata
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

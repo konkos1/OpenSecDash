@@ -22,7 +22,10 @@
 
     <section class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
         <div class="card lg:col-span-1">
-            <h3 class="font-semibold mb-3">Systems</h3>
+            <h3 class="font-semibold mb-3">Apps</h3>
+            <a class="text-blue-300" href="{{ '/assets' if show_inactive else '/assets?show_inactive=true' }}">{{ t("assets.hide_inactive") if show_inactive else t("assets.show_inactive") }}</a>
+
+            <h3 class="font-semibold mb-3 mt-6">Systems</h3>
             {% for system in systems %}
                 <div class="row">
                     <span>{{ system.hostname }}
@@ -34,11 +37,6 @@
             {% else %}
                 <p class="muted">No systems imported</p>
             {% endfor %}
-        </div>
-        
-        <div class="card lg:col-span-2">
-            <h3 class="font-semibold mb-3">Apps</h3>
-            <a class="text-blue-300" href="{{ '/assets' if show_inactive else '/assets?show_inactive=true' }}">{{ t("assets.hide_inactive") if show_inactive else t("assets.show_inactive") }}</a>
         </div>
     </section>
 
