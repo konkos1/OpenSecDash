@@ -1,27 +1,14 @@
-body {
-    font-family: sans-serif;
-    margin: 20px;
-}
-
-header {
-    margin-bottom: 20px;
-}
-
-nav a {
-    margin-right: 15px;
-}
-
-table {
-    border-collapse: collapse;
-    width: 100%;
-}
-
-th,
-td {
-    padding: 8px;
-    border: 1px solid #ddd;
-}
-
-th {
-    text-align: left;
-}
+a { color: #93c5fd; }
+th { color: #cbd5e1; font-weight: 600; text-align: left; }
+td, th { border-bottom: 1px solid rgb(30 41 59); padding: .65rem; vertical-align: top; }
+.nav { border-radius: .6rem; color: #e2e8f0; padding: .5rem .75rem; }
+.nav:hover { background: #1e293b; color: white; }
+.card { background: rgb(15 23 42); border: 1px solid rgb(30 41 59); border-radius: 1rem; padding: 1rem; }
+.row { align-items: center; border-bottom: 1px solid rgb(30 41 59); display: flex; gap: 1rem; justify-content: space-between; padding: .6rem 0; }
+.row:last-child { border-bottom: 0; }
+.btn, .btn-small { background: #2563eb; border-radius: .7rem; color: white; display: inline-flex; min-height: 2.5rem; align-items: center; justify-content: center; padding: .55rem .9rem; }
+.btn:hover, .btn-small:hover { background: #1d4ed8; }
+.btn-small { min-height: 2rem; padding: .35rem .65rem; font-size: .875rem; }
+.input { background: #020617; border: 1px solid #334155; border-radius: .65rem; color: #f8fafc; margin-top: .25rem; min-height: 2.5rem; padding: .5rem .7rem; width: 100%; }
+.badge { background: #064e3b; border: 1px solid #047857; border-radius: 999px; color: #d1fae5; padding: .35rem .7rem; }
+.muted { color: #94a3b8; }

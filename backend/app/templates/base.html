@@ -1,52 +1,60 @@
 <!doctype html>
-<html lang="{{ language }}">
-<head>
-    <meta charset="utf-8">
+<html lang="{{ language }}" x-data="{menu:false}">
 
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1"
-    />
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#0f172a">
 
-    <title>
-        {% block title %}
-        {{ t("app.name") }}
-        {% endblock %}
-    </title>
+        <title>
+            {% block title %}
+                {{ t("app.name") }}
+                {% if domain %} · {{ domain }}{% endif %}
+            {% endblock %}
+        </title>
 
-    <link
-        rel="stylesheet"
-        href="/static/css/app.css"
-    >
-</head>
+        <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+        <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link rel="stylesheet" href="/static/css/app.css">
+    </head>
 
-<script src="/static/js/app.js"></script>
+    <body class="bg-slate-950 text-slate-100 min-h-screen">
+        <header class="border-b border-slate-800 bg-slate-900/90 sticky top-0 z-10">
+            <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
+                <a href="/" class="flex flex-col">
+                    <span class="text-xl font-bold">🛡 {{ t("app.name") }}</span>
+                    <span class="text-sm text-slate-400">{{ domain or "local instance" }}</span>
+                </a>
 
-<body>
+                <button class="md:hidden rounded bg-slate-800 px-3 py-2" @click="menu=!menu">☰</button>
 
-<header>
-    <h1>{{ t("app.name") }}</h1>
+                <nav class="hidden md:flex gap-2 text-sm">
+                    <a class="nav" href="/">{{ t("nav.dashboard") }}</a>
+                    <a class="nav" href="/crowdsec">CrowdSec</a>
+                    <a class="nav" href="/access">Access</a>
+                    <a class="nav" href="/assets">{{ t("nav.assets") }}</a>
+                    <a class="nav" href="/events">{{ t("nav.events") }}</a>
+                    <a class="nav" href="/diagnostics">Diagnostics</a>
+                    <a class="nav" href="/settings">{{ t("nav.settings") }}</a>
+                </nav>
+            </div>
 
-    {% if domain %}
-        <div>{{ domain }}</div>
-    {% endif %}
+            <nav class="md:hidden px-4 pb-4 grid gap-2" x-show="menu">
+                <a class="nav" href="/">{{ t("nav.dashboard") }}</a>
+                <a class="nav" href="/crowdsec">CrowdSec</a>
+                <a class="nav" href="/access">Access</a>
+                <a class="nav" href="/assets">{{ t("nav.assets") }}</a>
+                <a class="nav" href="/events">{{ t("nav.events") }}</a>
+                <a class="nav" href="/diagnostics">Diagnostics</a>
+                <a class="nav" href="/settings">{{ t("nav.settings") }}</a>
+            </nav>
+        </header>
 
-    <br>
-
-    <nav>
-        <a href="/">{{ t("nav.dashboard") }}</a>
-        <a href="/events">{{ t("nav.events") }}</a>
-        <a href="/assets">{{ t("nav.assets") }}</a>
-        <a href="/settings">{{ t("nav.settings") }}</a>
-    </nav>
-
-    <hr>
-</header>
-
-<main>
-    {% block content %}
-    {% endblock %}
-</main>
-
-</body>
+        <main class="max-w-7xl mx-auto px-4 py-6">
+            {% block content %}{% endblock %}
+        </main>
+        
+        <script src="/static/js/app.js"></script>
+    </body>
 </html>

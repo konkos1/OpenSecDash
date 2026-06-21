@@ -1,43 +1,81 @@
 {% extends "base.html" %}
 
 {% block title %}
-{{ t("app.name") }} · {{ t("events.title") }}
+  {{ t("app.name") }} · {{ t("events.title") }}
 {% endblock %}
 
 {% block content %}
 
-    <h2>{{ t("events.title") }}</h2>
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
+    <h2 class="text-2xl font-semibold">{{ t("events.title") }}</h2>
+    <span class="badge">🟢 LIVE ready / snapshot filterable</span>
+  </div>
 
-    <table border="1" cellpadding="8">
-        <thead>
-            <tr>
-                <th>{{ t("events.time") }}</th>
-                <th>{{ t("events.type") }}</th>
-                <th>{{ t("events.severity") }}</th>
-                <th>{{ t("events.ip") }}</th>
-                <th>{{ t("events.country") }}</th>
-                <th>{{ t("events.status") }}</th>
-                <th>{{ t("events.path") }}</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for event in events %}
-            <tr>
-                <td>{{ event.timestamp }}</td>
-                <td>{{ event.event_type }}</td>
-                <td>{{ event.severity }}</td>
-                <td>{{ event.ip or "-" }}</td>
-                <td>{{ event.country or "-" }}</td>
-                <td>{{ event.status_code or "-" }}</td>
-                <td>{{ event.path or "-" }}</td>
-            </tr>
-            {% else %}
-            <tr>
-                <td colspan="7">{{ t("events.empty") }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
+  <form class="card grid grid-cols-1 md:grid-cols-6 gap-3 mb-5" method="get">
+    <input class="input" name="q" value="{{ filters.q or '' }}" placeholder="Search IP, host, path">
+    <input class="input" name="event_type" value="{{ filters.event_type or '' }}" placeholder="security.*">
+    <input class="input" name="ip" value="{{ filters.ip or '' }}" placeholder="IP">
+    <input class="input" name="country" value="{{ filters.country or '' }}" placeholder="Country">
+    <input class="input" name="status_code" value="{{ filters.status_code or '' }}" placeholder="Status">
+    <button class="btn" type="submit">Filter</button>
+  </form>
+
+  <div class="hidden md:block card overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Type</th>
+          <th>Severity</th>
+          <th>IP</th>
+          <th>Country</th>
+          <th>Status</th>
+          <th>Path</th>
+        </tr>
+      </thead>
+      
+      <tbody>
+        {% for event in events %}
+          <tr>
+            <td>{{ event.event_time }}</td>
+            <td>{{ event.event_type }}</td>
+            <td>{{ event.severity }}</td>
+            <td>
+              {% if event.ip %}
+                <a href="/ip/{{ event.ip }}">{{ event.ip }}</a>
+              {% else %}
+                -
+              {% endif %}
+            </td>
+            <td>{{ event.country or '-' }}</td>
+            <td>{{ event.status_code or '-' }}</td>
+            <td>{{ event.path or '-' }}</td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="7">{{ t("events.empty") }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
     </table>
-</body>
-</html>
+  </div>
+
+  <div class="grid md:hidden gap-3">
+    {% for event in events %}
+      <article class="card">
+        <div class="font-semibold">{{ event.event_type }}</div>
+        <div class="muted">{{ event.event_time }}</div>
+        <div>IP: 
+          {% if event.ip %}<a href="/ip/{{ event.ip }}">{{ event.ip }}</a>
+          {% else %}
+            -
+          {% endif %}
+        </div>
+        <div>Country: {{ event.country or '-' }}</div>
+        <div>Status: {{ event.status_code or '-' }}</div>
+        <div class="break-all">{{ event.path or '' }}</div>
+      </article>
+    {% endfor %}
+  </div>
+
 {% endblock %}

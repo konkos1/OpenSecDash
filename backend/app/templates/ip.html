@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}
+    {{ t("app.name") }} · IP {{ ip }}
+{% endblock %}
+
+{% block content %}
+
+    <h2 class="text-2xl font-semibold mb-5">IP Explorer · {{ ip }}</h2>
+
+    <section class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+        {% for k,v in counts.items() %}
+            <a class="card flex flex-col items-center text-center" href="/events?ip={{ ip }}">
+                <span class="muted">{{ k }}</span>
+                <strong class="text-2xl">{{ v }}</strong>
+            </a>
+        {% endfor %}
+    </section>
+
+    <div class="card mb-5">
+        <h3 class="font-semibold mb-3">Actions</h3>
+        <form class="flex flex-wrap gap-2" method="post" action="/actions/ip" data-confirm="Ban {{ ip }}?">
+            <input type="hidden" name="action_type" value="security.ban">
+            <input type="hidden" name="ip" value="{{ ip }}">
+            <input type="hidden" name="confirmed" value="true">
+            <select class="input" name="duration">
+                <option>4h</option>
+                <option>24h</option>
+                <option>7d</option>
+            </select>
+            <button class="btn">CrowdSec Ban</button>
+        </form>
+    </div>
+    
+    <div class="card mb-5">
+        <h3 class="font-semibold mb-3">Insights</h3>
+        {% for insight in insights %}
+            <div class="row">
+                <span>{{ insight.title }}
+                    <br>
+                    <small class="muted">{{ insight.description }}</small>
+                </span>
+                <b>{{ insight.level }}</b>
+            </div>
+        {% else %}
+            <p class="muted">No insights for this IP</p>
+        {% endfor %}
+    </div>
+    
+    <div class="card overflow-x-auto">
+        <h3 class="font-semibold mb-3">Events</h3>
+        <table class="w-full text-sm">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Type</th>
+                    <th>Severity</th>
+                    <th>Status</th>
+                    <th>Path</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for event in events %}
+                    <tr>
+                        <td>{{ event.event_time }}</td>
+                        <td>{{ event.event_type }}</td>
+                        <td>{{ event.severity }}</td>
+                        <td>{{ event.status_code or '-' }}</td>
+                        <td>{{ event.path or '-' }}</td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="5">No events</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+{% endblock %}

@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}
+    {{ t("app.name") }} · Diagnostics
+{% endblock %}
+
+{% block content %}
+
+    <h2 class="text-2xl font-semibold mb-5">Diagnostics</h2>
+        <section class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
+            <div class="card">
+                <h3 class="font-semibold mb-3">Plugins</h3>
+                {% for plugin in plugins %}
+                    <div class="row">
+                        <span>{{ plugin.name }}
+                            <br>
+                            <small class="muted">
+                                {{ plugin.capabilities|join(', ') if plugin.capabilities else '' }}
+                            </small>
+                        </span>
+                        <b>{{ plugin.status }}</b>
+                    </div>
+                {% endfor %}
+            </div>
+            
+            <div class="card">
+                <h3 class="font-semibold mb-3">Diagnostics</h3>
+                {% for item in diagnostics %}
+                    <div class="row">
+                        <span>{{ item.plugin }} · {{ item.component }}
+                            <br>
+                            <small class="muted">{{ item.last_error or '' }}</small>
+                        </span>
+                        <b>{{ item.status }}</b>
+                    </div>
+                {% else %}
+                    <p class="muted">No diagnostics</p>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="card mb-5">
+            <h3 class="font-semibold mb-3">Datasources</h3>
+            {% for source in datasources %}
+                <div class="row">
+                    <span>{{ source.name }}
+                        <br>
+                        <small class="muted">{{ source.source_type }} · {{ source.events_processed }} events</small>
+                    </span>
+                    <b>{{ source.status }}</b>
+                </div>
+            {% else %}
+                <p class="muted">No datasources configured yet</p>
+            {% endfor %}
+        </section>
+
+        <section class="card">
+            <h3 class="font-semibold mb-3">Recent actions</h3>
+            {% for action in actions %}
+                <div class="row">
+                    <span>{{ action.timestamp }} · {{ action.action_type }} · {{ action.target }}
+                        <br>
+                        <small class="muted">{{ action.result or '' }}</small>
+                    </span>
+                    <b>{{ action.status }}</b>
+                </div>
+            {% else %}
+                <p class="muted">No actions</p>
+            {% endfor %}
+        </section>
+
+{% endblock %}

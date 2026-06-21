@@ -1,47 +1,42 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime
-from sqlalchemy import JSON
-from sqlalchemy import String
-
-from sqlalchemy.orm import Mapped
-from sqlalchemy.orm import mapped_column
+from sqlalchemy import DateTime, Index, JSON, String, Text
+from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database.base import Base
 
 
 class Event(Base):
     __tablename__ = "events"
+    __table_args__ = (
+        Index("ix_events_event_type_time", "event_type", "event_time"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
-    timestamp: Mapped[datetime]
+    # Backwards compatible alias used by existing templates/API.
+    timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    event_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
 
-    source: Mapped[str] = mapped_column(String(100))
+    source: Mapped[str] = mapped_column(String(100), default="manual", index=True)
+    source_id: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
+    plugin: Mapped[str] = mapped_column(String(100), default="core", index=True)
+    plugin_id: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
 
-    plugin: Mapped[str] = mapped_column(String(100))
+    event_type: Mapped[str] = mapped_column(String(80), index=True)
+    severity: Mapped[str] = mapped_column(String(20), default="info", index=True)
 
-    event_type: Mapped[str] = mapped_column(String(50))
+    ip: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    country: Mapped[str | None] = mapped_column(String(8), nullable=True, index=True)
+    asn: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    hostname: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    asset_id: Mapped[int | None] = mapped_column(nullable=True, index=True)
 
-    ip: Mapped[str | None] = mapped_column(
-        String(64),
-        index=True
-    )
+    method: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    path: Mapped[str | None] = mapped_column(String(2048), nullable=True, index=True)
+    status_code: Mapped[int | None] = mapped_column(nullable=True, index=True)
 
-    country: Mapped[str | None] = mapped_column(
-        String(8)
-    )
-
-    hostname: Mapped[str | None] = mapped_column(
-        String(255)
-    )
-
-    status_code: Mapped[int | None]
-
-    path: Mapped[str | None]
-
-    severity: Mapped[str]
-
-    data_json: Mapped[dict | None] = mapped_column(
-        JSON
-    )
+    data_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    raw_data: Mapped[str | None] = mapped_column(Text, nullable=True)
+    retention_class: Mapped[str] = mapped_column(String(20), default="raw")

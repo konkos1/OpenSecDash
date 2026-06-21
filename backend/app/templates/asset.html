@@ -1,48 +1,89 @@
 {% extends "base.html" %}
 
 {% block title %}
-{{ t("app.name") }} · {{ t("assets.title") }} · {{ asset.name }}
+    {{ t("app.name") }} · {{ asset.name }}
 {% endblock %}
 
 {% block content %}
 
-<h2>{{ asset.name }}</h2>
+    <h2 class="text-2xl font-semibold mb-5">{{ asset.name }}</h2>
 
-<table border="1" cellpadding="8">
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+        <div class="card">
+            <span class="muted">Version</span>
+            <strong class="text-2xl">{{ asset.version }}</strong>
+        </div>
+        
+        <div class="card">
+            <span class="muted">Latest</span>
+            <strong class="text-2xl">{{ asset.latest_version or '-' }}</strong>
+        </div>
+        
+        <div class="card">
+            <span class="muted">Update</span>
+            <strong class="text-2xl">{{ t("common.yes") if asset.update_available else t("common.no") }}</strong>
+        </div>
+    </section>
+    
+    <div class="card mb-5">
+        <h3 class="font-semibold mb-3">Overview</h3>
+        <div class="grid md:grid-cols-2 gap-2">
+            <div>System: {{ asset.system.hostname if asset.system else '-' }}</div>
+            <div>Status: {{ t("assets.active") if asset.is_active else t("assets.inactive") }}</div>
+            <div>Release: {% if asset.release_url %}
+                <a href="{{ asset.release_url }}" target="_blank">{{ asset.release_url }}</a>
+                {% else %}
+                    -
+                {% endif %}
+            </div>
+            <div>Last seen: {{ asset.last_seen or '-' }}</div>
+        </div>
+    </div>
 
-<tr>
-    <td>{{ t("assets.version") }}</td>
-    <td>{{ asset.version }}</td>
-</tr>
-
-<tr>
-    <td>{{ t("assets.latest") }}</td>
-    <td>{{ asset.latest_version or "-" }}</td>
-</tr>
-
-<tr>
-    <td>{{ t("assets.latest_available") }}</td>
-    <td>
-        {% if asset.update_available %}
-            🟡 {{ t("common.yes") }}
+    <div class="card mb-5">
+        <h3 class="font-semibold mb-3">Insights</h3>
+        {% for insight in insights %}
+            <div class="row">
+                <span>{{ insight.title }}
+                    <br>
+                    <small class="muted">{{ insight.description }}</small>
+                </span>
+                <b>{{ insight.level }}</b>
+            </div>
         {% else %}
-            🟢 {{ t("common.no") }}
-        {% endif %}
-    </td>
-</tr>
+            <p class="muted">No asset insights</p>
+        {% endfor %}
+    </div>
 
-<tr>
-    <td>{{ t("asset.release_url") }}</td>
-    <td>
-        {% if asset.release_url %}
-        <a href="{{ asset.release_url }}"
-           target="_blank">
-            {{ t("assets.open_release") }}
-        </a>
-        {% endif %}
-    </td>
-</tr>
-
-</table>
+    <div class="card overflow-x-auto">
+        <h3 class="font-semibold mb-3">Events</h3>
+        <table class="w-full text-sm">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Type</th>
+                    <th>IP</th>
+                    <th>Status</th>
+                    <th>Path</th>
+                </tr>
+            </thead>
+            
+            <tbody>
+                {% for event in events %}
+                    <tr>
+                        <td>{{ event.event_time }}</td>
+                        <td>{{ event.event_type }}</td>
+                        <td>{{ event.ip or '-' }}</td>
+                        <td>{{ event.status_code or '-' }}</td>
+                        <td>{{ event.path or '-' }}</td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="5">No linked events</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 
 {% endblock %}

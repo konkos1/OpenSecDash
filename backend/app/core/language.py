@@ -11,6 +11,6 @@ def get_language(db: Session) -> str:
     )
 
     if setting is None:
-        return "de"
+        return "en"
 
     return setting.value

@@ -37,7 +37,10 @@ def refresh_asset_updates(db: Session) -> dict[str, int]:
         if not latest_version:
             continue
 
+        from datetime import datetime
+
         asset.latest_version = latest_version
+        asset.last_checked = datetime.utcnow()
         asset.update_available = (
             latest_version.strip().lower()
             != asset.version.strip().lower()

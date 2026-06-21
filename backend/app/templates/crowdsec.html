@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}
+  {{ t("app.name") }} · CrowdSec
+{% endblock %}
+
+{% block content %}
+
+  <h2 class="text-2xl font-semibold mb-5">CrowdSec</h2>
+
+  <section class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
+    <div class="card">
+      <h3 class="font-semibold mb-3">Active/known bans</h3>
+      <strong class="text-3xl">{{ bans|length }}</strong>
+    </div>
+
+    <div class="card">
+      <h3 class="font-semibold mb-3">Top scenarios</h3>
+        {% for data,count in scenarios %}
+          <div class="row">
+            <span>{{ data.scenario if data else 'unknown' }}</span>
+            <b>{{ count }}</b>
+          </div>
+        {% else %}
+          <p class="muted">No scenarios</p>
+        {% endfor %}
+      </div>
+
+    <div class="card">
+      <h3 class="font-semibold mb-3">Top countries</h3>
+      {% for country,count in countries %}
+        <a class="row" href="/events?country={{ country }}">
+          <span>{{ country }}</span>
+          <b>{{ count }}</b>
+        </a>
+      {% else %}
+        <p class="muted">No countries</p>
+      {% endfor %}
+    </div>
+  </section>
+
+  <div class="card overflow-x-auto">
+    <h3 class="font-semibold mb-3">History</h3>
+    <table class="w-full text-sm">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>IP</th>
+          <th>Scenario</th>
+          <th>Duration</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for ban in bans %}
+          <tr>
+            <td>{{ ban.event_time }}</td>
+            <td><a href="/ip/{{ ban.ip }}">{{ ban.ip }}</a></td>
+            <td>{{ ban.data_json.scenario if ban.data_json else '-' }}</td>
+            <td>{{ ban.data_json.duration if ban.data_json else '-' }}</td>
+            <td>
+              <form method="post" action="/actions/ip" data-confirm="Unban {{ ban.ip }}?">
+                <input type="hidden" name="action_type" value="security.unban">
+                <input type="hidden" name="ip" value="{{ ban.ip }}">
+                <input type="hidden" name="confirmed" value="true">
+                <button class="btn-small">Unban</button>
+              </form>
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="5">No bans</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+{% endblock %}
