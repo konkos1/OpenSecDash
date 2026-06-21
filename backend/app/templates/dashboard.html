@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}
+{{ t("app.name") }} · {{ t("dashboard.title") }}
+{% endblock %}
+
+{% block content %}
+
+<h2>{{ t("dashboard.title") }}</h2>
+
+<ul>
+    <li>{{ t("dashboard.events_name") }}: {{ event_count }}</li>
+    <li>{{ t("dashboard.systems_name") }}: {{ system_count }}</li>
+    <li>{{ t("dashboard.assets_name") }}: {{ asset_count }}</li>
+    <li>{{ t("dashboard.inactive_assets_name") }}: {{ inactive_asset_count }}</li>
+</ul>
+
+{% endblock %}

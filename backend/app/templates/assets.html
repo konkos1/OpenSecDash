@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block title %}
+{{ t("app.name") }} · {{ t("assets.title") }}
+{% endblock %}
+
+{% block content %}
+
+<h2>{{ t("assets.title") }}</h2>
+
+<form method="post" action="/assets/import-source" style="display:inline;">
+    <button type="submit">
+        {{ t("assets.import") }}
+    </button>
+</form>
+
+<form method="post" action="/assets/refresh-updates" style="display:inline;">
+    <button type="submit">
+        {{ t("assets.check_updates") }}
+    </button>
+</form>
+
+<form
+    method="post"
+    action="/assets/cleanup-inactive"
+    style="display:inline;"
+    data-confirm="{{ t('confirm.delete_inactive_assets') }}"
+>
+    <button type="submit">
+        {{ t("assets.delete_inactive") }}
+    </button>
+</form>
+
+<br><br>
+
+{% if show_inactive %}
+    <a href="/assets">{{ t("assets.hide_inactive") }}</a>
+{% else %}
+    <a href="/assets?show_inactive=true">{{ t("assets.show_inactive") }}</a>
+{% endif %}
+
+<br><br>
+
+<table border="1" cellpadding="8">
+    <thead>
+        <tr>
+            <th>{{ t("assets.system") }}</th>
+            <th>{{ t("assets.name") }}</th>
+            <th>{{ t("assets.version") }}</th>
+            <th>{{ t("assets.latest") }}</th>
+            <th>{{ t("assets.update") }}</th>
+            <th>{{ t("assets.release") }}</th>
+            <th>{{ t("assets.status") }}</th>
+        </tr>
+    </thead>
+
+    <tbody>
+        {% for asset in assets %}
+        <tr>
+            <td>{{ asset.system.hostname if asset.system else "-" }}</td>
+            <td>
+                <a href="/assets/{{ asset.id }}">
+                    {{ asset.name }}
+                </a>
+            </td>
+            <td>{{ asset.version }}</td>
+            <td>{{ asset.latest_version or "-" }}</td>
+            <td>{{ t("common.yes") if asset.update_available else t("common.no") }}</td>
+            <td>
+                {% if asset.release_url %}
+                    <a href="{{ asset.release_url }}" target="_blank" rel="noopener noreferrer">{{ t("common.open") }}</a>
+                {% else %}
+                    {{ t("common.none") }}
+                {% endif %}
+            </td>
+            <td>
+                {% if asset.is_active %}
+                    {{ t("assets.active") }}
+                {% else %}
+                    {{ t("assets.inactive") }}
+                {% endif %}
+            </td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="6">{{ t("assets.no_assets") }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% endblock %}

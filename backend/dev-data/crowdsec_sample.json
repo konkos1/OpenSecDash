@@ -1,0 +1,1629 @@
+[
+ {
+  "capacity": 10,
+  "created_at": "2026-06-20T14:17:50Z",
+  "decisions": [
+   {
+    "duration": "3h59m18s",
+    "id": 85654525,
+    "origin": "crowdsec",
+    "scenario": "crowdsecurity/http-probing",
+    "scope": "Ip",
+    "simulated": false,
+    "type": "ban",
+    "value": "91.92.42.120"
+   }
+  ],
+  "events": [
+   {
+    "meta": [
+     {
+      "key": "ASNNumber",
+      "value": "0"
+     },
+     {
+      "key": "IsInEU",
+      "value": "true"
+     },
+     {
+      "key": "IsoCode",
+      "value": "SE"
+     },
+     {
+      "key": "datasource_path",
+      "value": "/var/log/traefik/access.log"
+     },
+     {
+      "key": "datasource_type",
+      "value": "file"
+     },
+     {
+      "key": "http_args_len",
+      "value": "0"
+     },
+     {
+      "key": "http_path",
+      "value": "/.gitconfig"
+     },
+     {
+      "key": "http_status",
+      "value": "404"
+     },
+     {
+      "key": "http_user_agent",
+      "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0"
+     },
+     {
+      "key": "http_verb",
+      "value": "GET"
+     },
+     {
+      "key": "log_type",
+      "value": "http_access-log"
+     },
+     {
+      "key": "service",
+      "value": "http"
+     },
+     {
+      "key": "source_ip",
+      "value": "91.92.42.120"
+     },
+     {
+      "key": "target_fqdn",
+      "value": "home.konkos.de"
+     },
+     {
+      "key": "timestamp",
+      "value": "2026-06-20T16:17:11+02:00"
+     },
+     {
+      "key": "traefik_router_name",
+      "value": "haos-https@file"
+     }
+    ],
+    "timestamp": "2026-06-20 16:17:11 +0200 +0200"
+   },
+   {
+    "meta": [
+     {
+      "key": "ASNNumber",
+      "value": "0"
+     },
+     {
+      "key": "IsInEU",
+      "value": "true"
+     },
+     {
+      "key": "IsoCode",
+      "value": "SE"
+     },
+     {
+      "key": "datasource_path",
+      "value": "/var/log/traefik/access.log"
+     },
+     {
+      "key": "datasource_type",
+      "value": "file"
+     },
+     {
+      "key": "http_args_len",
+      "value": "0"
+     },
+     {
+      "key": "http_path",
+      "value": "/application.yml"
+     },
+     {
+      "key": "http_status",
+      "value": "404"
+     },
+     {
+      "key": "http_user_agent",
+      "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+     },
+     {
+      "key": "http_verb",
+      "value": "GET"
+     },
+     {
+      "key": "log_type",
+      "value": "http_access-log"
+     },
+     {
+      "key": "service",
+      "value": "http"
+     },
+     {
+      "key": "source_ip",
+      "value": "91.92.42.120"
+     },
+     {
+      "key": "target_fqdn",
+      "value": "home.konkos.de"
+     },
+     {
+      "key": "timestamp",
+      "value": "2026-06-20T16:17:11+02:00"
+     },
+     {
+      "key": "traefik_router_name",
+      "value": "haos-https@file"
+     }
+    ],
+    "timestamp": "2026-06-20 16:17:11 +0200 +0200"
+   },
+   {
+    "meta": [
+     {
+      "key": "ASNNumber",
+      "value": "0"
+     },
+     {
+      "key": "IsInEU",
+      "value": "true"
+     },
+     {
+      "key": "IsoCode",
+      "value": "SE"
+     },
+     {
+      "key": "datasource_path",
+      "value": "/var/log/traefik/access.log"
+     },
+     {
+      "key": "datasource_type",
+      "value": "file"
+     },
+     {
+      "key": "http_args_len",
+      "value": "0"
+     },
+     {
+      "key": "http_path",
+      "value": "/.env.bak"
+     },
+     {
+      "key": "http_status",
+      "value": "404"
+     },
+     {
+      "key": "http_user_agent",
+      "value": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36"
+     },
+     {
+      "key": "http_verb",
+      "value": "GET"
+     },
+     {
+      "key": "log_type",
+      "value": "http_access-log"
+     },
+     {
+      "key": "service",
+      "value": "http"
+     },
+     {
+      "key": "source_ip",
+      "value": "91.92.42.120"
+     },
+     {
+      "key": "target_fqdn",
+      "value": "home.konkos.de"
+     },
+     {
+      "key": "timestamp",
+      "value": "2026-06-20T16:17:11+02:00"
+     },
+     {
+      "key": "traefik_router_name",
+      "value": "haos-https@file"
+     }
+    ],
+    "timestamp": "2026-06-20 16:17:11 +0200 +0200"
+   },
+   {
+    "meta": [
+     {
+      "key": "ASNNumber",
+      "value": "0"
+     },
+     {
+      "key": "IsInEU",
+      "value": "true"
+     },
+     {
+      "key": "IsoCode",
+      "value": "SE"
+     },
+     {
+      "key": "datasource_path",
+      "value": "/var/log/traefik/access.log"
+     },
+     {
+      "key": "datasource_type",
+      "value": "file"
+     },
+     {
+      "key": "http_args_len",
+      "value": "0"
+     },
+     {
+      "key": "http_path",
+      "value": "/settings.php"
+     },
+     {
+      "key": "http_status",
+      "value": "404"
+     },
+     {
+      "key": "http_user_agent",
+      "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
+     },
+     {
+      "key": "http_verb",
+      "value": "GET"
+     },
+     {
+      "key": "log_type",
+      "value": "http_access-log"
+     },
+     {
+      "key": "service",
+      "value": "http"
+     },
+     {
+      "key": "source_ip",
+      "value": "91.92.42.120"
+     },
+     {
+      "key": "target_fqdn",
+      "value": "home.konkos.de"
+     },
+     {
+      "key": "timestamp",
+      "value": "2026-06-20T16:17:11+02:00"
+     },
+     {
+      "key": "traefik_router_name",
+      "value": "haos-https@file"
+     }
+    ],
+    "timestamp": "2026-06-20 16:17:11 +0200 +0200"
+   },
+   {
+    "meta": [
+     {
+      "key": "ASNNumber",
+      "value": "0"
+     },
+     {
+      "key": "IsInEU",
+      "value": "true"
+     },
+     {
+      "key": "IsoCode",
+      "value": "SE"
+     },
+     {
+      "key": "datasource_path",
+      "value": "/var/log/traefik/access.log"
+     },
+     {
+      "key": "datasource_type",
+      "value": "file"
+     },
+     {
+      "key": "http_args_len",
+      "value": "0"
+     },
+     {
+      "key": "http_path",
+      "value": "/composer.json"
+     },
+     {
+      "key": "http_status",
+      "value": "404"
+     },
+     {
+      "key": "http_user_agent",
+      "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:133.0) Gecko/20100101 Firefox/133.0"
+     },
+     {
+      "key": "http_verb",
+      "value": "GET"
+     },
+     {
+      "key": "log_type",
+      "value": "http_access-log"
+     },
+     {
+      "key": "service",
+      "value": "http"
+     },
+     {
+      "key": "source_ip",
+      "value": "91.92.42.120"
+     },
+     {
+      "key": "target_fqdn",
+      "value": "home.konkos.de"
+     },
+     {
+      "key": "timestamp",
+      "value": "2026-06-20T16:17:11+02:00"
+     },
+     {
+      "key": "traefik_router_name",
+      "value": "haos-https@file"
+     }
+    ],
+    "timestamp": "2026-06-20 16:17:11 +0200 +0200"
+   },
+   {
+    "meta": [
+     {
+      "key": "ASNNumber",
+      "value": "0"
+     },
+     {
+      "key": "IsInEU",
+      "value": "true"
+     },
+     {
+      "key": "IsoCode",
+      "value": "SE"
+     },
+     {
+      "key": "datasource_path",
+      "value": "/var/log/traefik/access.log"
+     },
+     {
+      "key": "datasource_type",
+      "value": "file"
+     },
+     {
+      "key": "http_args_len",
+      "value": "0"
+     },
+     {
+      "key": "http_path",
+      "value": "/docker-compose.yml"
+     },
+     {
+      "key": "http_status",
+      "value": "404"
+     },
+     {
+      "key": "http_user_agent",
+      "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:133.0) Gecko/20100101 Firefox/133.0"
+     },
+     {
+      "key": "http_verb",
+      "value": "GET"
+     },
+     {
+      "key": "log_type",
+      "value": "http_access-log"
+     },
+     {
+      "key": "service",
+      "value": "http"
+     },
+     {
+      "key": "source_ip",
+      "value": "91.92.42.120"
+     },
+     {
+      "key": "target_fqdn",
+      "value": "home.konkos.de"
+     },
+     {
+      "key": "timestamp",
+      "value": "2026-06-20T16:17:11+02:00"
+     },
+     {
+      "key": "traefik_router_name",
+      "value": "haos-https@file"
+     }
+    ],
+    "timestamp": "2026-06-20 16:17:11 +0200 +0200"
+   },
+   {
+    "meta": [
+     {
+      "key": "ASNNumber",
+      "value": "0"
+     },
+     {
+      "key": "IsInEU",
+      "value": "true"
+     },
+     {
+      "key": "IsoCode",
+      "value": "SE"
+     },
+     {
+      "key": "datasource_path",
+      "value": "/var/log/traefik/access.log"
+     },
+     {
+      "key": "datasource_type",
+      "value": "file"
+     },
+     {
+      "key": "http_args_len",
+      "value": "0"
+     },
+     {
+      "key": "http_path",
+      "value": "/php_info.php"
+     },
+     {
+      "key": "http_status",
+      "value": "404"
+     },
+     {
+      "key": "http_user_agent",
+      "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0"
+     },
+     {
+      "key": "http_verb",
+      "value": "GET"
+     },
+     {
+      "key": "log_type",
+      "value": "http_access-log"
+     },
+     {
+      "key": "service",
+      "value": "http"
+     },
+     {
+      "key": "source_ip",
+      "value": "91.92.42.120"
+     },
+     {
+      "key": "target_fqdn",
+      "value": "home.konkos.de"
+     },
+     {
+      "key": "timestamp",
+      "value": "2026-06-20T16:17:49+02:00"
+     },
+     {
+      "key": "traefik_router_name",
+      "value": "haos-https@file"
+     }
+    ],
+    "timestamp": "2026-06-20 16:17:49 +0200 +0200"
+   },
+   {
+    "meta": [
+     {
+      "key": "ASNNumber",
+      "value": "0"
+     },
+     {
+      "key": "IsInEU",
+      "value": "true"
+     },
+     {
+      "key": "IsoCode",
+      "value": "SE"
+     },
+     {
+      "key": "datasource_path",
+      "value": "/var/log/traefik/access.log"
+     },
+     {
+      "key": "datasource_type",
+      "value": "file"
+     },
+     {
+      "key": "http_args_len",
+      "value": "0"
+     },
+     {
+      "key": "http_path",
+      "value": "/config/application.yml"
+     },
+     {
+      "key": "http_status",
+      "value": "404"
+     },
+     {
+      "key": "http_user_agent",
+      "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
+     },
+     {
+      "key": "http_verb",
+      "value": "GET"
+     },
+     {
+      "key": "log_type",
+      "value": "http_access-log"
+     },
+     {
+      "key": "service",
+      "value": "http"
+     },
+     {
+      "key": "source_ip",
+      "value": "91.92.42.120"
+     },
+     {
+      "key": "target_fqdn",
+      "value": "home.konkos.de"
+     },
+     {
+      "key": "timestamp",
+      "value": "2026-06-20T16:17:49+02:00"
+     },
+     {
+      "key": "traefik_router_name",
+      "value": "haos-https@file"
+     }
+    ],
+    "timestamp": "2026-06-20 16:17:49 +0200 +0200"
+   },
+   {
+    "meta": [
+     {
+      "key": "ASNNumber",
+      "value": "0"
+     },
+     {
+      "key": "IsInEU",
+      "value": "true"
+     },
+     {
+      "key": "IsoCode",
+      "value": "SE"
+     },
+     {
+      "key": "datasource_path",
+      "value": "/var/log/traefik/access.log"
+     },
+     {
+      "key": "datasource_type",
+      "value": "file"
+     },
+     {
+      "key": "http_args_len",
+      "value": "0"
+     },
+     {
+      "key": "http_path",
+      "value": "/test.php"
+     },
+     {
+      "key": "http_status",
+      "value": "404"
+     },
+     {
+      "key": "http_user_agent",
+      "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0"
+     },
+     {
+      "key": "http_verb",
+      "value": "GET"
+     },
+     {
+      "key": "log_type",
+      "value": "http_access-log"
+     },
+     {
+      "key": "service",
+      "value": "http"
+     },
+     {
+      "key": "source_ip",
+      "value": "91.92.42.120"
+     },
+     {
+      "key": "target_fqdn",
+      "value": "home.konkos.de"
+     },
+     {
+      "key": "timestamp",
+      "value": "2026-06-20T16:17:49+02:00"
+     },
+     {
+      "key": "traefik_router_name",
+      "value": "haos-https@file"
+     }
+    ],
+    "timestamp": "2026-06-20 16:17:49 +0200 +0200"
+   },
+   {
+    "meta": [
+     {
+      "key": "ASNNumber",
+      "value": "0"
+     },
+     {
+      "key": "IsInEU",
+      "value": "true"
+     },
+     {
+      "key": "IsoCode",
+      "value": "SE"
+     },
+     {
+      "key": "datasource_path",
+      "value": "/var/log/traefik/access.log"
+     },
+     {
+      "key": "datasource_type",
+      "value": "file"
+     },
+     {
+      "key": "http_args_len",
+      "value": "0"
+     },
+     {
+      "key": "http_path",
+      "value": "/portal/phpinfo.php"
+     },
+     {
+      "key": "http_status",
+      "value": "404"
+     },
+     {
+      "key": "http_user_agent",
+      "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15"
+     },
+     {
+      "key": "http_verb",
+      "value": "GET"
+     },
+     {
+      "key": "log_type",
+      "value": "http_access-log"
+     },
+     {
+      "key": "service",
+      "value": "http"
+     },
+     {
+      "key": "source_ip",
+      "value": "91.92.42.120"
+     },
+     {
+      "key": "target_fqdn",
+      "value": "home.konkos.de"
+     },
+     {
+      "key": "timestamp",
+      "value": "2026-06-20T16:17:49+02:00"
+     },
+     {
+      "key": "traefik_router_name",
+      "value": "haos-https@file"
+     }
+    ],
+    "timestamp": "2026-06-20 16:17:49 +0200 +0200"
+   },
+   {
+    "meta": [
+     {
+      "key": "ASNNumber",
+      "value": "0"
+     },
+     {
+      "key": "IsInEU",
+      "value": "true"
+     },
+     {
+      "key": "IsoCode",
+      "value": "SE"
+     },
+     {
+      "key": "datasource_path",
+      "value": "/var/log/traefik/access.log"
+     },
+     {
+      "key": "datasource_type",
+      "value": "file"
+     },
+     {
+      "key": "http_args_len",
+      "value": "0"
+     },
+     {
+      "key": "http_path",
+      "value": "/server_info.php"
+     },
+     {
+      "key": "http_status",
+      "value": "404"
+     },
+     {
+      "key": "http_user_agent",
+      "value": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+     },
+     {
+      "key": "http_verb",
+      "value": "GET"
+     },
+     {
+      "key": "log_type",
+      "value": "http_access-log"
+     },
+     {
+      "key": "service",
+      "value": "http"
+     },
+     {
+      "key": "source_ip",
+      "value": "91.92.42.120"
+     },
+     {
+      "key": "target_fqdn",
+      "value": "home.konkos.de"
+     },
+     {
+      "key": "timestamp",
+      "value": "2026-06-20T16:17:49+02:00"
+     },
+     {
+      "key": "traefik_router_name",
+      "value": "haos-https@file"
+     }
+    ],
+    "timestamp": "2026-06-20 16:17:49 +0200 +0200"
+   }
+  ],
+  "events_count": 14,
+  "id": 12710,
+  "kind": "crowdsec",
+  "labels": null,
+  "leakspeed": "10s",
+  "machine_id": "2551655fdccc448697396521615558d53Q99OADjJfncbz5u",
+  "message": "Ip 91.92.42.120 performed 'crowdsecurity/http-probing' (14 events over 38.360060859s) at 2026-06-20 14:17:49.771402463 +0000 UTC",
+  "meta": [
+   {
+    "key": "target_uri",
+    "value": "[\"/.gitconfig\",\"/application.yml\",\"/.env.bak\",\"/settings.php\",\"/composer.json\",\"/docker-compose.yml\",\"/php_info.php\",\"/config/application.yml\",\"/test.php\",\"/portal/phpinfo.php\",\"/server_info.php\"]"
+   },
+   {
+    "key": "user_agent",
+    "value": "[\"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0\",\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36\",\"Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36\",\"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36\",\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:133.0) Gecko/20100101 Firefox/133.0\",\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15\",\"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36\"]"
+   },
+   {
+    "key": "method",
+    "value": "[\"GET\"]"
+   },
+   {
+    "key": "status",
+    "value": "[\"404\"]"
+   }
+  ],
+  "remediation": true,
+  "scenario": "crowdsecurity/http-probing",
+  "scenario_hash": "4b16f896af400e006c28b1476bf5989c748186f2b3756ed9ad7d1559480d278c",
+  "scenario_version": "0.4",
+  "simulated": false,
+  "source": {
+   "as_number": "0",
+   "cn": "SE",
+   "ip": "91.92.42.120",
+   "latitude": 59.3287,
+   "longitude": 18.0717,
+   "scope": "Ip",
+   "value": "91.92.42.120"
+  },
+  "start_at": "2026-06-20T14:17:11Z",
+  "stop_at": "2026-06-20T14:17:49Z",
+  "uuid": "0b0d2356-23e9-48f7-a5a1-1ecafe154167"
+ },
+ {
+  "capacity": 10,
+  "created_at": "2026-06-20T14:07:54Z",
+  "decisions": [],
+  "events": [
+   {
+    "meta": [
+     {
+      "key": "ASNNumber",
+      "value": "0"
+     },
+     {
+      "key": "IsInEU",
+      "value": "true"
+     },
+     {
+      "key": "IsoCode",
+      "value": "SE"
+     },
+     {
+      "key": "datasource_path",
+      "value": "/var/log/traefik/access.log"
+     },
+     {
+      "key": "datasource_type",
+      "value": "file"
+     },
+     {
+      "key": "http_args_len",
+      "value": "0"
+     },
+     {
+      "key": "http_path",
+      "value": "/web.config"
+     },
+     {
+      "key": "http_status",
+      "value": "404"
+     },
+     {
+      "key": "http_user_agent",
+      "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15"
+     },
+     {
+      "key": "http_verb",
+      "value": "GET"
+     },
+     {
+      "key": "log_type",
+      "value": "http_access-log"
+     },
+     {
+      "key": "service",
+      "value": "http"
+     },
+     {
+      "key": "source_ip",
+      "value": "91.92.42.120"
+     },
+     {
+      "key": "target_fqdn",
+      "value": "ai.konkos.de"
+     },
+     {
+      "key": "timestamp",
+      "value": "2026-06-20T16:07:16+02:00"
+     },
+     {
+      "key": "traefik_router_name",
+      "value": "openwebui-https@file"
+     }
+    ],
+    "timestamp": "2026-06-20 16:07:16 +0200 +0200"
+   },
+   {
+    "meta": [
+     {
+      "key": "ASNNumber",
+      "value": "0"
+     },
+     {
+      "key": "IsInEU",
+      "value": "true"
+     },
+     {
+      "key": "IsoCode",
+      "value": "SE"
+     },
+     {
+      "key": "datasource_path",
+      "value": "/var/log/traefik/access.log"
+     },
+     {
+      "key": "datasource_type",
+      "value": "file"
+     },
+     {
+      "key": "http_args_len",
+      "value": "0"
+     },
+     {
+      "key": "http_path",
+      "value": "/application.yml"
+     },
+     {
+      "key": "http_status",
+      "value": "404"
+     },
+     {
+      "key": "http_user_agent",
+      "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15"
+     },
+     {
+      "key": "http_verb",
+      "value": "GET"
+     },
+     {
+      "key": "log_type",
+      "value": "http_access-log"
+     },
+     {
+      "key": "service",
+      "value": "http"
+     },
+     {
+      "key": "source_ip",
+      "value": "91.92.42.120"
+     },
+     {
+      "key": "target_fqdn",
+      "value": "ai.konkos.de"
+     },
+     {
+      "key": "timestamp",
+      "value": "2026-06-20T16:07:17+02:00"
+     },
+     {
+      "key": "traefik_router_name",
+      "value": "openwebui-https@file"
+     }
+    ],
+    "timestamp": "2026-06-20 16:07:17 +0200 +0200"
+   },
+   {
+    "meta": [
+     {
+      "key": "ASNNumber",
+      "value": "0"
+     },
+     {
+      "key": "IsInEU",
+      "value": "true"
+     },
+     {
+      "key": "IsoCode",
+      "value": "SE"
+     },
+     {
+      "key": "datasource_path",
+      "value": "/var/log/traefik/access.log"
+     },
+     {
+      "key": "datasource_type",
+      "value": "file"
+     },
+     {
+      "key": "http_args_len",
+      "value": "0"
+     },
+     {
+      "key": "http_path",
+      "value": "/composer.json"
+     },
+     {
+      "key": "http_status",
+      "value": "404"
+     },
+     {
+      "key": "http_user_agent",
+      "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0"
+     },
+     {
+      "key": "http_verb",
+      "value": "GET"
+     },
+     {
+      "key": "log_type",
+      "value": "http_access-log"
+     },
+     {
+      "key": "service",
+      "value": "http"
+     },
+     {
+      "key": "source_ip",
+      "value": "91.92.42.120"
+     },
+     {
+      "key": "target_fqdn",
+      "value": "ai.konkos.de"
+     },
+     {
+      "key": "timestamp",
+      "value": "2026-06-20T16:07:17+02:00"
+     },
+     {
+      "key": "traefik_router_name",
+      "value": "openwebui-https@file"
+     }
+    ],
+    "timestamp": "2026-06-20 16:07:17 +0200 +0200"
+   },
+   {
+    "meta": [
+     {
+      "key": "ASNNumber",
+      "value": "0"
+     },
+     {
+      "key": "IsInEU",
+      "value": "true"
+     },
+     {
+      "key": "IsoCode",
+      "value": "SE"
+     },
+     {
+      "key": "datasource_path",
+      "value": "/var/log/traefik/access.log"
+     },
+     {
+      "key": "datasource_type",
+      "value": "file"
+     },
+     {
+      "key": "http_args_len",
+      "value": "0"
+     },
+     {
+      "key": "http_path",
+      "value": "/.env.bak"
+     },
+     {
+      "key": "http_status",
+      "value": "404"
+     },
+     {
+      "key": "http_user_agent",
+      "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15"
+     },
+     {
+      "key": "http_verb",
+      "value": "GET"
+     },
+     {
+      "key": "log_type",
+      "value": "http_access-log"
+     },
+     {
+      "key": "service",
+      "value": "http"
+     },
+     {
+      "key": "source_ip",
+      "value": "91.92.42.120"
+     },
+     {
+      "key": "target_fqdn",
+      "value": "ai.konkos.de"
+     },
+     {
+      "key": "timestamp",
+      "value": "2026-06-20T16:07:17+02:00"
+     },
+     {
+      "key": "traefik_router_name",
+      "value": "openwebui-https@file"
+     }
+    ],
+    "timestamp": "2026-06-20 16:07:17 +0200 +0200"
+   },
+   {
+    "meta": [
+     {
+      "key": "ASNNumber",
+      "value": "0"
+     },
+     {
+      "key": "IsInEU",
+      "value": "true"
+     },
+     {
+      "key": "IsoCode",
+      "value": "SE"
+     },
+     {
+      "key": "datasource_path",
+      "value": "/var/log/traefik/access.log"
+     },
+     {
+      "key": "datasource_type",
+      "value": "file"
+     },
+     {
+      "key": "http_args_len",
+      "value": "0"
+     },
+     {
+      "key": "http_path",
+      "value": "/.gitconfig"
+     },
+     {
+      "key": "http_status",
+      "value": "404"
+     },
+     {
+      "key": "http_user_agent",
+      "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15"
+     },
+     {
+      "key": "http_verb",
+      "value": "GET"
+     },
+     {
+      "key": "log_type",
+      "value": "http_access-log"
+     },
+     {
+      "key": "service",
+      "value": "http"
+     },
+     {
+      "key": "source_ip",
+      "value": "91.92.42.120"
+     },
+     {
+      "key": "target_fqdn",
+      "value": "ai.konkos.de"
+     },
+     {
+      "key": "timestamp",
+      "value": "2026-06-20T16:07:17+02:00"
+     },
+     {
+      "key": "traefik_router_name",
+      "value": "openwebui-https@file"
+     }
+    ],
+    "timestamp": "2026-06-20 16:07:17 +0200 +0200"
+   },
+   {
+    "meta": [
+     {
+      "key": "ASNNumber",
+      "value": "0"
+     },
+     {
+      "key": "IsInEU",
+      "value": "true"
+     },
+     {
+      "key": "IsoCode",
+      "value": "SE"
+     },
+     {
+      "key": "datasource_path",
+      "value": "/var/log/traefik/access.log"
+     },
+     {
+      "key": "datasource_type",
+      "value": "file"
+     },
+     {
+      "key": "http_args_len",
+      "value": "0"
+     },
+     {
+      "key": "http_path",
+      "value": "/db.php"
+     },
+     {
+      "key": "http_status",
+      "value": "404"
+     },
+     {
+      "key": "http_user_agent",
+      "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0"
+     },
+     {
+      "key": "http_verb",
+      "value": "GET"
+     },
+     {
+      "key": "log_type",
+      "value": "http_access-log"
+     },
+     {
+      "key": "service",
+      "value": "http"
+     },
+     {
+      "key": "source_ip",
+      "value": "91.92.42.120"
+     },
+     {
+      "key": "target_fqdn",
+      "value": "ai.konkos.de"
+     },
+     {
+      "key": "timestamp",
+      "value": "2026-06-20T16:07:17+02:00"
+     },
+     {
+      "key": "traefik_router_name",
+      "value": "openwebui-https@file"
+     }
+    ],
+    "timestamp": "2026-06-20 16:07:17 +0200 +0200"
+   },
+   {
+    "meta": [
+     {
+      "key": "ASNNumber",
+      "value": "0"
+     },
+     {
+      "key": "IsInEU",
+      "value": "true"
+     },
+     {
+      "key": "IsoCode",
+      "value": "SE"
+     },
+     {
+      "key": "datasource_path",
+      "value": "/var/log/traefik/access.log"
+     },
+     {
+      "key": "datasource_type",
+      "value": "file"
+     },
+     {
+      "key": "http_args_len",
+      "value": "0"
+     },
+     {
+      "key": "http_path",
+      "value": "/portal/phpinfo.php"
+     },
+     {
+      "key": "http_status",
+      "value": "404"
+     },
+     {
+      "key": "http_user_agent",
+      "value": "Mozilla/5.0 (X11; Linux x86_64; rv:133.0) Gecko/20100101 Firefox/133.0"
+     },
+     {
+      "key": "http_verb",
+      "value": "GET"
+     },
+     {
+      "key": "log_type",
+      "value": "http_access-log"
+     },
+     {
+      "key": "service",
+      "value": "http"
+     },
+     {
+      "key": "source_ip",
+      "value": "91.92.42.120"
+     },
+     {
+      "key": "target_fqdn",
+      "value": "ai.konkos.de"
+     },
+     {
+      "key": "timestamp",
+      "value": "2026-06-20T16:07:54+02:00"
+     },
+     {
+      "key": "traefik_router_name",
+      "value": "openwebui-https@file"
+     }
+    ],
+    "timestamp": "2026-06-20 16:07:54 +0200 +0200"
+   },
+   {
+    "meta": [
+     {
+      "key": "ASNNumber",
+      "value": "0"
+     },
+     {
+      "key": "IsInEU",
+      "value": "true"
+     },
+     {
+      "key": "IsoCode",
+      "value": "SE"
+     },
+     {
+      "key": "datasource_path",
+      "value": "/var/log/traefik/access.log"
+     },
+     {
+      "key": "datasource_type",
+      "value": "file"
+     },
+     {
+      "key": "http_args_len",
+      "value": "0"
+     },
+     {
+      "key": "http_path",
+      "value": "/settings.py"
+     },
+     {
+      "key": "http_status",
+      "value": "404"
+     },
+     {
+      "key": "http_user_agent",
+      "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0"
+     },
+     {
+      "key": "http_verb",
+      "value": "GET"
+     },
+     {
+      "key": "log_type",
+      "value": "http_access-log"
+     },
+     {
+      "key": "service",
+      "value": "http"
+     },
+     {
+      "key": "source_ip",
+      "value": "91.92.42.120"
+     },
+     {
+      "key": "target_fqdn",
+      "value": "ai.konkos.de"
+     },
+     {
+      "key": "timestamp",
+      "value": "2026-06-20T16:07:54+02:00"
+     },
+     {
+      "key": "traefik_router_name",
+      "value": "openwebui-https@file"
+     }
+    ],
+    "timestamp": "2026-06-20 16:07:54 +0200 +0200"
+   },
+   {
+    "meta": [
+     {
+      "key": "ASNNumber",
+      "value": "0"
+     },
+     {
+      "key": "IsInEU",
+      "value": "true"
+     },
+     {
+      "key": "IsoCode",
+      "value": "SE"
+     },
+     {
+      "key": "datasource_path",
+      "value": "/var/log/traefik/access.log"
+     },
+     {
+      "key": "datasource_type",
+      "value": "file"
+     },
+     {
+      "key": "http_args_len",
+      "value": "0"
+     },
+     {
+      "key": "http_path",
+      "value": "/functions.php"
+     },
+     {
+      "key": "http_status",
+      "value": "404"
+     },
+     {
+      "key": "http_user_agent",
+      "value": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36"
+     },
+     {
+      "key": "http_verb",
+      "value": "GET"
+     },
+     {
+      "key": "log_type",
+      "value": "http_access-log"
+     },
+     {
+      "key": "service",
+      "value": "http"
+     },
+     {
+      "key": "source_ip",
+      "value": "91.92.42.120"
+     },
+     {
+      "key": "target_fqdn",
+      "value": "ai.konkos.de"
+     },
+     {
+      "key": "timestamp",
+      "value": "2026-06-20T16:07:54+02:00"
+     },
+     {
+      "key": "traefik_router_name",
+      "value": "openwebui-https@file"
+     }
+    ],
+    "timestamp": "2026-06-20 16:07:54 +0200 +0200"
+   },
+   {
+    "meta": [
+     {
+      "key": "ASNNumber",
+      "value": "0"
+     },
+     {
+      "key": "IsInEU",
+      "value": "true"
+     },
+     {
+      "key": "IsoCode",
+      "value": "SE"
+     },
+     {
+      "key": "datasource_path",
+      "value": "/var/log/traefik/access.log"
+     },
+     {
+      "key": "datasource_type",
+      "value": "file"
+     },
+     {
+      "key": "http_args_len",
+      "value": "0"
+     },
+     {
+      "key": "http_path",
+      "value": "/config.json"
+     },
+     {
+      "key": "http_status",
+      "value": "404"
+     },
+     {
+      "key": "http_user_agent",
+      "value": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+     },
+     {
+      "key": "http_verb",
+      "value": "GET"
+     },
+     {
+      "key": "log_type",
+      "value": "http_access-log"
+     },
+     {
+      "key": "service",
+      "value": "http"
+     },
+     {
+      "key": "source_ip",
+      "value": "91.92.42.120"
+     },
+     {
+      "key": "target_fqdn",
+      "value": "ai.konkos.de"
+     },
+     {
+      "key": "timestamp",
+      "value": "2026-06-20T16:07:54+02:00"
+     },
+     {
+      "key": "traefik_router_name",
+      "value": "openwebui-https@file"
+     }
+    ],
+    "timestamp": "2026-06-20 16:07:54 +0200 +0200"
+   },
+   {
+    "meta": [
+     {
+      "key": "ASNNumber",
+      "value": "0"
+     },
+     {
+      "key": "IsInEU",
+      "value": "true"
+     },
+     {
+      "key": "IsoCode",
+      "value": "SE"
+     },
+     {
+      "key": "datasource_path",
+      "value": "/var/log/traefik/access.log"
+     },
+     {
+      "key": "datasource_type",
+      "value": "file"
+     },
+     {
+      "key": "http_args_len",
+      "value": "0"
+     },
+     {
+      "key": "http_path",
+      "value": "/server_info.php"
+     },
+     {
+      "key": "http_status",
+      "value": "404"
+     },
+     {
+      "key": "http_user_agent",
+      "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:133.0) Gecko/20100101 Firefox/133.0"
+     },
+     {
+      "key": "http_verb",
+      "value": "GET"
+     },
+     {
+      "key": "log_type",
+      "value": "http_access-log"
+     },
+     {
+      "key": "service",
+      "value": "http"
+     },
+     {
+      "key": "source_ip",
+      "value": "91.92.42.120"
+     },
+     {
+      "key": "target_fqdn",
+      "value": "ai.konkos.de"
+     },
+     {
+      "key": "timestamp",
+      "value": "2026-06-20T16:07:54+02:00"
+     },
+     {
+      "key": "traefik_router_name",
+      "value": "openwebui-https@file"
+     }
+    ],
+    "timestamp": "2026-06-20 16:07:54 +0200 +0200"
+   }
+  ],
+  "events_count": 14,
+  "id": 12707,
+  "kind": "crowdsec",
+  "labels": null,
+  "leakspeed": "10s",
+  "machine_id": "2551655fdccc448697396521615558d53Q99OADjJfncbz5u",
+  "message": "Ip 91.92.42.120 performed 'crowdsecurity/http-probing' (14 events over 37.314760995s) at 2026-06-20 14:07:54.255659414 +0000 UTC",
+  "meta": [
+   {
+    "key": "method",
+    "value": "[\"GET\"]"
+   },
+   {
+    "key": "target_uri",
+    "value": "[\"/web.config\",\"/application.yml\",\"/composer.json\",\"/.env.bak\",\"/.gitconfig\",\"/db.php\",\"/portal/phpinfo.php\",\"/settings.py\",\"/functions.php\",\"/config.json\",\"/server_info.php\"]"
+   },
+   {
+    "key": "user_agent",
+    "value": "[\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15\",\"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0\",\"Mozilla/5.0 (X11; Linux x86_64; rv:133.0) Gecko/20100101 Firefox/133.0\",\"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0\",\"Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36\",\"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36\",\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:133.0) Gecko/20100101 Firefox/133.0\"]"
+   },
+   {
+    "key": "status",
+    "value": "[\"404\"]"
+   }
+  ],
+  "remediation": true,
+  "scenario": "crowdsecurity/http-probing",
+  "scenario_hash": "4b16f896af400e006c28b1476bf5989c748186f2b3756ed9ad7d1559480d278c",
+  "scenario_version": "0.4",
+  "simulated": false,
+  "source": {
+   "as_number": "0",
+   "cn": "SE",
+   "ip": "91.92.42.120",
+   "latitude": 59.3287,
+   "longitude": 18.0717,
+   "scope": "Ip",
+   "value": "91.92.42.120"
+  },
+  "start_at": "2026-06-20T14:07:16Z",
+  "stop_at": "2026-06-20T14:07:54Z",
+  "uuid": "f235b702-db13-4252-a833-8d5792977a90"
+ }
+]

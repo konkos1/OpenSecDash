@@ -1,0 +1,63 @@
+EN = {
+    "app.name": "OpenSecDash",
+
+    "nav.dashboard": "Dashboard",
+    "nav.events": "Events",
+    "nav.assets": "Assets",
+    "nav.settings": "Settings",
+
+    "dashboard.title": "Dashboard",
+    "dashboard.events_name": "Events",
+    "dashboard.systems_name": "Systems",
+    "dashboard.assets_name": "Assets",
+    "dashboard.inactive_assets_name": "Inactive Assets",
+
+    "events.title": "Events",
+    "events.empty": "No events available",
+    "events.time": "Time",
+    "events.type": "Type",
+    "events.severity": "Severity",
+    "events.ip": "IP Address",
+    "events.country": "Country",
+    "events.status": "Status",
+    "events.path": "Path",
+
+    "assets.title": "Assets",
+    "assets.import": "Import",
+    "assets.check_updates": "Check updates",
+    "assets.show_inactive": "Show inactive",
+    "assets.hide_inactive": "Hide inactive",
+    "assets.delete_inactive": "Delete inactive assets",
+    "assets.status": "Status",
+    "assets.active": "Active",
+    "assets.inactive": "Inactive",
+    "assets.system": "System",
+    "assets.name": "Name",
+    "assets.version": "Version",
+    "assets.latest": "Latest Version",
+    "assets.latest_available": "Update Available",
+    "assets.update": "Update",
+    "assets.release": "Release",
+    "assets.open_release": "Open Release",
+    "assets.no_assets": "No assets available",
+
+    "asset.release_url": "Release URL",
+
+    "settings.title": "Settings",
+    "settings.domain": "Domain",
+    "settings.language": "Language",
+    "settings.asset_source": "Asset Source",
+    "settings.asset_source_type": "Asset Source Type",
+    "settings.asset_source_type_url": "URL",
+    "settings.asset_source_type_file": "File",
+    "settings.asset_github_api_token": "GitHub API Token",
+
+    "common.yes": "Yes",
+    "common.no": "No",
+    "common.none": "-",
+    "common.open": "Open",
+    "common.save_button": "Save",
+
+    "confirm.delete_inactive_assets":
+        "Delete inactive assets permanently?",
+}

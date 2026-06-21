@@ -1,0 +1,388 @@
+{
+  "last_update": "20.06.2026 16:10:01",
+  "systems": [
+    {
+      "vmid": "100",
+      "type": "lxc",
+      "hostname": "traefik",
+      "apps": [
+        {
+          "name": "LXC OS",
+          "version": "Debian 12 (bookworm)",
+          "url": ""
+        },
+        {
+          "name": "traefik",
+          "version": "v3.7.5",
+          "url": "https://github.com/traefik/traefik/releases/latest"
+        },
+        {
+          "name": "CrowdSec",
+          "version": "v1.7.8",
+          "url": "https://github.com/crowdsecurity/crowdsec/releases/latest"
+        },
+        {
+          "name": "CrowdSec Bouncer",
+          "version": "v1.6.0",
+          "url": "https://github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin/releases/latest"
+        },
+        {
+          "name": "GeoBlock",
+          "version": "v0.3.7",
+          "url": "https://github.com/PascalMinder/geoblock/releases/latest"
+        },
+        {
+          "name": "traefik-oidc-auth",
+          "version": "v0.20.1",
+          "url": "https://github.com/sevensolutions/traefik-oidc-auth/releases/latest"
+        },
+        {
+          "name": "TorBlockRedirect",
+          "version": "v0.1.4",
+          "url": "https://github.com/PaulLeRoux142/TorBlockRedirect/releases/latest"
+        },
+        {
+          "name": "Traefik Blocker",
+          "version": "v0.0.2",
+          "url": "https://github.com/marcportabellaclotet-mt/traefik-blocker-plugin/releases/latest"
+        }
+      ]
+    },
+    {
+      "vmid": "101",
+      "type": "lxc",
+      "hostname": "cloudflare-ddns",
+      "apps": [
+        {
+          "name": "LXC OS",
+          "version": "Debian 12 (bookworm)",
+          "url": ""
+        },
+        {
+          "name": "Cloudflare-DDNS",
+          "version": "(latest)/UNKNOWN",
+          "url": "https://github.com/favonia/cloudflare-ddns/releases/latest"
+        },
+        {
+          "name": "Go",
+          "version": "go1.24.4",
+          "url": ""
+        }
+      ]
+    },
+    {
+      "vmid": "105",
+      "type": "lxc",
+      "hostname": "heimdall",
+      "apps": [
+        {
+          "name": "LXC OS",
+          "version": "Debian 12 (bookworm)",
+          "url": ""
+        },
+        {
+          "name": "Heimdall Dashboard",
+          "version": "v2.7.6",
+          "url": "https://github.com/linuxserver/heimdall/releases/latest"
+        }
+      ]
+    },
+    {
+      "vmid": "106",
+      "type": "lxc",
+      "hostname": "rustdeskserver",
+      "apps": [
+        {
+          "name": "LXC OS",
+          "version": "Debian 13 (trixie)",
+          "url": ""
+        },
+        {
+          "name": "RustDesk Server",
+          "version": "1.1.15",
+          "url": "https://github.com/rustdesk/rustdesk-server/releases/latest"
+        }
+      ]
+    },
+    {
+      "vmid": "107",
+      "type": "lxc",
+      "hostname": "pocketid",
+      "apps": [
+        {
+          "name": "LXC OS",
+          "version": "Debian 13 (trixie)",
+          "url": ""
+        },
+        {
+          "name": "Pocket ID",
+          "version": "v2.9.0",
+          "url": "https://github.com/pocket-id/pocket-id/releases/latest"
+        }
+      ]
+    },
+    {
+      "vmid": "108",
+      "type": "lxc",
+      "hostname": "termix",
+      "apps": [
+        {
+          "name": "LXC OS",
+          "version": "Debian 13 (trixie)",
+          "url": ""
+        },
+        {
+          "name": "Termix",
+          "version": "release-2.4.0-tag",
+          "url": "https://github.com/Termix-SSH/Termix/releases/latest"
+        },
+        {
+          "name": "Guacamole",
+          "version": "v1.6.0",
+          "url": "https://github.com/apache/guacamole-server/tags"
+        }
+      ]
+    },
+    {
+      "vmid": "202",
+      "type": "lxc",
+      "hostname": "duplicati",
+      "apps": [
+        {
+          "name": "LXC OS",
+          "version": "Debian 12 (bookworm)",
+          "url": ""
+        },
+        {
+          "name": "Duplicati",
+          "version": "v2.3.0.3_stable_2026-06-10",
+          "url": "https://github.com/duplicati/duplicati/releases/latest"
+        }
+      ]
+    },
+    {
+      "vmid": "203",
+      "type": "lxc",
+      "hostname": "orcaslicer",
+      "apps": [
+        {
+          "name": "LXC OS",
+          "version": "Debian 13 (trixie)",
+          "url": ""
+        },
+        {
+          "name": "OrcaSlicer",
+          "version": "v2.3.2",
+          "url": "https://github.com/SoftFever/OrcaSlicer/releases/latest"
+        }
+      ]
+    },
+    {
+      "vmid": "204",
+      "type": "lxc",
+      "hostname": "ki-tts-stt",
+      "apps": [
+        {
+          "name": "LXC OS",
+          "version": "Debian 13 (trixie)",
+          "url": ""
+        },
+        {
+          "name": "wyoming-faster-whisper",
+          "version": "v3.2.0",
+          "url": "https://github.com/rhasspy/wyoming-faster-whisper/releases/latest"
+        },
+        {
+          "name": "wyoming-piper",
+          "version": "v2.2.2",
+          "url": "https://github.com/rhasspy/wyoming-piper/releases/latest"
+        }
+      ]
+    },
+    {
+      "vmid": "206",
+      "type": "lxc",
+      "hostname": "anchor",
+      "apps": [
+        {
+          "name": "LXC OS",
+          "version": "Debian 13 (trixie)",
+          "url": ""
+        },
+        {
+          "name": "Anchor",
+          "version": "v0.13.0",
+          "url": "https://github.com/ZhFahim/anchor/releases/latest"
+        }
+      ]
+    },
+    {
+      "vmid": "300",
+      "type": "lxc",
+      "hostname": "immich",
+      "apps": [
+        {
+          "name": "LXC OS",
+          "version": "Debian 13 (trixie)",
+          "url": ""
+        },
+        {
+          "name": "immich",
+          "version": "v2.7.5",
+          "url": "https://github.com/immich-app/immich/releases/latest"
+        }
+      ]
+    },
+    {
+      "vmid": "301",
+      "type": "lxc",
+      "hostname": "plex",
+      "apps": [
+        {
+          "name": "LXC OS",
+          "version": "Ubuntu 22.04",
+          "url": ""
+        },
+        {
+          "name": "plex",
+          "version": "1.43.2.10687-563d026ea",
+          "url": "https://www.plex.tv/de/media-server-downloads/?cat=computer&plat=linux"
+        }
+      ]
+    },
+    {
+      "vmid": "302",
+      "type": "lxc",
+      "hostname": "paperless-ngx",
+      "apps": [
+        {
+          "name": "LXC OS",
+          "version": "Debian 12 (bookworm)",
+          "url": ""
+        },
+        {
+          "name": "Paperless-ngx",
+          "version": "v2.20.15",
+          "url": "https://github.com/paperless-ngx/paperless-ngx/releases/latest"
+        }
+      ]
+    },
+    {
+      "vmid": "304",
+      "type": "lxc",
+      "hostname": "openwebui",
+      "apps": [
+        {
+          "name": "LXC OS",
+          "version": "Debian 13 (trixie)",
+          "url": ""
+        },
+        {
+          "name": "Open WebUI",
+          "version": "v0.9.6",
+          "url": "https://github.com/open-webui/open-webui/releases/latest"
+        },
+        {
+          "name": "Ollama",
+          "version": "v0.30.9",
+          "url": "https://github.com/ollama/ollama/releases/latest"
+        }
+      ]
+    },
+    {
+      "vmid": "305",
+      "type": "lxc",
+      "hostname": "opencloud",
+      "apps": [
+        {
+          "name": "LXC OS",
+          "version": "Debian 13 (trixie)",
+          "url": ""
+        },
+        {
+          "name": "OpenCloud",
+          "version": "v7.0.0",
+          "url": "https://github.com/opencloud-eu/opencloud/releases/latest"
+        },
+        {
+          "name": "Collabora",
+          "version": "v25.04.10.3",
+          "url": "https://www.collaboraonline.com/release-notes/#code"
+        }
+      ]
+    },
+    {
+      "vmid": "306",
+      "type": "lxc",
+      "hostname": "outline",
+      "apps": [
+        {
+          "name": "LXC OS",
+          "version": "Debian 13 (trixie)",
+          "url": ""
+        },
+        {
+          "name": "Outline",
+          "version": "v1.8.1",
+          "url": "https://github.com/outline/outline/releases/latest"
+        }
+      ]
+    },
+    {
+      "vmid": "401",
+      "type": "lxc",
+      "hostname": "debian-lxc",
+      "apps": [
+        {
+          "name": "LXC OS",
+          "version": "Debian 13 (trixie)",
+          "url": ""
+        }
+      ]
+    },
+    {
+      "vmid": "103",
+      "type": "vm",
+      "hostname": "openwrt",
+      "apps": [
+        {
+          "name": "VM OS",
+          "version": "Debian 12 (bookworm)",
+          "url": ""
+        },
+        {
+          "name": "OpenWrt",
+          "version": "v25.12.4",
+          "url": "https://github.com/openwrt/openwrt/releases/latest"
+        },
+        {
+          "name": "OpenWrt Full-Release-Name",
+          "version": "25.12.4 r32933-4ccb782af7",
+          "url": ""
+        },
+        {
+          "name": "LuCI",
+          "version": "openwrt-25.12 branch 26.134.75701~cd18b8e",
+          "url": ""
+        },
+        {
+          "name": "Kernel Version",
+          "version": "6.12.87",
+          "url": ""
+        }
+      ]
+    },
+    {
+      "vmid": "201",
+      "type": "vm",
+      "hostname": "haos",
+      "apps": [
+        {
+          "name": "VM OS",
+          "version": "HAOS 17.3",
+          "url": "https://github.com/home-assistant/operating-system/releases/latest"
+        }
+      ]
+    }
+  ]
+}

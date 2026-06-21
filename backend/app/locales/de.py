@@ -1,0 +1,63 @@
+DE = {
+    "app.name": "OpenSecDash",
+
+    "nav.dashboard": "Dashboard",
+    "nav.events": "Events",
+    "nav.assets": "Assets",
+    "nav.settings": "Einstellungen",
+
+    "dashboard.title": "Dashboard",
+    "dashboard.events_name": "Events",
+    "dashboard.systems_name": "Systeme",
+    "dashboard.assets_name": "Assets",
+    "dashboard.inactive_assets_name": "Inaktive Assets",
+
+    "events.title": "Events",
+    "events.empty": "Keine Events vorhanden",
+    "events.time": "Zeit",
+    "events.type": "Typ",
+    "events.severity": "Severity",
+    "events.ip": "IP-Adresse",
+    "events.country": "Land",
+    "events.status": "Status",
+    "events.path": "Pfad",
+
+    "assets.title": "Assets",
+    "assets.import": "Importieren",
+    "assets.check_updates": "Updates prüfen",
+    "assets.show_inactive": "Inaktive anzeigen",
+    "assets.hide_inactive": "Inaktive ausblenden",
+    "assets.delete_inactive": "Inaktive Assets löschen",
+    "assets.status": "Status",
+    "assets.active": "Aktiv",
+    "assets.inactive": "Inaktiv",
+    "assets.system": "System",
+    "assets.name": "Name",
+    "assets.version": "Version",
+    "assets.latest": "Neueste Version",
+    "assets.latest_available": "Update Verfügbar",
+    "assets.update": "Update",
+    "assets.release": "Release",
+    "assets.open_release": "Release Anzeigen",
+    "assets.no_assets": "Keine Assets vorhanden",
+
+    "asset.release_url": "Release URL",
+
+    "settings.title": "Einstellungen",
+    "settings.domain": "Domäne",
+    "settings.language": "Sprache",
+    "settings.asset_source": "Asset Quell-Pfad",
+    "settings.asset_source_type": "Asset Quell-Typ",
+    "settings.asset_source_type_url": "URL",
+    "settings.asset_source_type_file": "Datei",
+    "settings.asset_github_api_token": "GitHub API Token",
+
+    "common.yes": "Ja",
+    "common.no": "Nein",
+    "common.none": "-",
+    "common.open": "Öffnen",
+    "common.save_button": "Speichern",
+
+    "confirm.delete_inactive_assets":
+        "Inaktive Assets wirklich endgültig löschen?",
+}

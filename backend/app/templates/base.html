@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="{{ language }}">
+<head>
+    <meta charset="utf-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1"
+    />
+
+    <title>
+        {% block title %}
+        {{ t("app.name") }}
+        {% endblock %}
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="/static/css/app.css"
+    >
+</head>
+
+<script src="/static/js/app.js"></script>
+
+<body>
+
+<header>
+    <h1>{{ t("app.name") }}</h1>
+
+    {% if domain %}
+        <div>{{ domain }}</div>
+    {% endif %}
+
+    <br>
+
+    <nav>
+        <a href="/">{{ t("nav.dashboard") }}</a>
+        <a href="/events">{{ t("nav.events") }}</a>
+        <a href="/assets">{{ t("nav.assets") }}</a>
+        <a href="/settings">{{ t("nav.settings") }}</a>
+    </nav>
+
+    <hr>
+</header>
+
+<main>
+    {% block content %}
+    {% endblock %}
+</main>
+
+</body>
+</html>

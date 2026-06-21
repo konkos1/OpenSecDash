@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}
+{{ t("app.name") }} · {{ t("assets.title") }} · {{ asset.name }}
+{% endblock %}
+
+{% block content %}
+
+<h2>{{ asset.name }}</h2>
+
+<table border="1" cellpadding="8">
+
+<tr>
+    <td>{{ t("assets.version") }}</td>
+    <td>{{ asset.version }}</td>
+</tr>
+
+<tr>
+    <td>{{ t("assets.latest") }}</td>
+    <td>{{ asset.latest_version or "-" }}</td>
+</tr>
+
+<tr>
+    <td>{{ t("assets.latest_available") }}</td>
+    <td>
+        {% if asset.update_available %}
+            🟡 {{ t("common.yes") }}
+        {% else %}
+            🟢 {{ t("common.no") }}
+        {% endif %}
+    </td>
+</tr>
+
+<tr>
+    <td>{{ t("asset.release_url") }}</td>
+    <td>
+        {% if asset.release_url %}
+        <a href="{{ asset.release_url }}"
+           target="_blank">
+            {{ t("assets.open_release") }}
+        </a>
+        {% endif %}
+    </td>
+</tr>
+
+</table>
+
+{% endblock %}

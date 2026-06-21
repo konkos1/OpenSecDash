@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}
+{{ t("app.name") }} · {{ t("events.title") }}
+{% endblock %}
+
+{% block content %}
+
+    <h2>{{ t("events.title") }}</h2>
+
+    <table border="1" cellpadding="8">
+        <thead>
+            <tr>
+                <th>{{ t("events.time") }}</th>
+                <th>{{ t("events.type") }}</th>
+                <th>{{ t("events.severity") }}</th>
+                <th>{{ t("events.ip") }}</th>
+                <th>{{ t("events.country") }}</th>
+                <th>{{ t("events.status") }}</th>
+                <th>{{ t("events.path") }}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for event in events %}
+            <tr>
+                <td>{{ event.timestamp }}</td>
+                <td>{{ event.event_type }}</td>
+                <td>{{ event.severity }}</td>
+                <td>{{ event.ip or "-" }}</td>
+                <td>{{ event.country or "-" }}</td>
+                <td>{{ event.status_code or "-" }}</td>
+                <td>{{ event.path or "-" }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="7">{{ t("events.empty") }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>
+{% endblock %}
