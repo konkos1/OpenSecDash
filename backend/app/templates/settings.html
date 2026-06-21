@@ -8,7 +8,7 @@
 
     <h2 class="text-2xl font-semibold mb-5">{{ t("settings.title") }}</h2>
 
-    <form class="card grid grid-cols-1 md:grid-cols-2 gap-4" method="post" action="/settings">
+    <form class="card grid grid-cols-1 md:grid-cols-2 gap-4" method="post" action="/settings" x-data="{ mqttEnabled: '{{ mqtt_enabled }}' }">
         <label>{{ t("settings.domain") }}
             <input class="input" type="text" name="domain" value="{{ domain }}" placeholder="mydomain.com">
         </label>
@@ -73,21 +73,29 @@
         </label>
 
         <label>{{ t("settings.mqtt_enabled") }}
-            <select class="input" name="mqtt_enabled">
+            <select class="input" name="mqtt_enabled" x-model="mqttEnabled">
                 <option value="false" {% if mqtt_enabled == 'false' %}selected{% endif %}>{{ t("common.no") }}</option>
                 <option value="true" {% if mqtt_enabled == 'true' %}selected{% endif %}>{{ t("common.yes") }}</option>
             </select>
         </label>
 
-        <label>{{ t("settings.mqtt_host") }}
+        <label x-show="mqttEnabled === 'true'" x-cloak>{{ t("settings.mqtt_host") }}
             <input class="input" name="mqtt_host" value="{{ mqtt_host }}">
         </label>
 
-        <label>{{ t("settings.mqtt_port") }}
+        <label x-show="mqttEnabled === 'true'" x-cloak>{{ t("settings.mqtt_port") }}
             <input class="input" name="mqtt_port" value="{{ mqtt_port }}">
         </label>
 
-        <label>{{ t("settings.mqtt_topic_prefix") }}
+        <label x-show="mqttEnabled === 'true'" x-cloak>{{ t("settings.mqtt_username") }}
+            <input class="input" name="mqtt_username" value="{{ mqtt_username }}" autocomplete="username">
+        </label>
+
+        <label x-show="mqttEnabled === 'true'" x-cloak>{{ t("settings.mqtt_password") }}
+            <input class="input" type="password" name="mqtt_password" value="{{ mqtt_password }}" autocomplete="current-password">
+        </label>
+
+        <label x-show="mqttEnabled === 'true'" x-cloak>{{ t("settings.mqtt_topic_prefix") }}
             <input class="input" name="mqtt_topic_prefix" value="{{ mqtt_topic_prefix }}">
         </label>
 

@@ -22,6 +22,8 @@ DEFAULT_SETTINGS = {
     "mqtt_enabled": "false",
     "mqtt_host": "",
     "mqtt_port": "1883",
+    "mqtt_username": "",
+    "mqtt_password": "",
     "mqtt_topic_prefix": "opensecdash",
 }
 

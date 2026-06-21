@@ -287,6 +287,8 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
         mqtt_enabled=get_setting_value(db, "mqtt_enabled", "false"),
         mqtt_host=get_setting_value(db, "mqtt_host", ""),
         mqtt_port=get_setting_value(db, "mqtt_port", "1883"),
+        mqtt_username=get_setting_value(db, "mqtt_username", ""),
+        mqtt_password=get_setting_value(db, "mqtt_password", ""),
         mqtt_topic_prefix=get_setting_value(db, "mqtt_topic_prefix", "opensecdash"),
     )
 
@@ -306,6 +308,8 @@ def save_settings(
     mqtt_enabled: str = Form("false"),
     mqtt_host: str = Form(""),
     mqtt_port: str = Form("1883"),
+    mqtt_username: str = Form(""),
+    mqtt_password: str = Form(""),
     mqtt_topic_prefix: str = Form("opensecdash"),
     db: Session = Depends(get_db),
 ):
@@ -325,6 +329,8 @@ def save_settings(
         "mqtt_enabled": mqtt_enabled,
         "mqtt_host": mqtt_host,
         "mqtt_port": mqtt_port,
+        "mqtt_username": mqtt_username,
+        "mqtt_password": mqtt_password,
         "mqtt_topic_prefix": mqtt_topic_prefix,
     }.items():
         save_setting(db, key, value)

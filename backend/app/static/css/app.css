@@ -1,3 +1,4 @@
+[x-cloak] { display: none !important; }
 a { color: #93c5fd; }
 a:not(.nav):not(.btn):not(.btn-small):not(.card):not(.brand-link) { text-decoration: underline; text-decoration-color: #60a5fa; text-underline-offset: .18rem; }
 a:not(.nav):not(.btn):not(.btn-small):not(.card):not(.brand-link):hover { color: #bfdbfe; text-decoration-color: #bfdbfe; }

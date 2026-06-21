@@ -174,6 +174,8 @@ EN = {
     "settings.mqtt_enabled": "MQTT enabled",
     "settings.mqtt_host": "MQTT host",
     "settings.mqtt_port": "MQTT port",
+    "settings.mqtt_username": "MQTT username",
+    "settings.mqtt_password": "MQTT password",
     "settings.mqtt_topic_prefix": "MQTT topic prefix",
 
     "confirm.delete_inactive_assets": "Delete inactive assets permanently?",
