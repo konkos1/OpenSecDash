@@ -26,29 +26,29 @@
             <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
                 <a href="/" class="flex flex-col">
                     <span class="text-xl font-bold">🛡 {{ t("app.name") }}</span>
-                    <span class="text-sm text-slate-400">{{ domain or "local instance" }}</span>
+                    <span class="text-sm text-slate-400">{{ domain or t("common.local_instance") }}</span>
                 </a>
 
                 <button class="md:hidden rounded bg-slate-800 px-3 py-2" @click="menu=!menu">☰</button>
 
                 <nav class="hidden md:flex gap-2 text-sm">
                     <a class="nav {{ 'nav-active' if current_path == '/' else '' }}" href="/">{{ t("nav.dashboard") }}</a>
-                    <a class="nav {{ 'nav-active' if current_path.startswith('/crowdsec') else '' }}" href="/crowdsec">CrowdSec</a>
-                    <a class="nav {{ 'nav-active' if current_path.startswith('/access') else '' }}" href="/access">Access</a>
+                    <a class="nav {{ 'nav-active' if current_path.startswith('/crowdsec') else '' }}" href="/crowdsec">{{ t("nav.crowdsec") }}</a>
+                    <a class="nav {{ 'nav-active' if current_path.startswith('/access') else '' }}" href="/access">{{ t("nav.access") }}</a>
                     <a class="nav {{ 'nav-active' if current_path.startswith('/assets') else '' }}" href="/assets">{{ t("nav.assets") }}</a>
                     <a class="nav {{ 'nav-active' if current_path.startswith('/events') or current_path.startswith('/ip') else '' }}" href="/events">{{ t("nav.events") }}</a>
-                    <a class="nav {{ 'nav-active' if current_path.startswith('/diagnostics') else '' }}" href="/diagnostics">Diagnostics</a>
+                    <a class="nav {{ 'nav-active' if current_path.startswith('/diagnostics') else '' }}" href="/diagnostics">{{ t("nav.diagnostics") }}</a>
                     <a class="nav {{ 'nav-active' if current_path.startswith('/settings') else '' }}" href="/settings">{{ t("nav.settings") }}</a>
                 </nav>
             </div>
 
             <nav class="md:hidden px-4 pb-4 grid gap-2" x-show="menu">
                 <a class="nav {{ 'nav-active' if current_path == '/' else '' }}" href="/">{{ t("nav.dashboard") }}</a>
-                <a class="nav {{ 'nav-active' if current_path.startswith('/crowdsec') else '' }}" href="/crowdsec">CrowdSec</a>
-                <a class="nav {{ 'nav-active' if current_path.startswith('/access') else '' }}" href="/access">Access</a>
+                <a class="nav {{ 'nav-active' if current_path.startswith('/crowdsec') else '' }}" href="/crowdsec">{{ t("nav.crowdsec") }}</a>
+                <a class="nav {{ 'nav-active' if current_path.startswith('/access') else '' }}" href="/access">{{ t("nav.access") }}</a>
                 <a class="nav {{ 'nav-active' if current_path.startswith('/assets') else '' }}" href="/assets">{{ t("nav.assets") }}</a>
                 <a class="nav {{ 'nav-active' if current_path.startswith('/events') or current_path.startswith('/ip') else '' }}" href="/events">{{ t("nav.events") }}</a>
-                <a class="nav {{ 'nav-active' if current_path.startswith('/diagnostics') else '' }}" href="/diagnostics">Diagnostics</a>
+                <a class="nav {{ 'nav-active' if current_path.startswith('/diagnostics') else '' }}" href="/diagnostics">{{ t("nav.diagnostics") }}</a>
                 <a class="nav {{ 'nav-active' if current_path.startswith('/settings') else '' }}" href="/settings">{{ t("nav.settings") }}</a>
             </nav>
         </header>
@@ -56,7 +56,7 @@
         <main class="max-w-7xl mx-auto px-4 py-6">
             {% if current_path not in top_level_paths %}
                 <button type="button" class="btn-small mb-5" onclick="if (history.length > 1) { history.back(); } else { window.location.href = '/'; }">
-                    ← Back
+                    ← {{ t("common.back") }}
                 </button>
             {% endif %}
             {% block content %}{% endblock %}

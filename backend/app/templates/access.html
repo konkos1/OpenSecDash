@@ -1,30 +1,29 @@
 {% extends "base.html" %}
 
 {% block title %}
-    {{ t("app.name") }} · Access
+    {{ t("app.name") }} · {{ t("access.title") }}
 {% endblock %}
 
 {% block content %}
 
-    <h2 class="text-2xl font-semibold mb-5">Access</h2>
+    <h2 class="text-2xl font-semibold mb-5">{{ t("access.title") }}</h2>
 
     <form class="card flex gap-3 mb-5" method="get">
-        <input class="input flex-1" name="q" value="{{ q or '' }}" placeholder="Search path, IP, host">
-        <button class="btn">Search</button>
+        <input class="input flex-1" name="q" value="{{ q or '' }}" placeholder="{{ t('access.search_placeholder') }}">
+        <button class="btn">{{ t("common.search") }}</button>
     </form>
     <div class="card overflow-x-auto">
         <table class="w-full text-sm">
             <thead>
                 <tr>
-                    <th>Time</th>
-                    <th>IP</th>
-                    <th>Host</th>
-                    <th>Method</th>
-                    <th>Status</th>
-                    <th>Path</th>
+                    <th>{{ t("common.time") }}</th>
+                    <th>{{ t("common.ip") }}</th>
+                    <th>{{ t("access.host") }}</th>
+                    <th>{{ t("access.method") }}</th>
+                    <th>{{ t("common.status") }}</th>
+                    <th>{{ t("common.path") }}</th>
                 </tr>
             </thead>
-            
             <tbody>
                 {% for event in events %}
                     <tr>
@@ -37,7 +36,7 @@
                     </tr>
                 {% else %}
                     <tr>
-                        <td colspan="6">No access events</td>
+                        <td colspan="6">{{ t("access.no_events") }}</td>
                     </tr>
                 {% endfor %}
             </tbody>

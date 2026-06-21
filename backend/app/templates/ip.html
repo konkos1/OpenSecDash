@@ -1,25 +1,25 @@
 {% extends "base.html" %}
 
 {% block title %}
-    {{ t("app.name") }} · IP {{ ip }}
+    {{ t("app.name") }} · {{ t("ip.title") }} {{ ip }}
 {% endblock %}
 
 {% block content %}
 
-    <h2 class="text-2xl font-semibold mb-5">IP Explorer · {{ ip }}</h2>
+    <h2 class="text-2xl font-semibold mb-5">{{ t("ip.title") }} · {{ ip }}</h2>
 
     <section class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
         {% for k,v in counts.items() %}
             <a class="card flex flex-col items-center text-center" href="/events?ip={{ ip }}">
-                <span class="muted">{{ k }}</span>
+                <span class="muted">{{ t("ip.count." ~ k) }}</span>
                 <strong class="text-2xl">{{ v }}</strong>
             </a>
         {% endfor %}
     </section>
 
     <div class="card mb-5">
-        <h3 class="font-semibold mb-3">Actions</h3>
-        <form class="flex flex-wrap gap-2" method="post" action="/actions/ip" data-confirm="Ban {{ ip }}?">
+        <h3 class="font-semibold mb-3">{{ t("ip.actions") }}</h3>
+        <form class="flex flex-wrap gap-2" method="post" action="/actions/ip" data-confirm="{{ t('ip.ban_confirm') }} {{ ip }}?">
             <input type="hidden" name="action_type" value="security.ban">
             <input type="hidden" name="ip" value="{{ ip }}">
             <input type="hidden" name="confirmed" value="true">
@@ -28,12 +28,12 @@
                 <option>24h</option>
                 <option>7d</option>
             </select>
-            <button class="btn">CrowdSec Ban</button>
+            <button class="btn">{{ t("ip.crowdsec_ban") }}</button>
         </form>
     </div>
     
     <div class="card mb-5">
-        <h3 class="font-semibold mb-3">Insights</h3>
+        <h3 class="font-semibold mb-3">{{ t("ip.insights") }}</h3>
         {% for insight in insights %}
             <div class="row">
                 <span>{{ insight.title }}
@@ -43,20 +43,20 @@
                 <b>{{ insight.level }}</b>
             </div>
         {% else %}
-            <p class="muted">No insights for this IP</p>
+            <p class="muted">{{ t("ip.no_insights") }}</p>
         {% endfor %}
     </div>
     
     <div class="card overflow-x-auto">
-        <h3 class="font-semibold mb-3">Events</h3>
+        <h3 class="font-semibold mb-3">{{ t("ip.events") }}</h3>
         <table class="w-full text-sm">
             <thead>
                 <tr>
-                    <th>Time</th>
-                    <th>Type</th>
-                    <th>Severity</th>
-                    <th>Status</th>
-                    <th>Path</th>
+                    <th>{{ t("common.time") }}</th>
+                    <th>{{ t("common.type") }}</th>
+                    <th>{{ t("events.severity") }}</th>
+                    <th>{{ t("common.status") }}</th>
+                    <th>{{ t("common.path") }}</th>
                 </tr>
             </thead>
 
@@ -71,7 +71,7 @@
                     </tr>
                 {% else %}
                     <tr>
-                        <td colspan="5">No events</td>
+                        <td colspan="5">{{ t("ip.no_events") }}</td>
                     </tr>
                 {% endfor %}
             </tbody>

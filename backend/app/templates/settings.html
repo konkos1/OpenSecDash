@@ -9,85 +9,85 @@
     <h2 class="text-2xl font-semibold mb-5">{{ t("settings.title") }}</h2>
 
     <form class="card grid grid-cols-1 md:grid-cols-2 gap-4" method="post" action="/settings">
-        <label>Primary Domain
+        <label>{{ t("settings.domain") }}
             <input class="input" type="text" name="domain" value="{{ domain }}" placeholder="mydomain.com">
         </label>
 
-        <label>Language
+        <label>{{ t("settings.language") }}
             <select class="input" name="language">
                 <option value="en" {% if language_setting == 'en' %}selected{% endif %}>English</option>
                 <option value="de" {% if language_setting == 'de' %}selected{% endif %}>Deutsch</option>
             </select>
         </label>
 
-        <label>Retention days
+        <label>{{ t("settings.retention_days") }}
             <select class="input" name="retention_days">
                 <option>7</option>
                 <option {% if retention_days == '30' %}selected{% endif %}>30</option>
                 <option>90</option>
                 <option>180</option>
                 <option>365</option>
-                <option value="0">unlimited</option>
+                <option value="0">{{ t("settings.unlimited") }}</option>
             </select>
         </label>
 
-        <label>Live default
+        <label>{{ t("settings.live_default") }}
             <select class="input" name="live_default">
-                <option value="true" {% if live_default == 'true' %}selected{% endif %}>Live ON</option>
-                <option value="false" {% if live_default == 'false' %}selected{% endif %}>Snapshot</option>
+                <option value="true" {% if live_default == 'true' %}selected{% endif %}>{{ t("settings.live_on") }}</option>
+                <option value="false" {% if live_default == 'false' %}selected{% endif %}>{{ t("settings.snapshot") }}</option>
             </select>
         </label>
 
-        <label>Theme
+        <label>{{ t("settings.theme") }}
             <select class="input" name="theme">
-                <option value="auto">Auto</option>
-                <option value="dark">Dark</option>
-                <option value="light">Light</option>
+                <option value="auto">{{ t("settings.theme_auto") }}</option>
+                <option value="dark">{{ t("settings.theme_dark") }}</option>
+                <option value="light">{{ t("settings.theme_light") }}</option>
             </select>
         </label>
 
-        <label>Timezone
+        <label>{{ t("settings.timezone") }}
             <input class="input" name="timezone" value="{{ timezone }}" placeholder="auto / Europe/Berlin">
         </label>
 
-        <label>Asset source type
+        <label>{{ t("settings.asset_source_type") }}
             <select class="input" name="asset_source_type">
-                <option value="file" {% if asset_source_type == 'file' %}selected{% endif %}>File</option>
-                <option value="url" {% if asset_source_type == 'url' %}selected{% endif %}>URL</option>
+                <option value="file" {% if asset_source_type == 'file' %}selected{% endif %}>{{ t("settings.asset_source_type_file") }}</option>
+                <option value="url" {% if asset_source_type == 'url' %}selected{% endif %}>{{ t("settings.asset_source_type_url") }}</option>
             </select>
         </label>
 
-        <label>Asset source
+        <label>{{ t("settings.asset_source") }}
             <input class="input" type="text" name="asset_source" value="{{ asset_source }}">
         </label>
 
-        <label>GitHub API token
+        <label>{{ t("settings.asset_github_api_token") }}
             <input class="input" type="password" name="github_token" value="{{ github_token }}">
         </label>
 
-        <label>Action simulation
+        <label>{{ t("settings.action_simulation") }}
             <select class="input" name="action_dry_run">
-                <option value="true" {% if action_dry_run == 'true' %}selected{% endif %}>Dry run</option>
-                <option value="false" {% if action_dry_run == 'false' %}selected{% endif %}>Execute via plugin</option>
+                <option value="true" {% if action_dry_run == 'true' %}selected{% endif %}>{{ t("settings.dry_run") }}</option>
+                <option value="false" {% if action_dry_run == 'false' %}selected{% endif %}>{{ t("settings.execute_via_plugin") }}</option>
             </select>
         </label>
 
-        <label>MQTT enabled
+        <label>{{ t("settings.mqtt_enabled") }}
             <select class="input" name="mqtt_enabled">
-                <option value="false" {% if mqtt_enabled == 'false' %}selected{% endif %}>No</option>
-                <option value="true" {% if mqtt_enabled == 'true' %}selected{% endif %}>Yes</option>
+                <option value="false" {% if mqtt_enabled == 'false' %}selected{% endif %}>{{ t("common.no") }}</option>
+                <option value="true" {% if mqtt_enabled == 'true' %}selected{% endif %}>{{ t("common.yes") }}</option>
             </select>
         </label>
 
-        <label>MQTT host
+        <label>{{ t("settings.mqtt_host") }}
             <input class="input" name="mqtt_host" value="{{ mqtt_host }}">
         </label>
 
-        <label>MQTT port
+        <label>{{ t("settings.mqtt_port") }}
             <input class="input" name="mqtt_port" value="{{ mqtt_port }}">
         </label>
 
-        <label>MQTT topic prefix
+        <label>{{ t("settings.mqtt_topic_prefix") }}
             <input class="input" name="mqtt_topic_prefix" value="{{ mqtt_topic_prefix }}">
         </label>
 

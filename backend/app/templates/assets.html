@@ -8,8 +8,8 @@
 
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
         <div>
-            <h2 class="text-2xl font-semibold">Asset Explorer</h2>
-            <p class="muted mt-1">Systems with their installed apps. Click a system row to open its app list.</p>
+            <h2 class="text-2xl font-semibold">{{ t("assets.explorer_title") }}</h2>
+            <p class="muted mt-1">{{ t("assets.explorer_description") }}</p>
         </div>
 
         <div class="flex gap-2">
@@ -23,7 +23,7 @@
     </div>
 
     <div class="card mb-5 flex items-center justify-between gap-4">
-        <span class="muted">{{ "Inactive systems/apps are included" if show_inactive else "Only active apps are counted" }}</span>
+        <span class="muted">{{ t("assets.inactive_included") if show_inactive else t("assets.only_active_counted") }}</span>
         <a class="text-blue-300" href="{{ '/assets' if show_inactive else '/assets?show_inactive=true' }}">
             {{ t("assets.hide_inactive") if show_inactive else t("assets.show_inactive") }}
         </a>
@@ -33,12 +33,12 @@
         <table class="w-full text-sm">
             <thead>
                 <tr>
-                    <th>System</th>
-                    <th>Type</th>
-                    <th>VMID</th>
-                    <th>Installed apps</th>
-                    <th>Any update?</th>
-                    <th>Last seen</th>
+                    <th>{{ t("assets.system") }}</th>
+                    <th>{{ t("assets.system_type") }}</th>
+                    <th>{{ t("assets.vmid") }}</th>
+                    <th>{{ t("assets.installed_apps") }}</th>
+                    <th>{{ t("assets.any_update") }}</th>
+                    <th>{{ t("assets.last_seen") }}</th>
                 </tr>
             </thead>
             <tbody>
@@ -47,7 +47,7 @@
                         <td><a href="/assets/system/{{ row.system.id }}" class="font-semibold">{{ row.system.hostname }}</a></td>
                         <td>{{ row.system.system_type }}</td>
                         <td>{{ row.system.vmid }}</td>
-                        <td><strong>{{ row.app_count }}</strong> apps</td>
+                        <td><strong>{{ row.app_count }}</strong> {{ t("assets.installed_apps_value") }}</td>
                         <td>
                             {% if row.update_available %}
                                 <span class="badge">{{ t("common.yes") }}</span>
@@ -59,7 +59,7 @@
                     </tr>
                 {% else %}
                     <tr>
-                        <td colspan="6">No systems imported</td>
+                        <td colspan="6">{{ t("assets.no_systems") }}</td>
                     </tr>
                 {% endfor %}
             </tbody>
@@ -70,13 +70,13 @@
         {% for row in system_rows %}
             <a class="card block" href="/assets/system/{{ row.system.id }}">
                 <div class="font-semibold">{{ row.system.hostname }}</div>
-                <div class="muted">{{ row.system.system_type }} · VMID {{ row.system.vmid }}</div>
-                <div><strong>{{ row.app_count }}</strong> installed apps</div>
-                <div>Any update: {% if row.update_available %}<span class="badge">{{ t("common.yes") }}</span>{% else %}{{ t("common.no") }}{% endif %}</div>
-                <div>Last seen: {{ row.last_seen|datetime }}</div>
+                <div class="muted">{{ row.system.system_type }} · {{ t("assets.vmid") }} {{ row.system.vmid }}</div>
+                <div><strong>{{ row.app_count }}</strong> {{ t("assets.installed_apps") }}</div>
+                <div>{{ t("assets.any_update") }} {% if row.update_available %}<span class="badge">{{ t("common.yes") }}</span>{% else %}{{ t("common.no") }}{% endif %}</div>
+                <div>{{ t("assets.last_seen") }}: {{ row.last_seen|datetime }}</div>
             </a>
         {% else %}
-            <article class="card">No systems imported</article>
+            <article class="card">{{ t("assets.no_systems") }}</article>
         {% endfor %}
     </div>
 
