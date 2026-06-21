@@ -44,7 +44,7 @@ DE = {
     "asset.release_url": "Release URL",
 
     "settings.title": "Einstellungen",
-    "settings.domain": "Domäne",
+    "settings.domain": "Primäre Domäne",
     "settings.language": "Sprache",
     "settings.asset_source": "Asset Quell-Pfad",
     "settings.asset_source_type": "Asset Quell-Typ",

@@ -44,7 +44,7 @@ EN = {
     "asset.release_url": "Release URL",
 
     "settings.title": "Settings",
-    "settings.domain": "Domain",
+    "settings.domain": "Primary Domain",
     "settings.language": "Language",
     "settings.asset_source": "Asset Source",
     "settings.asset_source_type": "Asset Source Type",
