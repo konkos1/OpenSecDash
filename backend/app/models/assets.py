@@ -31,4 +31,5 @@ class Asset(Base):
     release_web_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     update_check_type: Mapped[str] = mapped_column(String(50), default="github_release")
     update_available: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    mqtt_publish_enabled: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     last_checked: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

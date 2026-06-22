@@ -8,53 +8,49 @@
 
   <div class="flex items-center justify-between gap-4 mb-6">
     <h2 class="text-2xl font-semibold">{{ t("dashboard.title") }}</h2>
-
-    <form method="post" action="/dev/import-samples">
-      <button class="btn">{{ t("dashboard.load_sample_data") }}</button>
-    </form>
   </div>
 
-  <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-4">
-    {% for title,value,href in [
-      (t('dashboard.active_bans'), active_bans, '/crowdsec'),
-      (t('dashboard.geoblocks_today'), geoblocks, '/events?event_type=security.geoblock'),
-      (t('dashboard.torblocks_today'), torblocks, '/events?event_type=security.torblock'),
-      (t('dashboard.access_today'), access_events, '/access'),
-      (t('dashboard.assets'), asset_count, '/assets'),
-      (t('dashboard.updates'), update_count, '/assets')
-      ]
-    %}
-      <a href="{{ href }}" class="card hover:border-blue-500 flex flex-col items-center text-center">
-        <span class="text-slate-400 text-sm">{{ title }}</span>
-        <strong class="text-3xl">{{ value }}</strong>
-      </a>
-    {% endfor %}
-  </section>
+  {% if widgets %}
+    <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+      {% for widget in widgets %}
+        <a href="{{ widget.href }}" class="card hover:border-blue-500 flex flex-col items-center text-center">
+          <span class="text-slate-400 text-sm">{{ t(widget.title_key) }}</span>
+          <strong class="text-3xl">{{ widget.value }}</strong>
+        </a>
+      {% endfor %}
+    </section>
+  {% else %}
+    <section class="card">
+      <p class="muted">{{ t("dashboard.no_enabled_widgets") }}</p>
+    </section>
+  {% endif %}
 
   <section class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
-    <div class="card lg:col-span-1">
-      <h3 class="font-semibold mb-3">{{ t("dashboard.top_countries") }}</h3>
-      {% for country,count in top_countries %}
-        <a class="row" href="/events?country={{ country }}">
-          <span>{{ country }}</span>
-          <b>{{ count }}</b>
-        </a>
-      {% else %}
-        <p class="muted">{{ t("dashboard.no_data") }}</p>
-      {% endfor %}
-    </div>
+    {% if country_data_plugins %}
+      <div class="card lg:col-span-1">
+        <h3 class="font-semibold mb-3">{{ t("dashboard.top_countries") }}</h3>
+        {% for country,count in top_countries %}
+          <a class="row" href="/events?country={{ country }}">
+            <span>{{ country|country_name }}</span>
+            <b>{{ count }}</b>
+          </a>
+        {% else %}
+          <p class="muted">{{ t("dashboard.no_data") }}</p>
+        {% endfor %}
+      </div>
 
-    <div class="card lg:col-span-2">
-      <h3 class="font-semibold mb-3">{{ t("dashboard.latest_security_events") }}</h3>
-      {% for event in latest_security_events %}
-        <a class="row" href="/ip/{{ event.ip or '' }}">
-          <span>{{ event.event_time|datetime }} · {{ event.event_type }} · {{ event.ip or '-' }}</span>
-          <b>{{ event.country or '' }}</b>
-        </a>
-      {% else %}
-        <p class="muted">{{ t("dashboard.no_security_events") }}</p>
-      {% endfor %}
-    </div>
+      <div class="card lg:col-span-2">
+        <h3 class="font-semibold mb-3">{{ t("dashboard.latest_security_events") }}</h3>
+        {% for event in latest_security_events %}
+          <a class="row" href="/events?ip={{ event.ip or '' }}&event_type={{ event.event_type }}">
+            <span>{{ event.event_time|datetime }} · {{ event.event_type }} · {{ event.ip or '-' }}</span>
+            <b>{{ event.country|country_name if event.country else '' }}</b>
+          </a>
+        {% else %}
+          <p class="muted">{{ t("dashboard.no_security_events") }}</p>
+        {% endfor %}
+      </div>
+    {% endif %}
   </section>
 
 {% endblock %}

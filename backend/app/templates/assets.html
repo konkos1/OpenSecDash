@@ -23,7 +23,7 @@
     </div>
 
     <div class="card mb-5 flex items-center justify-between gap-4">
-        <span class="muted">{{ t("assets.inactive_included") if show_inactive else t("assets.only_active_counted") }}</span>
+        <span class="muted">{% if updates %}{{ t("assets.only_updates") }}{% else %}{{ t("assets.inactive_included") if show_inactive else t("assets.only_active_counted") }}{% endif %}</span>
         <a class="text-blue-300" href="{{ '/assets' if show_inactive else '/assets?show_inactive=true' }}">
             {{ t("assets.hide_inactive") if show_inactive else t("assets.show_inactive") }}
         </a>

@@ -8,7 +8,7 @@
 
     <h2 class="text-2xl font-semibold mb-5">{{ t("settings.title") }}</h2>
 
-    <form class="card grid grid-cols-1 md:grid-cols-2 gap-4" method="post" action="/settings" x-data="{ mqttEnabled: '{{ mqtt_enabled }}' }" data-unsaved-warning="{{ t('settings.unsaved_changes') }}">
+    <form class="card grid grid-cols-1 md:grid-cols-2 gap-4" method="post" action="/settings" data-unsaved-warning="{{ t('settings.unsaved_changes') }}" x-data='{ settings: {{ plugin_settings_state | tojson }} }'>
         <label>{{ t("settings.domain") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.domain') }}">?</button>
             <input class="input" type="text" name="domain" value="{{ domain }}" placeholder="mydomain.com">
         </label>
@@ -50,21 +50,6 @@
             <input class="input" name="timezone" value="{{ timezone }}" placeholder="auto / Europe/Berlin">
         </label>
 
-        <label>{{ t("settings.asset_source_type") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.asset_source_type') }}">?</button>
-            <select class="input" name="asset_source_type">
-                <option value="file" {% if asset_source_type == 'file' %}selected{% endif %}>{{ t("settings.asset_source_type_file") }}</option>
-                <option value="url" {% if asset_source_type == 'url' %}selected{% endif %}>{{ t("settings.asset_source_type_url") }}</option>
-            </select>
-        </label>
-
-        <label>{{ t("settings.asset_source") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.asset_source') }}">?</button>
-            <input class="input" type="text" name="asset_source" value="{{ asset_source }}">
-        </label>
-
-        <label>{{ t("settings.asset_github_api_token") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.asset_github_api_token') }}">?</button>
-            <input class="input" type="password" name="github_token" value="{{ github_token }}">
-        </label>
-
         <label>{{ t("settings.action_simulation") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.action_simulation') }}">?</button>
             <select class="input" name="action_dry_run">
                 <option value="true" {% if action_dry_run == 'true' %}selected{% endif %}>{{ t("settings.dry_run") }}</option>
@@ -72,32 +57,35 @@
             </select>
         </label>
 
-        <label>{{ t("settings.mqtt_enabled") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.mqtt_enabled') }}">?</button>
-            <select class="input" name="mqtt_enabled" x-model="mqttEnabled">
-                <option value="false" {% if mqtt_enabled == 'false' %}selected{% endif %}>{{ t("common.no") }}</option>
-                <option value="true" {% if mqtt_enabled == 'true' %}selected{% endif %}>{{ t("common.yes") }}</option>
-            </select>
-        </label>
-
-        <label x-show="mqttEnabled === 'true'" x-cloak>{{ t("settings.mqtt_host") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.mqtt_host') }}">?</button>
-            <input class="input" name="mqtt_host" value="{{ mqtt_host }}">
-        </label>
-
-        <label x-show="mqttEnabled === 'true'" x-cloak>{{ t("settings.mqtt_port") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.mqtt_port') }}">?</button>
-            <input class="input" name="mqtt_port" value="{{ mqtt_port }}">
-        </label>
-
-        <label x-show="mqttEnabled === 'true'" x-cloak>{{ t("settings.mqtt_username") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.mqtt_username') }}">?</button>
-            <input class="input" name="mqtt_username" value="{{ mqtt_username }}" autocomplete="username">
-        </label>
-
-        <label x-show="mqttEnabled === 'true'" x-cloak>{{ t("settings.mqtt_password") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.mqtt_password') }}">?</button>
-            <input class="input" type="password" name="mqtt_password" value="{{ mqtt_password }}" autocomplete="current-password">
-        </label>
-
-        <label x-show="mqttEnabled === 'true'" x-cloak>{{ t("settings.mqtt_topic_prefix") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.mqtt_topic_prefix') }}">?</button>
-            <input class="input" name="mqtt_topic_prefix" value="{{ mqtt_topic_prefix }}">
-        </label>
+        {% for group in plugin_setting_groups %}
+            <section class="md:col-span-2 border-t border-slate-700 pt-4 mt-2">
+                <h3 class="font-semibold mb-3">{{ group.name }}</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {% for setting in group.settings %}
+                        <label
+                            {% if setting.visible_if %}
+                                x-show="settings['{{ setting.visible_if.key }}'] === '{{ setting.visible_if.value }}'"
+                                x-cloak
+                            {% endif %}
+                        >
+                            {{ setting.label }} <button type="button" class="help" data-tooltip="{{ setting.help }}">?</button>
+                            {% if setting.type == 'select' or setting.type == 'boolean' %}
+                                <select class="input" name="{{ setting.key }}" x-model="settings['{{ setting.key }}']">
+                                    {% for value, label in setting.options %}
+                                        <option value="{{ value }}" {% if setting.value == value %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            {% else %}
+                                <input class="input {{ 'border-red-500' if setting.error else '' }}" type="{{ 'password' if setting.type == 'password' else 'text' }}" name="{{ setting.key }}" value="{{ setting.value }}" x-model="settings['{{ setting.key }}']">
+                            {% endif %}
+                            {% if setting.error %}
+                                <p class="text-red-400 text-sm mt-1">{{ setting.error }}</p>
+                            {% endif %}
+                        </label>
+                    {% endfor %}
+                </div>
+            </section>
+        {% endfor %}
 
         <div class="md:col-span-2">
             <button class="btn" type="submit">{{ t("common.save_button") }}</button>

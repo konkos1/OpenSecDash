@@ -1,27 +1,31 @@
 from __future__ import annotations
 
-import json
-from datetime import datetime, timedelta
-from pathlib import Path
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import or_
+from sqlalchemy import String, cast, or_
 from sqlalchemy.orm import Session
 
+from app.core.time import utc_now
 from app.models.core import AggregationDaily, AggregationMonthly, Insight
 from app.models.events import Event
 
 
 def normalize_event_time(value: Any | None = None) -> datetime:
     if isinstance(value, datetime):
-        return value.replace(tzinfo=None)
+        if value.tzinfo is not None:
+            return value.astimezone(UTC).replace(tzinfo=None)
+        return value
     if not value:
-        return datetime.utcnow()
+        return utc_now().replace(tzinfo=None)
     text = str(value).replace("Z", "+00:00")
     try:
-        return datetime.fromisoformat(text).replace(tzinfo=None)
+        parsed = datetime.fromisoformat(text)
+        if parsed.tzinfo is not None:
+            return parsed.astimezone(UTC).replace(tzinfo=None)
+        return parsed
     except ValueError:
-        return datetime.utcnow()
+        return utc_now().replace(tzinfo=None)
 
 
 def classify_access_status(status_code: int | None) -> tuple[str, str]:
@@ -34,21 +38,103 @@ def classify_access_status(status_code: int | None) -> tuple[str, str]:
     return "access.allowed", "info"
 
 
+def find_duplicate_event(db: Session, values: dict[str, Any]) -> Event | None:
+    raw_data = values.get("raw_data")
+    plugin = values.get("plugin", "core")
+    event_type = values.get("event_type")
+
+    if raw_data:
+        return (
+            db.query(Event)
+            .filter(
+                Event.plugin == plugin,
+                Event.event_type == event_type,
+                Event.raw_data == raw_data,
+            )
+            .order_by(Event.id.asc())
+            .first()
+        )
+
+    return (
+        db.query(Event)
+        .filter(
+            Event.plugin == plugin,
+            Event.event_type == event_type,
+            Event.event_time == values.get("event_time"),
+            Event.ip == values.get("ip"),
+            Event.country == values.get("country"),
+            Event.hostname == values.get("hostname"),
+            Event.method == values.get("method"),
+            Event.path == values.get("path"),
+            Event.status_code == values.get("status_code"),
+            Event.asset_id == values.get("asset_id"),
+        )
+        .order_by(Event.id.asc())
+        .first()
+    )
+
+
 def store_event(db: Session, **values: Any) -> Event:
     event_time = normalize_event_time(values.pop("event_time", values.get("timestamp")))
-    created_at = datetime.utcnow()
+    created_at = utc_now().replace(tzinfo=None)
     values.setdefault("timestamp", event_time)
     values.setdefault("created_at", created_at)
     values.setdefault("event_time", event_time)
     values.setdefault("plugin_id", values.get("plugin"))
     values.setdefault("source_id", values.get("source"))
     values.setdefault("retention_class", "raw")
+
+    duplicate = find_duplicate_event(db, values)
+    if duplicate is not None:
+        return duplicate
+
     event = Event(**values)
     db.add(event)
     db.flush()
     update_rollups(db, event)
     create_rule_based_insights(db, event)
     return event
+
+
+def cleanup_duplicate_events(db: Session) -> int:
+    events = db.query(Event).order_by(Event.id.asc()).all()
+    seen: set[tuple[Any, ...]] = set()
+    duplicate_ids: list[int] = []
+
+    for event in events:
+        if event.raw_data:
+            key = ("raw", event.plugin, event.event_type, event.raw_data)
+        else:
+            key = (
+                "composite",
+                event.plugin,
+                event.event_type,
+                event.event_time,
+                event.ip,
+                event.country,
+                event.hostname,
+                event.method,
+                event.path,
+                event.status_code,
+                event.asset_id,
+            )
+        if key in seen:
+            duplicate_ids.append(event.id)
+        else:
+            seen.add(key)
+
+    if not duplicate_ids:
+        return 0
+
+    db.query(Event).filter(Event.id.in_(duplicate_ids)).delete(synchronize_session=False)
+    db.query(AggregationDaily).delete(synchronize_session=False)
+    db.query(AggregationMonthly).delete(synchronize_session=False)
+    db.flush()
+
+    for event in db.query(Event).order_by(Event.id.asc()).all():
+        update_rollups(db, event)
+
+    return len(duplicate_ids)
 
 
 def update_rollups(db: Session, event: Event) -> None:
@@ -103,6 +189,38 @@ def _insight_exists(db: Session, insight_type: str, event_ids: list[int]) -> boo
 def create_rule_based_insights(db: Session, event: Event) -> None:
     if not event.ip:
         return
+
+    ids = [event.id]
+    if event.event_type == "security.geoblock" and not _insight_exists(db, "geoblock_denied_request", ids):
+        country_text = f" from {event.country}" if event.country else ""
+        db.add(
+            Insight(
+                type="geoblock_denied_request",
+                confidence=0.85,
+                level="medium",
+                title="Request denied by GeoBlock",
+                description=f"GeoBlock denied a request from {event.ip}{country_text}.",
+                related_event_ids=ids,
+                ip=event.ip,
+                asset_id=event.asset_id,
+            )
+        )
+
+    if event.event_type == "security.ban" and not _insight_exists(db, "security_ban_observed", ids):
+        scenario = (event.data_json or {}).get("scenario") or "unknown scenario"
+        duration = (event.data_json or {}).get("duration") or "unknown duration"
+        db.add(
+            Insight(
+                type="security_ban_observed",
+                confidence=0.85,
+                level="high",
+                title="Security ban observed",
+                description=f"{event.ip} was banned for {duration} due to {scenario}.",
+                related_event_ids=ids,
+                ip=event.ip,
+                asset_id=event.asset_id,
+            )
+        )
 
     window_start = event.event_time - timedelta(seconds=60)
     window_end = event.event_time + timedelta(seconds=60)
@@ -164,121 +282,63 @@ def create_rule_based_insights(db: Session, event: Event) -> None:
                 )
 
 
-def parse_traefik_line(line: str) -> dict[str, Any] | None:
-    try:
-        data = json.loads(line)
-    except json.JSONDecodeError:
-        return None
-    status = data.get("DownstreamStatus") or data.get("OriginStatus")
-    status_code = int(status) if status not in (None, "") else None
-    event_type, severity = classify_access_status(status_code)
-    return {
-        "event_time": normalize_event_time(data.get("StartUTC") or data.get("time")),
-        "source": "Traefik Access Log",
-        "source_id": "traefik-access-log",
-        "plugin": "access_logs",
-        "plugin_id": "access_logs",
-        "event_type": event_type,
-        "severity": severity,
-        "ip": data.get("ClientHost"),
-        "hostname": data.get("RequestHost") or data.get("RequestAddr"),
-        "method": data.get("RequestMethod"),
-        "path": data.get("RequestPath"),
-        "status_code": status_code,
-        "data_json": {
-            "router": data.get("RouterName"),
-            "service": data.get("ServiceName"),
-            "user_agent": data.get("request_User-Agent"),
-        },
-        "raw_data": line,
-    }
-
-
-def parse_geoblock_line(line: str) -> dict[str, Any] | None:
-    if "GeoBlock" not in line:
-        return None
-    event_type = "system.startup" if "log file opened" in line or "cache" in line else "security.geoblock"
-    severity = "info" if event_type == "system.startup" else "warning"
-    return {
-        "source": "GeoBlock Log",
-        "source_id": "geoblock-log",
-        "plugin": "geoblock",
-        "plugin_id": "geoblock",
-        "event_type": event_type,
-        "severity": severity,
-        "data_json": {"message": line.strip()},
-        "raw_data": line,
-    }
-
-
-def parse_crowdsec_decision(decision: dict[str, Any], created_at: str | None = None) -> dict[str, Any]:
-    event_type = "security.ban" if decision.get("type") == "ban" else "security.unban"
-    return {
-        "event_time": normalize_event_time(created_at),
-        "source": "CrowdSec Decisions",
-        "source_id": "crowdsec-decisions",
-        "plugin": "crowdsec",
-        "plugin_id": "crowdsec",
-        "event_type": event_type,
-        "severity": "error" if event_type == "security.ban" else "info",
-        "ip": decision.get("value"),
-        "data_json": {
-            "scenario": decision.get("scenario"),
-            "duration": decision.get("duration"),
-            "origin": decision.get("origin"),
-            "decision_id": decision.get("id"),
-        },
-        "raw_data": json.dumps(decision),
-    }
-
-
-def import_dev_events(db: Session, dev_data_dir: str = "dev-data") -> dict[str, int]:
-    base = Path(dev_data_dir)
-    counts = {"access": 0, "geoblock": 0, "crowdsec": 0}
-
-    access_path = base / "traefik-access.log"
-    if access_path.exists():
-        for line in access_path.read_text(encoding="utf-8").splitlines()[:500]:
-            parsed = parse_traefik_line(line)
-            if parsed:
-                store_event(db, **parsed)
-                counts["access"] += 1
-
-    geoblock_path = base / "geoblock.log"
-    if geoblock_path.exists():
-        for line in geoblock_path.read_text(encoding="utf-8", errors="ignore").splitlines()[:500]:
-            parsed = parse_geoblock_line(line)
-            if parsed:
-                store_event(db, **parsed)
-                counts["geoblock"] += 1
-
-    crowdsec_path = base / "crowdsec_sample.json"
-    if crowdsec_path.exists():
-        data = json.loads(crowdsec_path.read_text(encoding="utf-8"))
-        for item in data[:200]:
-            for decision in item.get("decisions", []):
-                store_event(db, **parse_crowdsec_decision(decision, item.get("created_at")))
-                counts["crowdsec"] += 1
-
-    db.commit()
-    return counts
-
-
 def apply_event_filters(query, filters: dict[str, Any]):
     if filters.get("event_type"):
-        event_type = filters["event_type"]
-        if event_type.endswith("*"):
-            query = query.filter(Event.event_type.startswith(event_type[:-1]))
-        else:
+        event_type = str(filters["event_type"]).strip()
+        if "*" in event_type:
+            query = query.filter(Event.event_type.like(event_type.replace("*", "%")))
+        elif "." in event_type:
             query = query.filter(Event.event_type == event_type)
-    for field in ["ip", "country", "severity", "source", "plugin"]:
+        else:
+            query = query.filter(Event.event_type.contains(event_type))
+
+    for field in ["ip", "severity", "source", "plugin"]:
         if filters.get(field):
             query = query.filter(getattr(Event, field) == filters[field])
+
+    if filters.get("plugins"):
+        query = query.filter(Event.plugin.in_(filters["plugins"]))
+
+    if filters.get("country"):
+        country = str(filters["country"]).strip().upper()
+        if country == "-":
+            query = query.filter(or_(Event.country.is_(None), Event.country == "", Event.country == "-"))
+        else:
+            query = query.filter(Event.country == country)
+
     if filters.get("status_code"):
         query = query.filter(Event.status_code == int(filters["status_code"]))
     if filters.get("path"):
         query = query.filter(Event.path.contains(filters["path"]))
     if filters.get("q"):
-        q = f"%{filters['q']}%"
-        query = query.filter(or_(Event.ip.like(q), Event.hostname.like(q), Event.path.like(q), Event.event_type.like(q)))
+        q_text = str(filters["q"]).strip()
+        q_terms = [q_text, *filters.get("q_utc_terms", [])]
+        conditions = []
+        searchable_fields = [
+            Event.id,
+            Event.event_time,
+            Event.source,
+            Event.source_id,
+            Event.plugin,
+            Event.plugin_id,
+            Event.event_type,
+            Event.severity,
+            Event.ip,
+            Event.country,
+            Event.asn,
+            Event.hostname,
+            Event.asset_id,
+            Event.method,
+            Event.status_code,
+            Event.path,
+            Event.data_json,
+            Event.raw_data,
+            Event.retention_class,
+        ]
+        for term in q_terms:
+            q = f"%{term}%"
+            conditions.extend(cast(field, String).like(q) for field in searchable_fields)
+        if q_text == "-":
+            conditions.extend([Event.country.is_(None), Event.country == "", Event.country == "-"])
+        query = query.filter(or_(*conditions))
     return query

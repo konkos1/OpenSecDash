@@ -7,66 +7,70 @@
 {% block content %}
 
     <h2 class="text-2xl font-semibold mb-5">{{ t("diagnostics.title") }}</h2>
-        <section class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
-            <div class="card">
-                <h3 class="font-semibold mb-3">{{ t("diagnostics.plugins") }}</h3>
-                {% for plugin in plugins %}
-                    <div class="row">
-                        <span>{{ plugin.name }}
-                            <br>
-                            <small class="muted">
-                                {{ plugin.capabilities|join(', ') if plugin.capabilities else '' }}
-                            </small>
-                        </span>
-                        <b>{{ plugin.status }}</b>
-                    </div>
-                {% endfor %}
-            </div>
-            
-            <div class="card">
-                <h3 class="font-semibold mb-3">{{ t("diagnostics.diagnostics") }}</h3>
-                {% for item in diagnostics %}
-                    <div class="row">
-                        <span>{{ item.plugin }} · {{ item.component }}
-                            <br>
-                            <small class="muted">{{ item.last_error or '' }}</small>
-                        </span>
-                        <b>{{ item.status }}</b>
-                    </div>
-                {% else %}
-                    <p class="muted">{{ t("diagnostics.no_diagnostics") }}</p>
-                {% endfor %}
-            </div>
-        </section>
-
-        <section class="card mb-5">
-            <h3 class="font-semibold mb-3">{{ t("diagnostics.datasources") }}</h3>
-            {% for source in datasources %}
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
+        <div class="card">
+            <h3 class="font-semibold mb-1">{{ t("diagnostics.plugins") }}</h3>
+            <p class="muted mb-3 text-sm">{{ t("diagnostics.plugins_help") }}</p>
+            {% for row in plugin_rows %}
                 <div class="row">
-                    <span>{{ source.name }}
+                    <span>{{ row.plugin.name }}
                         <br>
-                        <small class="muted">{{ source.source_type }} · {{ source.events_processed }} {{ t("diagnostics.events") }}</small>
+                        <small class="muted">
+                            {{ row.plugin.capabilities|join(', ') if row.plugin.capabilities else '' }}
+                        </small>
                     </span>
-                    <b>{{ source.status }}</b>
+                    <b>{{ t("diagnostics.status." ~ row.configuration_status) }}</b>
+                </div>
+            {% endfor %}
+        </div>
+        
+        <div class="card">
+            <h3 class="font-semibold mb-1">{{ t("diagnostics.diagnostics") }}</h3>
+            <p class="muted mb-3 text-sm">{{ t("diagnostics.diagnostics_help") }}</p>
+            {% for row in diagnostic_rows %}
+                <div class="row">
+                    <span>{{ row.item.plugin }} · {{ row.item.component }}
+                        <br>
+                        <small class="muted">{{ row.message or '' }}</small>
+                    </span>
+                    <b>{{ t("diagnostics.status." ~ row.effective_status) }}</b>
                 </div>
             {% else %}
-                <p class="muted">{{ t("diagnostics.no_datasources") }}</p>
+                <p class="muted">{{ t("diagnostics.no_diagnostics") }}</p>
             {% endfor %}
-        </section>
+        </div>
+    </section>
 
-        <section class="card">
-            <h3 class="font-semibold mb-3">{{ t("diagnostics.recent_actions") }}</h3>
-            {% for action in actions %}
-                <div class="row">
-                    <span>{{ action.timestamp|datetime }} · {{ action.action_type }} · {{ action.target }}
-                        <br>
-                        <small class="muted">{{ action.result or '' }}</small>
-                    </span>
-                    <b>{{ action.status }}</b>
-                </div>
-            {% else %}
-                <p class="muted">{{ t("diagnostics.no_actions") }}</p>
-            {% endfor %}
-        </section>
+    <section class="card mb-5">
+        <h3 class="font-semibold mb-1">{{ t("diagnostics.datasources") }}</h3>
+        <p class="muted mb-3 text-sm">{{ t("diagnostics.datasources_help") }}</p>
+        {% for source in datasources %}
+            <div class="row">
+                <span>{{ source.name }}
+                    <br>
+                    <small class="muted">{{ source.source_type }} · {{ source.events_processed }} {{ t("diagnostics.events") }}</small>
+                </span>
+                <b>{{ source.status }}</b>
+            </div>
+        {% else %}
+            <p class="muted">{{ t("diagnostics.no_datasources") }}</p>
+        {% endfor %}
+    </section>
+
+    <section class="card">
+        <h3 class="font-semibold mb-1">{{ t("diagnostics.recent_actions") }}</h3>
+        <p class="muted mb-3 text-sm">{{ t("diagnostics.recent_actions_help") }}</p>
+        {% for action in actions %}
+            <div class="row">
+                <span>{{ action.timestamp|datetime }} · {{ action.action_type }} · {{ action.target }}
+                    <br>
+                    <small class="muted">{{ action.result or '' }}</small>
+                </span>
+                <b>{{ action.status }}</b>
+            </div>
+        {% else %}
+            <p class="muted">{{ t("diagnostics.no_actions") }}</p>
+        {% endfor %}
+    </section>
 
 {% endblock %}

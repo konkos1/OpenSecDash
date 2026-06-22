@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 
 from app.core.template_context import get_setting_value
+from app.core.time import utc_now
 
 from app.models.assets import Asset
 
@@ -15,7 +16,11 @@ def refresh_asset_updates(db: Session) -> dict[str, int]:
 
     assets = db.query(Asset).all()
 
-    github_token = get_setting_value(db, "github_token", "")
+    github_token = get_setting_value(
+        db,
+        "plugin.apps_inventory.github_token",
+        get_setting_value(db, "plugin.assets.github_token", get_setting_value(db, "github_token", "")),
+    )
 
     for asset in assets:
         repo = github_repo_from_url(asset.release_url)
@@ -37,10 +42,8 @@ def refresh_asset_updates(db: Session) -> dict[str, int]:
         if not latest_version:
             continue
 
-        from datetime import datetime
-
         asset.latest_version = latest_version
-        asset.last_checked = datetime.utcnow()
+        asset.last_checked = utc_now().replace(tzinfo=None)
         asset.update_available = (
             latest_version.strip().lower()
             != asset.version.strip().lower()

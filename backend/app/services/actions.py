@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import asyncio
 import ipaddress
-from datetime import datetime
 
 from sqlalchemy.orm import Session
 
 from app.core.template_context import get_setting_value
+from app.core.time import utc_now
 from app.models.core import Action
+from app.plugins.manager import get_plugin_manager
 from app.services.events import store_event
 
 CRITICAL_ACTIONS = {"security.ban", "security.unban", "crowdsec_ban", "crowdsec_unban"}
@@ -33,7 +35,7 @@ def create_action(
         validate_ip_target(target)
 
     action = Action(
-        timestamp=datetime.utcnow(),
+        timestamp=utc_now().replace(tzinfo=None),
         action_type=action_type,
         plugin_id="crowdsec" if action_type.startswith("security.") or action_type.startswith("crowdsec_") else "core",
         target_type=target_type,
@@ -57,10 +59,20 @@ def execute_action(db: Session, action: Action) -> None:
         action.status = "completed"
         action.result = "dry-run: action was recorded but not executed"
     else:
-        # V1 keeps browser -> API -> action framework. Real CrowdSec execution is
-        # isolated here and can be replaced by a plugin implementation.
-        action.status = "completed"
-        action.result = "action plugin execution placeholder completed"
+        try:
+            result = asyncio.run(
+                get_plugin_manager().execute_action(
+                    db,
+                    action.action_type,
+                    action.target,
+                    action.parameters or {},
+                )
+            )
+            action.status = (result or {}).get("status", "completed")
+            action.result = (result or {}).get("result", "action plugin execution completed")
+        except Exception as exc:
+            action.status = "failed"
+            action.result = str(exc)
 
     event_type = "action.executed" if action.status == "completed" else "action.failed"
     store_event(

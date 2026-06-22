@@ -28,7 +28,7 @@
                 {% for event in events %}
                     <tr>
                         <td>{{ event.event_time|datetime }}</td>
-                        <td><a href="/ip/{{ event.ip }}">{{ event.ip or '-' }}</a></td>
+                        <td>{% if event.ip %}<a href="/ip/{{ event.ip|url_path_quote }}">{{ event.ip }}</a>{% else %}-{% endif %}</td>
                         <td>{{ event.hostname or '-' }}</td>
                         <td>{{ event.method or '-' }}</td>
                         <td>{{ event.status_code or '-' }}</td>

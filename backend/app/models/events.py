@@ -1,5 +1,7 @@
 from datetime import datetime
 
+from app.core.time import utc_now
+
 from sqlalchemy import DateTime, Index, JSON, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -15,9 +17,9 @@ class Event(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
 
     # Backwards compatible alias used by existing templates/API.
-    timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
-    event_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    timestamp: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, index=True)
+    event_time: Mapped[datetime] = mapped_column(DateTime, default=utc_now, index=True)
 
     source: Mapped[str] = mapped_column(String(100), default="manual", index=True)
     source_id: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)

@@ -28,13 +28,8 @@ DEFAULT_SETTINGS = {
 }
 
 CORE_PLUGINS = [
-    ("crowdsec", "CrowdSec", ["datasource", "action", "page", "widget"]),
-    ("access_logs", "Access Logs", ["datasource", "page"]),
-    ("geoblock", "GeoBlock", ["datasource", "widget", "insight"]),
-    ("assets", "Assets", ["datasource", "page", "widget"]),
     ("geoip", "GeoIP", ["enrichment"]),
     ("asn", "ASN", ["enrichment"]),
-    ("mqtt", "MQTT", ["export"]),
 ]
 
 
@@ -80,6 +75,7 @@ def _migrate_legacy_sqlite() -> None:
         "release_api_url VARCHAR(2048)",
         "release_web_url VARCHAR(2048)",
         "update_check_type VARCHAR(50) DEFAULT 'github_release'",
+        "mqtt_publish_enabled BOOLEAN DEFAULT 0",
         "last_checked DATETIME",
     ]:
         _add_column("assets", column)
@@ -124,5 +120,10 @@ def init_db() -> None:
     db = SessionLocal()
     try:
         seed_defaults(db)
+        from app.services.events import cleanup_duplicate_events
+
+        deleted = cleanup_duplicate_events(db)
+        if deleted:
+            db.commit()
     finally:
         db.close()

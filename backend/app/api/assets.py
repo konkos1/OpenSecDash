@@ -13,9 +13,10 @@ from app.database.dependencies import get_db
 
 from app.models.assets import Asset
 
-from app.plugins.assets.importer import import_apps_inventory
-from app.plugins.assets.source import load_asset_source
-from app.plugins.assets.updates import refresh_asset_updates
+from app.services.apps_inventory_import import import_apps_inventory
+from app.services.apps_inventory_source import load_asset_source
+from app.services.apps_inventory_updates import refresh_asset_updates
+from app.plugins.manager import get_plugin_manager
 
 
 router = APIRouter(
@@ -33,10 +34,12 @@ def import_assets(
     payload: AssetImportRequest,
     db: Session = Depends(get_db),
 ):
-    return import_apps_inventory(
-        db=db,
-        inventory=payload.inventory,
-    )
+    result = import_apps_inventory(db=db, inventory=payload.inventory)
+    import asyncio
+    manager = get_plugin_manager()
+    for asset in db.query(Asset).all():
+        asyncio.run(manager.export_asset_update(db, asset))
+    return result
 
 
 @router.post("/import-source")
@@ -45,14 +48,14 @@ def import_assets_from_source(
 ):
     source_type = get_setting_value(
         db,
-        "asset_source_type",
-        "url",
+        "plugin.apps_inventory.source_type",
+        get_setting_value(db, "plugin.assets.source_type", get_setting_value(db, "asset_source_type", "url")),
     )
 
     source = get_setting_value(
         db,
-        "asset_source",
-        "",
+        "plugin.apps_inventory.source",
+        get_setting_value(db, "plugin.assets.source", get_setting_value(db, "asset_source", "")),
     )
 
     if not source:
@@ -72,17 +75,24 @@ def import_assets_from_source(
             detail=str(exc),
         ) from exc
 
-    return import_apps_inventory(
-        db=db,
-        inventory=inventory,
-    )
+    result = import_apps_inventory(db=db, inventory=inventory)
+    import asyncio
+    manager = get_plugin_manager()
+    for asset in db.query(Asset).all():
+        asyncio.run(manager.export_asset_update(db, asset))
+    return result
 
 
 @router.post("/refresh-updates")
 def refresh_updates(
     db: Session = Depends(get_db),
 ):
-    return refresh_asset_updates(db)
+    result = refresh_asset_updates(db)
+    import asyncio
+    manager = get_plugin_manager()
+    for asset in db.query(Asset).all():
+        asyncio.run(manager.export_asset_update(db, asset))
+    return result
 
 
 @router.get("")

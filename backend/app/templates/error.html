@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}
+  {{ t("app.name") }} · {{ title }}
+{% endblock %}
+
+{% block content %}
+  <section class="card max-w-3xl mx-auto">
+    <h2 class="text-2xl font-semibold mb-3">{{ title }}</h2>
+    <p class="muted mb-4">{{ message }}</p>
+
+    {% if details %}
+      <div class="rounded border border-slate-700 bg-slate-900 p-3 text-sm mb-4">
+        {% for detail in details %}
+          <div class="mb-2 last:mb-0">
+            <strong>{{ detail.field }}</strong>: {{ detail.message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="flex flex-wrap gap-2">
+      <button type="button" class="btn" onclick="history.length > 1 ? history.back() : window.location.href='/'">
+        {{ t("common.back") }}
+      </button>
+      <a class="btn-small" href="/">{{ t("nav.dashboard") }}</a>
+      <a class="btn-small" href="/settings">{{ t("nav.settings") }}</a>
+    </div>
+  </section>
+{% endblock %}

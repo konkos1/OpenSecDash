@@ -1,6 +1,8 @@
 from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, JSON, String, Text
+
+from app.core.time import utc_now
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database.base import Base
@@ -41,7 +43,7 @@ class Insight(Base):
     __tablename__ = "insights"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    timestamp: Mapped[datetime] = mapped_column(DateTime, default=utc_now, index=True)
     type: Mapped[str] = mapped_column(String(100), index=True)
     confidence: Mapped[float] = mapped_column(default=0.0)
     level: Mapped[str] = mapped_column(String(20), default="medium")
@@ -56,7 +58,7 @@ class Action(Base):
     __tablename__ = "actions"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    timestamp: Mapped[datetime] = mapped_column(DateTime, default=utc_now, index=True)
     action_type: Mapped[str] = mapped_column(String(100), index=True)
     plugin_id: Mapped[str] = mapped_column(String(100), default="core")
     target_type: Mapped[str] = mapped_column(String(50), default="ip")

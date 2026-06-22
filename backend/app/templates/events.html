@@ -29,9 +29,9 @@
 
   <form class="card grid grid-cols-1 md:grid-cols-6 gap-3 mb-5" method="get">
     <input class="input" name="q" value="{{ filters.q or '' }}" placeholder="{{ t('events.search_placeholder') }}">
-    <input class="input" name="event_type" value="{{ filters.event_type or '' }}" placeholder="{{ t('events.event_type_placeholder') }}">
+    <input class="input" name="event_type" value="{{ filters.event_type or '' }}" placeholder="{{ t('events.event_type_placeholder') }}" title="{{ t('events.event_type_help') }}">
     <input class="input" name="ip" value="{{ filters.ip or '' }}" placeholder="{{ t('events.ip_placeholder') }}">
-    <input class="input" name="country" value="{{ filters.country or '' }}" placeholder="{{ t('events.country_placeholder') }}">
+    <input class="input" name="country" value="{{ filters.country or '' }}" placeholder="{{ t('events.country_placeholder') }}" maxlength="2" autocapitalize="characters" title="{{ t('events.country_help') }}" data-uppercase-value>
     <input class="input" name="status_code" value="{{ filters.status_code or '' }}" placeholder="{{ t('events.status_placeholder') }}">
     <button class="btn" type="submit">{{ t("common.filter") }}</button>
   </form>
@@ -55,8 +55,8 @@
             <td>{{ event.event_time|datetime }}</td>
             <td>{{ event.event_type }}</td>
             <td>{{ event.severity }}</td>
-            <td>{% if event.ip %}<a href="/ip/{{ event.ip }}">{{ event.ip }}</a>{% else %}-{% endif %}</td>
-            <td>{{ event.country or '-' }}</td>
+            <td>{% if event.ip %}<a href="/ip/{{ event.ip|url_path_quote }}">{{ event.ip }}</a>{% else %}-{% endif %}</td>
+            <td>{{ event.country|country_name if event.country else '-' }}</td>
             <td>{{ event.status_code or '-' }}</td>
             <td>{{ event.path or '-' }}</td>
           </tr>
@@ -74,8 +74,8 @@
       <article class="card">
         <div class="font-semibold">{{ event.event_type }}</div>
         <div class="muted">{{ event.event_time|datetime }}</div>
-        <div>{{ t("events.ip") }}: {% if event.ip %}<a href="/ip/{{ event.ip }}">{{ event.ip }}</a>{% else %}-{% endif %}</div>
-        <div>{{ t("events.country") }}: {{ event.country or '-' }}</div>
+        <div>{{ t("events.ip") }}: {% if event.ip %}<a href="/ip/{{ event.ip|url_path_quote }}">{{ event.ip }}</a>{% else %}-{% endif %}</div>
+        <div>{{ t("events.country") }}: {{ event.country|country_name if event.country else '-' }}</div>
         <div>{{ t("events.status") }}: {{ event.status_code or '-' }}</div>
         <div class="break-all">{{ event.path or '' }}</div>
       </article>

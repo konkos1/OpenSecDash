@@ -1,8 +1,8 @@
-from datetime import datetime
 from typing import Any
 
 from sqlalchemy.orm import Session
 
+from app.core.time import utc_now
 from app.models.assets import Asset
 from app.models.systems import System
 
@@ -16,7 +16,7 @@ def import_apps_inventory(
     updated_assets = 0
     inactive_assets = 0
 
-    now = datetime.utcnow()
+    now = utc_now().replace(tzinfo=None)
 
     for system_data in inventory.get("systems", []):
         vmid = str(system_data.get("vmid", "")).strip()

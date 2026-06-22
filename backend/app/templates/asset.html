@@ -40,6 +40,9 @@
                     <th>{{ t("assets.status") }}</th>
                     <th>{{ t("assets.release") }}</th>
                     <th>{{ t("assets.last_seen") }}</th>
+                    {% if mqtt_plugin_enabled %}
+                        <th>{{ t("asset.mqtt_publish") }}</th>
+                    {% endif %}
                 </tr>
             </thead>
             <tbody>
@@ -66,10 +69,24 @@
                             {% endif %}
                         </td>
                         <td>{{ app.last_seen|datetime }}</td>
+                        {% if mqtt_plugin_enabled %}
+                            <td>
+                                {% if app.version and app.latest_version %}
+                                    <form method="post" action="/assets/{{ app.id }}/mqtt">
+                                        <input type="hidden" name="enabled" value="{{ 'false' if app.mqtt_publish_enabled else 'true' }}">
+                                        <button class="btn-small" type="submit">
+                                            {{ t("common.yes") if app.mqtt_publish_enabled else t("common.no") }}
+                                        </button>
+                                    </form>
+                                {% else %}
+                                    {{ t("common.none") }}
+                                {% endif %}
+                            </td>
+                        {% endif %}
                     </tr>
                 {% else %}
                     <tr>
-                        <td colspan="7">{{ t("asset.no_apps_in_system") }}</td>
+                        <td colspan="{{ 8 if mqtt_plugin_enabled else 7 }}">{{ t("asset.no_apps_in_system") }}</td>
                     </tr>
                 {% endfor %}
             </tbody>

@@ -8,37 +8,41 @@
 
     <h2 class="text-2xl font-semibold mb-5">{{ t("ip.title") }} · {{ ip }}</h2>
 
-    <section class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
-        {% for k,v in counts.items() %}
-            <a class="card flex flex-col items-center text-center" href="/events?ip={{ ip }}">
-                <span class="muted">{{ t("ip.count." ~ k) }}</span>
-                <strong class="text-2xl">{{ v }}</strong>
-            </a>
-        {% endfor %}
-    </section>
+    {% if count_widgets %}
+        <section class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+            {% for widget in count_widgets %}
+                <a class="card flex flex-col items-center text-center" href="{{ widget.href }}">
+                    <span class="muted">{{ t("ip.count." ~ widget.key) }}</span>
+                    <strong class="text-2xl">{{ widget.value }}</strong>
+                </a>
+            {% endfor %}
+        </section>
+    {% endif %}
 
-    <div class="card mb-5">
-        <h3 class="font-semibold mb-3">{{ t("ip.actions") }}</h3>
-        <form class="flex flex-wrap gap-2" method="post" action="/actions/ip" data-confirm="{{ t('ip.ban_confirm') }} {{ ip }}?">
-            <input type="hidden" name="action_type" value="security.ban">
-            <input type="hidden" name="ip" value="{{ ip }}">
-            <input type="hidden" name="confirmed" value="true">
-            <select class="input" name="duration">
-                <option>4h</option>
-                <option>24h</option>
-                <option>7d</option>
-            </select>
-            <button class="btn">{{ t("ip.crowdsec_ban") }}</button>
-        </form>
-    </div>
+    {% if crowdsec_enabled %}
+        <div class="card mb-5">
+            <h3 class="font-semibold mb-3">{{ t("ip.actions") }}</h3>
+            <form class="flex flex-wrap gap-2" method="post" action="/actions/ip" data-confirm="{{ t('ip.ban_confirm') }} {{ ip }}?">
+                <input type="hidden" name="action_type" value="security.ban">
+                <input type="hidden" name="ip" value="{{ ip }}">
+                <input type="hidden" name="confirmed" value="true">
+                <select class="input" name="duration">
+                    <option>4h</option>
+                    <option>24h</option>
+                    <option>7d</option>
+                </select>
+                <button class="btn">{{ t("ip.crowdsec_ban") }}</button>
+            </form>
+        </div>
+    {% endif %}
     
     <div class="card mb-5">
         <h3 class="font-semibold mb-3">{{ t("ip.insights") }}</h3>
         {% for insight in insights %}
             <div class="row">
-                <span>{{ insight.title }}
+                <span>{{ t("insight.title." ~ insight.type) if t("insight.title." ~ insight.type) != "insight.title." ~ insight.type else insight.title }}
                     <br>
-                    <small class="muted">{{ insight.description }}</small>
+                    <small class="muted">{{ t("insight.description." ~ insight.type) if t("insight.description." ~ insight.type) != "insight.description." ~ insight.type else insight.description }}</small>
                 </span>
                 <b>{{ insight.level }}</b>
             </div>
@@ -55,7 +59,7 @@
                     <th>{{ t("common.time") }}</th>
                     <th>{{ t("common.type") }}</th>
                     <th>{{ t("events.severity") }}</th>
-                    <th>{{ t("common.status") }}</th>
+                    <th>{{ t("events.status") }}</th>
                     <th>{{ t("common.path") }}</th>
                 </tr>
             </thead>

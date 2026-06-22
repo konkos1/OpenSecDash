@@ -16,9 +16,9 @@
 
     <div class="card">
       <h3 class="font-semibold mb-3">{{ t("crowdsec.top_scenarios") }}</h3>
-        {% for data,count in scenarios %}
+        {% for scenario,count in scenarios %}
           <div class="row">
-            <span>{{ data.scenario if data else t("crowdsec.unknown") }}</span>
+            <span>{{ scenario or t("crowdsec.unknown") }}</span>
             <b>{{ count }}</b>
           </div>
         {% else %}
@@ -30,7 +30,7 @@
       <h3 class="font-semibold mb-3">{{ t("crowdsec.top_countries") }}</h3>
       {% for country,count in countries %}
         <a class="row" href="/events?country={{ country }}">
-          <span>{{ country }}</span>
+          <span>{{ country|country_name }}</span>
           <b>{{ count }}</b>
         </a>
       {% else %}
@@ -56,9 +56,9 @@
         {% for ban in bans %}
           <tr>
             <td>{{ ban.event_time|datetime }}</td>
-            <td><a href="/ip/{{ ban.ip }}">{{ ban.ip }}</a></td>
+            <td><a href="/ip/{{ ban.ip|url_path_quote }}">{{ ban.ip }}</a></td>
             <td>{{ ban.data_json.scenario if ban.data_json else '-' }}</td>
-            <td>{{ ban.data_json.duration if ban.data_json else '-' }}</td>
+            <td>{{ (ban.data_json.duration if ban.data_json else None)|duration }}</td>
             <td>
               <form method="post" action="/actions/ip" data-confirm="{{ t('crowdsec.confirm_unban') }} {{ ban.ip }}?">
                 <input type="hidden" name="action_type" value="security.unban">
