@@ -44,6 +44,8 @@ EN = {
     "dashboard.assets": "Assets",
     "dashboard.updates": "Updates",
     "dashboard.top_countries": "Top countries today",
+    "dashboard.country_heatmap": "Top countries world map",
+    "dashboard.country_heatmap_help": "Points show today's country distribution; larger circles mean more events.",
     "dashboard.no_data": "No data",
     "dashboard.latest_security_events": "Latest security events",
     "dashboard.no_security_events": "No security events",

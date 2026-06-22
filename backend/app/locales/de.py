@@ -44,6 +44,8 @@ DE = {
     "dashboard.assets": "Assets",
     "dashboard.updates": "Updates",
     "dashboard.top_countries": "Top-Länder heute",
+    "dashboard.country_heatmap": "Weltkarte der Top-Länder",
+    "dashboard.country_heatmap_help": "Punkte zeigen die heutige Länder-Verteilung; größere Kreise bedeuten mehr Events.",
     "dashboard.no_data": "Keine Daten",
     "dashboard.latest_security_events": "Neueste Sicherheitsereignisse",
     "dashboard.no_security_events": "Keine Sicherheitsereignisse",

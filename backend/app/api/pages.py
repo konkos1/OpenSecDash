@@ -111,6 +111,39 @@ def is_plugin_enabled(db: Session, plugin_id: str) -> bool:
     return get_setting_value(db, f"plugin.{plugin_id}.enabled", "false") == "true"
 
 
+COUNTRY_COORDINATES = {
+    "AD": (42.5, 1.5), "AE": (24.0, 54.0), "AF": (33.0, 65.0), "AL": (41.0, 20.0), "AM": (40.0, 45.0),
+    "AR": (-34.0, -64.0), "AT": (47.3, 13.3), "AU": (-25.0, 133.0), "AZ": (40.5, 47.5), "BA": (44.0, 18.0),
+    "BD": (24.0, 90.0), "BE": (50.8, 4.5), "BG": (43.0, 25.0), "BR": (-10.0, -55.0), "BY": (53.0, 28.0),
+    "CA": (56.0, -106.0), "CH": (47.0, 8.0), "CL": (-30.0, -71.0), "CN": (35.0, 103.0), "CO": (4.0, -72.0),
+    "CZ": (49.8, 15.5), "DE": (51.0, 10.0), "DK": (56.0, 10.0), "EE": (59.0, 26.0), "EG": (27.0, 30.0),
+    "ES": (40.0, -4.0), "FI": (64.0, 26.0), "FR": (46.0, 2.0), "GB": (54.0, -2.0), "GE": (42.0, 43.5),
+    "GR": (39.0, 22.0), "HK": (22.3, 114.2), "HR": (45.0, 16.0), "HU": (47.0, 20.0), "ID": (-5.0, 120.0),
+    "IE": (53.0, -8.0), "IL": (31.5, 35.0), "IN": (22.0, 79.0), "IR": (32.0, 53.0), "IT": (42.8, 12.8),
+    "JP": (36.0, 138.0), "KR": (36.0, 128.0), "LT": (55.0, 24.0), "LU": (49.8, 6.1), "LV": (57.0, 25.0),
+    "MA": (32.0, -5.0), "MD": (47.0, 29.0), "MX": (23.0, -102.0), "MY": (2.5, 112.5), "NG": (9.0, 8.0),
+    "NL": (52.2, 5.3), "NO": (62.0, 10.0), "NZ": (-41.0, 174.0), "PH": (13.0, 122.0), "PK": (30.0, 70.0),
+    "PL": (52.0, 20.0), "PT": (39.5, -8.0), "RO": (46.0, 25.0), "RS": (44.0, 21.0), "RU": (60.0, 90.0),
+    "SA": (24.0, 45.0), "SE": (62.0, 15.0), "SG": (1.35, 103.8), "SI": (46.0, 15.0), "SK": (48.7, 19.5),
+    "TH": (15.0, 101.0), "TR": (39.0, 35.0), "TW": (23.7, 121.0), "UA": (49.0, 32.0), "US": (39.8, -98.6),
+    "VN": (16.0, 106.0), "ZA": (-29.0, 24.0),
+}
+
+
+def country_map_point(country: str, count: int, max_count: int) -> dict[str, object] | None:
+    coordinates = COUNTRY_COORDINATES.get(str(country).upper())
+    if coordinates is None:
+        return None
+    lat, lon = coordinates
+    return {
+        "country": country,
+        "count": count,
+        "x": ((lon + 180) / 360) * 100,
+        "y": ((90 - lat) / 180) * 100,
+        "radius": 3 + (0 if max_count == 0 else (count / max_count) * 9),
+    }
+
+
 def events_feature_enabled(db: Session) -> bool:
     return any(is_plugin_enabled(db, plugin_id) for plugin_id in ["crowdsec", "geoblock_log", "traefik_log"])
 
@@ -187,6 +220,13 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
             ]
         )
 
+    max_country_count = max((count for _, count in top_countries), default=0)
+    country_heatmap = [
+        point
+        for country, count in top_countries
+        if (point := country_map_point(country, count, max_country_count)) is not None
+    ]
+
     return render(
         request,
         db,
@@ -194,6 +234,7 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
         widgets=widgets,
         enabled_plugins=enabled_plugins,
         top_countries=top_countries,
+        country_heatmap=country_heatmap,
         country_data_plugins=country_data_plugins,
         latest_security_events=latest_security_events,
     )
