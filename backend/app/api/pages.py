@@ -247,6 +247,7 @@ def events_page(
     status_code: str | None = None,
     path: str | None = None,
     q: str | None = None,
+    hide_local_ips: str | None = None,
     db: Session = Depends(get_db),
 ):
     require_events_feature_enabled(db)
@@ -270,6 +271,7 @@ def events_page(
         "q": q_value,
         "q_utc_terms": utc_search_terms_for_ui_time(q_value, timezone_name),
         "plugins": enabled_event_plugins,
+        "hide_local_ips": hide_local_ips == "true",
     }
     form_values = {
         "event_type": event_type or "",
@@ -278,6 +280,7 @@ def events_page(
         "status_code": status_code or "",
         "path": path or "",
         "q": q or "",
+        "hide_local_ips": hide_local_ips == "true",
     }
     events = apply_event_filters(db.query(Event), filters).order_by(Event.event_time.desc()).limit(200).all()
     return render(request, db, "events.html", events=events, filters=form_values, live_default=get_setting_value(db, "live_default", "true"))

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ipaddress
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -282,6 +283,23 @@ def create_rule_based_insights(db: Session, event: Event) -> None:
                 )
 
 
+def is_local_ip_value(value: str | None) -> bool:
+    if not value:
+        return False
+    try:
+        network = ipaddress.ip_network(str(value), strict=False)
+    except ValueError:
+        return False
+    return (
+        network.is_private
+        or network.is_loopback
+        or network.is_link_local
+        or network.is_multicast
+        or network.is_reserved
+        or network.is_unspecified
+    )
+
+
 def apply_event_filters(query, filters: dict[str, Any]):
     if filters.get("event_type"):
         event_type = str(filters["event_type"]).strip()
@@ -310,6 +328,10 @@ def apply_event_filters(query, filters: dict[str, Any]):
         query = query.filter(Event.status_code == int(filters["status_code"]))
     if filters.get("path"):
         query = query.filter(Event.path.contains(filters["path"]))
+    if filters.get("hide_local_ips"):
+        ids = [event_id for event_id, ip in query.with_entities(Event.id, Event.ip).all() if not is_local_ip_value(ip)]
+        query = query.filter(Event.id.in_(ids)) if ids else query.filter(False)
+
     if filters.get("q"):
         q_text = str(filters["q"]).strip()
         q_terms = [q_text, *filters.get("q_utc_terms", [])]

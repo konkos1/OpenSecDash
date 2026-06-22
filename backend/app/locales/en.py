@@ -67,6 +67,7 @@ EN = {
     "events.ip_placeholder": "IP",
     "events.country_placeholder": "Country, e.g. NL",
     "events.country_help": "Maximum two characters as country code, e.g. NL. '-' finds events without a country or with '-' as country.",
+    "events.hide_local_ips": "Hide local IPs",
     "events.status_placeholder": "HTTP status",
     "events.switch_to_snapshot": "Switch to snapshot mode",
     "events.switch_to_live": "Switch to live mode",
