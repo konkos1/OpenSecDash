@@ -35,6 +35,7 @@ EN = {
     "error.generic.message": "Something went wrong. Please check your input or try again.",
 
     "dashboard.title": "Dashboard",
+    "dashboard.ui_title": "Dashboard · Today's Events",
     "dashboard.active_bans": "Bans today",
     "dashboard.geoblocks_today": "Geoblocks today",
     "dashboard.torblocks_today": "Torblocks today",

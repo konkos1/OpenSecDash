@@ -35,6 +35,7 @@ DE = {
     "error.generic.message": "Es ist ein Fehler aufgetreten. Bitte prüfe deine Eingaben oder versuche es erneut.",
 
     "dashboard.title": "Dashboard",
+    "dashboard.ui_title": "Dashboard · Heutige Ereignisse",
     "dashboard.active_bans": "Bans heute",
     "dashboard.geoblocks_today": "Geoblocks heute",
     "dashboard.torblocks_today": "Torblocks heute",
