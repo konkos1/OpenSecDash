@@ -287,11 +287,32 @@ def events_page(
 
 
 @router.get("/access")
-def access_page(request: Request, q: str | None = None, db: Session = Depends(get_db)):
+def access_page(
+    request: Request,
+    q: str | None = None,
+    hide_local_ips: str | None = None,
+    db: Session = Depends(get_db),
+):
     require_plugin_enabled(db, "traefik_log")
-    filters = {"event_type": "access.*", "q": q}
+    q_value = clean_filter_value(q)
+    timezone_name = get_setting_value(db, "timezone", "auto")
+    filters = {
+        "event_type": "access.*",
+        "q": q_value,
+        "q_utc_terms": utc_search_terms_for_ui_time(q_value, timezone_name),
+        "plugins": ["traefik_log"],
+        "hide_local_ips": hide_local_ips == "true",
+    }
     events = apply_event_filters(db.query(Event), filters).order_by(Event.event_time.desc()).limit(200).all()
-    return render(request, db, "access.html", events=events, q=q)
+    return render(
+        request,
+        db,
+        "access.html",
+        events=events,
+        q=q or "",
+        hide_local_ips=hide_local_ips == "true",
+        live_default=get_setting_value(db, "live_default", "true"),
+    )
 
 
 @router.get("/crowdsec")

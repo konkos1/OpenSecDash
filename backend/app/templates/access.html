@@ -6,10 +6,33 @@
 
 {% block content %}
 
-    <h2 class="text-2xl font-semibold mb-5">{{ t("access.title") }}</h2>
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5" x-data="openSecDashLiveMode({{ 'true' if live_default == 'true' else 'false' }})" x-init="init()">
+        <h2 class="text-2xl font-semibold">{{ t("access.title") }}</h2>
+        <div class="flex flex-col sm:flex-row sm:items-center gap-2">
+            <button
+                type="button"
+                class="badge cursor-pointer"
+                :class="live ? 'badge-live' : 'badge-snapshot'"
+                @click="toggle()"
+                :title="live ? '{{ t('events.switch_to_snapshot') }}' : '{{ t('events.switch_to_live') }}'"
+            >
+                <span x-text="live ? '{{ t('events.live') }}' : '{{ t('events.snapshot') }}'"></span>
+            </button>
+            <template x-if="!live">
+                <div class="flex flex-col sm:flex-row sm:items-center gap-2 text-sm">
+                    <span class="muted">{{ t("events.snapshot_at") }}: <span x-text="snapshotAt"></span></span>
+                    <button type="button" class="btn-small" @click="refreshSnapshot()">{{ t("events.refresh_snapshot") }}</button>
+                </div>
+            </template>
+        </div>
+    </div>
 
-    <form class="card flex gap-3 mb-5" method="get">
-        <input class="input flex-1" name="q" value="{{ q or '' }}" placeholder="{{ t('access.search_placeholder') }}">
+    <form class="card grid grid-cols-1 md:grid-cols-3 gap-3 mb-5" method="get">
+        <input class="input" name="q" value="{{ q or '' }}" placeholder="{{ t('access.search_placeholder') }}">
+        <label class="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="hide_local_ips" value="true" {% if hide_local_ips %}checked{% endif %}>
+            <span>{{ t("events.hide_local_ips") }}</span>
+        </label>
         <button class="btn">{{ t("common.search") }}</button>
     </form>
     <div class="card overflow-x-auto">
@@ -20,7 +43,7 @@
                     <th>{{ t("common.ip") }}</th>
                     <th>{{ t("access.host") }}</th>
                     <th>{{ t("access.method") }}</th>
-                    <th>{{ t("common.status") }}</th>
+                    <th>{{ t("events.status") }}</th>
                     <th>{{ t("common.path") }}</th>
                 </tr>
             </thead>
