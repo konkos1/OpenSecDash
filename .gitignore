@@ -222,3 +222,6 @@ docs/internal/
 
 # Mac
 .DS_Store
+
+# local Database
+backend/opensecdash.db
