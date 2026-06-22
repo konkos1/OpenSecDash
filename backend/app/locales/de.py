@@ -175,6 +175,7 @@ DE = {
     "diagnostics.status.healthy": "fehlerfrei",
     "diagnostics.status.error": "Fehler",
     "diagnostics.status.warning": "Warnung",
+    "diagnostics.status.running": "läuft",
     "diagnostics.datasources": "Datenquellen",
     "diagnostics.datasources_help": "Laufstatus der Datenquellen-Plugins, z.B. Logdatei-Watcher für CrowdSec, GeoBlock oder Traefik. Hier erscheinen erst Datasource-Plugins; Export-Plugins wie MQTT sind keine Datenquellen.",
     "diagnostics.events": "Events",

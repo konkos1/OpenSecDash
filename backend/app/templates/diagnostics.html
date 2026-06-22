@@ -50,7 +50,7 @@
                     <br>
                     <small class="muted">{{ source.source_type }} · {{ source.events_processed }} {{ t("diagnostics.events") }}</small>
                 </span>
-                <b>{{ source.status }}</b>
+                <b>{{ t("diagnostics.status." ~ source.status) if t("diagnostics.status." ~ source.status) != "diagnostics.status." ~ source.status else source.status }}</b>
             </div>
         {% else %}
             <p class="muted">{{ t("diagnostics.no_datasources") }}</p>

@@ -174,6 +174,7 @@ EN = {
     "diagnostics.status.healthy": "healthy",
     "diagnostics.status.error": "error",
     "diagnostics.status.warning": "warning",
+    "diagnostics.status.running": "running",
     "diagnostics.datasources": "Datasources",
     "diagnostics.datasources_help": "Runtime status of datasource plugins, for example log-file watchers for CrowdSec, GeoBlock or Traefik. Export plugins such as MQTT are not datasources.",
     "diagnostics.events": "events",
