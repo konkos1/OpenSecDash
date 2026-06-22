@@ -174,7 +174,7 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
     ]
 
     event_count = db.query(Event).filter(Event.event_time >= since, Event.plugin.in_(country_data_plugins)).count() if country_data_plugins else 0
-    active_bans = db.query(Event).filter(Event.event_type == "security.ban", Event.event_time >= since, Event.plugin == "crowdsec").count() if enabled_plugins["crowdsec"] else 0
+    active_bans = db.query(Event).filter(Event.event_type.startswith("security.ban"), Event.event_time >= since, Event.plugin == "crowdsec").count() if enabled_plugins["crowdsec"] else 0
     geoblocks = db.query(Event).filter(Event.event_type == "security.geoblock", Event.event_time >= since, Event.plugin == "geoblock_log").count() if enabled_plugins["geoblock_log"] else 0
     access_events = db.query(Event).filter(Event.event_type.startswith("access."), Event.event_time >= since, Event.plugin == "traefik_log").count() if enabled_plugins["traefik_log"] else 0
     top_countries = []
@@ -374,9 +374,9 @@ def access_page(
 @router.get("/crowdsec")
 def crowdsec_page(request: Request, db: Session = Depends(get_db)):
     require_plugin_enabled(db, "crowdsec")
-    bans = db.query(Event).filter(Event.event_type == "security.ban").order_by(Event.event_time.desc()).limit(100).all()
+    bans = db.query(Event).filter(Event.event_type.startswith("security.ban")).order_by(Event.event_time.desc()).limit(100).all()
     scenario_counts: Counter[str] = Counter()
-    scenario_rows = db.query(Event.data_json).filter(Event.event_type == "security.ban").all()
+    scenario_rows = db.query(Event.data_json).filter(Event.event_type.startswith("security.ban")).all()
     for (data_json,) in scenario_rows:
         scenario = (data_json or {}).get("scenario") or ""
         scenario_counts[str(scenario or "")] += 1
@@ -386,7 +386,7 @@ def crowdsec_page(request: Request, db: Session = Depends(get_db)):
     ]
     countries = (
         db.query(Event.country, func.count(Event.id))
-        .filter(Event.event_type == "security.ban", Event.country.isnot(None))
+        .filter(Event.event_type.startswith("security.ban"), Event.country.isnot(None))
         .group_by(Event.country)
         .order_by(func.count(Event.id).desc())
         .limit(10)
@@ -434,7 +434,7 @@ def ip_explorer_page(ip: str, request: Request, db: Session = Depends(get_db)):
         count_widgets.append(
             {
                 "key": "bans",
-                "value": db.query(Event).filter(Event.ip == ip, Event.event_type == "security.ban").count(),
+                "value": db.query(Event).filter(Event.ip == ip, Event.event_type.startswith("security.ban")).count(),
                 "href": f"/events?ip={ip}&event_type=security.ban",
             }
         )

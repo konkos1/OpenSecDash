@@ -198,7 +198,7 @@ def create_rule_based_insights(db: Session, event: Event) -> None:
             Insight(
                 type="geoblock_denied_request",
                 confidence=0.85,
-                level="medium",
+                level="high",
                 title="Request denied by GeoBlock",
                 description=f"GeoBlock denied a request from {event.ip}{country_text}.",
                 related_event_ids=ids,
@@ -207,26 +207,32 @@ def create_rule_based_insights(db: Session, event: Event) -> None:
             )
         )
 
-    if event.event_type == "security.ban" and not _insight_exists(db, "security_ban_observed", ids):
-        scenario = (event.data_json or {}).get("scenario") or "unknown scenario"
-        duration = (event.data_json or {}).get("duration") or "unknown duration"
-        db.add(
-            Insight(
-                type="security_ban_observed",
-                confidence=0.85,
-                level="high",
-                title="Security ban observed",
-                description=f"{event.ip} was banned for {duration} due to {scenario}.",
-                related_event_ids=ids,
-                ip=event.ip,
-                asset_id=event.asset_id,
+    if event.event_type in {"security.ban", "security.ban.manual"}:
+        insight_type = "manual_security_ban" if event.event_type == "security.ban.manual" else "security_ban_observed"
+        if not _insight_exists(db, insight_type, ids):
+            scenario = (event.data_json or {}).get("scenario") or "unknown scenario"
+            duration = (event.data_json or {}).get("duration") or "unknown duration"
+            db.add(
+                Insight(
+                    type=insight_type,
+                    confidence=0.9 if event.event_type == "security.ban.manual" else 0.85,
+                    level="high",
+                    title="Manual security ban" if event.event_type == "security.ban.manual" else "Security ban observed",
+                    description=(
+                        f"{event.ip} was manually banned via OpenSecDash."
+                        if event.event_type == "security.ban.manual"
+                        else f"{event.ip} was banned for {duration} due to {scenario}."
+                    ),
+                    related_event_ids=ids,
+                    ip=event.ip,
+                    asset_id=event.asset_id,
+                )
             )
-        )
 
     window_start = event.event_time - timedelta(seconds=60)
     window_end = event.event_time + timedelta(seconds=60)
 
-    if event.event_type in {"security.geoblock", "security.ban"}:
+    if event.event_type in {"security.geoblock", "security.ban", "security.ban.manual"}:
         access = (
             db.query(Event)
             .filter(

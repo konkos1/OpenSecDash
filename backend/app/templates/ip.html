@@ -37,14 +37,15 @@
     {% endif %}
     
     <div class="card mb-5">
-        <h3 class="font-semibold mb-3">{{ t("ip.insights") }}</h3>
+        <h3 class="font-semibold mb-1">{{ t("ip.insights") }}</h3>
+        <p class="muted text-sm mb-3">{{ t("ip.insights_help") }}</p>
         {% for insight in insights %}
             <div class="row">
                 <span>{{ t("insight.title." ~ insight.type) if t("insight.title." ~ insight.type) != "insight.title." ~ insight.type else insight.title }}
                     <br>
                     <small class="muted">{{ t("insight.description." ~ insight.type) if t("insight.description." ~ insight.type) != "insight.description." ~ insight.type else insight.description }}</small>
                 </span>
-                <b>{{ insight.level }}</b>
+                <b>{{ t("insight.level." ~ insight.level) if t("insight.level." ~ insight.level) != "insight.level." ~ insight.level else insight.level }}</b>
             </div>
         {% else %}
             <p class="muted">{{ t("ip.no_insights") }}</p>

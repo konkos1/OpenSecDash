@@ -74,13 +74,18 @@ def execute_action(db: Session, action: Action) -> None:
             action.status = "failed"
             action.result = str(exc)
 
-    event_type = "action.executed" if action.status == "completed" else "action.failed"
+    if action.action_type in {"security.ban", "crowdsec_ban"}:
+        event_type = "security.ban.manual" if action.status == "completed" else "action.failed"
+    elif action.action_type in {"security.unban", "crowdsec_unban"}:
+        event_type = "security.unban.manual" if action.status == "completed" else "action.failed"
+    else:
+        event_type = "action.executed" if action.status == "completed" else "action.failed"
     store_event(
         db,
         source="Action Framework",
         source_id="actions",
-        plugin="core",
-        plugin_id="core",
+        plugin="crowdsec" if action.action_type.startswith("security.") or action.action_type.startswith("crowdsec_") else "core",
+        plugin_id="crowdsec" if action.action_type.startswith("security.") or action.action_type.startswith("crowdsec_") else "core",
         event_type=event_type,
         severity="info" if action.status == "completed" else "error",
         ip=action.target if action.target_type == "ip" else None,
@@ -91,5 +96,7 @@ def execute_action(db: Session, action: Action) -> None:
             "target": action.target,
             "status": action.status,
             "result": action.result,
+            "manual": True,
+            "trigger": "manual",
         },
     )
