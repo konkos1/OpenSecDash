@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 import json
 import re
+import socket
 from typing import Any, Protocol, cast
 
 from app.plugins.base import ExportPlugin, PluginMetadata, PluginSetting
@@ -66,6 +67,17 @@ class Plugin(ExportPlugin):
             "common.yes": "Ja", "common.no": "Nein",
         },
     }
+
+    async def health(self, context) -> dict[str, str]:
+        host = context.get("host")
+        if not host:
+            return {"status": "error", "message": "MQTT host is not configured"}
+        try:
+            port = int(context.get("port", "1883"))
+            with socket.create_connection((host, port), timeout=5):
+                return {"status": "healthy", "message": f"MQTT broker reachable: {host}:{port}"}
+        except Exception as exc:
+            return {"status": "error", "message": f"MQTT broker not reachable: {exc}"}
 
     async def export_asset(self, context, asset: Any) -> None:
         if not getattr(asset, "mqtt_publish_enabled", False):

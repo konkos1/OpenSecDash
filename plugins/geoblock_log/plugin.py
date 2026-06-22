@@ -46,6 +46,12 @@ class Plugin(DatasourcePlugin):
         self._seen_raw: set[str] = set()
         self._seen_loaded = False
 
+    async def health(self, context) -> dict[str, str]:
+        path = Path(context.get("log_path"))
+        if not path.exists():
+            return {"status": "error", "message": f"GeoBlock log not found: {path}"}
+        return {"status": "healthy", "message": f"GeoBlock log readable: {path}"}
+
     async def collect(self, context):
         path = Path(context.get("log_path"))
         if not path.exists():

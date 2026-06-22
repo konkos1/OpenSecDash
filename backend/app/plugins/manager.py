@@ -157,6 +157,7 @@ class PluginManager:
 
     async def startup(self) -> None:
         for plugin in self.plugins.values():
+            self.tasks.append(asyncio.create_task(self._health_loop(plugin), name=f"plugin-health-{plugin.metadata.id}"))
             if isinstance(plugin, DatasourcePlugin):
                 self.tasks.append(asyncio.create_task(self._datasource_loop(plugin), name=f"plugin-datasource-{plugin.metadata.id}"))
             if isinstance(plugin, PeriodicPlugin):
@@ -179,6 +180,34 @@ class PluginManager:
             task.cancel()
         self.tasks.clear()
 
+    async def _health_loop(self, plugin: Plugin) -> None:
+        while True:
+            db = SessionLocal()
+            try:
+                ctx = self.context(db, plugin)
+                enabled = ctx.get("enabled", "false").lower() == "true"
+                if not enabled:
+                    self._update_diagnostic(db, plugin.metadata.id, "disabled", "Plugin is disabled and not running.")
+                else:
+                    result = await plugin.health(ctx)
+                    self._update_diagnostic(
+                        db,
+                        plugin.metadata.id,
+                        result.get("status", "healthy"),
+                        result.get("message") or result.get("error"),
+                    )
+                db.commit()
+                await asyncio.sleep(60)
+            except asyncio.CancelledError:
+                db.close()
+                raise
+            except Exception as exc:
+                self._update_diagnostic(db, plugin.metadata.id, "error", str(exc))
+                db.commit()
+                await asyncio.sleep(60)
+            finally:
+                db.close()
+
     async def _datasource_loop(self, plugin: DatasourcePlugin) -> None:
         while True:
             db = SessionLocal()
@@ -196,7 +225,6 @@ class PluginManager:
                         processed += 1
                         last_event_at = stored.event_time
                     db.commit()
-                    self._update_diagnostic(db, plugin.metadata.id, "healthy", None)
                     self._update_datasource(db, plugin.metadata.id, True, "healthy", None, processed, last_event_at)
                     db.commit()
                 await asyncio.sleep(max(interval, 1))
@@ -219,8 +247,6 @@ class PluginManager:
                 enabled = ctx.get("enabled", "false").lower() == "true"
                 if enabled:
                     await plugin.tick(ctx)
-                    db.commit()
-                    self._update_diagnostic(db, plugin.metadata.id, "healthy", None)
                     db.commit()
                 await asyncio.sleep(60)
             except asyncio.CancelledError:

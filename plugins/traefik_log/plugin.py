@@ -49,6 +49,12 @@ class Plugin(DatasourcePlugin):
         self._offsets: dict[str, int] = {}
         self._inodes: dict[str, int] = {}
 
+    async def health(self, context) -> dict[str, str]:
+        path = Path(context.get("log_path"))
+        if not path.exists():
+            return {"status": "error", "message": f"Traefik access log not found: {path}"}
+        return {"status": "healthy", "message": f"Traefik access log readable: {path}"}
+
     async def collect(self, context):
         path = Path(context.get("log_path"))
         if not path.exists():

@@ -193,7 +193,11 @@ DE = {
     "diagnostics.events": "Events",
     "diagnostics.no_datasources": "Keine Datenquellen-Plugins registriert",
     "diagnostics.recent_actions": "Letzte Aktionen",
-    "diagnostics.recent_actions_help": "Hier erscheinen ausgelöste Aktionen wie CrowdSec Ban/Unban aus dem IP Explorer. Reines Log-Parsen erzeugt keine Aktionen.",
+    "diagnostics.recent_actions_help": "Hier erscheinen manuell ausgelöste Aktionen wie CrowdSec Ban/Unban aus dem IP Explorer. Reines Log-Parsen erzeugt hier keine Aktionen.",
+    "action.type.security.ban": "Manueller CrowdSec-Ban",
+    "action.type.security.unban": "Manueller CrowdSec-Unban",
+    "action.type.crowdsec_ban": "Manueller CrowdSec-Ban",
+    "action.type.crowdsec_unban": "Manueller CrowdSec-Unban",
     "diagnostics.no_actions": "Keine Aktionen ausgelöst",
 
     "settings.title": "Einstellungen",

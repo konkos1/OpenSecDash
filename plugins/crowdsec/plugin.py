@@ -52,6 +52,22 @@ class Plugin(DatasourcePlugin, ActionPlugin):
     def __init__(self) -> None:
         self._offsets = {}; self._inodes = {}
 
+    async def health(self, context) -> dict[str, str]:
+        log_path = Path(context.get("log_path"))
+        if not log_path.exists():
+            return {"status": "error", "message": f"CrowdSec log not found: {log_path}"}
+        cscli = context.get("cscli_path", "cscli")
+        try:
+            completed = subprocess.run([cscli, "version"], capture_output=True, text=True, timeout=10)
+        except FileNotFoundError:
+            return {"status": "error", "message": f"cscli not found: {cscli}"}
+        except Exception as exc:
+            return {"status": "error", "message": f"cscli check failed: {exc}"}
+        if completed.returncode != 0:
+            return {"status": "error", "message": (completed.stderr or completed.stdout or "cscli version failed").strip()}
+        version = (completed.stdout or completed.stderr or "cscli reachable").strip().splitlines()[0]
+        return {"status": "healthy", "message": f"cscli reachable: {version}"}
+
     async def collect(self, context) -> list[dict[str, Any]]:
         events = []
         path = Path(context.get("log_path"))

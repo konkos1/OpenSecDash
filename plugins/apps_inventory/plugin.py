@@ -112,6 +112,17 @@ class Plugin(PeriodicPlugin):
         self._last_inventory_import = 0.0
         self._last_github_check = 0.0
 
+    async def health(self, context: PluginContext) -> dict[str, str]:
+        source = context.get("source", "dev-data/apps-installed.json")
+        source_type = context.get("source_type", "file")
+        if not source:
+            return {"status": "error", "message": "apps-installed.json source is not configured"}
+        try:
+            load_asset_source(source_type=source_type, source=source)
+        except Exception as exc:
+            return {"status": "error", "message": f"apps-installed.json source not reachable: {exc}"}
+        return {"status": "healthy", "message": "apps-installed.json source reachable"}
+
     async def tick(self, context: PluginContext) -> None:
         now = time.monotonic()
         inventory_interval = self._interval(context.get("inventory_interval", "3600"))
