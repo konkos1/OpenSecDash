@@ -103,7 +103,7 @@ DE = {
 
     "assets.title": "Assets",
     "assets.explorer_title": "Asset Explorer",
-    "assets.explorer_description": "Systeme mit ihren installierten Apps. Klicke eine Systemzeile, um die App-Liste zu öffnen.",
+    "assets.explorer_description": "Systeme mit ihren installierten Apps. Klicke eine Systemzeile an, um die App-Liste zu öffnen.",
     "assets.import": "Importieren",
     "assets.check_updates": "Updates prüfen",
     "assets.show_inactive": "Inaktive anzeigen",
