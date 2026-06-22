@@ -88,7 +88,7 @@ DE = {
     "access.no_events": "Keine Access-Events",
 
     "crowdsec.title": "CrowdSec",
-    "crowdsec.active_bans": "Aktive/bekannte Bans",
+    "crowdsec.active_bans": "Aktive + bekannte Bans",
     "crowdsec.top_scenarios": "Top-Szenarien",
     "crowdsec.no_scenarios": "Keine Szenarien",
     "crowdsec.unknown": "unbekannt",
