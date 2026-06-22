@@ -22,16 +22,16 @@
     {% if crowdsec_enabled %}
         <div class="card mb-5">
             <h3 class="font-semibold mb-3">{{ t("ip.actions") }}</h3>
-            <form class="flex flex-wrap gap-2" method="post" action="/actions/ip" data-confirm="{{ t('ip.ban_confirm') }} {{ ip }}?">
+            <form class="flex flex-col sm:flex-row sm:items-end gap-2" method="post" action="/actions/ip" data-confirm="{{ t('ip.ban_confirm') }} {{ ip }}?">
                 <input type="hidden" name="action_type" value="security.ban">
                 <input type="hidden" name="ip" value="{{ ip }}">
                 <input type="hidden" name="confirmed" value="true">
-                <select class="input" name="duration">
+                <select class="input sm:w-48" name="duration">
                     <option>4h</option>
                     <option>24h</option>
                     <option>7d</option>
                 </select>
-                <button class="btn">{{ t("ip.crowdsec_ban") }}</button>
+                <button class="btn sm:w-auto sm:self-end">{{ t("ip.crowdsec_ban") }}</button>
             </form>
         </div>
     {% endif %}
