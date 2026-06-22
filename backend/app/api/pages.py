@@ -24,7 +24,7 @@ from app.services.apps_inventory_source import load_asset_source
 from app.services.apps_inventory_updates import refresh_asset_updates
 from app.plugins.manager import get_plugin_manager
 from app.services.actions import create_action
-from app.services.events import apply_event_filters, tokenize_search_expression
+from app.services.events import apply_event_filters, is_local_ip_value, tokenize_search_expression
 
 router = APIRouter(tags=["pages"])
 templates = Jinja2Templates(directory="app/templates")
@@ -57,6 +57,14 @@ def format_country_name(context, value: str | None) -> Markup | str:
 
 
 @pass_context
+def format_country_or_local(context, value: str | None, ip: str | None = None) -> Markup | str:
+    if is_local_ip_value(ip):
+        translator = context.get("t")
+        return translator("common.local") if callable(translator) else "local"
+    return format_country_name(context, value)
+
+
+@pass_context
 def format_datetime(context, value: datetime | None) -> Markup | str:
     if value is None:
         return "-"
@@ -79,6 +87,7 @@ def url_path_quote(value: str | None) -> str:
 templates.env.filters["datetime"] = format_datetime
 templates.env.filters["duration"] = format_duration
 templates.env.filters["country_name"] = format_country_name
+templates.env.filters["country_or_local"] = format_country_or_local
 templates.env.filters["url_path_quote"] = url_path_quote
 
 

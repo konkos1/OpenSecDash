@@ -18,6 +18,7 @@ DE = {
     "common.filter": "Filtern",
     "common.back": "Zurück",
     "common.local_instance": "lokale Instanz",
+    "common.local": "Lokal",
     "common.refresh": "Aktualisieren",
     "common.status": "Status",
     "common.time": "Zeit",

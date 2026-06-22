@@ -18,6 +18,7 @@ EN = {
     "common.filter": "Filter",
     "common.back": "Back",
     "common.local_instance": "local instance",
+    "common.local": "Local",
     "common.refresh": "Refresh",
     "common.status": "Status",
     "common.time": "Time",

@@ -44,7 +44,7 @@
         {% for event in latest_security_events %}
           <a class="row" href="/events?ip={{ event.ip or '' }}&event_type={{ event.event_type }}">
             <span>{{ event.event_time|datetime }} · {{ event.event_type }} · {{ event.ip or '-' }}</span>
-            <b>{{ event.country|country_name if event.country else '' }}</b>
+            <b>{{ event.country|country_or_local(event.ip) if event.country or event.ip else '' }}</b>
           </a>
         {% else %}
           <p class="muted">{{ t("dashboard.no_security_events") }}</p>

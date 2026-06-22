@@ -69,7 +69,7 @@
             <td>{{ event.event_type }}</td>
             <td>{{ event.severity }}</td>
             <td>{% if event.ip %}<a href="/ip/{{ event.ip|url_path_quote }}">{{ event.ip }}</a>{% else %}-{% endif %}</td>
-            <td>{{ event.country|country_name if event.country else '-' }}</td>
+            <td>{{ event.country|country_or_local(event.ip) }}</td>
             <td>{{ event.status_code or '-' }}</td>
             <td>{{ event.path or '-' }}</td>
           </tr>
@@ -88,7 +88,7 @@
         <div class="font-semibold">{{ event.event_type }}</div>
         <div class="muted">{{ event.event_time|datetime }}</div>
         <div>{{ t("events.ip") }}: {% if event.ip %}<a href="/ip/{{ event.ip|url_path_quote }}">{{ event.ip }}</a>{% else %}-{% endif %}</div>
-        <div>{{ t("events.country") }}: {{ event.country|country_name if event.country else '-' }}</div>
+        <div>{{ t("events.country") }}: {{ event.country|country_or_local(event.ip) }}</div>
         <div>{{ t("events.status") }}: {{ event.status_code or '-' }}</div>
         <div class="break-all">{{ event.path or '' }}</div>
       </article>
