@@ -62,6 +62,7 @@ DE = {
     "events.status": "HTTP-Status",
     "events.path": "Pfad",
     "events.search_placeholder": "Allgemeine Suche",
+    "events.search_help": "Durchsucht alle Event-Felder, auch JSON/Raw-Daten. Unterstützt &&, || und Klammern, z.B. 2026-06-20 && /.env oder (api && 404) || geoblock.",
     "events.event_type_placeholder": "Typ, z.B. geoblock",
     "events.event_type_help": "Du kannst den vollständigen Typ eingeben (security.geoblock), Wildcards nutzen (security.*) oder nur einen Teil wie geoblock.",
     "events.ip_placeholder": "IP",
@@ -77,7 +78,8 @@ DE = {
     "events.refresh_snapshot": "↻ Aktualisieren",
 
     "access.title": "Access",
-    "access.search_placeholder": "Pfad, IP, Host suchen",
+    "access.search_placeholder": "In Access suchen",
+    "access.search_help": "Durchsucht Access-Felder wie Zeit, IP, Host, Methode, HTTP-Status, Pfad sowie JSON/Raw-Daten. Unterstützt &&, || und Klammern, z.B. 2026-06-20 && /.env oder (api && 404).",
     "access.host": "Host",
     "access.method": "Methode",
     "access.no_events": "Keine Access-Events",

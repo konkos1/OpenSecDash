@@ -62,6 +62,7 @@ EN = {
     "events.status": "HTTP status",
     "events.path": "Path",
     "events.search_placeholder": "General search",
+    "events.search_help": "Searches all event fields, including JSON/raw data. Supports &&, || and parentheses, e.g. 2026-06-20 && /.env or (api && 404) || geoblock.",
     "events.event_type_placeholder": "Type, e.g. geoblock",
     "events.event_type_help": "Enter the full type (security.geoblock), use wildcards (security.*), or only a part such as geoblock.",
     "events.ip_placeholder": "IP",
@@ -77,7 +78,8 @@ EN = {
     "events.refresh_snapshot": "↻ Refresh",
 
     "access.title": "Access",
-    "access.search_placeholder": "Search path, IP, host",
+    "access.search_placeholder": "Search access",
+    "access.search_help": "Searches access fields such as time, IP, host, method, HTTP status, path, and JSON/raw data. Supports &&, || and parentheses, e.g. 2026-06-20 && /.env or (api && 404).",
     "access.host": "Host",
     "access.method": "Method",
     "access.no_events": "No access events",

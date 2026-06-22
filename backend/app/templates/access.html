@@ -27,13 +27,16 @@
         </div>
     </div>
 
-    <form class="card grid grid-cols-1 md:grid-cols-3 gap-3 mb-5" method="get">
-        <input class="input" name="q" value="{{ q or '' }}" placeholder="{{ t('access.search_placeholder') }}">
-        <label class="flex items-center gap-2 text-sm">
+    <form class="card grid grid-cols-1 md:grid-cols-6 gap-3 mb-5" method="get">
+        <div class="field-help md:col-span-4" style="position:relative">
+            <input class="input" name="q" value="{{ q or '' }}" placeholder="{{ t('access.search_placeholder') }}">
+            <button type="button" class="help" style="position:absolute;right:.45rem;top:.95rem;margin-left:0;z-index:5" data-tooltip="{{ t('access.search_help') }}">?</button>
+        </div>
+        <label class="flex items-center gap-2 text-sm md:col-span-1">
             <input type="checkbox" name="hide_local_ips" value="true" {% if hide_local_ips %}checked{% endif %}>
             <span>{{ t("events.hide_local_ips") }}</span>
         </label>
-        <button class="btn">{{ t("common.search") }}</button>
+        <button class="btn md:col-span-1">{{ t("common.search") }}</button>
     </form>
     <div class="card overflow-x-auto">
         <table class="w-full text-sm">

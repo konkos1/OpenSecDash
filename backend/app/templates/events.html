@@ -27,17 +27,26 @@
     </div>
   </div>
 
-  <form class="card grid grid-cols-1 md:grid-cols-7 gap-3 mb-5" method="get">
-    <input class="input" name="q" value="{{ filters.q or '' }}" placeholder="{{ t('events.search_placeholder') }}">
-    <input class="input" name="event_type" value="{{ filters.event_type or '' }}" placeholder="{{ t('events.event_type_placeholder') }}" title="{{ t('events.event_type_help') }}">
+  <form class="card grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 mb-5" method="get">
+    <div class="field-help sm:col-span-2 lg:col-span-2" style="position:relative">
+      <input class="input" name="q" value="{{ filters.q or '' }}" placeholder="{{ t('events.search_placeholder') }}">
+      <button type="button" class="help" style="position:absolute;right:.45rem;top:.95rem;margin-left:0;z-index:5" data-tooltip="{{ t('events.search_help') }}">?</button>
+    </div>
+    <div class="field-help" style="position:relative">
+      <input class="input" name="event_type" value="{{ filters.event_type or '' }}" placeholder="{{ t('events.event_type_placeholder') }}">
+      <button type="button" class="help" style="position:absolute;right:.45rem;top:.95rem;margin-left:0;z-index:5" data-tooltip="{{ t('events.event_type_help') }}">?</button>
+    </div>
     <input class="input" name="ip" value="{{ filters.ip or '' }}" placeholder="{{ t('events.ip_placeholder') }}">
-    <input class="input" name="country" value="{{ filters.country or '' }}" placeholder="{{ t('events.country_placeholder') }}" maxlength="2" autocapitalize="characters" title="{{ t('events.country_help') }}" data-uppercase-value>
+    <div class="field-help" style="position:relative">
+      <input class="input" name="country" value="{{ filters.country or '' }}" placeholder="{{ t('events.country_placeholder') }}" maxlength="2" autocapitalize="characters" data-uppercase-value>
+      <button type="button" class="help" style="position:absolute;right:.45rem;top:.95rem;margin-left:0;z-index:5" data-tooltip="{{ t('events.country_help') }}">?</button>
+    </div>
     <input class="input" name="status_code" value="{{ filters.status_code or '' }}" placeholder="{{ t('events.status_placeholder') }}">
-    <label class="flex items-center gap-2 text-sm">
+    <label class="flex items-center gap-2 text-sm lg:col-span-2">
       <input type="checkbox" name="hide_local_ips" value="true" {% if filters.hide_local_ips %}checked{% endif %}>
       <span>{{ t("events.hide_local_ips") }}</span>
     </label>
-    <button class="btn" type="submit">{{ t("common.filter") }}</button>
+    <button class="btn sm:col-span-1 lg:col-start-6" type="submit">{{ t("common.filter") }}</button>
   </form>
 
   <div class="hidden md:block card overflow-x-auto">

@@ -4,7 +4,7 @@ import ipaddress
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import String, cast, or_
+from sqlalchemy import String, and_, cast, or_
 from sqlalchemy.orm import Session
 
 from app.core.time import utc_now
@@ -300,6 +300,120 @@ def is_local_ip_value(value: str | None) -> bool:
     )
 
 
+def searchable_event_fields():
+    return [
+        Event.id,
+        Event.source,
+        Event.source_id,
+        Event.plugin,
+        Event.plugin_id,
+        Event.event_type,
+        Event.severity,
+        Event.ip,
+        Event.country,
+        Event.asn,
+        Event.hostname,
+        Event.asset_id,
+        Event.method,
+        Event.status_code,
+        Event.path,
+        Event.data_json,
+        Event.raw_data,
+        Event.retention_class,
+    ]
+
+
+def tokenize_search_expression(text: str) -> list[str]:
+    tokens: list[str] = []
+    i = 0
+    while i < len(text):
+        char = text[i]
+        if char.isspace():
+            i += 1
+            continue
+        if text.startswith("&&", i) or text.startswith("||", i):
+            tokens.append(text[i : i + 2])
+            i += 2
+            continue
+        if char in "()":
+            tokens.append(char)
+            i += 1
+            continue
+        if char in {'\"', "'"}:
+            quote = char
+            i += 1
+            start = i
+            while i < len(text) and text[i] != quote:
+                i += 1
+            tokens.append(text[start:i])
+            i += 1 if i < len(text) else 0
+            continue
+        start = i
+        while i < len(text) and not text[i].isspace() and text[i] not in "()":
+            if text.startswith("&&", i) or text.startswith("||", i):
+                break
+            i += 1
+        tokens.append(text[start:i])
+    return [token for token in tokens if token]
+
+
+def search_term_condition(term: str, extra_terms: list[str] | None = None):
+    conditions = []
+    original_pattern = f"%{term}%"
+    conditions.extend(cast(field, String).like(original_pattern) for field in searchable_event_fields())
+
+    # event_time is the user-visible time column. If a token looks like a date/time
+    # and the UI timezone produced UTC equivalents, match event_time only against
+    # those UTC equivalents. This avoids matching both the displayed local time and
+    # the raw UTC database time for a query such as "03:13 && api".
+    event_time_terms = extra_terms or [term]
+    conditions.extend(cast(Event.event_time, String).like(f"%{current}%") for current in event_time_terms)
+
+    if term == "-":
+        conditions.extend([Event.country.is_(None), Event.country == "", Event.country == "-"])
+    return or_(*conditions)
+
+
+def build_search_expression(tokens: list[str], extra_terms_by_term: dict[str, list[str]] | None = None):
+    position = 0
+    extra_terms_by_term = extra_terms_by_term or {}
+
+    def parse_or():
+        nonlocal position
+        expression = parse_and()
+        while position < len(tokens) and tokens[position] == "||":
+            position += 1
+            expression = or_(expression, parse_and())
+        return expression
+
+    def parse_and():
+        nonlocal position
+        expression = parse_factor()
+        while position < len(tokens) and tokens[position] == "&&":
+            position += 1
+            expression = and_(expression, parse_factor())
+        return expression
+
+    def parse_factor():
+        nonlocal position
+        if position >= len(tokens):
+            return search_term_condition("")
+        token = tokens[position]
+        if token == "(":
+            position += 1
+            expression = parse_or()
+            if position < len(tokens) and tokens[position] == ")":
+                position += 1
+            return expression
+        if token == ")":
+            position += 1
+            return search_term_condition("")
+        position += 1
+        return search_term_condition(token, extra_terms_by_term.get(token, []))
+
+    return parse_or()
+
+
 def apply_event_filters(query, filters: dict[str, Any]):
     if filters.get("event_type"):
         event_type = str(filters["event_type"]).strip()
@@ -334,33 +448,9 @@ def apply_event_filters(query, filters: dict[str, Any]):
 
     if filters.get("q"):
         q_text = str(filters["q"]).strip()
-        q_terms = [q_text, *filters.get("q_utc_terms", [])]
-        conditions = []
-        searchable_fields = [
-            Event.id,
-            Event.event_time,
-            Event.source,
-            Event.source_id,
-            Event.plugin,
-            Event.plugin_id,
-            Event.event_type,
-            Event.severity,
-            Event.ip,
-            Event.country,
-            Event.asn,
-            Event.hostname,
-            Event.asset_id,
-            Event.method,
-            Event.status_code,
-            Event.path,
-            Event.data_json,
-            Event.raw_data,
-            Event.retention_class,
-        ]
-        for term in q_terms:
-            q = f"%{term}%"
-            conditions.extend(cast(field, String).like(q) for field in searchable_fields)
-        if q_text == "-":
-            conditions.extend([Event.country.is_(None), Event.country == "", Event.country == "-"])
-        query = query.filter(or_(*conditions))
+        tokens = tokenize_search_expression(q_text)
+        if any(token in {"&&", "||", "(", ")"} for token in tokens):
+            query = query.filter(build_search_expression(tokens, filters.get("q_utc_terms_by_term", {})))
+        else:
+            query = query.filter(search_term_condition(q_text, filters.get("q_utc_terms", [])))
     return query

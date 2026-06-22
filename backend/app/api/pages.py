@@ -24,7 +24,7 @@ from app.services.apps_inventory_source import load_asset_source
 from app.services.apps_inventory_updates import refresh_asset_updates
 from app.plugins.manager import get_plugin_manager
 from app.services.actions import create_action
-from app.services.events import apply_event_filters
+from app.services.events import apply_event_filters, tokenize_search_expression
 
 router = APIRouter(tags=["pages"])
 templates = Jinja2Templates(directory="app/templates")
@@ -262,6 +262,8 @@ def events_page(
         for plugin_id in ["crowdsec", "geoblock_log", "traefik_log"]
         if is_plugin_enabled(db, plugin_id)
     ]
+    q_tokens = [token for token in tokenize_search_expression(q_value or "") if token not in {"&&", "||", "(", ")"}]
+    q_utc_terms_by_term = {token: utc_search_terms_for_ui_time(token, timezone_name) for token in q_tokens}
     filters = {
         "event_type": clean_filter_value(event_type),
         "ip": clean_filter_value(ip),
@@ -270,6 +272,7 @@ def events_page(
         "path": clean_filter_value(path),
         "q": q_value,
         "q_utc_terms": utc_search_terms_for_ui_time(q_value, timezone_name),
+        "q_utc_terms_by_term": q_utc_terms_by_term,
         "plugins": enabled_event_plugins,
         "hide_local_ips": hide_local_ips == "true",
     }
@@ -296,10 +299,13 @@ def access_page(
     require_plugin_enabled(db, "traefik_log")
     q_value = clean_filter_value(q)
     timezone_name = get_setting_value(db, "timezone", "auto")
+    q_tokens = [token for token in tokenize_search_expression(q_value or "") if token not in {"&&", "||", "(", ")"}]
+    q_utc_terms_by_term = {token: utc_search_terms_for_ui_time(token, timezone_name) for token in q_tokens}
     filters = {
         "event_type": "access.*",
         "q": q_value,
         "q_utc_terms": utc_search_terms_for_ui_time(q_value, timezone_name),
+        "q_utc_terms_by_term": q_utc_terms_by_term,
         "plugins": ["traefik_log"],
         "hide_local_ips": hide_local_ips == "true",
     }
