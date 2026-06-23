@@ -61,7 +61,7 @@
                         <td data-label="{{ t('common.ip') }}">{% if event.ip %}<a href="/ip/{{ event.ip|url_path_quote }}">{{ event.ip }}</a>{% else %}-{% endif %}</td>
                         <td data-label="{{ t('access.host') }}">{{ event.hostname or '-' }}</td>
                         <td data-label="{{ t('access.method') }}">{{ event.method or '-' }}</td>
-                        <td data-label="{{ t('events.status') }}">{{ event.status_code or '-' }}</td>
+                        <td data-label="{{ t('events.status') }}">{% if event.status_code %}<button type="button" class="text-action text-overlay-trigger" data-full-text="{{ event.status_code|http_status_label }}" data-overlay-title="{{ t('events.status') }}">{{ event.status_code }}</button>{% else %}-{% endif %}</td>
                         <td class="path-cell cell-stack" data-label="{{ t('common.url') }}">
                             {% if event.path %}
                                 {% set display_url = event|event_url %}

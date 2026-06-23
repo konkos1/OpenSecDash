@@ -1,5 +1,6 @@
 from collections import Counter
 from datetime import datetime, timedelta
+from http import HTTPStatus
 import logging
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from urllib.parse import quote
@@ -87,6 +88,16 @@ def url_path_quote(value: str | None) -> str:
     return quote(str(value or ""), safe="")
 
 
+def http_status_label(value: int | None) -> str:
+    if value is None:
+        return ""
+    try:
+        status = HTTPStatus(int(value))
+        return f"{status.value} {status.phrase}"
+    except ValueError:
+        return str(value)
+
+
 def event_url(event: Event) -> str:
     path = event.path or ""
     if not path:
@@ -127,6 +138,7 @@ templates.env.filters["country_name"] = format_country_name
 templates.env.filters["country_or_local"] = format_country_or_local
 templates.env.filters["url_path_quote"] = url_path_quote
 templates.env.filters["event_url"] = event_url
+templates.env.filters["http_status_label"] = http_status_label
 
 
 def _redacted_setting_value(key: str, value: str | None) -> str:

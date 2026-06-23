@@ -65,6 +65,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     document.addEventListener("click", event => {
         const helpButton = event.target.closest(".help[data-tooltip]");
+        const overlayTrigger = event.target.closest(".text-overlay-trigger[data-full-text]");
         const pathButton = event.target.closest(".path-truncate[data-full-text]");
         const overlayClose = event.target.closest("[data-text-overlay-close]");
         const overlayBackdrop = event.target.classList.contains("text-overlay-backdrop") ? event.target : null;
@@ -79,10 +80,11 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        if (pathButton) {
+        if (overlayTrigger || pathButton) {
+            const trigger = overlayTrigger || pathButton;
             event.preventDefault();
             event.stopPropagation();
-            showTextOverlay(pathButton.dataset.fullText || pathButton.textContent || "", pathButton.dataset.overlayTitle || "");
+            showTextOverlay(trigger.dataset.fullText || trigger.textContent || "", trigger.dataset.overlayTitle || "");
             return;
         }
 
