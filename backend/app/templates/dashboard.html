@@ -40,6 +40,20 @@
       </div>
 
       <div class="card">
+        <h3 class="font-semibold mb-3">{{ t("dashboard.top_attack_hours") }}</h3>
+        {% for item in attack_hours %}
+          <a class="row" href="{{ item.href }}">
+            <span>{{ "%02d:00–%02d:00"|format(item.hour, (item.hour + 1) % 24) }}</span>
+            <b>{{ item.count }}</b>
+          </a>
+        {% else %}
+          <p class="muted">{{ t("dashboard.no_data") }}</p>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="grid grid-cols-1 mt-6">
+      <div class="card">
         <h3 class="font-semibold mb-1">{{ t("dashboard.country_heatmap") }}</h3>
         <p class="muted text-sm mb-3">{{ t("dashboard.country_heatmap_help") }}</p>
         {% if country_heatmap %}

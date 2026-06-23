@@ -28,6 +28,7 @@
   </div>
 
   <form class="card grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 mb-5" method="get">
+    {% if filters.hour %}<input type="hidden" name="hour" value="{{ filters.hour }}">{% endif %}
     <div class="field-help sm:col-span-2 lg:col-span-2" style="position:relative">
       <input class="input" name="q" value="{{ filters.q or '' }}" placeholder="{{ t('events.search_placeholder') }}">
       <button type="button" class="help" style="position:absolute;right:.45rem;top:.95rem;margin-left:0;z-index:5" data-tooltip="{{ t('events.search_help') }}">?</button>
@@ -50,6 +51,9 @@
       <input type="checkbox" name="today" value="true" {% if filters.today %}checked{% endif %}>
       <span>{{ t("events.today_only") }}</span>
     </label>
+    {% if filters.hour %}
+      <div class="muted text-sm lg:col-span-5">{{ t("events.hour_filter") }}: {{ filters.hour }}:00–{{ "%02d"|format((filters.hour|int + 1) % 24) }}:00 · <a href="/events?today=true">{{ t("events.clear_hour_filter") }}</a></div>
+    {% endif %}
     <button class="btn sm:col-span-1 lg:col-start-6" type="submit">{{ t("common.filter") }}</button>
   </form>
 

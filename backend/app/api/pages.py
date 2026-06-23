@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.core.logging import configure_logging_from_db
 from app.core.template_context import build_template_context, get_setting_value
-from app.core.time import datetime_iso_utc, format_datetime_for_timezone, local_day_start_as_utc, utc_now
+from app.core.time import datetime_iso_utc, format_datetime_for_timezone, local_day_start_as_utc, resolve_timezone, utc_now
 from app.database.dependencies import get_db
 from app.models.assets import Asset
 from app.models.core import Action, Datasource, Diagnostic, Insight, PluginRecord
@@ -170,6 +170,17 @@ def today_start(db: Session) -> datetime:
     return local_day_start_as_utc(get_setting_value(db, "timezone", "auto"))
 
 
+def today_hour_range(db: Session, hour: int) -> tuple[datetime, datetime]:
+    timezone = resolve_timezone(get_setting_value(db, "timezone", "auto"))
+    local_now = utc_now().astimezone(timezone)
+    local_start = local_now.replace(hour=hour, minute=0, second=0, microsecond=0)
+    local_end = local_start + timedelta(hours=1)
+    return (
+        local_start.astimezone(ZoneInfo("UTC")).replace(tzinfo=None),
+        local_end.astimezone(ZoneInfo("UTC")).replace(tzinfo=None),
+    )
+
+
 def render(request: Request, db: Session, template: str, **context):
     return templates.TemplateResponse(request=request, name=template, context={**build_template_context(db), **context})
 
@@ -245,6 +256,7 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
     geoblocks = db.query(Event).filter(Event.event_type == "security.geoblock", Event.event_time >= since, Event.plugin == "geoblock_log").count() if enabled_plugins["geoblock_log"] else 0
     access_events = db.query(Event).filter(Event.event_type.startswith("access."), Event.event_time >= since, Event.plugin == "traefik_log").count() if enabled_plugins["traefik_log"] else 0
     top_countries = []
+    attack_hours = []
     if country_data_plugins:
         top_countries = (
             db.query(Event.country, func.count(Event.id))
@@ -258,6 +270,26 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
             .limit(5)
             .all()
         )
+        timezone_name = get_setting_value(db, "timezone", "auto")
+        try:
+            attack_timezone = ZoneInfo(timezone_name) if timezone_name and timezone_name != "auto" else ZoneInfo("UTC")
+        except ZoneInfoNotFoundError:
+            attack_timezone = ZoneInfo("UTC")
+        hour_counts: Counter[int] = Counter()
+        for (event_time,) in (
+            db.query(Event.event_time)
+            .filter(Event.event_time >= since, Event.plugin.in_(country_data_plugins))
+            .all()
+        ):
+            if event_time is None:
+                continue
+            if event_time.tzinfo is None:
+                event_time = event_time.replace(tzinfo=ZoneInfo("UTC"))
+            hour_counts[event_time.astimezone(attack_timezone).hour] += 1
+        attack_hours = [
+            {"hour": hour, "count": count, "href": f"/events?today=true&hour={hour:02d}"}
+            for hour, count in hour_counts.most_common(5)
+        ]
     latest_security_events = []
     security_data_plugins = [
         plugin_id
@@ -301,6 +333,7 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
         widgets=widgets,
         enabled_plugins=enabled_plugins,
         top_countries=top_countries,
+        attack_hours=attack_hours,
         country_heatmap=country_heatmap,
         today_events_href="/events?today=true",
         country_data_plugins=country_data_plugins,
@@ -367,6 +400,7 @@ def events_page(
     q: str | None = None,
     hide_local_ips: str | None = None,
     today: str | None = None,
+    hour: str | None = None,
     db: Session = Depends(get_db),
 ):
     require_events_feature_enabled(db)
@@ -384,6 +418,8 @@ def events_page(
     q_tokens = [token for token in tokenize_search_expression(q_value or "") if token not in {"&&", "||", "(", ")"}]
     q_utc_terms_by_term = {token: utc_search_terms_for_ui_time(token, timezone_name) for token in q_tokens}
     today_enabled = today == "true"
+    hour_value = int(hour) if hour and hour.isdigit() and 0 <= int(hour) <= 23 else None
+    hour_start, hour_end = today_hour_range(db, hour_value) if hour_value is not None else (None, None)
     filters = {
         "event_type": clean_filter_value(event_type),
         "ip": clean_filter_value(ip),
@@ -395,7 +431,8 @@ def events_page(
         "q_utc_terms_by_term": q_utc_terms_by_term,
         "plugins": enabled_event_plugins,
         "hide_local_ips": hide_local_ips == "true",
-        "event_time_from": today_start(db) if today_enabled else None,
+        "event_time_from": hour_start or (today_start(db) if today_enabled else None),
+        "event_time_to": hour_end,
     }
     form_values = {
         "event_type": event_type or "",
@@ -406,6 +443,7 @@ def events_page(
         "q": q or "",
         "hide_local_ips": hide_local_ips == "true",
         "today": today_enabled,
+        "hour": f"{hour_value:02d}" if hour_value is not None else "",
     }
     events = apply_event_filters(db.query(Event), filters).order_by(Event.event_time.desc()).limit(200).all()
     return render(request, db, "events.html", events=events, filters=form_values, live_default=get_setting_value(db, "live_default", "true"))
