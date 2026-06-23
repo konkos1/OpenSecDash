@@ -89,7 +89,7 @@ EN = {
     "access.no_events": "No access events",
 
     "crowdsec.title": "CrowdSec",
-    "crowdsec.active_bans": "Active + known bans",
+    "crowdsec.active_bans": "Active bans + history",
     "crowdsec.top_scenarios": "Top scenarios",
     "crowdsec.no_scenarios": "No scenarios",
     "crowdsec.unknown": "unknown",
