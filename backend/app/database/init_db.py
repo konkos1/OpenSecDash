@@ -19,6 +19,7 @@ DEFAULT_SETTINGS = {
     "asset_source": "dev-data/apps-installed.json",
     "github_token": "",
     "action_dry_run": "true",
+    "apps_master": "opensecdash",
     "log_file_enabled": "true",
     "log_file_path": "logs/opensecdash.log",
     "log_level": "INFO",

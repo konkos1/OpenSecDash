@@ -2,6 +2,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from app.core.template_context import get_setting_value
 from app.core.time import utc_now
 from app.models.assets import Asset
 from app.models.systems import System
@@ -17,6 +18,7 @@ def import_apps_inventory(
     inactive_assets = 0
 
     now = utc_now().replace(tzinfo=None)
+    external_master = get_setting_value(db, "plugin.apps_inventory.apps_master", get_setting_value(db, "apps_master", "opensecdash")) == "external"
 
     for system_data in inventory.get("systems", []):
         vmid = str(system_data.get("vmid", "")).strip()
@@ -46,7 +48,8 @@ def import_apps_inventory(
         for app_data in system_data.get("apps", []):
             name = str(app_data.get("name", "")).strip()
             version = str(app_data.get("version", "")).strip()
-            release_url = str(app_data.get("url", "")).strip() or None
+            release_url = str(app_data.get("release_url") or app_data.get("url") or "").strip() or None
+            app_url = str(app_data.get("app_url") or app_data.get("homepage") or "").strip() or None
 
             if not name:
                 continue
@@ -68,6 +71,7 @@ def import_apps_inventory(
                     name=name,
                     version=version,
                     release_url=release_url,
+                    url=app_url,
                     latest_version=None,
                     update_available=False,
                     is_active=True,
@@ -76,8 +80,10 @@ def import_apps_inventory(
                 db.add(asset)
                 imported_assets += 1
             else:
-                asset.version = version
-                asset.release_url = release_url
+                if external_master:
+                    asset.version = version
+                    asset.release_url = release_url
+                asset.url = app_url
                 asset.is_active = True
                 asset.last_seen = now
                 updated_assets += 1

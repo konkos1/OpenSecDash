@@ -29,7 +29,8 @@
     </section>
 
     <div class="card mb-5 overflow-x-auto">
-        <h3 class="font-semibold mb-3">{{ t("asset.apps_in_system") }}</h3>
+        <h3 class="font-semibold mb-1">{{ t("asset.apps_in_system") }}</h3>
+        <p class="muted text-sm mb-3">{{ t("asset.apps_master_opensecdash_help") if apps_master == 'opensecdash' else t("asset.apps_master_external_help") }}</p>
         <table class="w-full text-sm">
             <thead>
                 <tr>
@@ -48,8 +49,19 @@
             <tbody>
                 {% for app in apps %}
                     <tr>
-                        <td class="font-semibold">{{ app.name }}</td>
-                        <td>{{ app.version }}</td>
+                        <td class="font-semibold">
+                            {% if apps_master == 'opensecdash' and app.is_active %}
+                                <form id="asset-meta-{{ app.id }}" method="post" action="/assets/{{ app.id }}/metadata" data-show-submit-on-dirty></form>
+                            {% endif %}
+                            {{ app.name }}
+                        </td>
+                        <td>
+                            {% if apps_master == 'opensecdash' and app.is_active %}
+                                <input class="input min-w-40" form="asset-meta-{{ app.id }}" name="version" value="{{ app.version or '' }}">
+                            {% else %}
+                                {{ app.version }}
+                            {% endif %}
+                        </td>
                         <td>{{ app.latest_version or '-' }}</td>
                         <td>
                             {% if not app.release_url %}
@@ -62,10 +74,18 @@
                         </td>
                         <td>{{ t("assets.active") if app.is_active else t("assets.inactive") }}</td>
                         <td>
-                            {% if app.release_url %}
+                            {% if apps_master == 'opensecdash' and app.is_active %}
+                                <div class="flex flex-col sm:flex-row gap-2 sm:items-center min-w-64">
+                                    <input class="input" form="asset-meta-{{ app.id }}" type="url" name="release_url" value="{{ app.release_url or '' }}" placeholder="https://github.com/.../releases/latest">
+                                    <button class="btn-small shrink-0" form="asset-meta-{{ app.id }}" type="submit" hidden>{{ t("common.save_button") }}</button>
+                                </div>
+                            {% elif app.release_url %}
                                 <a href="{{ app.release_url }}" target="_blank" rel="noopener noreferrer">{{ t("common.open") }}</a>
                             {% else %}
                                 {{ t("common.none") }}
+                            {% endif %}
+                            {% if apps_master == 'opensecdash' and not app.is_active %}
+                                <small class="muted block mt-1">{{ t("asset.inactive_not_editable") }}</small>
                             {% endif %}
                         </td>
                         <td>{{ app.last_seen|datetime }}</td>

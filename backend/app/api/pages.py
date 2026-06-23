@@ -594,7 +594,27 @@ def asset_page(system_id: int, request: Request, show_inactive: bool = False, db
         insights=insights,
         show_inactive=show_inactive,
         mqtt_plugin_enabled=mqtt_plugin_enabled,
+        apps_master=get_setting_value(db, "plugin.apps_inventory.apps_master", get_setting_value(db, "apps_master", "opensecdash")),
     )
+
+
+@router.post("/assets/{asset_id}/metadata")
+def update_asset_metadata(
+    asset_id: int,
+    version: str = Form(""),
+    release_url: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    require_plugin_enabled(db, "apps_inventory")
+    asset = db.query(Asset).filter(Asset.id == asset_id).first()
+    if asset is None:
+        raise HTTPException(status_code=404, detail="Asset not found")
+    if get_setting_value(db, "plugin.apps_inventory.apps_master", get_setting_value(db, "apps_master", "opensecdash")) != "opensecdash" or not asset.is_active:
+        raise HTTPException(status_code=403, detail="Asset metadata is managed externally or inactive")
+    asset.version = version.strip()
+    asset.release_url = release_url.strip() or None
+    db.commit()
+    return RedirectResponse(url=f"/assets/system/{asset.system_id}", status_code=303)
 
 
 @router.post("/assets/{asset_id}/mqtt")

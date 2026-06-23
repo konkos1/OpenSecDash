@@ -35,6 +35,19 @@ document.addEventListener("DOMContentLoaded", () => {
             form.addEventListener("submit", markClean);
         });
 
+    document.querySelectorAll("form[data-show-submit-on-dirty]")
+        .forEach(form => {
+            const submitButtons = document.querySelectorAll(`button[form="${CSS.escape(form.id)}"][type="submit"]`);
+            const controls = document.querySelectorAll(`[form="${CSS.escape(form.id)}"]`);
+            const showButtons = () => submitButtons.forEach(button => button.hidden = false);
+            const hideButtons = () => submitButtons.forEach(button => button.hidden = true);
+            controls.forEach(control => {
+                control.addEventListener("input", showButtons);
+                control.addEventListener("change", showButtons);
+            });
+            form.addEventListener("submit", hideButtons);
+        });
+
     window.addEventListener("beforeunload", event => {
         if (dirtyForms.size === 0) {
             return;

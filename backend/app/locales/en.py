@@ -136,6 +136,9 @@ EN = {
 
     "asset.release_url": "Release URL",
     "asset.apps_in_system": "Apps in this system",
+    "asset.apps_master_opensecdash_help": "OpenSecDash is master for version and release URL: active apps can be edited here; new apps/systems and other values still come from import.",
+    "asset.apps_master_external_help": "External import is master: app values are read-only here and come from the configured import path.",
+    "asset.inactive_not_editable": "inactive, not editable",
     "asset.updates_available": "Updates available",
     "asset.inactive_apps": "Inactive apps",
     "asset.app": "App",
