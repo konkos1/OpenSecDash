@@ -57,7 +57,7 @@
           <tr>
             <td class="time-cell" data-label="{{ t('common.time') }}">{{ ban.event_time|datetime }}</td>
             <td data-label="{{ t('common.ip') }}"><a href="/ip/{{ ban.ip|url_path_quote }}">{{ ban.ip }}</a></td>
-            <td data-label="{{ t('crowdsec.scenario') }}">{{ ban.data_json.scenario if ban.data_json else '-' }}</td>
+            <td data-label="{{ t('crowdsec.scenario') }}">{{ ban.data_json.scenario if ban.data_json and ban.data_json.scenario else '-' }}</td>
             <td data-label="{{ t('crowdsec.duration') }}">{{ (ban.data_json.duration if ban.data_json else None)|duration }}</td>
             <td data-label="{{ t('common.action') }}">
               <form method="post" action="/actions/ip" data-confirm="{{ t('crowdsec.confirm_unban') }} {{ ban.ip }}?">
