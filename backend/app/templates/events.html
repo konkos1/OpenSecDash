@@ -53,7 +53,7 @@
     <table class="w-full text-sm">
       <thead>
         <tr>
-          <th>{{ t("events.time") }}</th>
+          <th class="time-cell">{{ t("events.time") }}</th>
           <th>{{ t("events.type") }}</th>
           <th>{{ t("events.severity") }}</th>
           <th>{{ t("events.ip") }}</th>
@@ -65,7 +65,7 @@
       <tbody>
         {% for event in events %}
           <tr>
-            <td>{{ event.event_time|datetime }}</td>
+            <td class="time-cell">{{ event.event_time|datetime }}</td>
             <td>{{ event.event_type }}</td>
             <td>{{ event.severity }}</td>
             <td>{% if event.ip %}<a href="/ip/{{ event.ip|url_path_quote }}">{{ event.ip }}</a>{% else %}-{% endif %}</td>

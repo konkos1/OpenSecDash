@@ -42,7 +42,7 @@
         <table class="w-full text-sm">
             <thead>
                 <tr>
-                    <th>{{ t("common.time") }}</th>
+                    <th class="time-cell">{{ t("common.time") }}</th>
                     <th>{{ t("common.ip") }}</th>
                     <th>{{ t("access.host") }}</th>
                     <th>{{ t("access.method") }}</th>
@@ -53,7 +53,7 @@
             <tbody>
                 {% for event in events %}
                     <tr>
-                        <td>{{ event.event_time|datetime }}</td>
+                        <td class="time-cell">{{ event.event_time|datetime }}</td>
                         <td>{% if event.ip %}<a href="/ip/{{ event.ip|url_path_quote }}">{{ event.ip }}</a>{% else %}-{% endif %}</td>
                         <td>{{ event.hostname or '-' }}</td>
                         <td>{{ event.method or '-' }}</td>
