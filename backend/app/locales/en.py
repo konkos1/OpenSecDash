@@ -46,6 +46,7 @@ EN = {
     "dashboard.updates": "Updates",
     "dashboard.top_countries": "Top countries today",
     "dashboard.top_attack_hours": "Top attack hours today",
+    "dashboard.top_access_hours": "Top access hours today",
     "dashboard.country_heatmap": "Top countries world map",
     "dashboard.country_heatmap_help": "Points show today's country distribution; larger circles mean more events.",
     "dashboard.no_data": "No data",

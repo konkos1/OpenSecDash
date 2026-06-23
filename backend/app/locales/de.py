@@ -46,6 +46,7 @@ DE = {
     "dashboard.updates": "Updates",
     "dashboard.top_countries": "Top-Länder heute",
     "dashboard.top_attack_hours": "Top-Angriffszeiten heute",
+    "dashboard.top_access_hours": "Top-Zugriffszeiten heute",
     "dashboard.country_heatmap": "Weltkarte der Top-Länder",
     "dashboard.country_heatmap_help": "Punkte zeigen die heutige Länder-Verteilung; größere Kreise bedeuten mehr Events.",
     "dashboard.no_data": "Keine Daten",

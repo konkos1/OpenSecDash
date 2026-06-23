@@ -26,7 +26,7 @@
   {% endif %}
 
   {% if country_data_plugins %}
-    <section class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6">
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
       <div class="card">
         <h3 class="font-semibold mb-3">{{ t("dashboard.top_countries") }}</h3>
         {% for country,count in top_countries %}
@@ -39,17 +39,33 @@
         {% endfor %}
       </div>
 
-      <div class="card">
-        <h3 class="font-semibold mb-3">{{ t("dashboard.top_attack_hours") }}</h3>
-        {% for item in attack_hours %}
-          <a class="row" href="{{ item.href }}">
-            <span>{{ "%02d:00–%02d:00"|format(item.hour, (item.hour + 1) % 24) }}</span>
-            <b>{{ item.count }}</b>
-          </a>
-        {% else %}
-          <p class="muted">{{ t("dashboard.no_data") }}</p>
-        {% endfor %}
-      </div>
+      {% if enabled_plugins.crowdsec or enabled_plugins.geoblock_log %}
+        <div class="card">
+          <h3 class="font-semibold mb-3">{{ t("dashboard.top_attack_hours") }}</h3>
+          {% for item in attack_hours %}
+            <a class="row" href="{{ item.href }}">
+              <span>{{ "%02d:00–%02d:00"|format(item.hour, (item.hour + 1) % 24) }}</span>
+              <b>{{ item.count }}</b>
+            </a>
+          {% else %}
+            <p class="muted">{{ t("dashboard.no_data") }}</p>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      {% if enabled_plugins.traefik_log %}
+        <div class="card">
+          <h3 class="font-semibold mb-3">{{ t("dashboard.top_access_hours") }}</h3>
+          {% for item in access_hours %}
+            <a class="row" href="{{ item.href }}">
+              <span>{{ "%02d:00–%02d:00"|format(item.hour, (item.hour + 1) % 24) }}</span>
+              <b>{{ item.count }}</b>
+            </a>
+          {% else %}
+            <p class="muted">{{ t("dashboard.no_data") }}</p>
+          {% endfor %}
+        </div>
+      {% endif %}
     </section>
 
     <section class="grid grid-cols-1 mt-6">

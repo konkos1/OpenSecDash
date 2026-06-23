@@ -255,8 +255,14 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
     active_bans = db.query(Event).filter(Event.event_type.startswith("security.ban"), Event.event_time >= since, Event.plugin == "crowdsec").count() if enabled_plugins["crowdsec"] else 0
     geoblocks = db.query(Event).filter(Event.event_type == "security.geoblock", Event.event_time >= since, Event.plugin == "geoblock_log").count() if enabled_plugins["geoblock_log"] else 0
     access_events = db.query(Event).filter(Event.event_type.startswith("access."), Event.event_time >= since, Event.plugin == "traefik_log").count() if enabled_plugins["traefik_log"] else 0
+    security_data_plugins = [
+        plugin_id
+        for plugin_id in ["crowdsec", "geoblock_log"]
+        if enabled_plugins[plugin_id]
+    ]
     top_countries = []
     attack_hours = []
+    access_hours = []
     if country_data_plugins:
         top_countries = (
             db.query(Event.country, func.count(Event.id))
@@ -270,32 +276,34 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
             .limit(5)
             .all()
         )
-        timezone_name = get_setting_value(db, "timezone", "auto")
-        try:
-            attack_timezone = ZoneInfo(timezone_name) if timezone_name and timezone_name != "auto" else ZoneInfo("UTC")
-        except ZoneInfoNotFoundError:
-            attack_timezone = ZoneInfo("UTC")
+    timezone_name = get_setting_value(db, "timezone", "auto")
+    try:
+        dashboard_timezone = ZoneInfo(timezone_name) if timezone_name and timezone_name != "auto" else ZoneInfo("UTC")
+    except ZoneInfoNotFoundError:
+        dashboard_timezone = ZoneInfo("UTC")
+
+    def top_hours_for_plugins(plugin_ids: list[str], event_type: str) -> list[dict[str, object]]:
+        if not plugin_ids:
+            return []
         hour_counts: Counter[int] = Counter()
         for (event_time,) in (
             db.query(Event.event_time)
-            .filter(Event.event_time >= since, Event.plugin.in_(country_data_plugins))
+            .filter(Event.event_time >= since, Event.plugin.in_(plugin_ids))
             .all()
         ):
             if event_time is None:
                 continue
             if event_time.tzinfo is None:
                 event_time = event_time.replace(tzinfo=ZoneInfo("UTC"))
-            hour_counts[event_time.astimezone(attack_timezone).hour] += 1
-        attack_hours = [
-            {"hour": hour, "count": count, "href": f"/events?today=true&hour={hour:02d}"}
+            hour_counts[event_time.astimezone(dashboard_timezone).hour] += 1
+        return [
+            {"hour": hour, "count": count, "href": f"/events?event_type={event_type}&today=true&hour={hour:02d}"}
             for hour, count in hour_counts.most_common(5)
         ]
+
+    attack_hours = top_hours_for_plugins(security_data_plugins, "security.*")
+    access_hours = top_hours_for_plugins(["traefik_log"] if enabled_plugins["traefik_log"] else [], "access.*")
     latest_security_events = []
-    security_data_plugins = [
-        plugin_id
-        for plugin_id in ["crowdsec", "geoblock_log"]
-        if enabled_plugins[plugin_id]
-    ]
     if security_data_plugins:
         latest_security_events = (
             db.query(Event)
@@ -334,6 +342,7 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
         enabled_plugins=enabled_plugins,
         top_countries=top_countries,
         attack_hours=attack_hours,
+        access_hours=access_hours,
         country_heatmap=country_heatmap,
         today_events_href="/events?today=true",
         country_data_plugins=country_data_plugins,
