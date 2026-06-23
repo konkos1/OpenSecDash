@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import importlib
 import json
+import logging
 import re
 import socket
 from typing import Any, Protocol, cast
 
 from app.plugins.base import ExportPlugin, PluginMetadata, PluginSetting
+
+
+logger = logging.getLogger(__name__)
 
 
 class _PublishModule(Protocol):
@@ -75,14 +79,17 @@ class Plugin(ExportPlugin):
         try:
             port = int(context.get("port", "1883"))
             with socket.create_connection((host, port), timeout=5):
+                logger.debug("MQTT broker reachable: %s:%s", host, port)
                 return {"status": "healthy", "message": f"MQTT broker reachable: {host}:{port}"}
         except Exception as exc:
             return {"status": "error", "message": f"MQTT broker not reachable: {exc}"}
 
     async def export_asset(self, context, asset: Any) -> None:
         if not getattr(asset, "mqtt_publish_enabled", False):
+            logger.debug("Skipping MQTT export for asset=%s because publish toggle is disabled", getattr(asset, "name", "unknown"))
             return
         if not asset.version or not asset.latest_version:
+            logger.debug("Skipping MQTT export for asset=%s because version/latest_version is missing", getattr(asset, "name", "unknown"))
             return
 
         slug = self.make_slug(str(asset.name))
@@ -110,6 +117,7 @@ class Plugin(ExportPlugin):
 
         self.publish(context, discovery_topic, discovery_payload, retain=True)
         self.publish(context, state_topic, state_payload, retain=True)
+        logger.info("Published MQTT discovery/state for asset=%s", asset.name)
 
     @staticmethod
     def make_slug(name: str) -> str:
@@ -128,6 +136,7 @@ class Plugin(ExportPlugin):
         auth = None
         if context.get("username") or context.get("password"):
             auth = {"username": context.get("username"), "password": context.get("password")}
+        logger.debug("Publishing MQTT topic=%s retain=%s", topic, retain)
         publish.single(
             topic,
             json.dumps(payload, ensure_ascii=False) if isinstance(payload, dict) else payload,

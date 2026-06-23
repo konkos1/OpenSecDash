@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib.util
+import logging
 import json
 from pathlib import Path
 from types import ModuleType
@@ -17,6 +18,9 @@ from app.plugins.base import ActionPlugin, DatasourcePlugin, ExportPlugin, Perio
 from app.core.time import utc_now
 
 
+logger = logging.getLogger(__name__)
+
+
 class PluginManager:
     def __init__(self, plugin_dir: Path) -> None:
         self.plugin_dir = plugin_dir
@@ -26,6 +30,7 @@ class PluginManager:
     def discover(self) -> None:
         self.plugins.clear()
         if not self.plugin_dir.exists():
+            logger.warning("Plugin directory does not exist: %s", self.plugin_dir)
             return
         for plugin_py in sorted(self.plugin_dir.glob("*/plugin.py")):
             module = self._load_module(plugin_py)
@@ -34,6 +39,7 @@ class PluginManager:
                 continue
             plugin: Plugin = plugin_class()
             self.plugins[plugin.metadata.id] = plugin
+            logger.info("Discovered plugin %s from %s", plugin.metadata.id, plugin_py)
 
     def _load_module(self, path: Path) -> ModuleType:
         module_name = f"opensecdash_external_plugin_{path.parent.name}"
@@ -96,6 +102,7 @@ class PluginManager:
                 if existing is None:
                     db.add(Setting(key=key, value=setting.default))
         db.commit()
+        logger.info("Seeded %d plugin records", len(self.plugins))
 
     @staticmethod
     def setting_key(plugin_id: str, key: str) -> str:
@@ -156,6 +163,7 @@ class PluginManager:
         return PluginContext(db, values, self.export_asset_update)
 
     async def startup(self) -> None:
+        logger.info("Starting %d plugin task groups", len(self.plugins))
         for plugin in self.plugins.values():
             self.tasks.append(asyncio.create_task(self._health_loop(plugin), name=f"plugin-health-{plugin.metadata.id}"))
             if isinstance(plugin, DatasourcePlugin):
@@ -166,6 +174,7 @@ class PluginManager:
     async def shutdown(self) -> None:
         if not self.tasks:
             return
+        logger.info("Stopping %d plugin tasks", len(self.tasks))
         for task in self.tasks:
             task.cancel()
         done, pending = await asyncio.wait(self.tasks, timeout=5)
@@ -175,7 +184,7 @@ class PluginManager:
             except asyncio.CancelledError:
                 pass
             except Exception:
-                pass
+                logger.exception("Plugin task failed during shutdown")
         for task in pending:
             task.cancel()
         self.tasks.clear()
@@ -190,6 +199,7 @@ class PluginManager:
                     self._update_diagnostic(db, plugin.metadata.id, "disabled", "Plugin is disabled and not running.")
                 else:
                     result = await plugin.health(ctx)
+                    logger.debug("Plugin %s health: %s", plugin.metadata.id, result)
                     self._update_diagnostic(
                         db,
                         plugin.metadata.id,
@@ -202,6 +212,7 @@ class PluginManager:
                 db.close()
                 raise
             except Exception as exc:
+                logger.exception("Plugin %s health check failed", plugin.metadata.id)
                 self._update_diagnostic(db, plugin.metadata.id, "error", str(exc))
                 db.commit()
                 await asyncio.sleep(60)
@@ -224,6 +235,8 @@ class PluginManager:
                         stored = ctx.emit_event(**event)
                         processed += 1
                         last_event_at = stored.event_time
+                    if processed:
+                        logger.info("Plugin %s imported %d events", plugin.metadata.id, processed)
                     db.commit()
                     self._update_datasource(db, plugin.metadata.id, True, "healthy", None, processed, last_event_at)
                     db.commit()
@@ -232,6 +245,7 @@ class PluginManager:
                 db.close()
                 raise
             except Exception as exc:
+                logger.exception("Datasource plugin %s failed", plugin.metadata.id)
                 self._update_diagnostic(db, plugin.metadata.id, "error", str(exc))
                 self._update_datasource(db, plugin.metadata.id, True, "error", str(exc), 0)
                 db.commit()
@@ -253,6 +267,7 @@ class PluginManager:
                 db.close()
                 raise
             except Exception as exc:
+                logger.exception("Periodic plugin %s failed", plugin.metadata.id)
                 self._update_diagnostic(db, plugin.metadata.id, "error", str(exc))
                 db.commit()
                 await asyncio.sleep(60)

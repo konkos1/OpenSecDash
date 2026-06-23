@@ -11,6 +11,7 @@ from markupsafe import Markup, escape
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.core.logging import configure_logging_from_db
 from app.core.template_context import build_template_context, get_setting_value
 from app.core.time import datetime_iso_utc, format_datetime_for_timezone, local_day_start_as_utc, utc_now
 from app.database.dependencies import get_db
@@ -692,6 +693,9 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
         asset_source=get_setting_value(db, "asset_source", "dev-data/apps-installed.json"),
         github_token=get_setting_value(db, "github_token", ""),
         action_dry_run=get_setting_value(db, "action_dry_run", "true"),
+        log_file_enabled=get_setting_value(db, "log_file_enabled", "true"),
+        log_file_path=get_setting_value(db, "log_file_path", "logs/opensecdash.log"),
+        log_level=get_setting_value(db, "log_level", "INFO"),
         plugin_setting_groups=plugin_setting_groups,
         plugin_settings_state=plugin_settings_state,
     )
@@ -710,6 +714,9 @@ async def save_settings(
     asset_source: str = Form(""),
     github_token: str = Form(""),
     action_dry_run: str = Form("true"),
+    log_file_enabled: str = Form("false"),
+    log_file_path: str = Form("logs/opensecdash.log"),
+    log_level: str = Form("INFO"),
     db: Session = Depends(get_db),
 ):
     if language not in {"de", "en"}:
@@ -725,6 +732,9 @@ async def save_settings(
         "asset_source": asset_source,
         "github_token": github_token,
         "action_dry_run": action_dry_run,
+        "log_file_enabled": log_file_enabled,
+        "log_file_path": log_file_path,
+        "log_level": log_level if log_level in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"} else "INFO",
     }.items():
         save_setting(db, key, value)
 
@@ -733,4 +743,5 @@ async def save_settings(
         if key.startswith("plugin."):
             save_setting(db, key, str(value))
     db.commit()
+    configure_logging_from_db(db)
     return RedirectResponse(url="/settings", status_code=303)

@@ -1,13 +1,18 @@
 from __future__ import annotations
 
+import logging
 import time
 from typing import Any
 
 from app.models.assets import Asset
+from app.core.logging import redact_sensitive
 from app.plugins.base import PeriodicPlugin, PluginContext, PluginMetadata, PluginSetting
 from app.services.apps_inventory_import import import_apps_inventory
 from app.services.apps_inventory_source import load_asset_source
 from app.services.apps_inventory_updates import refresh_asset_updates
+
+
+logger = logging.getLogger(__name__)
 
 
 class Plugin(PeriodicPlugin):
@@ -129,12 +134,14 @@ class Plugin(PeriodicPlugin):
         github_interval = self._interval(context.get("github_interval", "21600"))
 
         if inventory_interval > 0 and self._is_due(self._last_inventory_import, inventory_interval, now):
-            self._import_inventory(context)
+            result = self._import_inventory(context)
+            logger.info("Apps inventory import completed: %s", result)
             self._last_inventory_import = now
             await self._export_assets(context)
 
         if github_interval > 0 and self._is_due(self._last_github_check, github_interval, now):
             refresh_asset_updates(context.db)
+            logger.info("Apps inventory GitHub release check completed")
             self._last_github_check = now
             await self._export_assets(context)
 
@@ -154,6 +161,7 @@ class Plugin(PeriodicPlugin):
         source = context.get("source", "dev-data/apps-installed.json")
         if not source:
             return {"systems_created": 0, "assets_created": 0, "assets_updated": 0, "assets_inactive": 0}
+        logger.info("Loading apps inventory source_type=%s source=%s", source_type, redact_sensitive(source))
         inventory: dict[str, Any] = load_asset_source(source_type=source_type, source=source)
         return import_apps_inventory(db=context.db, inventory=inventory)
 

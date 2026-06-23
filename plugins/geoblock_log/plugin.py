@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import logging
 import re
 from pathlib import Path
 
 from app.models.events import Event
 from app.plugins.base import DatasourcePlugin, PluginMetadata, PluginSetting
 from app.services.events import normalize_event_time
+
+
+logger = logging.getLogger(__name__)
 
 
 class Plugin(DatasourcePlugin):
@@ -68,6 +72,8 @@ class Plugin(DatasourcePlugin):
                     continue
                 self._seen_raw.add(raw_data)
                 events.append(parsed)
+        if events:
+            logger.info("Parsed %d GeoBlock events from %s", len(events), path)
         return events
 
     def _load_seen_events(self, context) -> None:
@@ -80,6 +86,7 @@ class Plugin(DatasourcePlugin):
         )
         self._seen_raw.update(raw_data for (raw_data,) in rows if raw_data)
         self._seen_loaded = True
+        logger.debug("Loaded %d previously seen GeoBlock raw events", len(self._seen_raw))
 
     def parse_line(self, line: str):
         if "request denied" not in line:

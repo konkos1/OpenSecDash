@@ -57,6 +57,26 @@
             </select>
         </label>
 
+        <section class="md:col-span-2 border-t border-slate-700 pt-4 mt-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <h3 class="font-semibold md:col-span-2">{{ t("settings.logging") }}</h3>
+            <label>{{ t("settings.log_file_enabled") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.log_file_enabled') }}">?</button>
+                <select class="input" name="log_file_enabled">
+                    <option value="true" {% if log_file_enabled == 'true' %}selected{% endif %}>{{ t("common.yes") }}</option>
+                    <option value="false" {% if log_file_enabled == 'false' %}selected{% endif %}>{{ t("common.no") }}</option>
+                </select>
+            </label>
+            <label>{{ t("settings.log_level") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.log_level') }}">?</button>
+                <select class="input" name="log_level">
+                    {% for level in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'] %}
+                        <option value="{{ level }}" {% if log_level == level %}selected{% endif %}>{{ level }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="md:col-span-2">{{ t("settings.log_file_path") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.log_file_path') }}">?</button>
+                <input class="input" type="text" name="log_file_path" value="{{ log_file_path }}" placeholder="logs/opensecdash.log">
+            </label>
+        </section>
+
         {% for group in plugin_setting_groups %}
             <section class="md:col-span-2 border-t border-slate-700 pt-4 mt-2">
                 <h3 class="font-semibold mb-3">{{ group.name }}</h3>

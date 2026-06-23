@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from app.plugins.base import DatasourcePlugin, PluginMetadata, PluginSetting
 from app.services.events import classify_access_status, normalize_event_time
+
+
+logger = logging.getLogger(__name__)
 
 
 class Plugin(DatasourcePlugin):
@@ -73,6 +77,8 @@ class Plugin(DatasourcePlugin):
                 if parsed:
                     events.append(parsed)
             self._offsets[key] = handle.tell()
+        if events:
+            logger.info("Parsed %d Traefik access events from %s", len(events), path)
         return events
 
     def parse_line(self, line: str) -> dict[str, Any] | None:

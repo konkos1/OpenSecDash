@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -10,6 +11,10 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import func
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.core.logging import configure_logging_from_db, setup_service_logging
+
+setup_service_logging()
+
 from app.api import actions_router, assets_router, events_router, pages_router, settings_router
 from app.database.init_db import init_db
 from app.database.migrations import run_auto_migrations_if_enabled, update_migration_diagnostic
@@ -20,6 +25,7 @@ from app.models.events import Event
 from app.plugins.manager import get_plugin_manager
 
 templates = Jinja2Templates(directory="app/templates")
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -29,6 +35,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     manager = get_plugin_manager()
     db = SessionLocal()
     try:
+        configure_logging_from_db(db)
+        logging.info("OpenSecDash starting")
         update_migration_diagnostic(db)
         manager.seed_database(db)
     finally:
@@ -37,6 +45,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         yield
     finally:
+        logging.info("OpenSecDash stopping")
         await manager.shutdown()
 
 

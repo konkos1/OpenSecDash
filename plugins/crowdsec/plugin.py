@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 import subprocess
 from pathlib import Path
@@ -8,6 +9,9 @@ from typing import Any
 
 from app.plugins.base import ActionPlugin, DatasourcePlugin, PluginMetadata, PluginSetting
 from app.services.events import normalize_event_time
+
+
+logger = logging.getLogger(__name__)
 
 
 class Plugin(DatasourcePlugin, ActionPlugin):
@@ -66,6 +70,7 @@ class Plugin(DatasourcePlugin, ActionPlugin):
         if completed.returncode != 0:
             return {"status": "error", "message": (completed.stderr or completed.stdout or "cscli version failed").strip()}
         version = (completed.stdout or completed.stderr or "cscli reachable").strip().splitlines()[0]
+        logger.debug("CrowdSec health OK: %s", version)
         return {"status": "healthy", "message": f"cscli reachable: {version}"}
 
     async def collect(self, context) -> list[dict[str, Any]]:
@@ -84,6 +89,8 @@ class Plugin(DatasourcePlugin, ActionPlugin):
                 self._offsets[key] = handle.tell()
         else:
             raise FileNotFoundError(path)
+        if events:
+            logger.info("Parsed %d CrowdSec ban events from %s", len(events), path)
         return events
 
     def parse_log_line(self, line: str) -> dict[str, Any] | None:
@@ -127,7 +134,9 @@ class Plugin(DatasourcePlugin, ActionPlugin):
             cmd = [cscli, "decisions", "add", "--ip", target, "--duration", duration, "--reason", parameters.get("reason", "OpenSecDash manual ban")]
         else:
             cmd = [cscli, "decisions", "delete", "--ip", target]
+        logger.info("Executing CrowdSec action type=%s target=%s", action_type, target)
         completed = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
         if completed.returncode != 0:
             raise RuntimeError(completed.stderr or completed.stdout or "cscli failed")
+        logger.info("CrowdSec action completed type=%s target=%s", action_type, target)
         return {"status": "completed", "result": completed.stdout.strip() or "cscli action completed"}

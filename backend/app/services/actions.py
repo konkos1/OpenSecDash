@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import ipaddress
+import logging
 
 from sqlalchemy.orm import Session
 
@@ -10,6 +11,8 @@ from app.core.time import utc_now
 from app.models.core import Action
 from app.plugins.manager import get_plugin_manager
 from app.services.events import store_event
+
+logger = logging.getLogger(__name__)
 
 CRITICAL_ACTIONS = {"security.ban", "security.unban", "crowdsec_ban", "crowdsec_unban"}
 
@@ -46,6 +49,7 @@ def create_action(
     )
     db.add(action)
     db.flush()
+    logger.info("Created action id=%s type=%s target_type=%s target=%s", action.id, action.action_type, action.target_type, action.target)
     execute_action(db, action)
     db.commit()
     return action
@@ -58,6 +62,7 @@ def execute_action(db: Session, action: Action) -> None:
     if dry_run:
         action.status = "completed"
         action.result = "dry-run: action was recorded but not executed"
+        logger.info("Action id=%s completed in dry-run mode", action.id)
     else:
         try:
             result = asyncio.run(
@@ -70,7 +75,9 @@ def execute_action(db: Session, action: Action) -> None:
             )
             action.status = (result or {}).get("status", "completed")
             action.result = (result or {}).get("result", "action plugin execution completed")
+            logger.info("Action id=%s finished with status=%s", action.id, action.status)
         except Exception as exc:
+            logger.exception("Action id=%s failed", action.id)
             action.status = "failed"
             action.result = str(exc)
 

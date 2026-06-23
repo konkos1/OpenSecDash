@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ipaddress
+import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -10,6 +11,9 @@ from sqlalchemy.orm import Session
 from app.core.time import utc_now
 from app.models.core import AggregationDaily, AggregationMonthly, Insight
 from app.models.events import Event
+
+
+logger = logging.getLogger(__name__)
 
 
 def normalize_event_time(value: Any | None = None) -> datetime:
@@ -87,11 +91,13 @@ def store_event(db: Session, **values: Any) -> Event:
 
     duplicate = find_duplicate_event(db, values)
     if duplicate is not None:
+        logger.debug("Skipped duplicate event plugin=%s type=%s ip=%s", values.get("plugin"), values.get("event_type"), values.get("ip"))
         return duplicate
 
     event = Event(**values)
     db.add(event)
     db.flush()
+    logger.debug("Stored event id=%s plugin=%s type=%s ip=%s", event.id, event.plugin, event.event_type, event.ip)
     update_rollups(db, event)
     create_rule_based_insights(db, event)
     return event
@@ -135,6 +141,7 @@ def cleanup_duplicate_events(db: Session) -> int:
     for event in db.query(Event).order_by(Event.id.asc()).all():
         update_rollups(db, event)
 
+    logger.info("Removed %d duplicate events and rebuilt rollups", len(duplicate_ids))
     return len(duplicate_ids)
 
 
