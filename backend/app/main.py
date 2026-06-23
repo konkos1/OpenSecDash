@@ -36,7 +36,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     db = SessionLocal()
     try:
         configure_logging_from_db(db)
-        logging.info("OpenSecDash starting")
+        logging.info("OpenSecDash starting...")
         update_migration_diagnostic(db)
         manager.seed_database(db)
     finally:
@@ -45,7 +45,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         yield
     finally:
-        logging.info("OpenSecDash stopping")
+        logging.info("OpenSecDash stopping gracefully...")
         await manager.shutdown()
 
 
