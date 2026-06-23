@@ -1,5 +1,6 @@
 from collections import Counter
 from datetime import datetime, timedelta
+import logging
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from urllib.parse import quote
 
@@ -29,6 +30,7 @@ from app.services.events import apply_event_filters, is_local_ip_value, tokenize
 
 router = APIRouter(tags=["pages"])
 templates = Jinja2Templates(directory="app/templates")
+logger = logging.getLogger(__name__)
 
 
 @pass_context
@@ -127,12 +129,29 @@ templates.env.filters["url_path_quote"] = url_path_quote
 templates.env.filters["event_url"] = event_url
 
 
+def _redacted_setting_value(key: str, value: str | None) -> str:
+    sensitive_parts = ("password", "token", "secret", "credential", "api_key", "apikey", "access_key")
+    if any(part in key.lower() for part in sensitive_parts):
+        return "<redacted>" if value else ""
+    return str(value or "")
+
+
 def save_setting(db: Session, key: str, value: str) -> None:
     setting = db.query(Setting).filter(Setting.key == key).first()
     if setting is None:
         db.add(Setting(key=key, value=value))
-    else:
+        logger.info("Setting created key=%s value=%s", key, _redacted_setting_value(key, value))
+    elif setting.value != value:
+        old_value = setting.value
         setting.value = value
+        logger.info(
+            "Setting changed key=%s old=%s new=%s",
+            key,
+            _redacted_setting_value(key, old_value),
+            _redacted_setting_value(key, value),
+        )
+    else:
+        logger.debug("Setting unchanged key=%s", key)
 
 
 def today_start(db: Session) -> datetime:
