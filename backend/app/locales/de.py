@@ -110,6 +110,8 @@ DE = {
     "assets.check_updates": "Updates prüfen",
     "assets.show_inactive": "Inaktive anzeigen",
     "assets.hide_inactive": "Inaktive ausblenden",
+    "assets.show_updates_only": "Nur Updates anzeigen",
+    "assets.show_all_systems": "Alle Systeme anzeigen",
     "assets.delete_inactive": "Inaktive Assets löschen",
     "assets.only_active_counted": "Nur aktive Systeme/Apps werden einbezogen",
     "assets.only_updates": "Nur Systeme mit App-Updates werden angezeigt",

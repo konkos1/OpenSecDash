@@ -110,6 +110,8 @@ EN = {
     "assets.check_updates": "Check updates",
     "assets.show_inactive": "Show inactive",
     "assets.hide_inactive": "Hide inactive",
+    "assets.show_updates_only": "Show updates only",
+    "assets.show_all_systems": "Show all systems",
     "assets.delete_inactive": "Delete inactive assets",
     "assets.only_active_counted": "Only active apps are considered",
     "assets.only_updates": "Only systems with app updates are shown",

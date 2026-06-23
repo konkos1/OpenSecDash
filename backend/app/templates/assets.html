@@ -22,11 +22,16 @@
         </div>
     </div>
 
-    <div class="card mb-5 flex items-center justify-between gap-4">
+    <div class="card mb-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <span class="muted">{% if updates %}{{ t("assets.only_updates") }}{% else %}{{ t("assets.inactive_included") if show_inactive else t("assets.only_active_counted") }}{% endif %}</span>
-        <a class="text-blue-300" href="{{ '/assets' if show_inactive else '/assets?show_inactive=true' }}">
-            {{ t("assets.hide_inactive") if show_inactive else t("assets.show_inactive") }}
-        </a>
+        <div class="flex flex-col sm:flex-row gap-2">
+            <a class="btn-small" href="{{ '/assets?updates=true' if show_inactive and updates else '/assets' if show_inactive else '/assets?show_inactive=true&updates=true' if updates else '/assets?show_inactive=true' }}">
+                {{ t("assets.hide_inactive") if show_inactive else t("assets.show_inactive") }}
+            </a>
+            <a class="btn-small" href="{{ '/assets?show_inactive=true' if updates and show_inactive else '/assets' if updates else '/assets?updates=true&show_inactive=true' if show_inactive else '/assets?updates=true' }}">
+                {{ t("assets.show_all_systems") if updates else t("assets.show_updates_only") }}
+            </a>
+        </div>
     </div>
 
     <div class="hidden md:block card overflow-x-auto">
