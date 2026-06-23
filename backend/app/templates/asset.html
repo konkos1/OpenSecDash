@@ -28,10 +28,10 @@
         </div>
     </section>
 
-    <div class="card mb-5 overflow-x-auto">
+    <div class="card mb-5 overflow-x-auto responsive-table">
         <h3 class="font-semibold mb-1">{{ t("asset.apps_in_system") }}</h3>
         <p class="muted text-sm mb-3">{{ t("asset.apps_master_opensecdash_help") if apps_master == 'opensecdash' else t("asset.apps_master_external_help") }}</p>
-        <table class="w-full text-sm">
+        <table class="w-full text-sm table-middle">
             <thead>
                 <tr>
                     <th>{{ t("asset.app") }}</th>
@@ -49,21 +49,21 @@
             <tbody>
                 {% for app in apps %}
                     <tr>
-                        <td class="font-semibold">
+                        <td class="font-semibold" data-label="{{ t('asset.app') }}">
                             {% if apps_master == 'opensecdash' and app.is_active %}
                                 <form id="asset-meta-{{ app.id }}" method="post" action="/assets/{{ app.id }}/metadata" data-show-submit-on-dirty></form>
                             {% endif %}
                             {{ app.name }}
                         </td>
-                        <td>
+                        <td class="cell-stack" data-label="{{ t('assets.version') }}">
                             {% if apps_master == 'opensecdash' and app.is_active %}
                                 <input class="input min-w-40" form="asset-meta-{{ app.id }}" name="version" value="{{ app.version or '' }}">
                             {% else %}
                                 {{ app.version }}
                             {% endif %}
                         </td>
-                        <td>{{ app.latest_version or '-' }}</td>
-                        <td>
+                        <td data-label="{{ t('assets.latest') }}">{{ app.latest_version or '-' }}</td>
+                        <td data-label="{{ t('assets.update') }}">
                             {% if not app.release_url %}
                                 -
                             {% elif app.update_available %}
@@ -72,8 +72,8 @@
                                 {{ t("common.no") }}
                             {% endif %}
                         </td>
-                        <td>{{ t("assets.active") if app.is_active else t("assets.inactive") }}</td>
-                        <td>
+                        <td data-label="{{ t('assets.status') }}">{{ t("assets.active") if app.is_active else t("assets.inactive") }}</td>
+                        <td class="cell-stack" data-label="{{ t('assets.release') }}">
                             {% if apps_master == 'opensecdash' and app.is_active %}
                                 <div class="flex flex-col sm:flex-row gap-2 sm:items-center min-w-64">
                                     <input class="input" form="asset-meta-{{ app.id }}" type="url" name="release_url" value="{{ app.release_url or '' }}" placeholder="https://github.com/.../releases/latest">
@@ -88,9 +88,9 @@
                                 <small class="muted block mt-1">{{ t("asset.inactive_not_editable") }}</small>
                             {% endif %}
                         </td>
-                        <td>{{ app.last_seen|datetime }}</td>
+                        <td class="time-cell" data-label="{{ t('assets.last_seen') }}">{{ app.last_seen|datetime }}</td>
                         {% if mqtt_plugin_enabled %}
-                            <td>
+                            <td data-label="{{ t('asset.mqtt_publish') }}">
                                 {% if app.version and app.latest_version %}
                                     <form method="post" action="/assets/{{ app.id }}/mqtt">
                                         <input type="hidden" name="enabled" value="{{ 'false' if app.mqtt_publish_enabled else 'true' }}">
@@ -125,9 +125,9 @@
         {% endfor %}
     </div>
 
-    <div class="card overflow-x-auto">
+    <div class="card overflow-x-auto responsive-table">
         <h3 class="font-semibold mb-3">{{ t("asset.events") }}</h3>
-        <table class="w-full text-sm">
+        <table class="w-full text-sm table-middle">
             <thead>
                 <tr>
                     <th>{{ t("common.time") }}</th>
@@ -140,11 +140,11 @@
             <tbody>
                 {% for event in events %}
                     <tr>
-                        <td>{{ event.event_time|datetime }}</td>
-                        <td>{{ event.event_type }}</td>
-                        <td>{{ event.ip or '-' }}</td>
-                        <td>{{ event.status_code or '-' }}</td>
-                        <td>{{ event.path or '-' }}</td>
+                        <td class="time-cell" data-label="{{ t('common.time') }}">{{ event.event_time|datetime }}</td>
+                        <td data-label="{{ t('common.type') }}">{{ event.event_type }}</td>
+                        <td data-label="{{ t('common.ip') }}">{{ event.ip or '-' }}</td>
+                        <td data-label="{{ t('common.status') }}">{{ event.status_code or '-' }}</td>
+                        <td class="cell-stack" data-label="{{ t('common.path') }}">{{ event.path or '-' }}</td>
                     </tr>
                 {% else %}
                     <tr>

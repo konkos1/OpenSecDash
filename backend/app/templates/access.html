@@ -38,8 +38,8 @@
         </label>
         <button class="btn md:col-span-1">{{ t("common.search") }}</button>
     </form>
-    <div class="card overflow-x-auto">
-        <table class="w-full text-sm">
+    <div class="card overflow-x-auto responsive-table">
+        <table class="w-full text-sm table-middle">
             <thead>
                 <tr>
                     <th class="time-cell">{{ t("common.time") }}</th>
@@ -53,12 +53,12 @@
             <tbody>
                 {% for event in events %}
                     <tr>
-                        <td class="time-cell">{{ event.event_time|datetime }}</td>
-                        <td>{% if event.ip %}<a href="/ip/{{ event.ip|url_path_quote }}">{{ event.ip }}</a>{% else %}-{% endif %}</td>
-                        <td>{{ event.hostname or '-' }}</td>
-                        <td>{{ event.method or '-' }}</td>
-                        <td>{{ event.status_code or '-' }}</td>
-                        <td class="path-cell">
+                        <td class="time-cell" data-label="{{ t('common.time') }}">{{ event.event_time|datetime }}</td>
+                        <td data-label="{{ t('common.ip') }}">{% if event.ip %}<a href="/ip/{{ event.ip|url_path_quote }}">{{ event.ip }}</a>{% else %}-{% endif %}</td>
+                        <td data-label="{{ t('access.host') }}">{{ event.hostname or '-' }}</td>
+                        <td data-label="{{ t('access.method') }}">{{ event.method or '-' }}</td>
+                        <td data-label="{{ t('events.status') }}">{{ event.status_code or '-' }}</td>
+                        <td class="path-cell cell-stack" data-label="{{ t('common.url') }}">
                             {% if event.path %}
                                 {% set display_url = event|event_url %}
                                 <button type="button" class="path-truncate" data-full-text="{{ display_url }}" data-overlay-title="{{ t('common.url') }}">{{ display_url }}</button>

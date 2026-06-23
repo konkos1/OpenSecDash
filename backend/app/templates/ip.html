@@ -56,9 +56,9 @@
         {% endfor %}
     </div>
     
-    <div class="card overflow-x-auto">
+    <div class="card overflow-x-auto responsive-table">
         <h3 class="font-semibold mb-3">{{ t("ip.events") }}</h3>
-        <table class="w-full text-sm">
+        <table class="w-full text-sm table-middle">
             <thead>
                 <tr>
                     <th>{{ t("common.time") }}</th>
@@ -72,11 +72,11 @@
             <tbody>
                 {% for event in events %}
                     <tr>
-                        <td>{{ event.event_time|datetime }}</td>
-                        <td>{{ event.event_type }}</td>
-                        <td>{{ event.severity }}</td>
-                        <td>{{ event.status_code or '-' }}</td>
-                        <td>{{ event.path or '-' }}</td>
+                        <td class="time-cell" data-label="{{ t('common.time') }}">{{ event.event_time|datetime }}</td>
+                        <td data-label="{{ t('common.type') }}">{{ event.event_type }}</td>
+                        <td data-label="{{ t('events.severity') }}">{{ event.severity }}</td>
+                        <td data-label="{{ t('events.status') }}">{{ event.status_code or '-' }}</td>
+                        <td class="cell-stack" data-label="{{ t('common.path') }}">{{ event.path or '-' }}</td>
                     </tr>
                 {% else %}
                     <tr>
