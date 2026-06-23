@@ -14,6 +14,7 @@ sys.path.insert(
 )
 
 # Our models
+from app.core.settings import settings
 from app.database.base import Base
 from app.models import *  # noqa: F401,F403 - register all models for Alembic metadata
 
@@ -32,6 +33,7 @@ if config.config_file_name is not None:
 # target_metadata = mymodel.Base.metadata
 # target_metadata = None
 target_metadata = Base.metadata
+config.set_main_option("sqlalchemy.url", settings.database_url)
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:

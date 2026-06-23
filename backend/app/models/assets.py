@@ -14,9 +14,9 @@ class Asset(Base):
     system = relationship("System", back_populates="assets")
 
     name: Mapped[str] = mapped_column(String(255), index=True)
-    type: Mapped[str] = mapped_column(String(50), default="application")
+    type: Mapped[str] = mapped_column(String(50), default="application", nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     last_seen: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
@@ -29,7 +29,7 @@ class Asset(Base):
     release_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     release_api_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     release_web_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
-    update_check_type: Mapped[str] = mapped_column(String(50), default="github_release")
+    update_check_type: Mapped[str] = mapped_column(String(50), default="github_release", nullable=True)
     update_available: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     mqtt_publish_enabled: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     last_checked: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

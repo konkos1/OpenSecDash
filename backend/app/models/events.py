@@ -18,8 +18,8 @@ class Event(Base):
 
     # Backwards compatible alias used by existing templates/API.
     timestamp: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, index=True)
-    event_time: Mapped[datetime] = mapped_column(DateTime, default=utc_now, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=True, index=True)
+    event_time: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=True, index=True)
 
     source: Mapped[str] = mapped_column(String(100), default="manual", index=True)
     source_id: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)

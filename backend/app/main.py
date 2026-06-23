@@ -12,6 +12,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api import actions_router, assets_router, events_router, pages_router, settings_router
 from app.database.init_db import init_db
+from app.database.migrations import run_auto_migrations_if_enabled, update_migration_diagnostic
 from app.core.template_context import build_template_context
 from app.database.session import SessionLocal
 from app.core.template_context import get_setting_value
@@ -23,10 +24,12 @@ templates = Jinja2Templates(directory="app/templates")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    run_auto_migrations_if_enabled()
     init_db()
     manager = get_plugin_manager()
     db = SessionLocal()
     try:
+        update_migration_diagnostic(db)
         manager.seed_database(db)
     finally:
         db.close()

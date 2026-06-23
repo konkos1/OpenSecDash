@@ -648,6 +648,9 @@ def diagnostics_page(request: Request, db: Session = Depends(get_db)):
     ]
     diagnostic_rows = []
     for item in db.query(Diagnostic).order_by(Diagnostic.plugin).all():
+        if item.plugin == "system":
+            diagnostic_rows.append({"item": item, "effective_status": item.status, "message": item.last_error or ""})
+            continue
         enabled = is_plugin_enabled(db, item.plugin)
         diagnostic_rows.append(
             {
