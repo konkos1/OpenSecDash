@@ -1,7 +1,7 @@
 [x-cloak] { display: none !important; }
-a { color: #93c5fd; }
-a:not(.nav):not(.btn):not(.btn-small):not(.card):not(.brand-link) { text-decoration: underline; text-decoration-color: #60a5fa; text-underline-offset: .18rem; }
-a:not(.nav):not(.btn):not(.btn-small):not(.card):not(.brand-link):hover { color: #bfdbfe; text-decoration-color: #bfdbfe; }
+a { color: inherit; }
+.text-action, a:not(.nav):not(.btn):not(.btn-small):not(.card):not(.brand-link) { cursor: pointer; text-decoration: underline; text-decoration-color: #60a5fa; text-underline-offset: .18rem; }
+.text-action:hover, .text-action:focus, a:not(.nav):not(.btn):not(.btn-small):not(.card):not(.brand-link):hover { text-decoration-color: #bfdbfe; }
 a.card, .brand-link { color: inherit; text-decoration: none; }
 thead { background: rgba(30, 41, 59, .75); }
 th { color: #f8fafc; font-size: .75rem; font-weight: 700; letter-spacing: .04em; text-align: left; text-transform: uppercase; }
@@ -31,8 +31,7 @@ tbody tr:hover { background: rgba(15, 23, 42, .65); }
 .help-tooltip { background: #020617; border: 1px solid #64748b; border-radius: .75rem; bottom: 1.6rem; box-shadow: 0 10px 30px rgba(0,0,0,.35); color: #e2e8f0; font-size: 0.9rem; font-weight: 400; left: 50%; line-height: 1.35; max-width: min(20rem, 80vw); padding: .65rem .75rem; position: absolute; text-align: left; transform: translateX(-50%); width: max-content; z-index: 50; }
 .field-help > .help .help-tooltip { left: auto; right: 0; transform: none; }
 .path-cell { max-width: 22rem; }
-.path-truncate { color: #e2e8f0; cursor: pointer; display: block; max-width: min(22rem, 45vw); overflow: hidden; text-align: left; text-decoration: underline; text-decoration-color: #475569; text-overflow: ellipsis; white-space: nowrap; }
-.path-truncate:hover, .path-truncate:focus { color: #bfdbfe; text-decoration-color: #93c5fd; }
+.path-truncate { background: transparent; border: 0; color: inherit; display: block; max-width: min(22rem, 45vw); overflow: hidden; padding: 0; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
 .path-truncate-mobile { max-width: 100%; width: 100%; }
 .text-overlay-backdrop { align-items: center; background: rgba(2, 6, 23, .78); display: flex; inset: 0; justify-content: center; padding: 1rem; position: fixed; z-index: 80; }
 .text-overlay { background: #020617; border: 1px solid #64748b; border-radius: 1rem; box-shadow: 0 25px 80px rgba(0,0,0,.55); color: #e2e8f0; max-height: min(80vh, 42rem); max-width: min(44rem, 92vw); overflow: auto; padding: 1rem; width: max-content; }

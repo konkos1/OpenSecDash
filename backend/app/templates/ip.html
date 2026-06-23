@@ -65,7 +65,7 @@
                     <th>{{ t("common.type") }}</th>
                     <th>{{ t("events.severity") }}</th>
                     <th>{{ t("events.status") }}</th>
-                    <th>{{ t("common.path") }}</th>
+                    <th>{{ t("common.url") }}</th>
                 </tr>
             </thead>
 
@@ -76,7 +76,14 @@
                         <td data-label="{{ t('common.type') }}">{{ event.event_type }}</td>
                         <td data-label="{{ t('events.severity') }}">{{ event.severity }}</td>
                         <td data-label="{{ t('events.status') }}">{{ event.status_code or '-' }}</td>
-                        <td class="cell-stack" data-label="{{ t('common.path') }}">{{ event.path or '-' }}</td>
+                        <td class="cell-stack path-cell" data-label="{{ t('common.url') }}">
+                            {% if event.path %}
+                                {% set display_url = event|event_url %}
+                                <button type="button" class="path-truncate text-action" data-full-text="{{ display_url }}" data-overlay-title="{{ t('common.url') }}">{{ display_url }}</button>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
                     </tr>
                 {% else %}
                     <tr>

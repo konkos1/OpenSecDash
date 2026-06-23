@@ -61,7 +61,7 @@
                         <td class="path-cell cell-stack" data-label="{{ t('common.url') }}">
                             {% if event.path %}
                                 {% set display_url = event|event_url %}
-                                <button type="button" class="path-truncate" data-full-text="{{ display_url }}" data-overlay-title="{{ t('common.url') }}">{{ display_url }}</button>
+                                <button type="button" class="path-truncate text-action" data-full-text="{{ display_url }}" data-overlay-title="{{ t('common.url') }}">{{ display_url }}</button>
                             {% else %}-{% endif %}
                         </td>
                     </tr>
