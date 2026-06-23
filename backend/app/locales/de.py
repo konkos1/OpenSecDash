@@ -25,6 +25,7 @@ DE = {
     "common.type": "Typ",
     "common.ip": "IP",
     "common.path": "Pfad",
+    "common.url": "URL",
     "common.country": "Land",
     "common.action": "Aktion",
 

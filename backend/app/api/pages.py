@@ -84,11 +84,46 @@ def url_path_quote(value: str | None) -> str:
     return quote(str(value or ""), safe="")
 
 
+def event_url(event: Event) -> str:
+    path = event.path or ""
+    if not path:
+        return ""
+    if path.startswith(("http://", "https://")):
+        return path
+
+    data = event.data_json or {}
+    for key in ("url", "full_url", "request_url", "absolute_url"):
+        value = data.get(key)
+        if isinstance(value, str) and value.startswith(("http://", "https://")):
+            return value
+
+    host = event.hostname or data.get("host") or data.get("request_host")
+    if not host:
+        return path
+
+    scheme = data.get("scheme") or data.get("request_scheme") or data.get("RequestScheme") or data.get("proto") or data.get("protocol")
+    if not scheme:
+        router = str(data.get("router_name") or "").lower()
+        if "https" in router or "websecure" in router:
+            scheme = "https"
+        elif "http" in router or "web" in router:
+            scheme = "http"
+    if not scheme:
+        return f"{host}{path if path.startswith('/') else '/' + path}"
+
+    scheme = str(scheme).replace("://", "").lower()
+    if scheme not in {"http", "https"}:
+        scheme = "https" if scheme.startswith("https") else "http"
+    display_path = path if path.startswith("/") else f"/{path}"
+    return f"{scheme}://{host}{display_path}"
+
+
 templates.env.filters["datetime"] = format_datetime
 templates.env.filters["duration"] = format_duration
 templates.env.filters["country_name"] = format_country_name
 templates.env.filters["country_or_local"] = format_country_or_local
 templates.env.filters["url_path_quote"] = url_path_quote
+templates.env.filters["event_url"] = event_url
 
 
 def save_setting(db: Session, key: str, value: str) -> None:

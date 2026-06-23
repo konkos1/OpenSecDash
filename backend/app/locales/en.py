@@ -25,6 +25,7 @@ EN = {
     "common.type": "Type",
     "common.ip": "IP",
     "common.path": "Path",
+    "common.url": "URL",
     "common.country": "Country",
     "common.action": "Action",
 

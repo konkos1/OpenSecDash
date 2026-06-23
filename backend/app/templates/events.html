@@ -59,7 +59,7 @@
           <th>{{ t("events.ip") }}</th>
           <th>{{ t("events.country") }}</th>
           <th>{{ t("events.status") }}</th>
-          <th>{{ t("events.path") }}</th>
+          <th>{{ t("common.url") }}</th>
         </tr>
       </thead>
       <tbody>
@@ -71,7 +71,12 @@
             <td>{% if event.ip %}<a href="/ip/{{ event.ip|url_path_quote }}">{{ event.ip }}</a>{% else %}-{% endif %}</td>
             <td>{{ event.country|country_or_local(event.ip) }}</td>
             <td>{{ event.status_code or '-' }}</td>
-            <td>{{ event.path or '-' }}</td>
+            <td class="path-cell">
+              {% if event.path %}
+                {% set display_url = event|event_url %}
+                <button type="button" class="path-truncate" data-full-text="{{ display_url }}" data-overlay-title="{{ t('common.url') }}">{{ display_url }}</button>
+              {% else %}-{% endif %}
+            </td>
           </tr>
         {% else %}
           <tr>
@@ -90,7 +95,10 @@
         <div>{{ t("events.ip") }}: {% if event.ip %}<a href="/ip/{{ event.ip|url_path_quote }}">{{ event.ip }}</a>{% else %}-{% endif %}</div>
         <div>{{ t("events.country") }}: {{ event.country|country_or_local(event.ip) }}</div>
         <div>{{ t("events.status") }}: {{ event.status_code or '-' }}</div>
-        <div class="break-all">{{ event.path or '' }}</div>
+        {% if event.path %}
+          {% set display_url = event|event_url %}
+          <button type="button" class="path-truncate path-truncate-mobile" data-full-text="{{ display_url }}" data-overlay-title="{{ t('common.url') }}">{{ display_url }}</button>
+        {% endif %}
       </article>
     {% endfor %}
   </div>

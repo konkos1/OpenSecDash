@@ -44,11 +44,34 @@ document.addEventListener("DOMContentLoaded", () => {
         event.returnValue = "";
     });
 
+    document.addEventListener("keydown", event => {
+        if (event.key === "Escape") {
+            document.querySelectorAll(".text-overlay-backdrop").forEach(overlay => overlay.remove());
+        }
+    });
+
     document.addEventListener("click", event => {
         const helpButton = event.target.closest(".help[data-tooltip]");
+        const pathButton = event.target.closest(".path-truncate[data-full-text]");
+        const overlayClose = event.target.closest("[data-text-overlay-close]");
+        const overlayBackdrop = event.target.classList.contains("text-overlay-backdrop") ? event.target : null;
 
         document.querySelectorAll(".help-tooltip")
             .forEach(tooltip => tooltip.remove());
+
+        if (overlayClose || overlayBackdrop) {
+            event.preventDefault();
+            event.stopPropagation();
+            document.querySelectorAll(".text-overlay-backdrop").forEach(overlay => overlay.remove());
+            return;
+        }
+
+        if (pathButton) {
+            event.preventDefault();
+            event.stopPropagation();
+            showTextOverlay(pathButton.dataset.fullText || pathButton.textContent || "", pathButton.dataset.overlayTitle || "");
+            return;
+        }
 
         if (helpButton) {
             event.preventDefault();
@@ -105,6 +128,43 @@ function localizeOpenSecDashCountries() {
             }
             element.textContent = displayNames.of(code) || code;
         });
+}
+
+function showTextOverlay(text, overlayTitle) {
+    document.querySelectorAll(".text-overlay-backdrop").forEach(overlay => overlay.remove());
+
+    const backdrop = document.createElement("div");
+    backdrop.className = "text-overlay-backdrop";
+    backdrop.setAttribute("role", "dialog");
+    backdrop.setAttribute("aria-modal", "true");
+
+    const panel = document.createElement("div");
+    panel.className = "text-overlay";
+
+    const header = document.createElement("div");
+    header.className = "text-overlay-header";
+
+    const title = document.createElement("strong");
+    title.textContent = overlayTitle || "Path";
+
+    const close = document.createElement("button");
+    close.type = "button";
+    close.className = "text-overlay-close";
+    close.setAttribute("data-text-overlay-close", "true");
+    close.setAttribute("aria-label", "Close");
+    close.textContent = "×";
+
+    const content = document.createElement("div");
+    content.className = "text-overlay-content";
+    content.textContent = text;
+
+    header.appendChild(title);
+    header.appendChild(close);
+    panel.appendChild(header);
+    panel.appendChild(content);
+    backdrop.appendChild(panel);
+    document.body.appendChild(backdrop);
+    close.focus();
 }
 
 function formatOpenSecDashDate(date, timezone) {

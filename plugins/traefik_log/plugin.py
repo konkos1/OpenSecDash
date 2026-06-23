@@ -98,6 +98,8 @@ class Plugin(DatasourcePlugin):
             "status_code": status_code,
             "data_json": {
                 "resource": f"{data.get('RequestHost', '-')}{data.get('RequestPath', '')}",
+                "request_scheme": data.get("RequestScheme"),
+                "request_url": f"{data.get('RequestScheme', 'https')}://{data.get('RequestHost') or data.get('RequestAddr')}{data.get('RequestPath', '')}" if data.get("RequestHost") or data.get("RequestAddr") else None,
                 "content_type": data.get("downstream_Content-Type") or data.get("origin_Content-Type"),
                 "user_agent": data.get("request_User-Agent"),
                 "router_name": data.get("RouterName"),

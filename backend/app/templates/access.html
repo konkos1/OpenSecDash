@@ -47,7 +47,7 @@
                     <th>{{ t("access.host") }}</th>
                     <th>{{ t("access.method") }}</th>
                     <th>{{ t("events.status") }}</th>
-                    <th>{{ t("common.path") }}</th>
+                    <th>{{ t("common.url") }}</th>
                 </tr>
             </thead>
             <tbody>
@@ -58,7 +58,12 @@
                         <td>{{ event.hostname or '-' }}</td>
                         <td>{{ event.method or '-' }}</td>
                         <td>{{ event.status_code or '-' }}</td>
-                        <td>{{ event.path or '-' }}</td>
+                        <td class="path-cell">
+                            {% if event.path %}
+                                {% set display_url = event|event_url %}
+                                <button type="button" class="path-truncate" data-full-text="{{ display_url }}" data-overlay-title="{{ t('common.url') }}">{{ display_url }}</button>
+                            {% else %}-{% endif %}
+                        </td>
                     </tr>
                 {% else %}
                     <tr>
