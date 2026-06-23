@@ -85,6 +85,9 @@ DE = {
     "events.snapshot": "⚪ SNAPSHOT",
     "events.snapshot_at": "Stand",
     "events.refresh_snapshot": "↻ Aktualisieren",
+    "events.live_closed": "Live-Verbindung geschlossen",
+    "events.live_unavailable": "Live aktuell nicht verfügbar",
+    "events.live_reconnecting": "verbinde erneut",
 
     "access.title": "Access",
     "access.search_placeholder": "In Access suchen",

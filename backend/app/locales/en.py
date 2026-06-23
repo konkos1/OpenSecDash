@@ -85,6 +85,9 @@ EN = {
     "events.snapshot": "⚪ SNAPSHOT",
     "events.snapshot_at": "Snapshot at",
     "events.refresh_snapshot": "↻ Refresh",
+    "events.live_closed": "Live connection closed",
+    "events.live_unavailable": "Live currently unavailable",
+    "events.live_reconnecting": "reconnecting",
 
     "access.title": "Access",
     "access.search_placeholder": "Search access",

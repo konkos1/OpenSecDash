@@ -23,6 +23,7 @@ tbody tr:hover { background: rgba(15, 23, 42, .65); }
 .badge { background: #064e3b; border: 1px solid #047857; border-radius: 999px; color: #d1fae5; padding: .35rem .7rem; }
 .badge-live { background: #064e3b; border-color: #047857; color: #d1fae5; }
 .badge-snapshot { background: #334155; border-color: #64748b; color: #e2e8f0; }
+.badge-warning { background: #451a03; border-color: #b45309; color: #fed7aa; }
 .muted { color: #94a3b8; }
 .help { align-items: center; background: transparent; border: 1px solid #64748b; border-radius: 999px; color: #cbd5e1; cursor: pointer; display: inline-flex; font-size: .8rem; height: 1.15rem; justify-content: center; margin-left: .35rem; position: relative; vertical-align: text-top; width: 1.15rem; }
 .field-help { position: relative; }

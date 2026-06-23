@@ -235,12 +235,19 @@ function localizeOpenSecDashDatetimes() {
         });
 }
 
-function openSecDashLiveMode(initialLive) {
+function openSecDashLiveMode(initialLive, messages = {}) {
     return {
         live: Boolean(initialLive),
+        liveIssue: "",
         snapshotAt: null,
         socket: null,
+        reconnectTimer: null,
         storageKey: "opensecdash.events.mode",
+        messages: {
+            closed: messages.closed || "Live connection closed",
+            unavailable: messages.unavailable || "Live currently unavailable",
+            reconnecting: messages.reconnecting || "reconnecting",
+        },
 
         init() {
             const storedMode = window.sessionStorage.getItem(this.storageKey);
@@ -265,11 +272,13 @@ function openSecDashLiveMode(initialLive) {
             window.sessionStorage.setItem(this.storageKey, this.live ? "live" : "snapshot");
 
             if (this.live) {
+                this.liveIssue = "";
                 this.snapshotAt = null;
                 this.connect();
                 return;
             }
 
+            this.liveIssue = "";
             this.disconnect();
             this.freezeSnapshot();
         },
@@ -280,7 +289,15 @@ function openSecDashLiveMode(initialLive) {
             }
 
             const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-            this.socket = new WebSocket(`${protocol}://${window.location.host}/ws/events`);
+            try {
+                this.socket = new WebSocket(`${protocol}://${window.location.host}/ws/events`);
+            } catch (_error) {
+                this.liveIssue = this.messages.unavailable;
+                return;
+            }
+            this.socket.onopen = () => {
+                this.liveIssue = "";
+            };
             this.socket.onmessage = event => {
                 let payload = null;
                 try {
@@ -293,14 +310,27 @@ function openSecDashLiveMode(initialLive) {
                     window.location.reload();
                 }
             };
-            this.socket.onclose = () => {
+            this.socket.onerror = () => {
                 if (this.live) {
-                    window.setTimeout(() => this.connect(), 2000);
+                    this.liveIssue = this.messages.unavailable;
+                }
+            };
+            this.socket.onclose = event => {
+                this.socket = null;
+                if (this.live) {
+                    this.liveIssue = event.code === 1008
+                        ? this.messages.unavailable
+                        : `${this.messages.closed} (${this.messages.reconnecting})`;
+                    this.reconnectTimer = window.setTimeout(() => this.connect(), 2000);
                 }
             };
         },
 
         disconnect() {
+            if (this.reconnectTimer) {
+                window.clearTimeout(this.reconnectTimer);
+                this.reconnectTimer = null;
+            }
             if (this.socket) {
                 this.socket.close();
                 this.socket = null;
