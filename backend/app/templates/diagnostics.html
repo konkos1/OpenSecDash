@@ -29,7 +29,7 @@
             <p class="muted mb-3 text-sm">{{ t("diagnostics.diagnostics_help") }}</p>
             {% for row in diagnostic_rows %}
                 <div class="row">
-                    <span>{{ row.item.plugin }} · {{ row.item.component }}
+                    <span>{% if row.item.component == 'plugin' %}{{ row.item.component }} · {{ row.item.plugin }}{% else %}{{ row.item.plugin }} · {{ row.item.component }}{% endif %}
                         <br>
                         <small class="muted">{{ row.message or '' }}</small>
                     </span>
