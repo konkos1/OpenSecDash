@@ -36,7 +36,11 @@
             <input type="checkbox" name="hide_local_ips" value="true" {% if hide_local_ips %}checked{% endif %}>
             <span>{{ t("events.hide_local_ips") }}</span>
         </label>
-        <button class="btn md:col-span-1">{{ t("common.search") }}</button>
+        <label class="flex items-center gap-2 text-sm md:col-span-1">
+            <input type="checkbox" name="today" value="true" {% if today %}checked{% endif %}>
+            <span>{{ t("events.today_only") }}</span>
+        </label>
+        <button class="btn md:col-span-6 md:justify-self-end lg:col-span-1 lg:col-start-6">{{ t("common.search") }}</button>
     </form>
     <div class="card overflow-x-auto responsive-table">
         <table class="w-full text-sm table-middle">

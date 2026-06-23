@@ -73,6 +73,7 @@ DE = {
     "events.country_placeholder": "Land, z.B. NL",
     "events.country_help": "Maximal zwei Zeichen als Länder-Code, z.B. NL. '-' findet Events ohne Land oder mit '-' als Land.",
     "events.hide_local_ips": "Lokale IPs ausblenden",
+    "events.today_only": "Nur heute",
     "events.status_placeholder": "HTTP-Status",
     "events.switch_to_snapshot": "In Snapshot-Modus wechseln",
     "events.switch_to_live": "In Live-Modus wechseln",

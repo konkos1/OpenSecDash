@@ -262,11 +262,11 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
         )
     widgets = []
     if enabled_plugins["crowdsec"]:
-        widgets.append({"title_key": "dashboard.active_bans", "value": active_bans, "href": "/events?event_type=security.ban"})
+        widgets.append({"title_key": "dashboard.active_bans", "value": active_bans, "href": "/events?event_type=security.ban*&today=true"})
     if enabled_plugins["geoblock_log"]:
-        widgets.append({"title_key": "dashboard.geoblocks_today", "value": geoblocks, "href": "/events?event_type=security.geoblock"})
+        widgets.append({"title_key": "dashboard.geoblocks_today", "value": geoblocks, "href": "/events?event_type=security.geoblock&today=true"})
     if enabled_plugins["traefik_log"]:
-        widgets.append({"title_key": "dashboard.access_today", "value": access_events, "href": "/events?event_type=access.*"})
+        widgets.append({"title_key": "dashboard.access_today", "value": access_events, "href": "/events?event_type=access.*&today=true"})
     if enabled_plugins["apps_inventory"]:
         widgets.extend(
             [
@@ -290,6 +290,7 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
         enabled_plugins=enabled_plugins,
         top_countries=top_countries,
         country_heatmap=country_heatmap,
+        today_events_href="/events?today=true",
         country_data_plugins=country_data_plugins,
         latest_security_events=latest_security_events,
     )
@@ -353,6 +354,7 @@ def events_page(
     path: str | None = None,
     q: str | None = None,
     hide_local_ips: str | None = None,
+    today: str | None = None,
     db: Session = Depends(get_db),
 ):
     require_events_feature_enabled(db)
@@ -369,6 +371,7 @@ def events_page(
     ]
     q_tokens = [token for token in tokenize_search_expression(q_value or "") if token not in {"&&", "||", "(", ")"}]
     q_utc_terms_by_term = {token: utc_search_terms_for_ui_time(token, timezone_name) for token in q_tokens}
+    today_enabled = today == "true"
     filters = {
         "event_type": clean_filter_value(event_type),
         "ip": clean_filter_value(ip),
@@ -380,6 +383,7 @@ def events_page(
         "q_utc_terms_by_term": q_utc_terms_by_term,
         "plugins": enabled_event_plugins,
         "hide_local_ips": hide_local_ips == "true",
+        "event_time_from": today_start(db) if today_enabled else None,
     }
     form_values = {
         "event_type": event_type or "",
@@ -389,6 +393,7 @@ def events_page(
         "path": path or "",
         "q": q or "",
         "hide_local_ips": hide_local_ips == "true",
+        "today": today_enabled,
     }
     events = apply_event_filters(db.query(Event), filters).order_by(Event.event_time.desc()).limit(200).all()
     return render(request, db, "events.html", events=events, filters=form_values, live_default=get_setting_value(db, "live_default", "true"))
@@ -399,6 +404,7 @@ def access_page(
     request: Request,
     q: str | None = None,
     hide_local_ips: str | None = None,
+    today: str | None = None,
     db: Session = Depends(get_db),
 ):
     require_plugin_enabled(db, "traefik_log")
@@ -406,6 +412,7 @@ def access_page(
     timezone_name = get_setting_value(db, "timezone", "auto")
     q_tokens = [token for token in tokenize_search_expression(q_value or "") if token not in {"&&", "||", "(", ")"}]
     q_utc_terms_by_term = {token: utc_search_terms_for_ui_time(token, timezone_name) for token in q_tokens}
+    today_enabled = today == "true"
     filters = {
         "event_type": "access.*",
         "q": q_value,
@@ -413,6 +420,7 @@ def access_page(
         "q_utc_terms_by_term": q_utc_terms_by_term,
         "plugins": ["traefik_log"],
         "hide_local_ips": hide_local_ips == "true",
+        "event_time_from": today_start(db) if today_enabled else None,
     }
     events = apply_event_filters(db.query(Event), filters).order_by(Event.event_time.desc()).limit(200).all()
     return render(
@@ -422,6 +430,7 @@ def access_page(
         events=events,
         q=q or "",
         hide_local_ips=hide_local_ips == "true",
+        today=today_enabled,
         live_default=get_setting_value(db, "live_default", "true"),
     )
 

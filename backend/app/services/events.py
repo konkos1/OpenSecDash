@@ -455,6 +455,10 @@ def apply_event_filters(query, filters: dict[str, Any]):
         query = query.filter(Event.status_code == int(filters["status_code"]))
     if filters.get("path"):
         query = query.filter(Event.path.contains(filters["path"]))
+    if filters.get("event_time_from"):
+        query = query.filter(Event.event_time >= filters["event_time_from"])
+    if filters.get("event_time_to"):
+        query = query.filter(Event.event_time < filters["event_time_to"])
     if filters.get("hide_local_ips"):
         ids = [event_id for event_id, ip in query.with_entities(Event.id, Event.ip).all() if not is_local_ip_value(ip)]
         query = query.filter(Event.id.in_(ids)) if ids else query.filter(False)

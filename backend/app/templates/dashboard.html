@@ -30,7 +30,7 @@
       <div class="card">
         <h3 class="font-semibold mb-3">{{ t("dashboard.top_countries") }}</h3>
         {% for country,count in top_countries %}
-          <a class="row" href="/events?country={{ country }}">
+          <a class="row" href="{{ today_events_href }}&country={{ country }}">
             <span>{{ country|country_name }}</span>
             <b>{{ count }}</b>
           </a>
@@ -47,7 +47,7 @@
             <img src="/static/img/world-map.svg" alt="{{ t('dashboard.country_heatmap') }}" class="w-full h-auto block" loading="lazy">
             {% for point in country_heatmap %}
               <a
-                href="/events?country={{ point.country }}"
+                href="{{ today_events_href }}&country={{ point.country }}"
                 class="absolute rounded-full border border-sky-200 bg-sky-400/30 hover:bg-sky-300/50"
                 style="left: calc({{ '%.2f'|format(point.x) }}% - {{ '%.2f'|format(point.radius) }}px); top: calc({{ '%.2f'|format(point.y) }}% - {{ '%.2f'|format(point.radius) }}px); width: {{ '%.2f'|format(point.radius * 2) }}px; height: {{ '%.2f'|format(point.radius * 2) }}px; box-shadow: 0 0 18px rgba(125, 211, 252, .55);"
                 title="{{ point.country }} · {{ point.count }}"
@@ -58,7 +58,7 @@
           </div>
           <div class="flex flex-wrap gap-2 mt-3 text-sm">
             {% for point in country_heatmap %}
-              <a class="badge" href="/events?country={{ point.country }}">{{ point.country|country_name }} · {{ point.count }}</a>
+              <a class="badge" href="{{ today_events_href }}&country={{ point.country }}">{{ point.country|country_name }} · {{ point.count }}</a>
             {% endfor %}
           </div>
         {% else %}
