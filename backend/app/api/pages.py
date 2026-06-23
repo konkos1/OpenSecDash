@@ -463,6 +463,7 @@ def ip_explorer_page(ip: str, request: Request, db: Session = Depends(get_db)):
         insights=insights,
         count_widgets=count_widgets,
         crowdsec_enabled=enabled_plugins["crowdsec"],
+        local_ip_target=is_local_ip_value(ip),
     )
 
 
