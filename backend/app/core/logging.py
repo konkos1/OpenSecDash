@@ -48,20 +48,7 @@ def redact_sensitive(value: object) -> str:
 
 class RedactingFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
-        original_args = record.args
-        original_msg = record.msg
-        try:
-            if isinstance(record.args, dict):
-                record.args = {key: redact_sensitive(value) for key, value in record.args.items()}
-            elif isinstance(record.args, tuple):
-                record.args = tuple(redact_sensitive(value) for value in record.args)
-            elif record.args:
-                record.args = redact_sensitive(record.args)
-            record.msg = redact_sensitive(record.msg)
-            return redact_sensitive(super().format(record))
-        finally:
-            record.args = original_args
-            record.msg = original_msg
+        return redact_sensitive(super().format(record))
 
 
 def _formatter() -> logging.Formatter:

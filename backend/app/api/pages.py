@@ -562,7 +562,9 @@ def asset_page(system_id: int, request: Request, show_inactive: bool = False, db
         if app_ids
         else []
     )
-    mqtt_plugin_enabled = get_setting_value(db, "plugin.mqtt.enabled", "false") == "true"
+    mqtt_plugin_enabled = (
+        get_setting_value(db, "plugin.mqtt.enabled", get_setting_value(db, "plugin.mqtt-hass.enabled", "false")) == "true"
+    )
     return render(
         request,
         db,
