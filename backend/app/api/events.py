@@ -2,10 +2,9 @@ from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.core.time import utc_now
 from app.database.dependencies import get_db
 from app.models.events import Event
 from app.services.events import apply_event_filters, store_event
@@ -37,7 +36,7 @@ class EventCreate(BaseModel):
 class EventResponse(EventCreate):
     id: int
     created_at: datetime | None = None
-    timestamp: datetime = Field(default_factory=utc_now)
+    timestamp: datetime | None = None
 
     class Config:
         from_attributes = True

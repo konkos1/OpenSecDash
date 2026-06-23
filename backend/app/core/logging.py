@@ -30,10 +30,11 @@ def _redact_url(match: re.Match[str]) -> str:
             netloc = f"{netloc}:{parts.port}"
         if parts.username:
             netloc = f"<redacted>@{netloc}"
-        query = urlencode(
+        query_items = [
             (key, "<redacted>" if any(word in key.lower() for word in SENSITIVE_WORDS) else value)
             for key, value in parse_qsl(parts.query, keep_blank_values=True)
-        )
+        ]
+        query = urlencode(query_items)
         return urlunsplit((parts.scheme, netloc, parts.path, query, parts.fragment))
     except Exception:
         return "<redacted-url>"

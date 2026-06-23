@@ -64,7 +64,7 @@ def format_country_name(context, value: str | None) -> Markup | str:
 def format_country_or_local(context, value: str | None, ip: str | None = None) -> Markup | str:
     if is_local_ip_value(ip):
         translator = context.get("t")
-        return translator("common.local") if callable(translator) else "local"
+        return str(translator("common.local")) if callable(translator) else "local"
     return format_country_name(context, value)
 
 
