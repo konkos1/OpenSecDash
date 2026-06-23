@@ -38,7 +38,7 @@ class Plugin(ExportPlugin):
     locales = {
         "en": {
             "mqtt.settings.enabled": "MQTT enabled",
-            "mqtt.settings.enabled.help": "Publishes assets and updates to MQTT when enabled.",
+            "mqtt.settings.enabled.help": "Publishes assets and updates to Home Assistant's MQTT when enabled.",
             "mqtt.settings.host": "MQTT host",
             "mqtt.settings.host.help": "Hostname or IP of the MQTT broker.",
             "mqtt.settings.port": "MQTT port",
@@ -55,7 +55,7 @@ class Plugin(ExportPlugin):
         },
         "de": {
             "mqtt.settings.enabled": "MQTT aktiviert",
-            "mqtt.settings.enabled.help": "Publiziert Assets und Updates per MQTT, wenn aktiviert.",
+            "mqtt.settings.enabled.help": "Publiziert Assets und Updates per MQTT an Home Assistant, wenn aktiviert.",
             "mqtt.settings.host": "MQTT Host",
             "mqtt.settings.host.help": "Hostname oder IP des MQTT-Brokers.",
             "mqtt.settings.port": "MQTT Port",

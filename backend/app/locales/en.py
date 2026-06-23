@@ -202,6 +202,7 @@ EN = {
     "diagnostics.no_actions": "No actions triggered",
 
     "settings.title": "Settings",
+    "settings.core": "General",
     "settings.domain": "Primary Domain",
     "settings.language": "Language",
     "settings.retention_days": "Retention days",
@@ -221,6 +222,7 @@ EN = {
     "settings.asset_github_api_token": "GitHub API Token",
     "settings.action_simulation": "Action simulation",
     "settings.logging": "Logging",
+    "settings.plugin_block_help": "Plugin settings: These options belong to this individual plugin and only apply when the plugin is enabled.",
     "settings.log_file_enabled": "Write log file",
     "settings.log_file_path": "Log file path",
     "settings.log_level": "Log level",

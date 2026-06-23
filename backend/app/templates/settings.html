@@ -8,10 +8,12 @@
 
     <h2 class="text-2xl font-semibold mb-5">{{ t("settings.title") }}</h2>
 
-    <form class="card grid grid-cols-1 md:grid-cols-2 gap-4" method="post" action="/settings" data-unsaved-warning="{{ t('settings.unsaved_changes') }}" x-data='{ settings: {{ plugin_settings_state | tojson }} }'>
-        <label>{{ t("settings.domain") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.domain') }}">?</button>
-            <input class="input" type="text" name="domain" value="{{ domain }}" placeholder="mydomain.com">
-        </label>
+    <form class="space-y-5" method="post" action="/settings" data-unsaved-warning="{{ t('settings.unsaved_changes') }}" x-data='{ settings: {{ plugin_settings_state | tojson }} }'>
+        <section class="card grid grid-cols-1 md:grid-cols-2 gap-4">
+            <h3 class="font-semibold md:col-span-2">{{ t("settings.core") }}</h3>
+            <label>{{ t("settings.domain") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.domain') }}">?</button>
+                <input class="input" type="text" name="domain" value="{{ domain }}" placeholder="mydomain.com">
+            </label>
 
         <label>{{ t("settings.language") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.language') }}">?</button>
             <select class="input" name="language">
@@ -57,7 +59,9 @@
             </select>
         </label>
 
-        <section class="md:col-span-2 border-t border-slate-700 pt-4 mt-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+        </section>
+
+        <section class="card grid grid-cols-1 md:grid-cols-2 gap-4">
             <h3 class="font-semibold md:col-span-2">{{ t("settings.logging") }}</h3>
             <label>{{ t("settings.log_file_enabled") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.log_file_enabled') }}">?</button>
                 <select class="input" name="log_file_enabled">
@@ -78,8 +82,9 @@
         </section>
 
         {% for group in plugin_setting_groups %}
-            <section class="md:col-span-2 border-t border-slate-700 pt-4 mt-2">
-                <h3 class="font-semibold mb-3">{{ group.name }}</h3>
+            <section class="card">
+                <h3 class="font-semibold mb-1">{{ group.name }}</h3>
+                <p class="muted text-sm mb-3">{{ t("settings.plugin_block_help") }}</p>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {% for setting in group.settings %}
                         <label
@@ -107,7 +112,7 @@
             </section>
         {% endfor %}
 
-        <div class="md:col-span-2">
+        <div>
             <button class="btn" type="submit">{{ t("common.save_button") }}</button>
         </div>
     </form>

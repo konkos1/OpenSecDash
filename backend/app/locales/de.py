@@ -203,6 +203,7 @@ DE = {
     "diagnostics.no_actions": "Keine Aktionen ausgelöst",
 
     "settings.title": "Einstellungen",
+    "settings.core": "Allgemein",
     "settings.domain": "Primäre Domäne",
     "settings.language": "Sprache",
     "settings.retention_days": "Aufbewahrung in Tagen",
@@ -222,6 +223,7 @@ DE = {
     "settings.asset_github_api_token": "GitHub API Token",
     "settings.action_simulation": "Action-Simulation",
     "settings.logging": "Logging",
+    "settings.plugin_block_help": "Plugin-Einstellungen: Diese Optionen gehören zu diesem einzelnen Plugin und wirken nur, wenn das Plugin aktiviert ist.",
     "settings.log_file_enabled": "Logdatei schreiben",
     "settings.log_file_path": "Logdatei-Pfad",
     "settings.log_level": "Log-Level",
