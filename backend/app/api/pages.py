@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from http import HTTPStatus
 import logging
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-from urllib.parse import quote
+from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
@@ -149,6 +149,27 @@ def _redacted_setting_value(key: str, value: str | None) -> str:
     return str(value or "")
 
 
+TABLE_COLUMN_DEFINITIONS = [
+    {"key": "time", "label_key": "common.time"},
+    {"key": "type", "label_key": "events.type"},
+    {"key": "severity", "label_key": "events.severity"},
+    {"key": "ip", "label_key": "events.ip"},
+    {"key": "country", "label_key": "events.country"},
+    {"key": "status", "label_key": "events.status"},
+    {"key": "path", "label_key": "common.path"},
+    {"key": "url", "label_key": "common.url"},
+    {"key": "host", "label_key": "access.host"},
+    {"key": "method", "label_key": "access.method"},
+    {"key": "user_agent", "label_key": "events.user_agent"},
+    {"key": "router", "label_key": "events.router"},
+    {"key": "service", "label_key": "events.service"},
+    {"key": "asn", "label_key": "events.asn"},
+]
+TABLE_COLUMN_KEYS = [str(item["key"]) for item in TABLE_COLUMN_DEFINITIONS]
+DEFAULT_EVENTS_COLUMNS = "time,type,severity,ip,country,status,url"
+DEFAULT_ACCESS_COLUMNS = "time,ip,host,method,status,path"
+
+
 def save_setting(db: Session, key: str, value: str) -> None:
     setting = db.query(Setting).filter(Setting.key == key).first()
     if setting is None:
@@ -198,7 +219,7 @@ def parse_snapshot_before(value: str | None) -> datetime | None:
 def render(request: Request, db: Session, template: str, **context):
     # All page routes go through this helper so global template context (i18n,
     # feature flags, settings) stays consistent and easy to exercise in tests.
-    return templates.TemplateResponse(request=request, name=template, context={**build_template_context(db), **context})
+    return templates.TemplateResponse(request=request, name=template, context={**build_template_context(db), "event_data_value": event_data_value, **context})
 
 
 def is_plugin_enabled(db: Session, plugin_id: str) -> bool:
@@ -366,6 +387,52 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
     )
 
 
+def table_columns(db: Session, setting_key: str, default: str) -> tuple[list[dict[str, object]], set[str]]:
+    configured = get_setting_value(db, setting_key, default)
+    active = {key for key in configured.split(",") if key in TABLE_COLUMN_KEYS}
+    if not active:
+        active = {key for key in default.split(",") if key in TABLE_COLUMN_KEYS}
+    columns = [{**definition, "active": definition["key"] in active} for definition in TABLE_COLUMN_DEFINITIONS]
+    return columns, active
+
+
+def save_table_columns(db: Session, setting_key: str, selected: list[str], default: str) -> None:
+    values = [key for key in TABLE_COLUMN_KEYS if key in set(selected)]
+    save_setting(db, setting_key, ",".join(values) if values else default)
+
+
+def column_redirect_url(request: Request, fallback: str, snapshot_before: str | None) -> str:
+    target = request.headers.get("referer") or fallback
+    if not snapshot_before:
+        return target
+    parts = urlsplit(target)
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    query["snapshot_before"] = snapshot_before
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
+
+
+def asset_links_for_events(db: Session, events: list[Event]) -> dict[int, str]:
+    links = {}
+    for event in events:
+        asset = db.query(Asset).filter(Asset.id == event.asset_id).first() if event.asset_id else None
+        if asset is not None and not event_matches_asset_host(event, asset):
+            asset = None
+        if asset is None:
+            asset = find_asset_by_host(db, event.hostname)
+        if asset is not None:
+            links[event.id] = f"/assets/app/{asset.id}"
+    return links
+
+
+def event_data_value(event: Event, *keys: str) -> str | None:
+    data = event.data_json or {}
+    for key in keys:
+        value = data.get(key)
+        if value not in (None, ""):
+            return str(value)
+    return None
+
+
 def clean_filter_value(value: str | None) -> str | None:
     if value is None:
         return None
@@ -487,7 +554,29 @@ def events_page(
         "snapshot_before": snapshot_before or "",
     }
     events = apply_event_filters(db.query(Event), filters).order_by(Event.event_time.desc()).limit(200).all()
-    return render(request, db, "events.html", events=events, filters=form_values, live_default=get_setting_value(db, "live_default", "true"))
+    column_options, active_columns = table_columns(db, "ui.events.visible_columns", DEFAULT_EVENTS_COLUMNS)
+    event_asset_links = asset_links_for_events(db, events)
+    return render(
+        request,
+        db,
+        "events.html",
+        events=events,
+        filters=form_values,
+        event_asset_links=event_asset_links,
+        column_options=column_options,
+        active_columns=active_columns,
+        columns_setting_action="/events/columns",
+        live_default=get_setting_value(db, "live_default", "true"),
+    )
+
+
+@router.post("/events/columns")
+async def save_events_columns(request: Request, db: Session = Depends(get_db)):
+    require_events_feature_enabled(db)
+    form = await request.form()
+    save_table_columns(db, "ui.events.visible_columns", [str(value) for value in form.getlist("columns")], DEFAULT_EVENTS_COLUMNS)
+    db.commit()
+    return RedirectResponse(url=column_redirect_url(request, "/events", str(form.get("snapshot_before") or "")), status_code=303)
 
 
 @router.get("/access")
@@ -519,21 +608,17 @@ def access_page(
         "event_time_to": snapshot_cutoff,
     }
     events = apply_event_filters(db.query(Event), filters).order_by(Event.event_time.desc()).limit(200).all()
-    event_asset_links = {}
-    for event in events:
-        asset = db.query(Asset).filter(Asset.id == event.asset_id).first() if event.asset_id else None
-        if asset is not None and not event_matches_asset_host(event, asset):
-            asset = None
-        if asset is None:
-            asset = find_asset_by_host(db, event.hostname)
-        if asset is not None:
-            event_asset_links[event.id] = f"/assets/app/{asset.id}"
+    column_options, active_columns = table_columns(db, "ui.access.visible_columns", DEFAULT_ACCESS_COLUMNS)
+    event_asset_links = asset_links_for_events(db, events)
     return render(
         request,
         db,
         "access.html",
         events=events,
         event_asset_links=event_asset_links,
+        column_options=column_options,
+        active_columns=active_columns,
+        columns_setting_action="/access/columns",
         q=q or "",
         hide_local_ips=hide_local_ips == "true",
         show_local_ips=show_local_ips == "true",
@@ -541,6 +626,15 @@ def access_page(
         snapshot_before=snapshot_before or "",
         live_default=get_setting_value(db, "live_default", "true"),
     )
+
+
+@router.post("/access/columns")
+async def save_access_columns(request: Request, db: Session = Depends(get_db)):
+    require_plugin_enabled(db, "traefik_log")
+    form = await request.form()
+    save_table_columns(db, "ui.access.visible_columns", [str(value) for value in form.getlist("columns")], DEFAULT_ACCESS_COLUMNS)
+    db.commit()
+    return RedirectResponse(url=column_redirect_url(request, "/access", str(form.get("snapshot_before") or "")), status_code=303)
 
 
 @router.get("/crowdsec")

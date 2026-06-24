@@ -68,6 +68,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const overlayTrigger = event.target.closest(".text-overlay-trigger[data-full-text]");
         const pathButton = event.target.closest(".path-truncate[data-full-text]");
         const overlayClose = event.target.closest("[data-text-overlay-close]");
+        const columnsOpen = event.target.closest("[data-columns-open]");
+        const columnsClose = event.target.closest("[data-columns-close]");
+        const columnsDialogBackdrop = event.target.tagName === "DIALOG" && event.target.classList.contains("columns-dialog") ? event.target : null;
         const overlayBackdrop = event.target.classList.contains("text-overlay-backdrop") ? event.target : null;
 
         document.querySelectorAll(".help-tooltip")
@@ -77,6 +80,24 @@ document.addEventListener("DOMContentLoaded", () => {
             event.preventDefault();
             event.stopPropagation();
             document.querySelectorAll(".text-overlay-backdrop").forEach(overlay => overlay.remove());
+            return;
+        }
+
+        if (columnsOpen) {
+            event.preventDefault();
+            const dialog = document.getElementById(columnsOpen.dataset.columnsOpen || "");
+            if (dialog && typeof dialog.showModal === "function") {
+                dialog.showModal();
+            }
+            return;
+        }
+
+        if (columnsClose || columnsDialogBackdrop) {
+            event.preventDefault();
+            const dialog = columnsDialogBackdrop || document.getElementById(columnsClose.dataset.columnsClose || "");
+            if (dialog && typeof dialog.close === "function") {
+                dialog.close();
+            }
             return;
         }
 

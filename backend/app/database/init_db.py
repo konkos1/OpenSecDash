@@ -29,6 +29,8 @@ DEFAULT_SETTINGS = {
     "mqtt_username": "",
     "mqtt_password": "",
     "mqtt_topic_prefix": "opensecdash",
+    "ui.events.visible_columns": "time,type,severity,ip,country,status,url",
+    "ui.access.visible_columns": "time,ip,host,method,status,path",
 }
 
 CORE_PLUGINS = [

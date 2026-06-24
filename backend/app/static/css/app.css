@@ -19,6 +19,9 @@ tbody tr:hover { background: rgba(15, 23, 42, .65); }
 .btn, .btn-small { background: #2563eb; border-radius: .7rem; color: white; display: inline-flex; min-height: 2.5rem; align-items: center; justify-content: center; padding: .55rem .9rem; }
 .btn:hover, .btn-small:hover { background: #1d4ed8; }
 .btn-small { min-height: 2rem; padding: .35rem .65rem; font-size: .875rem; }
+.btn-secondary { background: #334155; color: #e2e8f0; }
+.btn-secondary:hover { background: #475569; }
+.btn-icon { min-width: 2rem; padding: .35rem; }
 .input { background: #020617; border: 1px solid #334155; border-radius: .65rem; color: #f8fafc; margin-top: .25rem; min-height: 2.5rem; padding: .5rem .7rem; width: 100%; }
 .badge { background: #064e3b; border: 1px solid #047857; border-radius: 999px; color: #d1fae5; padding: .35rem .7rem; }
 .badge-live { background: #064e3b; border-color: #047857; color: #d1fae5; }
@@ -39,6 +42,13 @@ tbody tr:hover { background: rgba(15, 23, 42, .65); }
 .text-overlay-header { align-items: center; display: flex; gap: 1rem; justify-content: space-between; margin-bottom: .75rem; }
 .text-overlay-content { background: #0f172a; border: 1px solid #1e293b; border-radius: .75rem; color: #f8fafc; line-height: 1.45; max-width: 100%; overflow-wrap: anywhere; padding: .8rem; white-space: pre-wrap; }
 .text-overlay-close { align-items: center; border: 1px solid #64748b; border-radius: 999px; color: #e2e8f0; display: inline-flex; height: 2rem; justify-content: center; width: 2rem; }
+.columns-dialog { background: transparent; border: 0; color: inherit; padding: 0; }
+.columns-dialog::backdrop { background: rgba(2, 6, 23, .78); backdrop-filter: blur(2px); }
+.columns-dialog-panel { background: rgb(15 23 42); border: 1px solid rgb(30 41 59); border-radius: 1rem; box-shadow: 0 25px 80px rgba(0,0,0,.55); color: #e2e8f0; max-width: min(34rem, 92vw); padding: 1rem; width: 34rem; }
+.columns-dialog-header { align-items: flex-start; border-bottom: 1px solid rgb(30 41 59); display: flex; gap: 1rem; justify-content: space-between; margin: -1rem -1rem 1rem; padding: 1rem; }
+.columns-grid { display: grid; gap: .65rem; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); }
+.columns-grid label { background: #020617; border: 1px solid #334155; border-radius: .75rem; padding: .65rem .75rem; }
+.columns-grid label:hover { border-color: #64748b; }
 @media (max-width: 767px) {
   .responsive-table { overflow-x: visible; }
   .responsive-table table, .responsive-table thead, .responsive-table tbody, .responsive-table tr, .responsive-table td { display: block; width: 100%; }
