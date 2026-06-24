@@ -19,6 +19,9 @@ class _PublishModule(Protocol):
 
 
 class Plugin(ExportPlugin):
+    def __init__(self) -> None:
+        self._last_publish_error: str | None = None
+
     metadata = PluginMetadata(
         id="mqtt-hass", 
         name="MQTT to Home Assistant", 
@@ -80,7 +83,10 @@ class Plugin(ExportPlugin):
             port = int(context.get("port", "1883"))
             with socket.create_connection((host, port), timeout=5):
                 logger.debug("MQTT broker reachable: %s:%s", host, port)
-                return {"status": "healthy", "message": f"MQTT broker reachable: {host}:{port}"}
+                message = f"MQTT broker reachable: {host}:{port}"
+                if self._last_publish_error:
+                    return {"status": "error", "message": f"{message}; MQTT publish failed: {self._last_publish_error}"}
+                return {"status": "healthy", "message": message}
         except Exception as exc:
             return {"status": "error", "message": f"MQTT broker not reachable: {exc}"}
 
@@ -88,8 +94,11 @@ class Plugin(ExportPlugin):
         if not getattr(asset, "mqtt_publish_enabled", False):
             logger.debug("Skipping MQTT export for asset=%s because publish toggle is disabled", getattr(asset, "name", "unknown"))
             return
-        if not asset.version or not asset.latest_version:
-            logger.debug("Skipping MQTT export for asset=%s because version/latest_version is missing", getattr(asset, "name", "unknown"))
+        if not asset.version or not asset.latest_version or not asset.release_url:
+            logger.debug(
+                "Skipping MQTT export for asset=%s because version/latest_version/release_url is missing",
+                getattr(asset, "name", "unknown"),
+            )
             return
 
         slug = self.make_slug(str(asset.name))
@@ -115,8 +124,13 @@ class Plugin(ExportPlugin):
             "release_url": asset.release_url,
         }
 
-        self.publish(context, discovery_topic, discovery_payload, retain=True)
-        self.publish(context, state_topic, state_payload, retain=True)
+        try:
+            self.publish(context, discovery_topic, discovery_payload, retain=True)
+            self.publish(context, state_topic, state_payload, retain=True)
+        except Exception as exc:
+            self._last_publish_error = str(exc)
+            raise
+        self._last_publish_error = None
         logger.info("Published MQTT discovery/state for asset=%s", asset.name)
 
     @staticmethod

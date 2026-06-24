@@ -37,7 +37,8 @@ def import_assets(
     result = import_apps_inventory(db=db, inventory=payload.inventory)
     import asyncio
     manager = get_plugin_manager()
-    for asset in db.query(Asset).all():
+    publishable_assets = db.query(Asset).filter(Asset.mqtt_publish_enabled == True, Asset.version.isnot(None), Asset.latest_version.isnot(None), Asset.release_url.isnot(None)).all()
+    for asset in publishable_assets:
         asyncio.run(manager.export_asset_update(db, asset))
     return result
 
@@ -78,7 +79,8 @@ def import_assets_from_source(
     result = import_apps_inventory(db=db, inventory=inventory)
     import asyncio
     manager = get_plugin_manager()
-    for asset in db.query(Asset).all():
+    publishable_assets = db.query(Asset).filter(Asset.mqtt_publish_enabled == True, Asset.version.isnot(None), Asset.latest_version.isnot(None), Asset.release_url.isnot(None)).all()
+    for asset in publishable_assets:
         asyncio.run(manager.export_asset_update(db, asset))
     return result
 
@@ -90,7 +92,8 @@ def refresh_updates(
     result = refresh_asset_updates(db)
     import asyncio
     manager = get_plugin_manager()
-    for asset in db.query(Asset).all():
+    publishable_assets = db.query(Asset).filter(Asset.mqtt_publish_enabled == True, Asset.version.isnot(None), Asset.latest_version.isnot(None), Asset.release_url.isnot(None)).all()
+    for asset in publishable_assets:
         asyncio.run(manager.export_asset_update(db, asset))
     return result
 

@@ -91,7 +91,7 @@
                         <td class="time-cell" data-label="{{ t('assets.last_seen') }}">{{ app.last_seen|datetime }}</td>
                         {% if mqtt_plugin_enabled %}
                             <td data-label="{{ t('asset.mqtt_publish') }}">
-                                {% if app.version and app.latest_version %}
+                                {% if app.version and app.latest_version and app.release_url %}
                                     <form method="post" action="/assets/{{ app.id }}/mqtt">
                                         <input type="hidden" name="enabled" value="{{ 'false' if app.mqtt_publish_enabled else 'true' }}">
                                         <button class="btn-small" type="submit">

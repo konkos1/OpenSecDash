@@ -183,5 +183,18 @@ class Plugin(PeriodicPlugin):
         return import_apps_inventory(db=context.db, inventory=inventory)
 
     async def _export_assets(self, context: PluginContext) -> None:
-        for asset in context.db.query(Asset).all():
+        publishable_assets = (
+            context.db.query(Asset)
+            .filter(
+                Asset.mqtt_publish_enabled == True,
+                Asset.version.isnot(None),
+                Asset.latest_version.isnot(None),
+                Asset.release_url.isnot(None),
+            )
+            .all()
+        )
+        if not publishable_assets:
+            logger.debug("Skipping asset export: no app has MQTT publishing enabled")
+            return
+        for asset in publishable_assets:
             await context.export_asset_update(asset)

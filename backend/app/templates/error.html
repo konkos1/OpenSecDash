@@ -20,9 +20,9 @@
     {% endif %}
 
     <div class="flex flex-wrap gap-2">
-      <button type="button" class="btn" onclick="history.length > 1 ? history.back() : window.location.href='/'">
+      <a class="btn" href="/">
         {{ t("common.back") }}
-      </button>
+      </a>
       <a class="btn-small" href="/">{{ t("nav.dashboard") }}</a>
       <a class="btn-small" href="/settings">{{ t("nav.settings") }}</a>
     </div>

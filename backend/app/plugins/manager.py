@@ -324,8 +324,14 @@ class PluginManager:
             if isinstance(plugin, ExportPlugin):
                 ctx = self.context(db, plugin)
                 enabled = ctx.get("enabled", "false").lower() == "true"
-                if enabled:
+                if not enabled:
+                    continue
+                try:
                     await plugin.export_asset(ctx, asset)
+                except Exception as exc:
+                    logger.exception("Export plugin %s failed while exporting asset", plugin.metadata.id)
+                    self._update_diagnostic(db, plugin.metadata.id, "error", str(exc))
+                    db.commit()
 
 
 _manager: PluginManager | None = None

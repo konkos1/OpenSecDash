@@ -55,9 +55,10 @@
 
         <main class="max-w-7xl mx-auto px-4 py-6">
             {% if current_path not in top_level_paths %}
-                <button type="button" class="btn-small mb-5" data-check-unsaved onclick="if (history.length > 1) { history.back(); } else { window.location.href = '/'; }">
+                {% set back_href = '/events' if current_path.startswith('/ip') else '/assets' if current_path.startswith('/assets') else '/crowdsec' if current_path.startswith('/crowdsec') else '/' %}
+                <a class="btn-small mb-5 inline-block" data-check-unsaved href="{{ back_href }}">
                     ← {{ t("common.back") }}
-                </button>
+                </a>
             {% endif %}
             {% block content %}{% endblock %}
         </main>

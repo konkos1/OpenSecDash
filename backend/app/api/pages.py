@@ -24,7 +24,7 @@ from app.models.settings import Setting
 from app.models.systems import System
 from app.services.apps_inventory_import import import_apps_inventory
 from app.services.apps_inventory_source import load_asset_source
-from app.services.apps_inventory_updates import refresh_asset_updates
+from app.services.apps_inventory_updates import refresh_asset_update, refresh_asset_updates
 from app.plugins.manager import get_plugin_manager
 from app.services.actions import create_action
 from app.services.events import apply_event_filters, is_local_ip_value, tokenize_search_expression
@@ -681,7 +681,13 @@ def update_asset_metadata(
         raise HTTPException(status_code=403, detail="Asset metadata is managed externally or inactive")
     asset.version = version.strip()
     asset.release_url = release_url.strip() or None
+    refresh_asset_update(db, asset)
+    if not asset.version or not asset.latest_version or not asset.release_url:
+        asset.mqtt_publish_enabled = False
     db.commit()
+    if asset.mqtt_publish_enabled:
+        import asyncio
+        asyncio.run(get_plugin_manager().export_asset_update(db, asset))
     return RedirectResponse(url=f"/assets/system/{asset.system_id}", status_code=303)
 
 
@@ -690,7 +696,7 @@ def toggle_asset_mqtt(asset_id: int, enabled: str = Form("false"), db: Session =
     asset = db.query(Asset).filter(Asset.id == asset_id).first()
     if asset is None:
         raise HTTPException(status_code=404, detail="Asset not found")
-    if not asset.version or not asset.latest_version:
+    if not asset.version or not asset.latest_version or not asset.release_url:
         asset.mqtt_publish_enabled = False
         db.commit()
         return RedirectResponse(url=f"/assets/system/{asset.system_id}", status_code=303)
@@ -724,7 +730,8 @@ def assets_import_source_page(db: Session = Depends(get_db)):
         import_apps_inventory(db=db, inventory=load_asset_source(source_type=source_type, source=source))
         manager = get_plugin_manager()
         import asyncio
-        for asset in db.query(Asset).all():
+        publishable_assets = db.query(Asset).filter(Asset.mqtt_publish_enabled == True, Asset.version.isnot(None), Asset.latest_version.isnot(None), Asset.release_url.isnot(None)).all()
+        for asset in publishable_assets:
             asyncio.run(manager.export_asset_update(db, asset))
     return RedirectResponse(url="/assets", status_code=303)
 
@@ -733,7 +740,8 @@ def assets_import_source_page(db: Session = Depends(get_db)):
 def assets_refresh_updates_page(db: Session = Depends(get_db)):
     refresh_asset_updates(db)
     manager = get_plugin_manager()
-    for asset in db.query(Asset).all():
+    publishable_assets = db.query(Asset).filter(Asset.mqtt_publish_enabled == True, Asset.version.isnot(None), Asset.latest_version.isnot(None), Asset.release_url.isnot(None)).all()
+    for asset in publishable_assets:
         import asyncio
         asyncio.run(manager.export_asset_update(db, asset))
     return RedirectResponse(url="/assets", status_code=303)
