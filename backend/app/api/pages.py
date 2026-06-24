@@ -408,6 +408,7 @@ def events_page(
     path: str | None = None,
     q: str | None = None,
     hide_local_ips: str | None = None,
+    show_local_ips: str | None = None,
     today: str | None = None,
     hour: str | None = None,
     db: Session = Depends(get_db),
@@ -440,6 +441,7 @@ def events_page(
         "q_utc_terms_by_term": q_utc_terms_by_term,
         "plugins": enabled_event_plugins,
         "hide_local_ips": hide_local_ips == "true",
+        "show_local_ips": show_local_ips == "true",
         "event_time_from": hour_start or (today_start(db) if today_enabled else None),
         "event_time_to": hour_end,
     }
@@ -451,6 +453,7 @@ def events_page(
         "path": path or "",
         "q": q or "",
         "hide_local_ips": hide_local_ips == "true",
+        "show_local_ips": show_local_ips == "true",
         "today": today_enabled,
         "hour": f"{hour_value:02d}" if hour_value is not None else "",
     }
@@ -463,6 +466,7 @@ def access_page(
     request: Request,
     q: str | None = None,
     hide_local_ips: str | None = None,
+    show_local_ips: str | None = None,
     today: str | None = None,
     db: Session = Depends(get_db),
 ):
@@ -479,6 +483,7 @@ def access_page(
         "q_utc_terms_by_term": q_utc_terms_by_term,
         "plugins": ["traefik_log"],
         "hide_local_ips": hide_local_ips == "true",
+        "show_local_ips": show_local_ips == "true",
         "event_time_from": today_start(db) if today_enabled else None,
     }
     events = apply_event_filters(db.query(Event), filters).order_by(Event.event_time.desc()).limit(200).all()
@@ -489,6 +494,7 @@ def access_page(
         events=events,
         q=q or "",
         hide_local_ips=hide_local_ips == "true",
+        show_local_ips=show_local_ips == "true",
         today=today_enabled,
         live_default=get_setting_value(db, "live_default", "true"),
     )

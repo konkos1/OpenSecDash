@@ -75,6 +75,7 @@ DE = {
     "events.country_placeholder": "Land, z.B. NL",
     "events.country_help": "Maximal zwei Zeichen als Länder-Code, z.B. NL. '-' findet Events ohne Land oder mit '-' als Land.",
     "events.hide_local_ips": "Lokale IPs ausblenden",
+    "events.show_local_ips": "Nur lokale IPs",
     "events.today_only": "Nur heute",
     "events.hour_filter": "Stundenfilter",
     "events.clear_hour_filter": "Stundenfilter entfernen",

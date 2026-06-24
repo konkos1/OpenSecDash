@@ -49,6 +49,10 @@
       <span>{{ t("events.hide_local_ips") }}</span>
     </label>
     <label class="flex items-center gap-2 text-sm lg:col-span-1">
+      <input type="checkbox" name="show_local_ips" value="true" {% if filters.show_local_ips %}checked{% endif %}>
+      <span>{{ t("events.show_local_ips") }}</span>
+    </label>
+    <label class="flex items-center gap-2 text-sm lg:col-span-1">
       <input type="checkbox" name="today" value="true" {% if filters.today %}checked{% endif %}>
       <span>{{ t("events.today_only") }}</span>
     </label>
