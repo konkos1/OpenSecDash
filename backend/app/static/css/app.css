@@ -63,3 +63,209 @@ tbody tr:hover { background: rgba(15, 23, 42, .65); }
   .responsive-table td.cell-stack .input, .responsive-table td.cell-stack .btn-small { width: 100%; }
   .responsive-table .path-truncate { max-width: 100%; }
 }
+
+/* Light theme overrides. Keep these at the end so they win over Tailwind utility
+   classes used in templates. The dark theme remains the default CSS above. */
+body[data-theme="light"],
+body[data-theme="auto"] {
+  color-scheme: dark;
+}
+
+body[data-theme="light"] {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+  color-scheme: light;
+}
+
+body[data-theme="light"] header {
+  background: rgba(255, 255, 255, .92) !important;
+  border-bottom-color: #cbd5e1 !important;
+  box-shadow: 0 8px 30px rgba(15, 23, 42, .08);
+}
+
+body[data-theme="light"] .text-slate-100,
+body[data-theme="light"] .text-slate-200,
+body[data-theme="light"] .text-slate-300 { color: #0f172a !important; }
+body[data-theme="light"] .text-slate-400,
+body[data-theme="light"] .muted { color: #64748b !important; }
+body[data-theme="light"] .bg-slate-950 { background: #f1f5f9 !important; }
+body[data-theme="light"] .bg-slate-900,
+body[data-theme="light"] .bg-slate-900\/90 { background: rgba(255, 255, 255, .92) !important; }
+body[data-theme="light"] .bg-slate-800 { background: #e2e8f0 !important; color: #0f172a !important; }
+body[data-theme="light"] .border-slate-800 { border-color: #cbd5e1 !important; }
+
+body[data-theme="light"] .card {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, .06);
+}
+
+body[data-theme="light"] thead {
+  background: #e2e8f0;
+}
+body[data-theme="light"] th {
+  color: #0f172a;
+}
+body[data-theme="light"] td,
+body[data-theme="light"] th,
+body[data-theme="light"] .row {
+  border-bottom-color: #e2e8f0;
+}
+body[data-theme="light"] tbody tr:hover {
+  background: #f8fafc;
+}
+
+body[data-theme="light"] .nav {
+  color: #334155;
+}
+body[data-theme="light"] .nav:hover,
+body[data-theme="light"] .nav-active {
+  background: #dbeafe;
+  color: #1e3a8a;
+}
+body[data-theme="light"] .brand-link { color: #0f172a; }
+
+body[data-theme="light"] .input {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+body[data-theme="light"] .input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, .16);
+  outline: none;
+}
+body[data-theme="light"] .field-help > .help {
+  background: #ffffff;
+}
+body[data-theme="light"] .help {
+  border-color: #94a3b8;
+  color: #475569;
+}
+body[data-theme="light"] .help-tooltip,
+body[data-theme="light"] .text-overlay,
+body[data-theme="light"] .columns-dialog-panel {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #0f172a;
+  box-shadow: 0 25px 80px rgba(15, 23, 42, .18);
+}
+body[data-theme="light"] .text-overlay-content,
+body[data-theme="light"] .columns-grid label {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+body[data-theme="light"] .columns-dialog-header {
+  border-bottom-color: #e2e8f0;
+}
+body[data-theme="light"] .text-overlay-close {
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+body[data-theme="light"] .text-overlay-backdrop,
+body[data-theme="light"] .columns-dialog::backdrop {
+  background: rgba(15, 23, 42, .28);
+}
+
+body[data-theme="light"] .badge {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #166534;
+}
+body[data-theme="light"] .badge-live {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #166534;
+}
+body[data-theme="light"] .badge-snapshot {
+  background: #e2e8f0;
+  border-color: #94a3b8;
+  color: #334155;
+}
+body[data-theme="light"] .badge-warning {
+  background: #ffedd5;
+  border-color: #fdba74;
+  color: #9a3412;
+}
+body[data-theme="light"] .btn,
+body[data-theme="light"] .btn-small {
+  box-shadow: 0 4px 14px rgba(37, 99, 235, .18);
+}
+body[data-theme="light"] .btn-secondary {
+  background: #e2e8f0;
+  color: #0f172a;
+  box-shadow: none;
+}
+body[data-theme="light"] .btn-secondary:hover {
+  background: #cbd5e1;
+}
+body[data-theme="light"] .text-action,
+body[data-theme="light"] a:not(.nav):not(.btn):not(.btn-small):not(.card):not(.brand-link) {
+  text-decoration-color: #2563eb;
+}
+body[data-theme="light"] .text-action:hover,
+body[data-theme="light"] .text-action:focus,
+body[data-theme="light"] a:not(.nav):not(.btn):not(.btn-small):not(.card):not(.brand-link):hover {
+  text-decoration-color: #1d4ed8;
+}
+body[data-theme="light"] .world-map svg,
+body[data-theme="light"] .country-map svg {
+  filter: drop-shadow(0 10px 20px rgba(15, 23, 42, .08));
+}
+
+@media (prefers-color-scheme: light) {
+  body[data-theme="auto"] {
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
+    color-scheme: light;
+  }
+  body[data-theme="auto"] header {
+    background: rgba(255, 255, 255, .92) !important;
+    border-bottom-color: #cbd5e1 !important;
+    box-shadow: 0 8px 30px rgba(15, 23, 42, .08);
+  }
+  body[data-theme="auto"] .text-slate-100,
+  body[data-theme="auto"] .text-slate-200,
+  body[data-theme="auto"] .text-slate-300 { color: #0f172a !important; }
+  body[data-theme="auto"] .text-slate-400,
+  body[data-theme="auto"] .muted { color: #64748b !important; }
+  body[data-theme="auto"] .bg-slate-950 { background: #f1f5f9 !important; }
+  body[data-theme="auto"] .bg-slate-900,
+  body[data-theme="auto"] .bg-slate-900\/90 { background: rgba(255, 255, 255, .92) !important; }
+  body[data-theme="auto"] .bg-slate-800 { background: #e2e8f0 !important; color: #0f172a !important; }
+  body[data-theme="auto"] .border-slate-800 { border-color: #cbd5e1 !important; }
+  body[data-theme="auto"] .card { background: #ffffff; border-color: #cbd5e1; box-shadow: 0 10px 28px rgba(15, 23, 42, .06); }
+  body[data-theme="auto"] thead { background: #e2e8f0; }
+  body[data-theme="auto"] th { color: #0f172a; }
+  body[data-theme="auto"] td, body[data-theme="auto"] th, body[data-theme="auto"] .row { border-bottom-color: #e2e8f0; }
+  body[data-theme="auto"] tbody tr:hover { background: #f8fafc; }
+  body[data-theme="auto"] .nav { color: #334155; }
+  body[data-theme="auto"] .nav:hover, body[data-theme="auto"] .nav-active { background: #dbeafe; color: #1e3a8a; }
+  body[data-theme="auto"] .brand-link { color: #0f172a; }
+  body[data-theme="auto"] .input { background: #ffffff; border-color: #cbd5e1; color: #0f172a; }
+  body[data-theme="auto"] .input:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, .16); outline: none; }
+  body[data-theme="auto"] .field-help > .help { background: #ffffff; }
+  body[data-theme="auto"] .help { border-color: #94a3b8; color: #475569; }
+  body[data-theme="auto"] .help-tooltip,
+  body[data-theme="auto"] .text-overlay,
+  body[data-theme="auto"] .columns-dialog-panel { background: #ffffff; border-color: #cbd5e1; color: #0f172a; box-shadow: 0 25px 80px rgba(15, 23, 42, .18); }
+  body[data-theme="auto"] .text-overlay-content,
+  body[data-theme="auto"] .columns-grid label { background: #f8fafc; border-color: #cbd5e1; color: #0f172a; }
+  body[data-theme="auto"] .columns-dialog-header { border-bottom-color: #e2e8f0; }
+  body[data-theme="auto"] .text-overlay-close { border-color: #94a3b8; color: #0f172a; }
+  body[data-theme="auto"] .text-overlay-backdrop,
+  body[data-theme="auto"] .columns-dialog::backdrop { background: rgba(15, 23, 42, .28); }
+  body[data-theme="auto"] .badge { background: #dcfce7; border-color: #86efac; color: #166534; }
+  body[data-theme="auto"] .badge-live { background: #dcfce7; border-color: #86efac; color: #166534; }
+  body[data-theme="auto"] .badge-snapshot { background: #e2e8f0; border-color: #94a3b8; color: #334155; }
+  body[data-theme="auto"] .badge-warning { background: #ffedd5; border-color: #fdba74; color: #9a3412; }
+  body[data-theme="auto"] .btn, body[data-theme="auto"] .btn-small { box-shadow: 0 4px 14px rgba(37, 99, 235, .18); }
+  body[data-theme="auto"] .btn-secondary { background: #e2e8f0; color: #0f172a; box-shadow: none; }
+  body[data-theme="auto"] .btn-secondary:hover { background: #cbd5e1; }
+  body[data-theme="auto"] .text-action,
+  body[data-theme="auto"] a:not(.nav):not(.btn):not(.btn-small):not(.card):not(.brand-link) { text-decoration-color: #2563eb; }
+  body[data-theme="auto"] .text-action:hover,
+  body[data-theme="auto"] .text-action:focus,
+  body[data-theme="auto"] a:not(.nav):not(.btn):not(.btn-small):not(.card):not(.brand-link):hover { text-decoration-color: #1d4ed8; }
+}

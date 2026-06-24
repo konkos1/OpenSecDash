@@ -35,6 +35,7 @@ def build_template_context(db: Session) -> dict[str, object | Callable[[str], st
     language = get_language(db)
     domain = get_setting_value(db, "domain", "")
     timezone = get_setting_value(db, "timezone", "auto")
+    theme = get_setting_value(db, "theme", "auto")
     enabled_plugins = enabled_plugin_map(db)
     event_plugins_enabled = any(
         enabled_plugins[plugin_id]
@@ -45,6 +46,7 @@ def build_template_context(db: Session) -> dict[str, object | Callable[[str], st
         "language": language,
         "domain": domain,
         "timezone": timezone,
+        "theme": theme,
         "enabled_plugins": enabled_plugins,
         "event_plugins_enabled": event_plugins_enabled,
         "t": lambda key: translate(key, language),
