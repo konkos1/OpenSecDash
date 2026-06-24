@@ -260,6 +260,7 @@ class PluginManager:
                 raise
             except Exception as exc:
                 logger.exception("Datasource plugin %s failed", plugin.metadata.id)
+                db.rollback()
                 self._update_diagnostic(db, plugin.metadata.id, "error", str(exc))
                 self._update_datasource(db, plugin.metadata.id, True, "error", str(exc), 0)
                 db.commit()
@@ -286,6 +287,7 @@ class PluginManager:
                 raise
             except Exception as exc:
                 logger.exception("Periodic plugin %s failed", plugin.metadata.id)
+                db.rollback()
                 self._update_diagnostic(db, plugin.metadata.id, "error", str(exc))
                 db.commit()
                 await asyncio.sleep(60)
@@ -351,6 +353,7 @@ class PluginManager:
                     await plugin.export_asset(ctx, asset)
                 except Exception as exc:
                     logger.exception("Export plugin %s failed while exporting asset", plugin.metadata.id)
+                    db.rollback()
                     self._update_diagnostic(db, plugin.metadata.id, "error", str(exc))
                     db.commit()
 

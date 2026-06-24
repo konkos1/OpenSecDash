@@ -27,7 +27,7 @@ def get_setting_value(
 def enabled_plugin_map(db: Session) -> dict[str, bool]:
     return {
         plugin_id: get_setting_value(db, f"plugin.{plugin_id}.enabled", "false") == "true"
-        for plugin_id in ["apps_inventory", "crowdsec", "geoblock_log", "traefik_log", "mqtt"]
+        for plugin_id in ["apps_inventory", "crowdsec", "geoblock_log", "traefik_log", "mqtt", "mqtt-hass", "geoip"]
     }
 
 

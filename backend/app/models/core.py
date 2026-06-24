@@ -89,6 +89,19 @@ class AggregationMonthly(Base):
     value: Mapped[int] = mapped_column(default=0)
 
 
+class GeoIPCache(Base):
+    __tablename__ = "geoip_cache"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    lookup_key: Mapped[str] = mapped_column(String(128), unique=True, index=True)
+    provider: Mapped[str] = mapped_column(String(50), index=True)
+    country: Mapped[str | None] = mapped_column(String(2), nullable=True, index=True)
+    looked_up_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_error_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
 class Diagnostic(Base):
     __tablename__ = "diagnostics"
 
