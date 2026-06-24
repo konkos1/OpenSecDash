@@ -150,9 +150,9 @@
                     <tr>
                         <td class="time-cell" data-label="{{ t('common.time') }}">{{ event.event_time|datetime }}</td>
                         <td data-label="{{ t('common.type') }}">{{ event.event_type }}</td>
-                        <td data-label="{{ t('common.ip') }}">{{ event.ip or '-' }}</td>
+                        <td data-label="{{ t('common.ip') }}">{% if event.ip %}<a href="/ip/{{ event.ip|url_path_quote }}">{{ event.ip }}</a>{% else %}-{% endif %}</td>
                         <td data-label="{{ t('common.status') }}">{% if event.status_code %}<button type="button" class="text-action text-overlay-trigger" data-full-text="{{ event.status_code|http_status_label }}" data-overlay-title="{{ t('common.status') }}">{{ event.status_code }}</button>{% else %}-{% endif %}</td>
-                        <td class="cell-stack" data-label="{{ t('common.path') }}">{{ event.path or '-' }}</td>
+                        <td class="path-cell cell-stack" data-label="{{ t('common.path') }}">{% if event.path %}<button type="button" class="path-truncate text-action" data-full-text="{{ event.path }}" data-overlay-title="{{ t('common.path') }}">{{ event.path }}</button>{% else %}-{% endif %}</td>
                     </tr>
                 {% else %}
                     <tr>
