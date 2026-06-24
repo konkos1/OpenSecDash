@@ -240,6 +240,7 @@ function openSecDashLiveMode(initialLive, messages = {}) {
         live: Boolean(initialLive),
         liveIssue: "",
         snapshotAt: null,
+        snapshotBefore: "",
         socket: null,
         reconnectTimer: null,
         storageKey: "opensecdash.events.mode",
@@ -263,7 +264,7 @@ function openSecDashLiveMode(initialLive, messages = {}) {
             if (this.live) {
                 this.connect();
             } else {
-                this.freezeSnapshot();
+                this.freezeSnapshot(this.snapshotBefore || new URLSearchParams(window.location.search).get("snapshot_before"));
             }
         },
 
@@ -274,6 +275,8 @@ function openSecDashLiveMode(initialLive, messages = {}) {
             if (this.live) {
                 this.liveIssue = "";
                 this.snapshotAt = null;
+                this.snapshotBefore = "";
+                this.syncSnapshotInputs();
                 this.connect();
                 return;
             }
@@ -337,13 +340,25 @@ function openSecDashLiveMode(initialLive, messages = {}) {
             }
         },
 
-        freezeSnapshot() {
-            this.snapshotAt = formatOpenSecDashDate(new Date(), configuredOpenSecDashTimezone());
+        freezeSnapshot(existingCutoff = null) {
+            const cutoffDate = existingCutoff ? new Date(existingCutoff) : new Date();
+            const safeDate = Number.isNaN(cutoffDate.getTime()) ? new Date() : cutoffDate;
+            this.snapshotBefore = safeDate.toISOString();
+            this.snapshotAt = formatOpenSecDashDate(safeDate, configuredOpenSecDashTimezone());
+            this.syncSnapshotInputs();
+        },
+
+        syncSnapshotInputs() {
+            document.querySelectorAll("input[data-snapshot-before]").forEach(input => {
+                input.value = this.live ? "" : this.snapshotBefore;
+            });
         },
 
         refreshSnapshot() {
             window.sessionStorage.setItem(this.storageKey, "snapshot");
-            window.location.reload();
+            const url = new URL(window.location.href);
+            url.searchParams.delete("snapshot_before");
+            window.location.href = url.toString();
         },
     };
 }

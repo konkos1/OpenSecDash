@@ -181,6 +181,18 @@ def today_hour_range(db: Session, hour: int) -> tuple[datetime, datetime]:
     )
 
 
+def parse_snapshot_before(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed
+    return parsed.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
+
+
 def render(request: Request, db: Session, template: str, **context):
     return templates.TemplateResponse(request=request, name=template, context={**build_template_context(db), **context})
 
@@ -411,6 +423,7 @@ def events_page(
     show_local_ips: str | None = None,
     today: str | None = None,
     hour: str | None = None,
+    snapshot_before: str | None = None,
     db: Session = Depends(get_db),
 ):
     require_events_feature_enabled(db)
@@ -430,6 +443,8 @@ def events_page(
     today_enabled = today == "true"
     hour_value = int(hour) if hour and hour.isdigit() and 0 <= int(hour) <= 23 else None
     hour_start, hour_end = today_hour_range(db, hour_value) if hour_value is not None else (None, None)
+    snapshot_cutoff = parse_snapshot_before(snapshot_before)
+    event_time_to = min([value for value in [hour_end, snapshot_cutoff] if value is not None], default=None)
     filters = {
         "event_type": clean_filter_value(event_type),
         "ip": clean_filter_value(ip),
@@ -443,7 +458,7 @@ def events_page(
         "hide_local_ips": hide_local_ips == "true",
         "show_local_ips": show_local_ips == "true",
         "event_time_from": hour_start or (today_start(db) if today_enabled else None),
-        "event_time_to": hour_end,
+        "event_time_to": event_time_to,
     }
     form_values = {
         "event_type": event_type or "",
@@ -456,6 +471,7 @@ def events_page(
         "show_local_ips": show_local_ips == "true",
         "today": today_enabled,
         "hour": f"{hour_value:02d}" if hour_value is not None else "",
+        "snapshot_before": snapshot_before or "",
     }
     events = apply_event_filters(db.query(Event), filters).order_by(Event.event_time.desc()).limit(200).all()
     return render(request, db, "events.html", events=events, filters=form_values, live_default=get_setting_value(db, "live_default", "true"))
@@ -468,6 +484,7 @@ def access_page(
     hide_local_ips: str | None = None,
     show_local_ips: str | None = None,
     today: str | None = None,
+    snapshot_before: str | None = None,
     db: Session = Depends(get_db),
 ):
     require_plugin_enabled(db, "traefik_log")
@@ -476,6 +493,7 @@ def access_page(
     q_tokens = [token for token in tokenize_search_expression(q_value or "") if token not in {"&&", "||", "(", ")"}]
     q_utc_terms_by_term = {token: utc_search_terms_for_ui_time(token, timezone_name) for token in q_tokens}
     today_enabled = today == "true"
+    snapshot_cutoff = parse_snapshot_before(snapshot_before)
     filters = {
         "event_type": "access.*",
         "q": q_value,
@@ -485,6 +503,7 @@ def access_page(
         "hide_local_ips": hide_local_ips == "true",
         "show_local_ips": show_local_ips == "true",
         "event_time_from": today_start(db) if today_enabled else None,
+        "event_time_to": snapshot_cutoff,
     }
     events = apply_event_filters(db.query(Event), filters).order_by(Event.event_time.desc()).limit(200).all()
     return render(
@@ -496,6 +515,7 @@ def access_page(
         hide_local_ips=hide_local_ips == "true",
         show_local_ips=show_local_ips == "true",
         today=today_enabled,
+        snapshot_before=snapshot_before or "",
         live_default=get_setting_value(db, "live_default", "true"),
     )
 
