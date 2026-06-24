@@ -40,10 +40,12 @@ class PluginContext:
         self,
         db: Session,
         settings: dict[str, str],
-        asset_exporter: Callable[[Session, Any], Awaitable[None]] | None = None,
+        asset_exporter: Callable[[Session, Any, bool], Awaitable[None]] | None = None,
+        manual_export: bool = False,
     ) -> None:
         self.db = db
         self.settings = settings
+        self.manual_export = manual_export
         self._asset_exporter = asset_exporter
 
     def get(self, key: str, default: str = "") -> str:
@@ -52,9 +54,9 @@ class PluginContext:
     def emit_event(self, **values: Any) -> Event:
         return store_event(self.db, **values)
 
-    async def export_asset_update(self, asset: Any) -> None:
+    async def export_asset_update(self, asset: Any, manual: bool = False) -> None:
         if self._asset_exporter is not None:
-            await self._asset_exporter(self.db, asset)
+            await self._asset_exporter(self.db, asset, manual)
 
 
 class Plugin:

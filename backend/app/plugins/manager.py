@@ -156,11 +156,11 @@ class PluginManager:
                 groups.append({"id": plugin.metadata.id, "name": plugin.metadata.name, "settings": settings})
         return groups
 
-    def context(self, db: Session, plugin: Plugin) -> PluginContext:
+    def context(self, db: Session, plugin: Plugin, manual_export: bool = False) -> PluginContext:
         values = {}
         for setting in plugin.settings:
             values[setting.key] = get_setting_value(db, self.setting_key(plugin.metadata.id, setting.key), setting.default)
-        return PluginContext(db, values, self.export_asset_update)
+        return PluginContext(db, values, self.export_asset_update, manual_export)
 
     async def startup(self) -> None:
         logger.info("Starting %d plugin task groups", len(self.plugins))
@@ -262,7 +262,11 @@ class PluginManager:
                 if enabled:
                     await plugin.tick(ctx)
                     db.commit()
-                await asyncio.sleep(60)
+                sleep_for = 60
+                publish_interval = ctx.get("publish_interval", "")
+                if publish_interval.isdigit() and int(publish_interval) > 0:
+                    sleep_for = max(int(publish_interval), 1)
+                await asyncio.sleep(sleep_for)
             except asyncio.CancelledError:
                 db.close()
                 raise
@@ -319,10 +323,10 @@ class PluginManager:
                     return result
         return None
 
-    async def export_asset_update(self, db: Session, asset: Any) -> None:
+    async def export_asset_update(self, db: Session, asset: Any, manual: bool = False) -> None:
         for plugin in self.plugins.values():
             if isinstance(plugin, ExportPlugin):
-                ctx = self.context(db, plugin)
+                ctx = self.context(db, plugin, manual_export=manual)
                 enabled = ctx.get("enabled", "false").lower() == "true"
                 if not enabled:
                     continue

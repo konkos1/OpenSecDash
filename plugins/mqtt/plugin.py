@@ -7,7 +7,8 @@ import re
 import socket
 from typing import Any, Protocol, cast
 
-from app.plugins.base import ExportPlugin, PluginMetadata, PluginSetting
+from app.models.assets import Asset
+from app.plugins.base import ExportPlugin, PeriodicPlugin, PluginContext, PluginMetadata, PluginSetting
 
 
 logger = logging.getLogger(__name__)
@@ -18,7 +19,7 @@ class _PublishModule(Protocol):
         ...
 
 
-class Plugin(ExportPlugin):
+class Plugin(ExportPlugin, PeriodicPlugin):
     def __init__(self) -> None:
         self._last_publish_error: str | None = None
 
@@ -37,6 +38,7 @@ class Plugin(ExportPlugin):
         PluginSetting("password", "mqtt.settings.password", "mqtt.settings.password.help", "password", "", visible_if=("enabled", "true")),
         PluginSetting("discovery_prefix", "mqtt.settings.discovery_prefix", "mqtt.settings.discovery_prefix.help", "text", "homeassistant", visible_if=("enabled", "true")),
         PluginSetting("topic_prefix", "mqtt.settings.topic_prefix", "mqtt.settings.topic_prefix.help", "text", "opensecdash", visible_if=("enabled", "true")),
+        PluginSetting("publish_interval", "mqtt.settings.publish_interval", "mqtt.settings.publish_interval.help", "text", "auto", visible_if=("enabled", "true")),
     ]
     locales = {
         "en": {
@@ -54,6 +56,8 @@ class Plugin(ExportPlugin):
             "mqtt.settings.discovery_prefix.help": "Discovery prefix for Home Assistant MQTT discovery, usually homeassistant.",
             "mqtt.settings.topic_prefix": "MQTT state topic prefix",
             "mqtt.settings.topic_prefix.help": "Base topic for state payloads. Asset update states are published below <prefix>/apps/<app>/state.",
+            "mqtt.settings.publish_interval": "Publish interval",
+            "mqtt.settings.publish_interval.help": "Use 'auto' to publish when Apps Inventory triggers MQTT, 0 for manual only, or a number of seconds for periodic publishing.",
             "common.yes": "Yes", "common.no": "No",
         },
         "de": {
@@ -71,6 +75,8 @@ class Plugin(ExportPlugin):
             "mqtt.settings.discovery_prefix.help": "Discovery-Präfix für Home Assistant MQTT Discovery, üblicherweise homeassistant.",
             "mqtt.settings.topic_prefix": "MQTT State-Topic-Präfix",
             "mqtt.settings.topic_prefix.help": "Basistopic für State-Payloads. Asset-Update-States werden unter <prefix>/apps/<app>/state publiziert.",
+            "mqtt.settings.publish_interval": "Veröffentlichungsintervall",
+            "mqtt.settings.publish_interval.help": "'auto' veröffentlicht, wenn Apps Inventory MQTT triggert, 0 bedeutet nur manuell, oder eine Sekundenanzahl für periodisches Veröffentlichen.",
             "common.yes": "Ja", "common.no": "Nein",
         },
     }
@@ -90,7 +96,42 @@ class Plugin(ExportPlugin):
         except Exception as exc:
             return {"status": "error", "message": f"MQTT broker not reachable: {exc}"}
 
+    async def tick(self, context: PluginContext) -> None:
+        interval = self.publish_interval(context)
+        if interval <= 0:
+            return
+        context.settings["_periodic_export"] = "true"
+        for asset in self.publishable_assets(context):
+            await self.export_asset(context, asset)
+
+    @staticmethod
+    def publish_interval(context: PluginContext) -> int:
+        value = context.get("publish_interval", "auto").strip().lower()
+        if value == "auto":
+            return -1
+        try:
+            return max(int(value), 0)
+        except ValueError:
+            return -1
+
+    @staticmethod
+    def publishable_assets(context: PluginContext) -> list[Asset]:
+        return (
+            context.db.query(Asset)
+            .filter(
+                Asset.mqtt_publish_enabled == True,
+                Asset.version.isnot(None),
+                Asset.latest_version.isnot(None),
+                Asset.release_url.isnot(None),
+            )
+            .all()
+        )
+
     async def export_asset(self, context, asset: Any) -> None:
+        interval = self.publish_interval(context)
+        if interval != -1 and not context.manual_export and context.get("_periodic_export") != "true":
+            logger.debug("Skipping MQTT auto export because publish_interval=%s", context.get("publish_interval", "auto"))
+            return
         if not getattr(asset, "mqtt_publish_enabled", False):
             logger.debug("Skipping MQTT export for asset=%s because publish toggle is disabled", getattr(asset, "name", "unknown"))
             return

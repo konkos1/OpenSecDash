@@ -116,6 +116,7 @@ EN = {
     "assets.explorer_description": "Systems with their installed apps. Click a system row to open its app list.",
     "assets.import": "Import",
     "assets.check_updates": "Check updates",
+    "assets.mqtt_publish_now": "Publish MQTT now",
     "assets.show_inactive": "Show inactive",
     "assets.hide_inactive": "Hide inactive",
     "assets.show_updates_only": "Show updates only",

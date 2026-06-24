@@ -116,6 +116,7 @@ DE = {
     "assets.explorer_description": "Systeme mit ihren installierten Apps. Klicke eine Systemzeile an, um die App-Liste zu öffnen.",
     "assets.import": "Importieren",
     "assets.check_updates": "Updates prüfen",
+    "assets.mqtt_publish_now": "MQTT jetzt veröffentlichen",
     "assets.show_inactive": "Inaktive anzeigen",
     "assets.hide_inactive": "Inaktive ausblenden",
     "assets.show_updates_only": "Nur Updates anzeigen",

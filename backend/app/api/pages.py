@@ -658,7 +658,31 @@ def assets_page(request: Request, show_inactive: bool = False, updates: bool = F
                 "last_seen": last_seen,
             }
         )
-    return render(request, db, "assets.html", system_rows=system_rows, show_inactive=show_inactive, updates=updates)
+    mqtt_plugin_enabled = get_setting_value(db, "plugin.mqtt-hass.enabled", get_setting_value(db, "plugin.mqtt.enabled", "false")) == "true"
+    mqtt_publishable_count = db.query(Asset).filter(Asset.mqtt_publish_enabled == True, Asset.version.isnot(None), Asset.latest_version.isnot(None), Asset.release_url.isnot(None)).count()
+    return render(
+        request,
+        db,
+        "assets.html",
+        system_rows=system_rows,
+        show_inactive=show_inactive,
+        updates=updates,
+        mqtt_plugin_enabled=mqtt_plugin_enabled,
+        mqtt_publishable_count=mqtt_publishable_count,
+    )
+
+
+@router.post("/assets/mqtt-publish")
+def assets_mqtt_publish_page(db: Session = Depends(get_db)):
+    require_plugin_enabled(db, "apps_inventory")
+    if get_setting_value(db, "plugin.mqtt-hass.enabled", get_setting_value(db, "plugin.mqtt.enabled", "false")) != "true":
+        raise HTTPException(status_code=404, detail="Feature is disabled")
+    publishable_assets = db.query(Asset).filter(Asset.mqtt_publish_enabled == True, Asset.version.isnot(None), Asset.latest_version.isnot(None), Asset.release_url.isnot(None)).all()
+    manager = get_plugin_manager()
+    import asyncio
+    for asset in publishable_assets:
+        asyncio.run(manager.export_asset_update(db, asset, manual=True))
+    return RedirectResponse(url="/assets", status_code=303)
 
 
 @router.get("/assets/system/{system_id}")

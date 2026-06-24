@@ -19,6 +19,11 @@
             <form method="post" action="/assets/refresh-updates">
                 <button class="btn">{{ t("assets.check_updates") }}</button>
             </form>
+            {% if mqtt_plugin_enabled and mqtt_publishable_count > 0 %}
+                <form method="post" action="/assets/mqtt-publish">
+                    <button class="btn">{{ t("assets.mqtt_publish_now") }}</button>
+                </form>
+            {% endif %}
         </div>
     </div>
 
