@@ -35,6 +35,26 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 config.set_main_option("sqlalchemy.url", settings.database_url)
 
+# These columns were introduced during the prototype-to-Alembic transition and
+# may be nullable or non-nullable depending on which early schema created the
+# SQLite database. Runtime code supplies defaults before insert, so the exact
+# nullable flag is not a meaningful migration signal. Ignoring these columns in
+# autogenerate keeps `alembic check` stable for both fresh and upgraded DBs.
+NULLABILITY_COMPAT_COLUMNS = {
+    ("assets", "type"),
+    ("assets", "enabled"),
+    ("assets", "update_check_type"),
+    ("events", "created_at"),
+    ("events", "event_time"),
+}
+
+
+def include_object(object_, name, type_, reflected, compare_to):
+    if type_ == "column" and hasattr(object_, "table"):
+        if (object_.table.name, name) in NULLABILITY_COMPAT_COLUMNS:
+            return False
+    return True
+
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
@@ -59,6 +79,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        include_object=include_object,
     )
 
     with context.begin_transaction():
@@ -80,7 +101,9 @@ def run_migrations_online() -> None:
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection,
+            target_metadata=target_metadata,
+            include_object=include_object,
         )
 
         with context.begin_transaction():
