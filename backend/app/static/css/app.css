@@ -3,6 +3,8 @@ a { color: inherit; }
 .text-action, a:not(.nav):not(.btn):not(.btn-small):not(.card):not(.brand-link) { cursor: pointer; text-decoration: underline; text-decoration-color: #60a5fa; text-underline-offset: .18rem; }
 .text-action:hover, .text-action:focus, a:not(.nav):not(.btn):not(.btn-small):not(.card):not(.brand-link):hover { text-decoration-color: #bfdbfe; }
 a.card, .brand-link { color: inherit; text-decoration: none; }
+.brand-title { align-items: center; display: inline-flex; gap: .55rem; }
+.app-icon { border-radius: .45rem; height: 1.65rem; width: 1.65rem; }
 thead { background: rgba(30, 41, 59, .75); }
 th { color: #f8fafc; font-size: .75rem; font-weight: 700; letter-spacing: .04em; text-align: left; text-transform: uppercase; }
 td, th { border-bottom: 1px solid rgb(30 41 59); padding: .65rem; vertical-align: top; }

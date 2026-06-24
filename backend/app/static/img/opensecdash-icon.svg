@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">OpenSecDash icon</title>
+  <desc id="desc">A modern shield, dashboard grid, and network signal icon for OpenSecDash.</desc>
+  <defs>
+    <linearGradient id="bg" x1="72" y1="48" x2="440" y2="464" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#38bdf8"/>
+      <stop offset="0.48" stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="shield" x1="155" y1="108" x2="357" y2="404" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f8fafc"/>
+      <stop offset="1" stop-color="#dbeafe"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="178" y1="162" x2="342" y2="352" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#3b82f6"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#020617" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" rx="116" fill="url(#bg)"/>
+  <path d="M76 354c80-34 124-34 204 0s124 34 156 10" fill="none" stroke="#7dd3fc" stroke-width="18" stroke-linecap="round" opacity="0.22"/>
+  <path d="M70 156c64 28 116 24 178-10s122-38 194-6" fill="none" stroke="#bfdbfe" stroke-width="14" stroke-linecap="round" opacity="0.18"/>
+
+  <g filter="url(#shadow)">
+    <path d="M256 82 378 130v101c0 82-45 154-122 199-77-45-122-117-122-199V130L256 82Z" fill="url(#shield)"/>
+    <path d="M256 116 344 151v78c0 61-31 116-88 153-57-37-88-92-88-153v-78l88-35Z" fill="#0f172a" opacity="0.94"/>
+  </g>
+
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M202 244h108" stroke="#93c5fd" stroke-width="16" opacity="0.95"/>
+    <path d="M202 294h72" stroke="#38bdf8" stroke-width="16" opacity="0.95"/>
+    <path d="M202 194h44" stroke="#dbeafe" stroke-width="16" opacity="0.95"/>
+    <path d="M278 190c20 10 32 28 32 50s-12 40-32 50" stroke="url(#accent)" stroke-width="18"/>
+    <path d="M312 168c30 18 48 45 48 78s-18 60-48 78" stroke="#7dd3fc" stroke-width="12" opacity="0.75"/>
+  </g>
+
+  <g fill="url(#accent)">
+    <circle cx="184" cy="194" r="15"/>
+    <circle cx="184" cy="244" r="15"/>
+    <circle cx="184" cy="294" r="15"/>
+  </g>
+  <circle cx="256" cy="244" r="33" fill="#38bdf8" opacity="0.16"/>
+  <circle cx="256" cy="244" r="14" fill="#e0f2fe"/>
+</svg>
