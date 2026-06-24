@@ -73,8 +73,8 @@
         <h3 class="font-semibold mb-1">{{ t("dashboard.country_heatmap") }}</h3>
         <p class="muted text-sm mb-3">{{ t("dashboard.country_heatmap_help") }}</p>
         {% if country_heatmap %}
-          <div class="relative rounded-xl overflow-hidden border border-slate-700 bg-slate-950">
-            <img src="/static/img/world-map.svg" alt="{{ t('dashboard.country_heatmap') }}" class="w-full h-auto block" loading="lazy">
+          <div class="world-map relative rounded-xl overflow-hidden border border-slate-700 bg-slate-950">
+            <img src="/static/img/world-map.svg" alt="{{ t('dashboard.country_heatmap') }}" class="world-map-image w-full h-auto block" loading="lazy">
             {% for point in country_heatmap %}
               <a
                 href="{{ today_events_href }}&country={{ point.country }}"
