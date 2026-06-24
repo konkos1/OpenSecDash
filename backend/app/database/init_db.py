@@ -32,8 +32,7 @@ DEFAULT_SETTINGS = {
 }
 
 CORE_PLUGINS = [
-    ("geoip", "GeoIP", ["enrichment"]),
-    ("asn", "ASN", ["enrichment"]),
+    ("geoip", "GeoIP / ASN", ["enrichment"]),
 ]
 
 
@@ -89,6 +88,11 @@ def _migrate_legacy_sqlite() -> None:
 
 
 def seed_defaults(db: Session) -> None:
+    # ASN enrichment is implemented by the bundled GeoIP plugin. Remove the old
+    # placeholder core record if an earlier development database contains it.
+    db.query(Diagnostic).filter(Diagnostic.plugin == "asn").delete()
+    db.query(PluginRecord).filter(PluginRecord.id == "asn").delete()
+
     for key, value in DEFAULT_SETTINGS.items():
         if db.query(Setting).filter(Setting.key == key).first() is None:
             db.add(Setting(key=key, value=value))

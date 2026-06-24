@@ -39,18 +39,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         logger.info("OpenSecDash starting...")
         if migration_result.get("applied"):
             logger.info(
-                "Database schema upgraded from %s to %s",
+                "Database migration: schema upgraded from %s to %s",
                 migration_result.get("previous"),
                 migration_result.get("current"),
             )
         elif migration_result.get("auto_migrate") is False:
             logger.info(
-                "Database auto-migration is disabled; current=%s head=%s",
+                "Database migration: auto-migration disabled; current=%s head=%s",
                 migration_result.get("current"),
                 migration_result.get("head"),
             )
         else:
-            logger.info("Database schema up to date: %s", migration_result.get("current"))
+            logger.info("Database migration: schema up to date: %s", migration_result.get("current"))
         update_migration_diagnostic(db)
         manager.seed_database(db)
     finally:

@@ -34,6 +34,7 @@ def upgrade() -> None:
             sa.Column("lookup_key", sa.String(length=128), nullable=False),
             sa.Column("provider", sa.String(length=50), nullable=False),
             sa.Column("country", sa.String(length=2), nullable=True),
+            sa.Column("asn", sa.String(length=32), nullable=True),
             sa.Column("looked_up_at", sa.DateTime(), nullable=False),
             sa.Column("expires_at", sa.DateTime(), nullable=False),
             sa.Column("error", sa.Text(), nullable=True),
@@ -46,6 +47,7 @@ def upgrade() -> None:
     for name, columns in {
         "ix_geoip_cache_provider": ["provider"],
         "ix_geoip_cache_country": ["country"],
+        "ix_geoip_cache_asn": ["asn"],
         "ix_geoip_cache_looked_up_at": ["looked_up_at"],
         "ix_geoip_cache_expires_at": ["expires_at"],
     }.items():
