@@ -18,9 +18,9 @@ CRITICAL_ACTIONS = {"security.ban", "security.unban", "crowdsec_ban", "crowdsec_
 
 
 def validate_ip_target(ip: str) -> None:
-    address = ipaddress.ip_address(ip)
-    if not address.is_global:
-        raise ValueError("Only global IP addresses are valid action targets")
+    target = ipaddress.ip_network(ip, strict=False) if "/" in ip else ipaddress.ip_address(ip)
+    if not target.is_global:
+        raise ValueError("Only global IP addresses or ranges are valid action targets")
 
 
 def create_action(

@@ -28,7 +28,7 @@ from app.services.apps_inventory_updates import refresh_asset_update, refresh_as
 from app.plugins.manager import get_plugin_manager
 from app.services.actions import create_action
 from app.services.asset_hosts import event_matches_asset_host, find_asset_by_host, normalize_asset_host, sync_asset_host_events
-from app.services.events import apply_event_filters, is_local_ip_value, tokenize_search_expression
+from app.services.events import apply_event_filters, is_local_ip_value, store_event, tokenize_search_expression
 
 router = APIRouter(tags=["pages"])
 templates = Jinja2Templates(directory="app/templates")
@@ -671,8 +671,32 @@ def action_ip_page(
 ):
     try:
         create_action(db, action_type, ip, "ip", {"duration": duration, "reason": "Manual action"}, confirmed)
-    except ValueError:
-        pass
+    except ValueError as exc:
+        action = Action(
+            timestamp=utc_now().replace(tzinfo=None),
+            action_type=action_type,
+            plugin_id="crowdsec" if action_type.startswith("security.") or action_type.startswith("crowdsec_") else "core",
+            target_type="ip",
+            target=ip,
+            parameters={"duration": duration, "reason": "Manual action"},
+            status="failed",
+            result=str(exc),
+            requires_confirmation=action_type in {"security.ban", "security.unban", "crowdsec_ban", "crowdsec_unban"},
+        )
+        db.add(action)
+        db.flush()
+        store_event(
+            db,
+            source="Action Framework",
+            source_id="actions",
+            plugin=action.plugin_id,
+            plugin_id=action.plugin_id,
+            event_type="action.failed",
+            severity="error",
+            ip=ip,
+            data_json={"action_id": action.id, "action_type": action_type, "target": ip, "status": "failed", "result": str(exc), "manual": True, "trigger": "manual"},
+        )
+        db.commit()
     return RedirectResponse(url=f"/ip/{quote(ip, safe='')}", status_code=303)
 
 
