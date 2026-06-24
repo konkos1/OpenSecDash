@@ -47,9 +47,23 @@ def redact_sensitive(value: object) -> str:
     return text
 
 
+def display_logger_name(name: str) -> str:
+    if name == "root":
+        return "app.root"
+    if name.startswith("opensecdash_external_plugin_"):
+        plugin_name = name.removeprefix("opensecdash_external_plugin_").removesuffix(".plugin")
+        return f"plugins.{plugin_name}"
+    return name
+
+
 class RedactingFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
-        return redact_sensitive(super().format(record))
+        original_name = record.name
+        record.name = display_logger_name(record.name)
+        try:
+            return redact_sensitive(super().format(record))
+        finally:
+            record.name = original_name
 
 
 def _formatter() -> logging.Formatter:

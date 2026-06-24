@@ -30,13 +30,27 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    run_auto_migrations_if_enabled()
+    migration_result = run_auto_migrations_if_enabled()
     init_db()
     manager = get_plugin_manager()
     db = SessionLocal()
     try:
         configure_logging_from_db(db)
-        logging.info("OpenSecDash starting...")
+        logger.info("OpenSecDash starting...")
+        if migration_result.get("applied"):
+            logger.info(
+                "Database schema upgraded from %s to %s",
+                migration_result.get("previous"),
+                migration_result.get("current"),
+            )
+        elif migration_result.get("auto_migrate") is False:
+            logger.info(
+                "Database auto-migration is disabled; current=%s head=%s",
+                migration_result.get("current"),
+                migration_result.get("head"),
+            )
+        else:
+            logger.info("Database schema up to date: %s", migration_result.get("current"))
         update_migration_diagnostic(db)
         manager.seed_database(db)
     finally:
@@ -45,7 +59,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         yield
     finally:
-        logging.info("OpenSecDash stopping gracefully...")
+        logger.info("OpenSecDash stopping gracefully...")
         await manager.shutdown()
 
 

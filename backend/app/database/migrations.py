@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from alembic import command
@@ -16,6 +17,7 @@ from app.models.core import Diagnostic
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 ALEMBIC_INI = BACKEND_DIR / "alembic.ini"
+logger = logging.getLogger(__name__)
 
 
 def alembic_config() -> Config:
@@ -51,10 +53,21 @@ def migration_status() -> dict[str, str | bool | None]:
     return {"status": status, "message": message, "current": current, "head": head, "up_to_date": current == head}
 
 
-def run_auto_migrations_if_enabled() -> None:
+def run_auto_migrations_if_enabled() -> dict[str, str | bool | None]:
+    before = migration_status()
     if not settings.auto_migrate:
-        return
+        logger.info("Database auto-migration disabled: current=%s head=%s", before["current"], before["head"])
+        return {**before, "auto_migrate": False, "applied": False}
+
+    if before["up_to_date"]:
+        logger.info("Database schema already up to date: current=%s", before["current"])
+        return {**before, "auto_migrate": True, "applied": False}
+
+    logger.info("Database auto-migration starting: current=%s head=%s", before["current"], before["head"])
     command.upgrade(alembic_config(), "head")
+    after = migration_status()
+    logger.info("Database auto-migration finished: current=%s head=%s", after["current"], after["head"])
+    return {**after, "auto_migrate": True, "applied": True, "previous": before["current"]}
 
 
 def update_migration_diagnostic(db: Session) -> None:
