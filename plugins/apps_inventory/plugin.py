@@ -152,13 +152,13 @@ class Plugin(PeriodicPlugin):
 
         if inventory_interval > 0 and self._is_due(self._last_inventory_import, inventory_interval, now):
             result = self._import_inventory(context)
-            logger.info("Apps inventory import completed: %s", result)
+            logger.debug("Apps inventory import completed: %s", result)
             self._last_inventory_import = now
             await self._export_assets(context)
 
         if github_interval > 0 and self._is_due(self._last_github_check, github_interval, now):
             refresh_asset_updates(context.db)
-            logger.info("Apps inventory GitHub release check completed")
+            logger.debug("Apps inventory GitHub release check completed")
             self._last_github_check = now
             await self._export_assets(context)
 
@@ -178,7 +178,7 @@ class Plugin(PeriodicPlugin):
         source = context.get("source", "dev-data/apps-installed.json")
         if not source:
             return {"systems_created": 0, "assets_created": 0, "assets_updated": 0, "assets_inactive": 0}
-        logger.info("Loading apps inventory source_type=%s source=%s", source_type, redact_sensitive(source))
+        logger.debug("Loading apps inventory source_type=%s source=%s", source_type, redact_sensitive(source))
         inventory: dict[str, Any] = load_asset_source(source_type=source_type, source=source)
         return import_apps_inventory(db=context.db, inventory=inventory)
 

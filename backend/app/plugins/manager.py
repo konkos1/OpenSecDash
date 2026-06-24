@@ -49,7 +49,7 @@ class PluginManager:
                 continue
             plugin: Plugin = plugin_class()
             self.plugins[plugin.metadata.id] = plugin
-            logger.info("Discovered plugin %s from %s", plugin.metadata.id, plugin_py)
+            logger.debug("Discovered plugin %s from %s", plugin.metadata.id, plugin_py)
 
     def _load_module(self, path: Path) -> ModuleType:
         module_name = f"opensecdash_external_plugin_{path.parent.name}"
@@ -114,7 +114,7 @@ class PluginManager:
                 if existing is None:
                     db.add(Setting(key=key, value=setting.default))
         db.commit()
-        logger.info("Seeded %d plugin records", len(self.plugins))
+        logger.debug("Seeded %d plugin records", len(self.plugins))
 
     @staticmethod
     def setting_key(plugin_id: str, key: str) -> str:
@@ -243,16 +243,28 @@ class PluginManager:
                 self._update_datasource(db, plugin.metadata.id, enabled, "running" if enabled else "disabled", None, 0)
                 if enabled:
                     events = await plugin.collect(ctx)
-                    processed = 0
+                    found = 0
+                    stored_count = 0
+                    duplicate_count = 0
                     last_event_at = None
                     for event in events:
                         stored = ctx.emit_event(**event)
-                        processed += 1
+                        found += 1
+                        if getattr(stored, "_opensecdash_created", False):
+                            stored_count += 1
+                        else:
+                            duplicate_count += 1
                         last_event_at = stored.event_time
-                    if processed:
-                        logger.info("Plugin %s imported %d events", plugin.metadata.id, processed)
+                    if found:
+                        logger.debug(
+                            "Datasource plugin %s processed events found=%d stored=%d duplicates=%d",
+                            plugin.metadata.id,
+                            found,
+                            stored_count,
+                            duplicate_count,
+                        )
                     db.commit()
-                    self._update_datasource(db, plugin.metadata.id, True, "healthy", None, processed, last_event_at)
+                    self._update_datasource(db, plugin.metadata.id, True, "healthy", None, stored_count, last_event_at)
                     db.commit()
                 await asyncio.sleep(max(interval, 1))
             except asyncio.CancelledError:

@@ -60,4 +60,4 @@ class Plugin(PeriodicPlugin):
     async def tick(self, context: PluginContext) -> None:
         deleted = cleanup_expired_cache(context.db)
         if deleted:
-            logger.info("Removed %d expired GeoIP cache entries", deleted)
+            logger.debug("Removed %d expired GeoIP cache entries", deleted)

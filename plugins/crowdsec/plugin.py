@@ -90,7 +90,7 @@ class Plugin(DatasourcePlugin, ActionPlugin):
         else:
             raise FileNotFoundError(path)
         if events:
-            logger.info("Parsed %d CrowdSec ban events from %s", len(events), path)
+            logger.debug("Parsed %d CrowdSec ban log entries with events from %s", len(events), path)
         return events
 
     def parse_log_line(self, line: str) -> dict[str, Any] | None:

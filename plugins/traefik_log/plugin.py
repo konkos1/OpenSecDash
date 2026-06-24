@@ -78,7 +78,7 @@ class Plugin(DatasourcePlugin):
                     events.append(parsed)
             self._offsets[key] = handle.tell()
         if events:
-            logger.info("Parsed %d Traefik access events from %s", len(events), path)
+            logger.debug("Parsed %d Traefik access log lines with events from %s", len(events), path)
         return events
 
     def parse_line(self, line: str) -> dict[str, Any] | None:

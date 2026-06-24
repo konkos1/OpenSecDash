@@ -178,7 +178,7 @@ class Plugin(ExportPlugin, PeriodicPlugin):
             self._last_publish_error = str(exc)
             raise
         self._last_publish_error = None
-        logger.info("Published MQTT discovery/state for asset=%s", asset.name)
+        logger.debug("Published MQTT discovery/state for asset=%s", asset.name)
 
     @staticmethod
     def make_slug(name: str) -> str:

@@ -73,7 +73,7 @@ class Plugin(DatasourcePlugin):
                 self._seen_raw.add(raw_data)
                 events.append(parsed)
         if events:
-            logger.info("Parsed %d GeoBlock events from %s", len(events), path)
+            logger.debug("Parsed %d GeoBlock log entries with events from %s", len(events), path)
         return events
 
     def _load_seen_events(self, context) -> None:

@@ -114,10 +114,12 @@ def store_event(db: Session, **values: Any) -> Event:
 
     duplicate = find_duplicate_event(db, values)
     if duplicate is not None:
+        setattr(duplicate, "_opensecdash_created", False)
         logger.debug("Skipped duplicate event plugin=%s type=%s ip=%s", values.get("plugin"), values.get("event_type"), values.get("ip"))
         return duplicate
 
     event = Event(**values)
+    setattr(event, "_opensecdash_created", True)
     db.add(event)
     db.flush()
     logger.debug("Stored event id=%s plugin=%s type=%s ip=%s", event.id, event.plugin, event.event_type, event.ip)
