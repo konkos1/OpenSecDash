@@ -22,6 +22,7 @@ class Asset(Base):
 
     hostname: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    host_url: Mapped[str | None] = mapped_column(String(2048), nullable=True, index=True)
     version: Mapped[str] = mapped_column(String(255), default="")
     latest_version: Mapped[str | None] = mapped_column(String(255), nullable=True)
     icon: Mapped[str | None] = mapped_column(String(255), nullable=True)

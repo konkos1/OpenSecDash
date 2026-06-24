@@ -112,6 +112,7 @@ def list_assets(db: Session = Depends(get_db)):
             "system_id": asset.system_id,
             "name": asset.name,
             "version": asset.version,
+            "host_url": asset.host_url,
             "latest_version": asset.latest_version,
             "release_url": asset.release_url,
             "update_available": asset.update_available,

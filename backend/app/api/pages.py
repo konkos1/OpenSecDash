@@ -10,7 +10,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from jinja2 import pass_context
 from markupsafe import Markup, escape
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.core.logging import configure_logging_from_db
@@ -27,6 +27,7 @@ from app.services.apps_inventory_source import load_asset_source
 from app.services.apps_inventory_updates import refresh_asset_update, refresh_asset_updates
 from app.plugins.manager import get_plugin_manager
 from app.services.actions import create_action
+from app.services.asset_hosts import find_asset_by_host, normalize_asset_host
 from app.services.events import apply_event_filters, is_local_ip_value, tokenize_search_expression
 
 router = APIRouter(tags=["pages"])
@@ -506,11 +507,17 @@ def access_page(
         "event_time_to": snapshot_cutoff,
     }
     events = apply_event_filters(db.query(Event), filters).order_by(Event.event_time.desc()).limit(200).all()
+    event_asset_links = {}
+    for event in events:
+        asset = db.query(Asset).filter(Asset.id == event.asset_id).first() if event.asset_id else find_asset_by_host(db, event.hostname)
+        if asset is not None:
+            event_asset_links[event.id] = f"/assets/app/{asset.id}"
     return render(
         request,
         db,
         "access.html",
         events=events,
+        event_asset_links=event_asset_links,
         q=q or "",
         hide_local_ips=hide_local_ips == "true",
         show_local_ips=show_local_ips == "true",
@@ -647,7 +654,7 @@ def assets_page(request: Request, show_inactive: bool = False, updates: bool = F
 
 
 @router.get("/assets/system/{system_id}")
-def asset_page(system_id: int, request: Request, show_inactive: bool = False, db: Session = Depends(get_db)):
+def asset_page(system_id: int, request: Request, show_inactive: bool = False, asset_id: int | None = None, db: Session = Depends(get_db)):
     require_plugin_enabled(db, "apps_inventory")
     system = db.query(System).filter(System.id == system_id).first()
     if system is None:
@@ -657,15 +664,25 @@ def asset_page(system_id: int, request: Request, show_inactive: bool = False, db
         apps_query = apps_query.filter(Asset.is_active == True)
     apps = apps_query.order_by(Asset.name).all()
     app_ids = [asset.id for asset in apps]
-    events = (
-        db.query(Event)
-        .filter(Event.asset_id.in_(app_ids))
-        .order_by(Event.event_time.desc())
-        .limit(100)
-        .all()
-        if app_ids
-        else []
-    )
+    focused_asset = next((asset for asset in apps if asset.id == asset_id), None)
+    if focused_asset is not None:
+        focused_host = normalize_asset_host(focused_asset.host_url)
+        events_query = db.query(Event).filter(Event.asset_id == focused_asset.id)
+        if focused_host:
+            host_matched_ids = [event.id for event in db.query(Event).all() if normalize_asset_host(event.hostname) == focused_host]
+            if host_matched_ids:
+                events_query = db.query(Event).filter(or_(Event.asset_id == focused_asset.id, Event.id.in_(host_matched_ids)))
+        events = events_query.order_by(Event.event_time.desc()).limit(100).all()
+    else:
+        events = (
+            db.query(Event)
+            .filter(Event.asset_id.in_(app_ids))
+            .order_by(Event.event_time.desc())
+            .limit(100)
+            .all()
+            if app_ids
+            else []
+        )
     insights = (
         db.query(Insight)
         .filter(Insight.asset_id.in_(app_ids))
@@ -686,6 +703,7 @@ def asset_page(system_id: int, request: Request, show_inactive: bool = False, db
         apps=apps,
         events=events,
         insights=insights,
+        focused_asset=focused_asset,
         show_inactive=show_inactive,
         mqtt_plugin_enabled=mqtt_plugin_enabled,
         apps_master=get_setting_value(db, "plugin.apps_inventory.apps_master", get_setting_value(db, "apps_master", "opensecdash")),
@@ -697,6 +715,7 @@ def update_asset_metadata(
     asset_id: int,
     version: str = Form(""),
     release_url: str = Form(""),
+    host_url: str = Form(""),
     db: Session = Depends(get_db),
 ):
     require_plugin_enabled(db, "apps_inventory")
@@ -707,6 +726,12 @@ def update_asset_metadata(
         raise HTTPException(status_code=403, detail="Asset metadata is managed externally or inactive")
     asset.version = version.strip()
     asset.release_url = release_url.strip() or None
+    asset.host_url = host_url.strip() or None
+    normalized_host = normalize_asset_host(asset.host_url)
+    if normalized_host:
+        for event in db.query(Event).filter(Event.hostname.isnot(None)).all():
+            if normalize_asset_host(event.hostname) == normalized_host:
+                event.asset_id = asset.id
     refresh_asset_update(db, asset)
     if not asset.version or not asset.latest_version or not asset.release_url:
         asset.mqtt_publish_enabled = False
@@ -714,7 +739,7 @@ def update_asset_metadata(
     if asset.mqtt_publish_enabled:
         import asyncio
         asyncio.run(get_plugin_manager().export_asset_update(db, asset))
-    return RedirectResponse(url=f"/assets/system/{asset.system_id}", status_code=303)
+    return RedirectResponse(url=f"/assets/system/{asset.system_id}?asset_id={asset.id}#asset-events", status_code=303)
 
 
 @router.post("/assets/{asset_id}/mqtt")
@@ -737,7 +762,7 @@ def app_asset_page(asset_id: int, request: Request, db: Session = Depends(get_db
     asset = db.query(Asset).filter(Asset.id == asset_id).first()
     if asset is None:
         raise HTTPException(status_code=404, detail="Asset not found")
-    return RedirectResponse(url=f"/assets/system/{asset.system_id}", status_code=303)
+    return RedirectResponse(url=f"/assets/system/{asset.system_id}?asset_id={asset.id}", status_code=303)
 
 
 @router.post("/assets/import-source")

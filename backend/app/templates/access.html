@@ -65,7 +65,13 @@
                     <tr>
                         <td class="time-cell" data-label="{{ t('common.time') }}">{{ event.event_time|datetime }}</td>
                         <td data-label="{{ t('common.ip') }}">{% if event.ip %}<a href="/ip/{{ event.ip|url_path_quote }}">{{ event.ip }}</a>{% else %}-{% endif %}</td>
-                        <td data-label="{{ t('access.host') }}">{{ event.hostname or '-' }}</td>
+                        <td data-label="{{ t('access.host') }}">
+                            {% if event.hostname and event_asset_links.get(event.id) %}
+                                <a href="{{ event_asset_links.get(event.id) }}">{{ event.hostname }}</a>
+                            {% else %}
+                                {{ event.hostname or '-' }}
+                            {% endif %}
+                        </td>
                         <td data-label="{{ t('access.method') }}">{{ event.method or '-' }}</td>
                         <td data-label="{{ t('events.status') }}">{% if event.status_code %}<button type="button" class="text-action text-overlay-trigger" data-full-text="{{ event.status_code|http_status_label }}" data-overlay-title="{{ t('events.status') }}">{{ event.status_code }}</button>{% else %}-{% endif %}</td>
                         <td class="path-cell cell-stack" data-label="{{ t('common.url') }}">

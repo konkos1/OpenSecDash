@@ -74,6 +74,7 @@ def _migrate_legacy_sqlite() -> None:
         "enabled BOOLEAN DEFAULT 1",
         "hostname VARCHAR(255)",
         "url VARCHAR(2048)",
+        "host_url VARCHAR(2048)",
         "icon VARCHAR(255)",
         "tags JSON",
         "release_api_url VARCHAR(2048)",

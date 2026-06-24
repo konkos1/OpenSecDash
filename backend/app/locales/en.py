@@ -153,6 +153,7 @@ EN = {
     "asset.updates_available": "Updates available",
     "asset.inactive_apps": "Inactive apps",
     "asset.app": "App",
+    "asset.host_url": "Host URL",
     "asset.no_apps_in_system": "No apps in this system",
     "asset.insights": "Insights",
     "asset.no_system_insights": "No system insights",

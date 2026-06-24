@@ -50,6 +50,7 @@ def import_apps_inventory(
             version = str(app_data.get("version", "")).strip()
             release_url = str(app_data.get("release_url") or app_data.get("url") or "").strip() or None
             app_url = str(app_data.get("app_url") or app_data.get("homepage") or "").strip() or None
+            host_url = str(app_data.get("host_url") or app_data.get("host") or "").strip() or None
 
             if not name:
                 continue
@@ -72,6 +73,7 @@ def import_apps_inventory(
                     version=version,
                     release_url=release_url,
                     url=app_url,
+                    host_url=host_url,
                     latest_version=None,
                     update_available=False,
                     is_active=True,
@@ -84,6 +86,8 @@ def import_apps_inventory(
                     asset.version = version
                     asset.release_url = release_url
                 asset.url = app_url
+                if external_master:
+                    asset.host_url = host_url
                 asset.is_active = True
                 asset.last_seen = now
                 updated_assets += 1

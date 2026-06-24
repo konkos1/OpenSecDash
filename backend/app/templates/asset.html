@@ -35,6 +35,7 @@
             <thead>
                 <tr>
                     <th>{{ t("asset.app") }}</th>
+                    <th>{{ t("asset.host_url") }}</th>
                     <th>{{ t("assets.version") }}</th>
                     <th>{{ t("assets.latest") }}</th>
                     <th>{{ t("assets.update") }}</th>
@@ -54,6 +55,13 @@
                                 <form id="asset-meta-{{ app.id }}" method="post" action="/assets/{{ app.id }}/metadata" data-show-submit-on-dirty></form>
                             {% endif %}
                             {{ app.name }}
+                        </td>
+                        <td class="cell-stack" data-label="{{ t('asset.host_url') }}">
+                            {% if apps_master == 'opensecdash' and app.is_active %}
+                                <input class="input min-w-48" form="asset-meta-{{ app.id }}" name="host_url" value="{{ app.host_url or '' }}" placeholder="app.example.com">
+                            {% else %}
+                                {{ app.host_url or '-' }}
+                            {% endif %}
                         </td>
                         <td class="cell-stack" data-label="{{ t('assets.version') }}">
                             {% if apps_master == 'opensecdash' and app.is_active %}
@@ -106,7 +114,7 @@
                     </tr>
                 {% else %}
                     <tr>
-                        <td colspan="{{ 8 if mqtt_plugin_enabled else 7 }}">{{ t("asset.no_apps_in_system") }}</td>
+                        <td colspan="{{ 9 if mqtt_plugin_enabled else 8 }}">{{ t("asset.no_apps_in_system") }}</td>
                     </tr>
                 {% endfor %}
             </tbody>
@@ -125,8 +133,8 @@
         {% endfor %}
     </div>
 
-    <div class="card overflow-x-auto responsive-table">
-        <h3 class="font-semibold mb-3">{{ t("asset.events") }}</h3>
+    <div id="asset-events" class="card overflow-x-auto responsive-table">
+        <h3 class="font-semibold mb-3">{{ t("asset.events") }}{% if focused_asset %} · {{ focused_asset.name }}{% endif %}</h3>
         <table class="w-full text-sm table-middle">
             <thead>
                 <tr>
