@@ -5,6 +5,7 @@ from urllib.parse import urlsplit
 from sqlalchemy.orm import Session
 
 from app.models.assets import Asset
+from app.models.events import Event
 
 
 def normalize_asset_host(value: str | None) -> str | None:
@@ -33,3 +34,29 @@ def find_asset_by_host(db: Session, host: str | None) -> Asset | None:
         if normalize_asset_host(asset.host_url) == normalized_host:
             return asset
     return None
+
+
+def event_matches_asset_host(event: Event, asset: Asset) -> bool:
+    asset_host = normalize_asset_host(asset.host_url)
+    event_host = normalize_asset_host(event.hostname)
+    return bool(asset_host and event_host and asset_host == event_host)
+
+
+def sync_asset_host_events(db: Session, asset: Asset) -> int:
+    """Rebuild host-based event mapping for one asset.
+
+    Host mappings are derived data. When a user edits ``asset.host_url`` we must
+    both attach newly matching events and detach events that matched the previous
+    host, otherwise tables would keep stale links via ``events.asset_id``.
+    """
+    changed = 0
+    asset_host = normalize_asset_host(asset.host_url)
+    for event in db.query(Event).filter(Event.hostname.isnot(None)).all():
+        matches = normalize_asset_host(event.hostname) == asset_host if asset_host else False
+        if matches and event.asset_id != asset.id:
+            event.asset_id = asset.id
+            changed += 1
+        elif event.asset_id == asset.id and not matches:
+            event.asset_id = None
+            changed += 1
+    return changed

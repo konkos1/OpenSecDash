@@ -27,7 +27,7 @@ from app.services.apps_inventory_source import load_asset_source
 from app.services.apps_inventory_updates import refresh_asset_update, refresh_asset_updates
 from app.plugins.manager import get_plugin_manager
 from app.services.actions import create_action
-from app.services.asset_hosts import find_asset_by_host, normalize_asset_host
+from app.services.asset_hosts import event_matches_asset_host, find_asset_by_host, normalize_asset_host, sync_asset_host_events
 from app.services.events import apply_event_filters, is_local_ip_value, tokenize_search_expression
 
 router = APIRouter(tags=["pages"])
@@ -370,6 +370,10 @@ def clean_filter_value(value: str | None) -> str | None:
     return value or None
 
 
+def clean_url_value(value: str) -> str:
+    return "".join(str(value).split())
+
+
 def utc_search_terms_for_ui_time(q: str | None, timezone_name: str) -> list[str]:
     if not q:
         return []
@@ -509,7 +513,11 @@ def access_page(
     events = apply_event_filters(db.query(Event), filters).order_by(Event.event_time.desc()).limit(200).all()
     event_asset_links = {}
     for event in events:
-        asset = db.query(Asset).filter(Asset.id == event.asset_id).first() if event.asset_id else find_asset_by_host(db, event.hostname)
+        asset = db.query(Asset).filter(Asset.id == event.asset_id).first() if event.asset_id else None
+        if asset is not None and not event_matches_asset_host(event, asset):
+            asset = None
+        if asset is None:
+            asset = find_asset_by_host(db, event.hostname)
         if asset is not None:
             event_asset_links[event.id] = f"/assets/app/{asset.id}"
     return render(
@@ -725,13 +733,9 @@ def update_asset_metadata(
     if get_setting_value(db, "plugin.apps_inventory.apps_master", get_setting_value(db, "apps_master", "opensecdash")) != "opensecdash" or not asset.is_active:
         raise HTTPException(status_code=403, detail="Asset metadata is managed externally or inactive")
     asset.version = version.strip()
-    asset.release_url = release_url.strip() or None
-    asset.host_url = host_url.strip() or None
-    normalized_host = normalize_asset_host(asset.host_url)
-    if normalized_host:
-        for event in db.query(Event).filter(Event.hostname.isnot(None)).all():
-            if normalize_asset_host(event.hostname) == normalized_host:
-                event.asset_id = asset.id
+    asset.release_url = clean_url_value(release_url) or None
+    asset.host_url = clean_url_value(host_url) or None
+    sync_asset_host_events(db, asset)
     refresh_asset_update(db, asset)
     if not asset.version or not asset.latest_version or not asset.release_url:
         asset.mqtt_publish_enabled = False
@@ -889,6 +893,9 @@ async def save_settings(
 ):
     if language not in {"de", "en"}:
         language = "en"
+    domain = clean_url_value(domain)
+    if asset_source_type == "url":
+        asset_source = clean_url_value(asset_source)
     for key, value in {
         "domain": domain,
         "language": language,
@@ -907,9 +914,23 @@ async def save_settings(
         save_setting(db, key, value)
 
     form = await request.form()
+    plugin_setting_types = {
+        setting["key"]: setting["type"]
+        for group in get_plugin_manager().plugin_settings(db, get_setting_value(db, "language", "en"))
+        for setting in group["settings"]
+    }
+    plugin_source_types = {
+        key: str(value)
+        for key, value in form.items()
+        if key.startswith("plugin.") and key.endswith(".source_type")
+    }
     for key, value in form.items():
         if key.startswith("plugin."):
-            save_setting(db, key, str(value))
+            text_value = str(value)
+            source_type_key = key.removesuffix(".source") + ".source_type"
+            if plugin_setting_types.get(key) == "url" or (key.endswith(".source") and plugin_source_types.get(source_type_key) == "url"):
+                text_value = clean_url_value(text_value)
+            save_setting(db, key, text_value)
     db.commit()
     configure_logging_from_db(db)
     return RedirectResponse(url="/settings", status_code=303)
