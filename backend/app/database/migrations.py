@@ -21,6 +21,11 @@ logger = logging.getLogger(__name__)
 
 
 def alembic_config() -> Config:
+    """Build Alembic config from runtime settings.
+
+    Tests and deployments can override ``DATABASE_URL`` without editing
+    ``alembic.ini``; keep all migration entry points using this helper.
+    """
     config = Config(str(ALEMBIC_INI))
     config.set_main_option("sqlalchemy.url", settings.database_url)
     config.set_main_option("script_location", str(BACKEND_DIR / "migrations"))
@@ -28,6 +33,7 @@ def alembic_config() -> Config:
 
 
 def migration_status() -> dict[str, str | bool | None]:
+    """Return a diagnostics-friendly schema status snapshot."""
     config = alembic_config()
     script = ScriptDirectory.from_config(config)
     head = script.get_current_head()
@@ -54,6 +60,11 @@ def migration_status() -> dict[str, str | bool | None]:
 
 
 def run_auto_migrations_if_enabled() -> dict[str, str | bool | None]:
+    """Run startup migrations and log enough context for operators.
+
+    The return value is intentionally plain data so ``main.py`` can log it again
+    after DB-backed logging has been configured.
+    """
     before = migration_status()
     if not settings.auto_migrate:
         logger.info("Database auto-migration disabled: current=%s head=%s", before["current"], before["head"])
@@ -71,6 +82,7 @@ def run_auto_migrations_if_enabled() -> dict[str, str | bool | None]:
 
 
 def update_migration_diagnostic(db: Session) -> None:
+    """Mirror Alembic status into the Diagnostics page."""
     try:
         status = migration_status()
         diagnostic_status = str(status["status"])

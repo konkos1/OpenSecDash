@@ -22,12 +22,22 @@ logger = logging.getLogger(__name__)
 
 
 class PluginManager:
+    """Discovers and orchestrates external plugins.
+
+    External plugins live outside ``app/`` by design. The manager owns lifecycle,
+    settings lookup, diagnostics, and cross-plugin calls so plugins can stay
+    small and ADR-compliant.
+    """
+
     def __init__(self, plugin_dir: Path) -> None:
         self.plugin_dir = plugin_dir
         self.plugins: dict[str, Plugin] = {}
         self.tasks: list[asyncio.Task] = []
 
     def discover(self) -> None:
+        # Discovery is file-system based to keep packaging simple for community
+        # plugins: each plugin is a directory with a ``plugin.py`` exposing
+        # ``Plugin``. Avoid importing arbitrary helper files here.
         self.plugins.clear()
         if not self.plugin_dir.exists():
             logger.warning("Plugin directory does not exist: %s", self.plugin_dir)
@@ -51,6 +61,8 @@ class PluginManager:
         return module
 
     def seed_database(self, db: Session) -> None:
+        # Persist plugin metadata and default settings so the UI can render
+        # plugin state even before a plugin has run successfully.
         for plugin in self.plugins.values():
             meta = plugin.metadata
             record = db.query(PluginRecord).filter(PluginRecord.id == meta.id).first()
@@ -190,6 +202,8 @@ class PluginManager:
         self.tasks.clear()
 
     async def _health_loop(self, plugin: Plugin) -> None:
+        # Health checks are separate from datasource/periodic work on purpose:
+        # diagnostics should still update when a collector is idle or disabled.
         while True:
             db = SessionLocal()
             try:
@@ -324,6 +338,9 @@ class PluginManager:
         return None
 
     async def export_asset_update(self, db: Session, asset: Any, manual: bool = False) -> None:
+        # Cross-plugin calls must attribute failures to the callee. For example,
+        # Apps Inventory can trigger MQTT, but auth errors belong to MQTT's
+        # diagnostic row, not the Apps Inventory plugin.
         for plugin in self.plugins.values():
             if isinstance(plugin, ExportPlugin):
                 ctx = self.context(db, plugin, manual_export=manual)

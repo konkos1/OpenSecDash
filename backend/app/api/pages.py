@@ -183,6 +183,7 @@ def today_hour_range(db: Session, hour: int) -> tuple[datetime, datetime]:
 
 
 def parse_snapshot_before(value: str | None) -> datetime | None:
+    """Parse the snapshot cutoff carried through Events/Access filter forms."""
     if not value:
         return None
     try:
@@ -195,6 +196,8 @@ def parse_snapshot_before(value: str | None) -> datetime | None:
 
 
 def render(request: Request, db: Session, template: str, **context):
+    # All page routes go through this helper so global template context (i18n,
+    # feature flags, settings) stays consistent and easy to exercise in tests.
     return templates.TemplateResponse(request=request, name=template, context={**build_template_context(db), **context})
 
 
@@ -371,6 +374,11 @@ def clean_filter_value(value: str | None) -> str | None:
 
 
 def clean_url_value(value: str) -> str:
+    """Remove accidental whitespace from URL-only inputs.
+
+    Do not use this for fields that may contain file paths; POSIX/Windows paths
+    can legitimately include spaces.
+    """
     return "".join(str(value).split())
 
 

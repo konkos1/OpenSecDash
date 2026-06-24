@@ -57,6 +57,12 @@ def display_logger_name(name: str) -> str:
 
 
 class RedactingFormatter(logging.Formatter):
+    """Formatter used by service and file logging.
+
+    It normalizes logger names for readable/colorable output and redacts secrets
+    at the last possible point so callers do not need to duplicate redaction.
+    """
+
     def format(self, record: logging.LogRecord) -> str:
         original_name = record.name
         record.name = display_logger_name(record.name)
@@ -75,7 +81,11 @@ def _level(value: str | None) -> int:
 
 
 def setup_service_logging(level: str = "INFO") -> None:
-    """Always log to the service console so systemd/journalctl can capture it."""
+    """Always log to the service console so systemd/journalctl can capture it.
+
+    This runs before DB settings are available. ``configure_logging_from_db`` may
+    later adjust levels and add file logging, but must never remove this handler.
+    """
     root = logging.getLogger()
     root.setLevel(_level(level))
     for name, logger_obj in logging.Logger.manager.loggerDict.items():

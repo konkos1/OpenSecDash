@@ -9,12 +9,21 @@ from sqlalchemy.orm import Session
 from app.models.events import Event
 from app.services.events import store_event
 
+# Keep this module intentionally dependency-light: external plugins import it as
+# their public API surface. Changes here should be backwards compatible or paired
+# with an ADR/plugin API version bump.
 PluginCapability = Literal["datasource", "enrichment", "action", "export", "page", "widget", "insight"]
 SettingType = Literal["text", "password", "number", "boolean", "select", "file", "url"]
 
 
 @dataclass(frozen=True)
 class PluginSetting:
+    """Declarative setting metadata rendered automatically on Settings page.
+
+    Plugins define labels/help as translation keys so the backend core does not
+    need plugin-specific UI code. ``visible_if`` references another setting key
+    local to the same plugin.
+    """
     key: str
     label_key: str
     help_key: str
@@ -36,6 +45,12 @@ class PluginMetadata:
 
 
 class PluginContext:
+    """Runtime services exposed to plugins.
+
+    Keep plugin side effects behind this context where possible. That makes
+    plugin behavior easier to test later with a fake ``PluginContext``.
+    """
+
     def __init__(
         self,
         db: Session,
@@ -60,6 +75,12 @@ class PluginContext:
 
 
 class Plugin:
+    """Base plugin contract.
+
+    Subclasses override only the hooks they need. The manager calls these hooks
+    from isolated background loops and records failures as diagnostics.
+    """
+
     metadata: PluginMetadata
     settings: list[PluginSetting] = []
     locales: dict[str, dict[str, str]] = {"en": {}, "de": {}}

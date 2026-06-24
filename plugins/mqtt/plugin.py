@@ -97,6 +97,10 @@ class Plugin(ExportPlugin, PeriodicPlugin):
             return {"status": "error", "message": f"MQTT broker not reachable: {exc}"}
 
     async def tick(self, context: PluginContext) -> None:
+        # ``publish_interval`` has three modes:
+        #   auto: publish only when Apps Inventory calls this export plugin
+        #   0:    manual button only
+        #   N:    periodic publish every N seconds via the plugin manager loop
         interval = self.publish_interval(context)
         if interval <= 0:
             return
@@ -128,6 +132,8 @@ class Plugin(ExportPlugin, PeriodicPlugin):
         )
 
     async def export_asset(self, context, asset: Any) -> None:
+        # This hook is called by Apps Inventory, the manual button, and the
+        # periodic loop. Gate here so all entry points follow the same policy.
         interval = self.publish_interval(context)
         if interval != -1 and not context.manual_export and context.get("_periodic_export") != "true":
             logger.debug("Skipping MQTT auto export because publish_interval=%s", context.get("publish_interval", "auto"))

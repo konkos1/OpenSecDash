@@ -18,6 +18,11 @@ logger = logging.getLogger(__name__)
 
 
 def normalize_event_time(value: Any | None = None) -> datetime:
+    """Normalize incoming timestamps to naive UTC for DB compatibility.
+
+    The UI converts these values back to the configured display timezone. Keeping
+    storage normalized makes filtering and future tests deterministic.
+    """
     if isinstance(value, datetime):
         if value.tzinfo is not None:
             return value.astimezone(UTC).replace(tzinfo=None)
@@ -45,6 +50,11 @@ def classify_access_status(status_code: int | None) -> tuple[str, str]:
 
 
 def find_duplicate_event(db: Session, values: dict[str, Any]) -> Event | None:
+    """Best-effort dedupe for log importers.
+
+    Log plugins may re-read overlapping file windows after restarts. Prefer
+    ``raw_data`` when available; otherwise compare the stable event fields.
+    """
     raw_data = values.get("raw_data")
     plugin = values.get("plugin", "core")
     event_type = values.get("event_type")
@@ -81,6 +91,12 @@ def find_duplicate_event(db: Session, values: dict[str, Any]) -> Event | None:
 
 
 def store_event(db: Session, **values: Any) -> Event:
+    """Insert one event and maintain derived data.
+
+    This is the central ingestion path for APIs and plugins. Keep rollups,
+    insights, host-to-asset mapping, and dedupe here so future tests can validate
+    ingestion behavior without exercising every plugin.
+    """
     event_time = normalize_event_time(values.pop("event_time", values.get("timestamp")))
     created_at = utc_now().replace(tzinfo=None)
     values.setdefault("timestamp", event_time)
@@ -302,6 +318,11 @@ def create_rule_based_insights(db: Session, event: Event) -> None:
 
 
 def is_local_ip_value(value: str | None) -> bool:
+    """Return True for addresses/ranges that should be treated as local UI-only.
+
+    We do not rewrite stored country/IP fields. This helper is used by filters
+    and presentation so local/private labels remain reversible.
+    """
     if not value:
         return False
     try:
@@ -433,6 +454,11 @@ def build_search_expression(tokens: list[str], extra_terms_by_term: dict[str, li
 
 
 def apply_event_filters(query, filters: dict[str, Any]):
+    """Apply shared Events/Access filters to a SQLAlchemy query.
+
+    Keep this function side-effect free. It is a good target for future unit
+    tests around boolean search, timezone terms, and local-IP filtering.
+    """
     if filters.get("event_type"):
         event_type = str(filters["event_type"]).strip()
         if "*" in event_type:
