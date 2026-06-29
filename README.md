@@ -25,6 +25,34 @@ OpenSecDash collects security events, access logs, asset information, and update
 
 OpenSecDash is open source and built for homelab enthusiasts who want security visibility without building a full observability platform first.
 
+## Table of contents
+
+- [OpenSecDash is not a Grafana replacement](#opensecdash-is-not-a-grafana-replacement)
+- [What OpenSecDash does](#what-opensecdash-does)
+  - [Live-first dashboard](#live-first-dashboard)
+  - [Events and access logs](#events-and-access-logs)
+  - [Search and filters](#search-and-filters)
+  - [IP Explorer](#ip-explorer)
+  - [Responsive UI for real homelab life](#responsive-ui-for-real-homelab-life)
+  - [Install it from your browser like an app](#install-it-from-your-browser-like-an-app)
+  - [Insights and correlation](#insights-and-correlation)
+  - [Asset Explorer](#asset-explorer)
+  - [GitHub release checks](#github-release-checks)
+  - [Plugin diagnostics](#plugin-diagnostics)
+- [Built-in plugins](#built-in-plugins)
+- [Important settings](#important-settings)
+- [Running OpenSecDash](#running-opensecdash)
+  - [Docker Compose](#docker-compose)
+  - [Recommended homelab placement](#recommended-homelab-placement)
+  - [Important security note](#important-security-note)
+  - [Local development](#local-development)
+- [Development](#development)
+- [Contributing](#contributing)
+  - [Contributor License Agreement](#contributor-license-agreement)
+  - [Security reports](#security-reports)
+  - [Releases](#releases)
+- [Project status](#project-status)
+
 ---
 
 ## OpenSecDash is not a Grafana replacement
