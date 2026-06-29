@@ -4,6 +4,13 @@
 
 # OpenSecDash
 
+<p align="center">
+  <a href="https://github.com/konkos1/OpenSecDash/actions/workflows/tests.yml"><img src="https://github.com/konkos1/OpenSecDash/actions/workflows/tests.yml/badge.svg" alt="Tests"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/konkos1/OpenSecDash" alt="License"></a>
+  <a href="https://github.com/konkos1/OpenSecDash/releases"><img src="https://img.shields.io/github/v/release/konkos1/OpenSecDash" alt="Latest Release"></a>
+  <a href="https://hub.docker.com/r/konkos1/opensecdash"><img src="https://img.shields.io/docker/pulls/konkos1/opensecdash" alt="Docker Pulls"></a>
+</p>
+
 > A security dashboard for homelabs, because your reverse proxy logs should not require a PhD, three terminals, and a sacrificial YAML file to become useful.
 
 OpenSecDash collects security events, access logs, asset information, and update signals from common homelab tools. It turns them into a simple, live-first web UI for answering practical questions:
