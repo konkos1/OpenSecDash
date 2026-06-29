@@ -23,6 +23,10 @@ dev = [
     "pyright>=1.1.410",
 ]
 
+[tool.setuptools.packages.find]
+include = ["app*"]
+exclude = ["migrations*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
