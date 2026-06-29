@@ -38,12 +38,13 @@ jobs:
       - name: Install dependencies
         working-directory: backend
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e . pytest pyright
+          python -m venv .venv
+          .venv/bin/python -m pip install --upgrade pip
+          .venv/bin/python -m pip install -e . pytest pyright
 
       - name: Run tests
         working-directory: backend
-        run: pytest -q
+        run: .venv/bin/pytest -q
 
       - name: Run Pyright
-        run: pyright backend/app backend/tests plugins
+        run: backend/.venv/bin/pyright backend/app backend/tests plugins
