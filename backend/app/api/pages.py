@@ -22,7 +22,7 @@ from app.core.template_context import build_template_context, get_setting_value
 from app.core.time import datetime_iso_utc, format_datetime_for_timezone, local_day_start_as_utc, resolve_timezone, utc_now
 from app.database.dependencies import get_db
 from app.models.assets import Asset
-from app.models.core import Action, Datasource, Diagnostic, Insight, PluginRecord
+from app.models.core import Action, AggregationDaily, Datasource, Diagnostic, Insight, PluginRecord
 from app.models.events import Event
 from app.models.settings import Setting
 from app.models.systems import System
@@ -288,9 +288,28 @@ def require_events_feature_enabled(db: Session) -> None:
         raise HTTPException(status_code=404, detail="Feature is disabled")
 
 
+def latest_historical_rollup_day(db: Session, before_day: str) -> str | None:
+    return db.query(func.max(AggregationDaily.date)).filter(AggregationDaily.date < before_day).scalar()
+
+
+def dashboard_rollup_rows(db: Session, day: str | None, metric: str, limit: int = 5) -> list[dict[str, str | int]]:
+    if not day:
+        return []
+    rows = (
+        db.query(AggregationDaily.key, AggregationDaily.value)
+        .filter(AggregationDaily.date == day, AggregationDaily.metric == metric)
+        .order_by(AggregationDaily.value.desc(), AggregationDaily.key.asc())
+        .limit(limit)
+        .all()
+    )
+    return [{"key": str(key), "value": int(value or 0)} for key, value in rows]
+
+
 @router.get("/")
 def dashboard_page(request: Request, db: Session = Depends(get_db)):
     since = today_start(db)
+    today_key = since.strftime("%Y-%m-%d")
+    rollup_day = latest_historical_rollup_day(db, today_key)
     enabled_plugins = {
         "apps_inventory": is_plugin_enabled(db, "apps_inventory"),
         "crowdsec": is_plugin_enabled(db, "crowdsec"),
@@ -379,6 +398,10 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
             ]
         )
 
+    rollup_event_types = dashboard_rollup_rows(db, rollup_day, "event_type")
+    rollup_scenarios = dashboard_rollup_rows(db, rollup_day, "scenario")
+    rollup_total = sum(row["value"] for row in rollup_event_types if isinstance(row["value"], int))
+
     max_country_count = max((count for _, count in top_countries), default=0)
     country_heatmap = [
         point
@@ -396,6 +419,11 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
         attack_hours=attack_hours,
         access_hours=access_hours,
         country_heatmap=country_heatmap,
+        rollup_day=rollup_day or "-",
+        rollup_event_types=rollup_event_types,
+        rollup_scenarios=rollup_scenarios,
+        rollup_total=rollup_total,
+        rollup_plugins_enabled=bool(country_data_plugins),
         today_events_href="/events?today=true",
         country_data_plugins=country_data_plugins,
         latest_security_events=latest_security_events,
