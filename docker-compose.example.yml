@@ -1,0 +1,25 @@
+services:
+  opensecdash:
+    image: konkos/opensecdash:latest
+    # During local development, you can replace the image with:
+    # build: .
+    container_name: opensecdash
+    ports:
+      - "8765:8000"
+    environment:
+      DATABASE_URL: sqlite:////data/opensecdash.db
+      AUTO_MIGRATE: "true"
+      # Optional: change the internal bind address/port if you really need to.
+      # OSD_HOST: 0.0.0.0
+      # OSD_PORT: "8000"
+    volumes:
+      - opensecdash-data:/data
+      # Optional: mount host log files or inventory files read-only for plugins.
+      # - /var/log/access.log:/logs/traefik.log:ro
+      # - /var/log/geoblock.log:/logs/geoblock.log:ro
+      # - /var/log/crowdsec.log:/logs/crowdsec.log:ro
+      # - ./apps-installed.json:/data/apps-installed.json:ro
+    restart: unless-stopped
+
+volumes:
+  opensecdash-data:

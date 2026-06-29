@@ -263,9 +263,35 @@ Examples:
 
 ## Running OpenSecDash
 
-> Packaging and Docker publishing are still being prepared. The project currently runs as a Python/FastAPI backend during development.
+### Docker Compose
 
-A typical development setup looks like this:
+A Docker Compose example is available in [`docker-compose.example.yml`](docker-compose.example.yml).
+
+```bash
+cp docker-compose.example.yml docker-compose.yml
+docker compose up -d
+```
+
+Then open:
+
+```text
+http://localhost:8765
+```
+
+The container listens on port `8000` internally. The example maps it to host port `8765` to avoid common homelab conflicts:
+
+```yaml
+ports:
+  - "8765:8000"
+```
+
+Persistent data is stored in `/data` inside the container. The default database URL is:
+
+```text
+sqlite:////data/opensecdash.db
+```
+
+### Local development
 
 ```bash
 cd backend
@@ -276,13 +302,6 @@ Then open:
 
 ```text
 http://localhost:8000
-```
-
-For future Docker-based homelab deployments, the recommended external host port will be `8765`, while the app can still listen on `8000` inside the container:
-
-```yaml
-ports:
-  - "8765:8000"
 ```
 
 For production-style homelabs, a reverse proxy is usually nicer:
