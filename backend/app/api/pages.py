@@ -1,19 +1,23 @@
 from collections import Counter
 from datetime import datetime, timedelta
 from http import HTTPStatus
+import io
 import logging
+from pathlib import Path
+import platform
+import zipfile
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from jinja2 import pass_context
 from markupsafe import Markup, escape
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
-from app.core.logging import configure_logging_from_db
+from app.core.logging import configure_logging_from_db, redact_sensitive
 from app.core.template_context import build_template_context, get_setting_value
 from app.core.time import datetime_iso_utc, format_datetime_for_timezone, local_day_start_as_utc, resolve_timezone, utc_now
 from app.database.dependencies import get_db
@@ -152,7 +156,11 @@ def _redacted_setting_value(key: str, value: str | None) -> str:
     sensitive_parts = ("password", "token", "secret", "credential", "api_key", "apikey", "access_key")
     if any(part in key.lower() for part in sensitive_parts):
         return "<redacted>" if value else ""
-    return str(value or "")
+    return redact_sensitive(str(value or ""))
+
+
+def _debug_line(label: str, value: object = "") -> str:
+    return f"{label}: {redact_sensitive(value)}"
 
 
 TABLE_COLUMN_DEFINITIONS = [
@@ -971,6 +979,138 @@ def cleanup_inactive_assets(db: Session = Depends(get_db)):
     db.query(Asset).filter(Asset.is_active == False).delete()
     db.commit()
     return RedirectResponse(url="/assets?show_inactive=true", status_code=303)
+
+
+def _read_debug_log_tail(db: Session, max_bytes: int = 200_000) -> tuple[str, str]:
+    if get_setting_value(db, "log_file_enabled", "true").lower() != "true":
+        return "", "File logging is disabled."
+    log_path = get_setting_value(db, "log_file_path", "logs/opensecdash.log")
+    path = Path(log_path).expanduser()
+    if not path.exists() or not path.is_file():
+        return "", f"Log file not found: {log_path}"
+    try:
+        size = path.stat().st_size
+        with path.open("rb") as file:
+            if size > max_bytes:
+                file.seek(-max_bytes, 2)
+            data = file.read()
+        text = data.decode("utf-8", errors="replace")
+        if size > max_bytes:
+            text = "[log truncated to last {} bytes]\n".format(max_bytes) + text
+        return redact_sensitive(text), f"Included log tail from: {log_path}"
+    except Exception as exc:
+        return "", f"Could not read log file {log_path}: {exc}"
+
+
+def _debug_file(title: str, lines: list[str]) -> str:
+    return "\n".join([title, "=" * len(title), *lines, ""])
+
+
+def build_debug_report_files(db: Session) -> dict[str, str]:
+    generated_at = utc_now().isoformat()
+    log_text, log_status = _read_debug_log_tail(db)
+    plugins = db.query(PluginRecord).order_by(PluginRecord.id).all()
+    enabled_plugins = {plugin.id: is_plugin_enabled(db, plugin.id) for plugin in plugins}
+    return {
+        "README.txt": _debug_file(
+            "OpenSecDash Debug Package",
+            [
+                _debug_line("Generated at", generated_at),
+                _debug_line("Python", platform.python_version()),
+                _debug_line("Platform", platform.platform()),
+                "",
+                "Redaction notice",
+                "----------------",
+                "OpenSecDash has already redacted known sensitive values in this package, including passwords, tokens, API keys, access keys, bearer credentials, URL usernames, and sensitive URL query parameters.",
+                "Please still review every file before attaching the ZIP to a public GitHub issue. Internal hostnames, public IPs, asset names, and log-specific payloads may still be meaningful in your environment.",
+            ],
+        ),
+        "settings.txt": _debug_file(
+            "Settings",
+            [_debug_line(setting.key, _redacted_setting_value(setting.key, setting.value)) for setting in db.query(Setting).order_by(Setting.key).all()],
+        ),
+        "plugins.txt": _debug_file(
+            "Plugins",
+            [
+                _debug_line(
+                    plugin.id,
+                    f"name={plugin.name}; version={plugin.version}; enabled={enabled_plugins.get(plugin.id)}; status={plugin.status}; capabilities={','.join(plugin.capabilities or [])}",
+                )
+                for plugin in plugins
+            ],
+        ),
+        "diagnostics.txt": _debug_file(
+            "Diagnostics",
+            [
+                _debug_line(
+                    f"{item.plugin}.{item.component}",
+                    f"status={item.status}; last_run={item.last_run}; last_error={item.last_error or ''}",
+                )
+                for item in db.query(Diagnostic).order_by(Diagnostic.plugin, Diagnostic.component).all()
+            ],
+        ),
+        "datasources.txt": _debug_file(
+            "Datasources",
+            [
+                _debug_line(
+                    source.name,
+                    f"plugin={source.plugin_id}; enabled={source.enabled}; type={source.source_type}; status={source.status}; events={source.events_processed}; last_error={source.last_error or ''}",
+                )
+                for source in db.query(Datasource).order_by(Datasource.name).all()
+            ],
+        ),
+        "database-counts.txt": _debug_file(
+            "Database counts",
+            [
+                _debug_line("events", db.query(Event).count()),
+                _debug_line("assets", db.query(Asset).count()),
+                _debug_line("systems", db.query(System).count()),
+                _debug_line("insights", db.query(Insight).count()),
+                _debug_line("actions", db.query(Action).count()),
+            ],
+        ),
+        "recent-actions.txt": _debug_file(
+            "Recent actions",
+            [
+                _debug_line(
+                    f"action#{action.id}",
+                    f"time={action.timestamp}; type={action.action_type}; target_type={action.target_type}; target={action.target}; status={action.status}; result={action.result or ''}",
+                )
+                for action in db.query(Action).order_by(Action.timestamp.desc()).limit(20).all()
+            ],
+        ),
+        "opensecdash-log.txt": _debug_file(
+            "OpenSecDash log tail",
+            ["Log status", "----------", redact_sensitive(log_status), "", log_text or "No log content included."],
+        ),
+    }
+
+
+def build_debug_report(db: Session) -> str:
+    files = build_debug_report_files(db)
+    sections = []
+    for filename, content in files.items():
+        sections.extend([f"--- {filename} ---", content])
+    return "\n".join(sections)
+
+
+def build_debug_report_zip(db: Session) -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for filename, content in build_debug_report_files(db).items():
+            archive.writestr(filename, content)
+    return buffer.getvalue()
+
+
+@router.get("/diagnostics/debug-report")
+def diagnostics_debug_report(db: Session = Depends(get_db)):
+    content = build_debug_report_zip(db)
+    filename = f"opensecdash-debug-report-{utc_now().strftime('%Y%m%d-%H%M%S')}.zip"
+    return Response(
+        content=content,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/diagnostics")

@@ -6,7 +6,13 @@
 
 {% block content %}
 
-    <h2 class="text-2xl font-semibold mb-5">{{ t("diagnostics.title") }}</h2>
+    <div class="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-5">
+        <div>
+            <h2 class="text-2xl font-semibold">{{ t("diagnostics.title") }}</h2>
+            <p class="muted text-sm mt-1">{{ t("diagnostics.debug_report_help") }}</p>
+        </div>
+        <a class="btn-small" href="/diagnostics/debug-report">{{ t("diagnostics.download_debug_report") }}</a>
+    </div>
     <section class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
         <div class="card">
             <h3 class="font-semibold mb-1">{{ t("diagnostics.plugins") }}</h3>

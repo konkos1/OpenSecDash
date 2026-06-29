@@ -8,6 +8,8 @@ body:
       value: |
         Thanks for reporting a bug. Please remove secrets, public IPs you do not want to share, tokens, and private hostnames from logs or screenshots.
 
+        Tip: OpenSecDash can create a debug ZIP package on the Diagnostics page. The package already redacts known sensitive values such as passwords, tokens, API keys, access keys, bearer credentials, URL usernames, and sensitive URL query parameters. Please still review every file before attaching it to a public issue.
+
   - type: textarea
     id: summary
     attributes:
@@ -73,10 +75,17 @@ body:
       placeholder: "Docker Desktop on macOS, Chrome, Traefik reverse proxy, CrowdSec + Traefik Log enabled"
 
   - type: textarea
+    id: debug-report
+    attributes:
+      label: OpenSecDash debug package
+      description: Attach the sanitized ZIP package from Diagnostics → Download debug report, or paste relevant excerpts. Please review every file before publishing because hostnames, IPs, asset names, and log payloads may still be sensitive in your environment.
+      render: text
+
+  - type: textarea
     id: logs
     attributes:
-      label: Logs or screenshots
-      description: Paste relevant sanitized logs or attach screenshots.
+      label: Additional logs or screenshots
+      description: Paste other relevant sanitized logs or attach screenshots.
       render: text
 
   - type: checkboxes
@@ -84,7 +93,7 @@ body:
     attributes:
       label: Safety checks
       options:
-        - label: I removed secrets, tokens, private keys, and sensitive hostnames/IPs from this report.
+        - label: I reviewed every file in the OpenSecDash debug package and removed any remaining sensitive hostnames, IPs, asset names, private log payloads, secrets, tokens, or private keys before attaching it.
           required: true
         - label: I searched existing issues before opening this one.
           required: true

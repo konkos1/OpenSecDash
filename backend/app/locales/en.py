@@ -192,6 +192,8 @@ EN = {
     "insight.description.wordpress_scan": "The request matched the scanner rule for WordPress paths.",
 
     "diagnostics.title": "Diagnostics",
+    "diagnostics.download_debug_report": "Download debug report",
+    "diagnostics.debug_report_help": "Creates a sanitized ZIP package with separate files for settings, plugin status, diagnostics, counts, recent actions and the OpenSecDash log tail for GitHub issues.",
     "diagnostics.plugins": "Plugins",
     "diagnostics.plugins_help": "Configuration status: whether a plugin is enabled in Settings and should provide data/actions/exports.",
     "diagnostics.diagnostics": "Diagnostics",

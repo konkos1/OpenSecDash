@@ -193,6 +193,8 @@ DE = {
     "insight.description.wordpress_scan": "Die Anfrage passt zur Scanner-Regel für WordPress-Pfade.",
 
     "diagnostics.title": "Diagnose",
+    "diagnostics.download_debug_report": "Debug-Bericht herunterladen",
+    "diagnostics.debug_report_help": "Erstellt ein bereinigtes ZIP-Paket mit einzelnen Dateien für Einstellungen, Plugin-Status, Diagnosedaten, Zählwerte, letzte Aktionen und den OpenSecDash-Logauszug für GitHub-Issues.",
     "diagnostics.plugins": "Plugins",
     "diagnostics.plugins_help": "Konfigurationsstatus: ob ein Plugin in den Einstellungen aktiviert ist und Daten/Aktionen/Exporte liefern soll.",
     "diagnostics.diagnostics": "Diagnose",
