@@ -25,7 +25,7 @@
             {% if local_ip_target %}
                 <p class="muted text-sm">{{ t("ip.local_ban_disabled") }}</p>
             {% else %}
-                <form class="flex flex-col sm:flex-row sm:items-end gap-2" method="post" action="/actions/ip" data-confirm="{{ t('ip.ban_confirm') }} {{ ip }}?">
+                <form class="flex flex-col sm:flex-row sm:items-end gap-2" method="post" action="/actions/ip" data-confirm="{{ t('ip.ban_confirm') }} {{ ip }}?" data-submit-busy>
                     <input type="hidden" name="action_type" value="security.ban">
                     <input type="hidden" name="ip" value="{{ ip }}">
                     <input type="hidden" name="confirmed" value="true">
@@ -34,7 +34,7 @@
                         <option>24h</option>
                         <option>7d</option>
                     </select>
-                    <button class="btn sm:w-auto sm:self-end">{{ t("ip.crowdsec_ban") }}</button>
+                    <button class="btn sm:w-auto sm:self-end" data-busy-label="{{ t('common.processing') }}">{{ t("ip.crowdsec_ban") }}</button>
                 </form>
             {% endif %}
         </div>

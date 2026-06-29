@@ -24,8 +24,10 @@
                 </button>
             </form>
             {% if mqtt_plugin_enabled and mqtt_publishable_count > 0 %}
-                <form method="post" action="/assets/mqtt-publish">
-                    <button class="btn">{{ t("assets.mqtt_publish_now") }}</button>
+                <form method="post" action="/assets/mqtt-publish" data-submit-busy>
+                    <button class="btn" data-busy-label="{{ t('assets.mqtt_publish_running') }}" {% if asset_action_busy %}disabled{% endif %} {% if asset_mqtt_publish_running %}aria-busy="true"{% endif %}>
+                        {% if asset_mqtt_publish_running %}<span class="button-spinner" aria-hidden="true"></span>{{ t("assets.mqtt_publish_running") }}{% else %}{{ t("assets.mqtt_publish_now") }}{% endif %}
+                    </button>
                 </form>
             {% endif %}
         </div>

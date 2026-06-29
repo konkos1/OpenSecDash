@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.template_context import get_setting_value
 
 from app.database.dependencies import get_db
+from app.models.assets import Asset
 
 from app.services.asset_actions import (
     AssetActionAlreadyRunning,

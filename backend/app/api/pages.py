@@ -27,11 +27,12 @@ from app.plugins.manager import get_plugin_manager
 from app.services.asset_actions import (
     AssetActionAlreadyRunning,
     asset_action_running,
-    export_publishable_asset_updates,
     import_assets_source_action,
+    publish_asset_updates_action,
     refresh_asset_updates_action,
+    run_asset_metadata_action,
 )
-from app.services.actions import create_action
+from app.services.actions import ActionAlreadyRunning, create_action
 from app.services.asset_hosts import event_matches_asset_host, find_asset_by_host, normalize_asset_host, sync_asset_host_events
 from app.services.events import apply_event_filters, is_local_ip_value, store_event, tokenize_search_expression
 
@@ -677,6 +678,8 @@ def action_ip_page(
 ):
     try:
         create_action(db, action_type, ip, "ip", {"duration": duration, "reason": "Manual action"}, confirmed)
+    except ActionAlreadyRunning as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ValueError as exc:
         action = Action(
             timestamp=utc_now().replace(tzinfo=None),
@@ -804,6 +807,7 @@ def assets_page(request: Request, show_inactive: bool = False, updates: bool = F
         asset_action_busy=asset_action_running(),
         asset_import_running=asset_action_running("import"),
         asset_update_check_running=asset_action_running("refresh_updates"),
+        asset_mqtt_publish_running=asset_action_running("mqtt_publish"),
     )
 
 
@@ -812,7 +816,10 @@ def assets_mqtt_publish_page(db: Session = Depends(get_db)):
     require_plugin_enabled(db, "apps_inventory")
     if get_setting_value(db, "plugin.mqtt-hass.enabled", get_setting_value(db, "plugin.mqtt.enabled", "false")) != "true":
         raise HTTPException(status_code=404, detail="Feature is disabled")
-    export_publishable_asset_updates(db, manual=True)
+    try:
+        publish_asset_updates_action(db, manual=True)
+    except AssetActionAlreadyRunning as exc:
+        raise HTTPException(status_code=409, detail=f"Asset action is already running: {exc.action}") from exc
     return RedirectResponse(url="/assets", status_code=303)
 
 
@@ -887,17 +894,23 @@ def update_asset_metadata(
         raise HTTPException(status_code=404, detail="Asset not found")
     if get_setting_value(db, "plugin.apps_inventory.apps_master", get_setting_value(db, "apps_master", "opensecdash")) != "opensecdash" or not asset.is_active:
         raise HTTPException(status_code=403, detail="Asset metadata is managed externally or inactive")
-    asset.version = version.strip()
-    asset.release_url = clean_url_value(release_url) or None
-    asset.host_url = clean_url_value(host_url) or None
-    sync_asset_host_events(db, asset)
-    refresh_asset_update(db, asset)
-    if not asset.version or not asset.latest_version or not asset.release_url:
-        asset.mqtt_publish_enabled = False
-    db.commit()
-    if asset.mqtt_publish_enabled:
-        import asyncio
-        asyncio.run(get_plugin_manager().export_asset_update(db, asset))
+    def save_metadata() -> None:
+        asset.version = version.strip()
+        asset.release_url = clean_url_value(release_url) or None
+        asset.host_url = clean_url_value(host_url) or None
+        sync_asset_host_events(db, asset)
+        refresh_asset_update(db, asset)
+        if not asset.version or not asset.latest_version or not asset.release_url:
+            asset.mqtt_publish_enabled = False
+        db.commit()
+        if asset.mqtt_publish_enabled:
+            import asyncio
+            asyncio.run(get_plugin_manager().export_asset_update(db, asset))
+
+    try:
+        run_asset_metadata_action(asset.id, save_metadata)
+    except AssetActionAlreadyRunning as exc:
+        raise HTTPException(status_code=409, detail=f"Asset action is already running: {exc.action}") from exc
     return RedirectResponse(url=f"/assets/system/{asset.system_id}?asset_id={asset.id}#asset-events", status_code=303)
 
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import ipaddress
 import logging
+from threading import Lock
 
 from sqlalchemy.orm import Session
 
@@ -15,6 +16,34 @@ from app.services.events import store_event
 logger = logging.getLogger(__name__)
 
 CRITICAL_ACTIONS = {"security.ban", "security.unban", "crowdsec_ban", "crowdsec_unban"}
+_ACTION_LOCK = Lock()
+_RUNNING_ACTION_KEYS: set[tuple[str, str, str]] = set()
+
+
+class ActionAlreadyRunning(ValueError):
+    def __init__(self, action_type: str, target_type: str, target: str):
+        self.action_type = action_type
+        self.target_type = target_type
+        self.target = target
+        super().__init__(f"Action is already running: {action_type} {target_type} {target}")
+
+
+def _action_key(action_type: str, target_type: str, target: str) -> tuple[str, str, str]:
+    return (action_type, target_type, target)
+
+
+def _acquire_action(action_type: str, target_type: str, target: str) -> tuple[str, str, str]:
+    key = _action_key(action_type, target_type, target)
+    with _ACTION_LOCK:
+        if key in _RUNNING_ACTION_KEYS:
+            raise ActionAlreadyRunning(action_type, target_type, target)
+        _RUNNING_ACTION_KEYS.add(key)
+    return key
+
+
+def _release_action(key: tuple[str, str, str]) -> None:
+    with _ACTION_LOCK:
+        _RUNNING_ACTION_KEYS.discard(key)
 
 
 def validate_ip_target(ip: str) -> None:
@@ -37,22 +66,26 @@ def create_action(
     if target_type == "ip" and action_type in CRITICAL_ACTIONS:
         validate_ip_target(target)
 
-    action = Action(
-        timestamp=utc_now().replace(tzinfo=None),
-        action_type=action_type,
-        plugin_id="crowdsec" if action_type.startswith("security.") or action_type.startswith("crowdsec_") else "core",
-        target_type=target_type,
-        target=target,
-        parameters=parameters or {},
-        status="pending",
-        requires_confirmation=requires_confirmation,
-    )
-    db.add(action)
-    db.flush()
-    logger.info("Created action id=%s type=%s target_type=%s target=%s", action.id, action.action_type, action.target_type, action.target)
-    execute_action(db, action)
-    db.commit()
-    return action
+    action_key = _acquire_action(action_type, target_type, target)
+    try:
+        action = Action(
+            timestamp=utc_now().replace(tzinfo=None),
+            action_type=action_type,
+            plugin_id="crowdsec" if action_type.startswith("security.") or action_type.startswith("crowdsec_") else "core",
+            target_type=target_type,
+            target=target,
+            parameters=parameters or {},
+            status="pending",
+            requires_confirmation=requires_confirmation,
+        )
+        db.add(action)
+        db.flush()
+        logger.info("Created action id=%s type=%s target_type=%s target=%s", action.id, action.action_type, action.target_type, action.target)
+        execute_action(db, action)
+        db.commit()
+        return action
+    finally:
+        _release_action(action_key)
 
 
 def execute_action(db: Session, action: Action) -> None:

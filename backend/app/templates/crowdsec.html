@@ -60,11 +60,11 @@
             <td data-label="{{ t('crowdsec.scenario') }}">{{ ban.data_json.scenario if ban.data_json and ban.data_json.scenario else '-' }}</td>
             <td data-label="{{ t('crowdsec.duration') }}">{{ (ban.data_json.duration if ban.data_json else None)|duration }}</td>
             <td data-label="{{ t('common.action') }}">
-              <form method="post" action="/actions/ip" data-confirm="{{ t('crowdsec.confirm_unban') }} {{ ban.ip }}?">
+              <form method="post" action="/actions/ip" data-confirm="{{ t('crowdsec.confirm_unban') }} {{ ban.ip }}?" data-submit-busy>
                 <input type="hidden" name="action_type" value="security.unban">
                 <input type="hidden" name="ip" value="{{ ban.ip }}">
                 <input type="hidden" name="confirmed" value="true">
-                <button class="btn-small">{{ t("crowdsec.unban") }}</button>
+                <button class="btn-small" data-busy-label="{{ t('common.processing') }}">{{ t("crowdsec.unban") }}</button>
               </form>
             </td>
           </tr>

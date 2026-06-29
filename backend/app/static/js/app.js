@@ -26,7 +26,13 @@ document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll("form[data-submit-busy]")
         .forEach(form => {
             form.addEventListener("submit", event => {
-                const button = form.querySelector('button[type="submit"], button:not([type])');
+                if (event.defaultPrevented) {
+                    return;
+                }
+                const associatedButton = form.id
+                    ? document.querySelector(`button[form="${CSS.escape(form.id)}"][type="submit"], button[form="${CSS.escape(form.id)}"]:not([type])`)
+                    : null;
+                const button = form.querySelector('button[type="submit"], button:not([type])') || associatedButton;
                 if (!button || button.disabled) {
                     event.preventDefault();
                     return;

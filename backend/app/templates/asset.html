@@ -52,7 +52,7 @@
                     <tr>
                         <td class="font-semibold" data-label="{{ t('asset.app') }}">
                             {% if apps_master == 'opensecdash' and app.is_active %}
-                                <form id="asset-meta-{{ app.id }}" method="post" action="/assets/{{ app.id }}/metadata" data-show-submit-on-dirty></form>
+                                <form id="asset-meta-{{ app.id }}" method="post" action="/assets/{{ app.id }}/metadata" data-show-submit-on-dirty data-submit-busy></form>
                             {% endif %}
                             {{ app.name }}
                         </td>
@@ -85,7 +85,7 @@
                             {% if apps_master == 'opensecdash' and app.is_active %}
                                 <div class="flex flex-col sm:flex-row gap-2 sm:items-center min-w-64">
                                     <input class="input" form="asset-meta-{{ app.id }}" type="url" name="release_url" value="{{ app.release_url or '' }}" placeholder="https://github.com/.../releases/latest">
-                                    <button class="btn-small shrink-0" form="asset-meta-{{ app.id }}" type="submit" hidden>{{ t("common.save_button") }}</button>
+                                    <button class="btn-small shrink-0" form="asset-meta-{{ app.id }}" type="submit" data-busy-label="{{ t('common.saving') }}" hidden>{{ t("common.save_button") }}</button>
                                 </div>
                             {% elif app.release_url %}
                                 <a href="{{ app.release_url }}" target="_blank" rel="noopener noreferrer">{{ t("common.open") }}</a>

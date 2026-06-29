@@ -14,6 +14,8 @@ T = TypeVar("T")
 
 _ASSET_ACTION_LOCK = Lock()
 _RUNNING_ASSET_ACTION: str | None = None
+_ASSET_METADATA_LOCKS: dict[int, Lock] = {}
+_ASSET_METADATA_LOCKS_LOCK = Lock()
 
 
 class AssetActionAlreadyRunning(Exception):
@@ -42,6 +44,17 @@ def run_asset_action(action: str, callback: Callable[[], T]) -> T:
     finally:
         _RUNNING_ASSET_ACTION = None
         _ASSET_ACTION_LOCK.release()
+
+
+def run_asset_metadata_action(asset_id: int, callback: Callable[[], T]) -> T:
+    with _ASSET_METADATA_LOCKS_LOCK:
+        lock = _ASSET_METADATA_LOCKS.setdefault(asset_id, Lock())
+    if not lock.acquire(blocking=False):
+        raise AssetActionAlreadyRunning(f"metadata:{asset_id}")
+    try:
+        return callback()
+    finally:
+        lock.release()
 
 
 def export_publishable_asset_updates(db: Session, *, manual: bool = False) -> None:
@@ -84,3 +97,10 @@ def refresh_asset_updates_action(db: Session) -> Any:
         return result
 
     return run_asset_action("refresh_updates", action)
+
+
+def publish_asset_updates_action(db: Session, *, manual: bool = True) -> None:
+    def action() -> None:
+        export_publishable_asset_updates(db, manual=manual)
+
+    return run_asset_action("mqtt_publish", action)

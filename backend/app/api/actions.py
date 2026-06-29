@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.database.dependencies import get_db
 from app.models.core import Action
-from app.services.actions import create_action
+from app.services.actions import ActionAlreadyRunning, create_action
 
 router = APIRouter(prefix="/api/actions", tags=["actions"])
 
@@ -33,5 +33,7 @@ def run_action(payload: ActionRequest, db: Session = Depends(get_db)):
             parameters=payload.parameters,
             confirmed=payload.confirmed,
         )
+    except ActionAlreadyRunning as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
