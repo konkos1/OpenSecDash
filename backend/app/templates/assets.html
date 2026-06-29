@@ -13,11 +13,15 @@
         </div>
 
         <div class="flex gap-2">
-            <form method="post" action="/assets/import-source">
-                <button class="btn">{{ t("assets.import") }}</button>
+            <form method="post" action="/assets/import-source" data-submit-busy>
+                <button class="btn" data-busy-label="{{ t('assets.import_running') }}" {% if asset_action_busy %}disabled{% endif %} {% if asset_import_running %}aria-busy="true"{% endif %}>
+                    {% if asset_import_running %}<span class="button-spinner" aria-hidden="true"></span>{{ t("assets.import_running") }}{% else %}{{ t("assets.import") }}{% endif %}
+                </button>
             </form>
-            <form method="post" action="/assets/refresh-updates">
-                <button class="btn">{{ t("assets.check_updates") }}</button>
+            <form method="post" action="/assets/refresh-updates" data-submit-busy>
+                <button class="btn" data-busy-label="{{ t('assets.check_updates_running') }}" {% if asset_action_busy %}disabled{% endif %} {% if asset_update_check_running %}aria-busy="true"{% endif %}>
+                    {% if asset_update_check_running %}<span class="button-spinner" aria-hidden="true"></span>{{ t("assets.check_updates_running") }}{% else %}{{ t("assets.check_updates") }}{% endif %}
+                </button>
             </form>
             {% if mqtt_plugin_enabled and mqtt_publishable_count > 0 %}
                 <form method="post" action="/assets/mqtt-publish">

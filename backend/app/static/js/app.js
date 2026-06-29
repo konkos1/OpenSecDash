@@ -23,6 +23,23 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         });
 
+    document.querySelectorAll("form[data-submit-busy]")
+        .forEach(form => {
+            form.addEventListener("submit", event => {
+                const button = form.querySelector('button[type="submit"], button:not([type])');
+                if (!button || button.disabled) {
+                    event.preventDefault();
+                    return;
+                }
+                const label = button.dataset.busyLabel;
+                button.disabled = true;
+                button.setAttribute("aria-busy", "true");
+                if (label) {
+                    button.innerHTML = `<span class="button-spinner" aria-hidden="true"></span>${label}`;
+                }
+            });
+        });
+
     const dirtyForms = new Set();
 
     document.querySelectorAll("form[data-unsaved-warning]")

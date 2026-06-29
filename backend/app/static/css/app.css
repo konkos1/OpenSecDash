@@ -20,6 +20,10 @@ tbody tr:hover { background: rgba(15, 23, 42, .65); }
 .row:last-child { border-bottom: 0; }
 .btn, .btn-small { background: #2563eb; border-radius: .7rem; color: white; display: inline-flex; min-height: 2.5rem; align-items: center; justify-content: center; padding: .55rem .9rem; }
 .btn:hover, .btn-small:hover { background: #1d4ed8; }
+.btn:disabled, .btn-small:disabled { background: #475569; border-color: #64748b; color: #cbd5e1; cursor: not-allowed; opacity: .72; }
+.btn:disabled:hover, .btn-small:disabled:hover { background: #475569; }
+.button-spinner { animation: osd-spin .8s linear infinite; border: 2px solid currentColor; border-right-color: transparent; border-radius: 999px; display: inline-block; height: 1rem; margin-right: .5rem; vertical-align: -.15rem; width: 1rem; }
+@keyframes osd-spin { to { transform: rotate(360deg); } }
 .btn-small { min-height: 2rem; padding: .35rem .65rem; font-size: .875rem; }
 .btn-secondary { background: #334155; color: #e2e8f0; }
 .btn-secondary:hover { background: #475569; }

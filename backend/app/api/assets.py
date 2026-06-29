@@ -11,18 +11,22 @@ from app.core.template_context import get_setting_value
 
 from app.database.dependencies import get_db
 
-from app.models.assets import Asset
-
-from app.services.apps_inventory_import import import_apps_inventory
-from app.services.apps_inventory_source import load_asset_source
-from app.services.apps_inventory_updates import refresh_asset_updates
-from app.plugins.manager import get_plugin_manager
+from app.services.asset_actions import (
+    AssetActionAlreadyRunning,
+    import_assets_inventory_action,
+    import_assets_source_action,
+    refresh_asset_updates_action,
+)
 
 
 router = APIRouter(
     prefix="/api/assets",
     tags=["assets"],
 )
+
+
+def asset_action_conflict(exc: AssetActionAlreadyRunning) -> HTTPException:
+    return HTTPException(status_code=409, detail=f"Asset action is already running: {exc.action}")
 
 
 class AssetImportRequest(BaseModel):
@@ -34,13 +38,10 @@ def import_assets(
     payload: AssetImportRequest,
     db: Session = Depends(get_db),
 ):
-    result = import_apps_inventory(db=db, inventory=payload.inventory)
-    import asyncio
-    manager = get_plugin_manager()
-    publishable_assets = db.query(Asset).filter(Asset.mqtt_publish_enabled == True, Asset.version.isnot(None), Asset.latest_version.isnot(None), Asset.release_url.isnot(None)).all()
-    for asset in publishable_assets:
-        asyncio.run(manager.export_asset_update(db, asset))
-    return result
+    try:
+        return import_assets_inventory_action(db=db, inventory=payload.inventory)
+    except AssetActionAlreadyRunning as exc:
+        raise asset_action_conflict(exc) from exc
 
 
 @router.post("/import-source")
@@ -66,36 +67,21 @@ def import_assets_from_source(
         )
 
     try:
-        inventory = load_asset_source(
-            source_type=source_type,
-            source=source,
-        )
+        return import_assets_source_action(db=db, source_type=source_type, source=source)
+    except AssetActionAlreadyRunning as exc:
+        raise asset_action_conflict(exc) from exc
     except Exception as exc:
-        raise HTTPException(
-            status_code=400,
-            detail=str(exc),
-        ) from exc
-
-    result = import_apps_inventory(db=db, inventory=inventory)
-    import asyncio
-    manager = get_plugin_manager()
-    publishable_assets = db.query(Asset).filter(Asset.mqtt_publish_enabled == True, Asset.version.isnot(None), Asset.latest_version.isnot(None), Asset.release_url.isnot(None)).all()
-    for asset in publishable_assets:
-        asyncio.run(manager.export_asset_update(db, asset))
-    return result
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/refresh-updates")
 def refresh_updates(
     db: Session = Depends(get_db),
 ):
-    result = refresh_asset_updates(db)
-    import asyncio
-    manager = get_plugin_manager()
-    publishable_assets = db.query(Asset).filter(Asset.mqtt_publish_enabled == True, Asset.version.isnot(None), Asset.latest_version.isnot(None), Asset.release_url.isnot(None)).all()
-    for asset in publishable_assets:
-        asyncio.run(manager.export_asset_update(db, asset))
-    return result
+    try:
+        return refresh_asset_updates_action(db)
+    except AssetActionAlreadyRunning as exc:
+        raise asset_action_conflict(exc) from exc
 
 
 @router.get("")

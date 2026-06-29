@@ -22,10 +22,15 @@ from app.models.core import Action, Datasource, Diagnostic, Insight, PluginRecor
 from app.models.events import Event
 from app.models.settings import Setting
 from app.models.systems import System
-from app.services.apps_inventory_import import import_apps_inventory
-from app.services.apps_inventory_source import load_asset_source
-from app.services.apps_inventory_updates import refresh_asset_update, refresh_asset_updates
+from app.services.apps_inventory_updates import refresh_asset_update
 from app.plugins.manager import get_plugin_manager
+from app.services.asset_actions import (
+    AssetActionAlreadyRunning,
+    asset_action_running,
+    export_publishable_asset_updates,
+    import_assets_source_action,
+    refresh_asset_updates_action,
+)
 from app.services.actions import create_action
 from app.services.asset_hosts import event_matches_asset_host, find_asset_by_host, normalize_asset_host, sync_asset_host_events
 from app.services.events import apply_event_filters, is_local_ip_value, store_event, tokenize_search_expression
@@ -796,6 +801,9 @@ def assets_page(request: Request, show_inactive: bool = False, updates: bool = F
         updates=updates,
         mqtt_plugin_enabled=mqtt_plugin_enabled,
         mqtt_publishable_count=mqtt_publishable_count,
+        asset_action_busy=asset_action_running(),
+        asset_import_running=asset_action_running("import"),
+        asset_update_check_running=asset_action_running("refresh_updates"),
     )
 
 
@@ -804,11 +812,7 @@ def assets_mqtt_publish_page(db: Session = Depends(get_db)):
     require_plugin_enabled(db, "apps_inventory")
     if get_setting_value(db, "plugin.mqtt-hass.enabled", get_setting_value(db, "plugin.mqtt.enabled", "false")) != "true":
         raise HTTPException(status_code=404, detail="Feature is disabled")
-    publishable_assets = db.query(Asset).filter(Asset.mqtt_publish_enabled == True, Asset.version.isnot(None), Asset.latest_version.isnot(None), Asset.release_url.isnot(None)).all()
-    manager = get_plugin_manager()
-    import asyncio
-    for asset in publishable_assets:
-        asyncio.run(manager.export_asset_update(db, asset, manual=True))
+    export_publishable_asset_updates(db, manual=True)
     return RedirectResponse(url="/assets", status_code=303)
 
 
@@ -933,23 +937,19 @@ def assets_import_source_page(db: Session = Depends(get_db)):
         get_setting_value(db, "plugin.assets.source", get_setting_value(db, "asset_source", "dev-data/apps-installed.json")),
     )
     if source:
-        import_apps_inventory(db=db, inventory=load_asset_source(source_type=source_type, source=source))
-        manager = get_plugin_manager()
-        import asyncio
-        publishable_assets = db.query(Asset).filter(Asset.mqtt_publish_enabled == True, Asset.version.isnot(None), Asset.latest_version.isnot(None), Asset.release_url.isnot(None)).all()
-        for asset in publishable_assets:
-            asyncio.run(manager.export_asset_update(db, asset))
+        try:
+            import_assets_source_action(db=db, source_type=source_type, source=source)
+        except AssetActionAlreadyRunning as exc:
+            raise HTTPException(status_code=409, detail=f"Asset action is already running: {exc.action}") from exc
     return RedirectResponse(url="/assets", status_code=303)
 
 
 @router.post("/assets/refresh-updates")
 def assets_refresh_updates_page(db: Session = Depends(get_db)):
-    refresh_asset_updates(db)
-    manager = get_plugin_manager()
-    publishable_assets = db.query(Asset).filter(Asset.mqtt_publish_enabled == True, Asset.version.isnot(None), Asset.latest_version.isnot(None), Asset.release_url.isnot(None)).all()
-    for asset in publishable_assets:
-        import asyncio
-        asyncio.run(manager.export_asset_update(db, asset))
+    try:
+        refresh_asset_updates_action(db)
+    except AssetActionAlreadyRunning as exc:
+        raise HTTPException(status_code=409, detail=f"Asset action is already running: {exc.action}") from exc
     return RedirectResponse(url="/assets", status_code=303)
 
 
