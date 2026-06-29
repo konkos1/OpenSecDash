@@ -336,6 +336,34 @@ Persistent data is stored in `/data` inside the container. The default database 
 sqlite:////data/opensecdash.db
 ```
 
+### Recommended homelab placement
+
+The simplest setup is usually to run OpenSecDash on the same host or Docker environment where tools such as Traefik, GeoBlock, and CrowdSec are already running.
+
+Why this helps:
+
+- Traefik and GeoBlock log files can be mounted into the OpenSecDash container with simple read-only volume mounts.
+- CrowdSec actions are easier to configure when `cscli` access is available in the same environment or can be exposed in a controlled way.
+- File paths, permissions, and container networking are much easier to reason about.
+- You avoid shipping sensitive logs across your network just to display them in a dashboard.
+
+You can still run OpenSecDash elsewhere, but expect a little more setup work for log access, permissions, and action execution.
+
+### Important security note
+
+OpenSecDash currently does **not** include built-in user management or authentication.
+
+For that reason, you should **not expose OpenSecDash directly to the public internet**. Treat it like an internal homelab admin tool: keep it on your LAN, behind a VPN, or behind a trusted reverse proxy.
+
+If you intentionally make it reachable from outside your home network, put additional access control in front of it, for example:
+
+- Authentik
+- Authelia
+- Pocket ID
+- another trusted forward-auth / SSO / VPN solution
+
+Also remember that OpenSecDash may display sensitive security logs, internal hostnames, IP addresses, asset names, and action controls such as CrowdSec ban/unban.
+
 ### Local development
 
 ```bash
@@ -384,7 +412,7 @@ The test suite covers important app behavior and architectural decisions, includ
 
 ## Contributing
 
-Community contributions are very welcome.
+Community contributions are very welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow, tests, and plugin contribution notes.
 
 Useful contribution areas include:
 
@@ -409,6 +437,14 @@ The intent is simple:
 The confirmation should be quick and low-friction. No fax machine, no blood oath, no enterprise procurement portal.
 
 See [docs/CLA.md](docs/CLA.md) for the contributor agreement text.
+
+### Security reports
+
+Please do not open public issues for vulnerabilities. See [SECURITY.md](SECURITY.md) for responsible disclosure guidance.
+
+### Releases
+
+Release steps are documented in [docs/RELEASE.md](docs/RELEASE.md).
 
 ---
 

@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/konkos1/OpenSecDash/security/advisories/new
+    about: Please report security vulnerabilities privately when private vulnerability reporting is enabled for this repository.
+  - name: Questions and ideas
+    url: https://github.com/konkos1/OpenSecDash/discussions
+    about: Use Discussions for Q&A, ideas, plugin discussions, and show-and-tell once Discussions are enabled.

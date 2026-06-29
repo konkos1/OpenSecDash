@@ -1,0 +1,90 @@
+name: Bug report
+description: Report something that is broken
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Please remove secrets, public IPs you do not want to share, tokens, and private hostnames from logs or screenshots.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened?
+      placeholder: "The Events page shows ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: How can we reproduce the issue?
+      placeholder: |
+        1. Enable ...
+        2. Open ...
+        3. Click ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What happened instead?
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: OpenSecDash version
+      placeholder: "main, v0.1.0, commit SHA, or Docker tag"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: Deployment method
+      options:
+        - Docker Compose
+        - Docker run
+        - Local development
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, browser, reverse proxy, enabled plugins, relevant settings.
+      placeholder: "Docker Desktop on macOS, Chrome, Traefik reverse proxy, CrowdSec + Traefik Log enabled"
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Paste relevant sanitized logs or attach screenshots.
+      render: text
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Safety checks
+      options:
+        - label: I removed secrets, tokens, private keys, and sensitive hostnames/IPs from this report.
+          required: true
+        - label: I searched existing issues before opening this one.
+          required: true

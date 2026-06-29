@@ -1,0 +1,66 @@
+name: Feature request
+description: Suggest an improvement or new capability
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement. OpenSecDash is focused on practical homelab security visibility, so concrete use cases help a lot.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: What problem would this solve?
+      placeholder: "I run Caddy and would like OpenSecDash to ingest ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What would you like to happen?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Datasource plugin
+        - Enrichment plugin
+        - Action plugin
+        - Export plugin
+        - Dashboard/UI
+        - Asset inventory
+        - Events/filtering
+        - Documentation
+        - Deployment/Docker
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Are there workarounds or other designs?
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: Examples or references
+      description: Links, sample sanitized logs, screenshots, or similar tools.
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      options:
+        - label: I would be interested in helping implement this.
+          required: false
+        - label: This could be a good plugin rather than a core feature.
+          required: false
