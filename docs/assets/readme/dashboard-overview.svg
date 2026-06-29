@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
+  <title id="title">OpenSecDash dashboard overview mock screenshot</title>
+  <desc id="desc">Illustrative dark themed dashboard showing event counters, top countries, and recent security events.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#020617"/><stop offset="1" stop-color="#0f172a"/></linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%"><feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="#000" flood-opacity="0.35"/></filter>
+  </defs>
+  <rect width="1200" height="675" fill="url(#bg)"/>
+  <rect x="34" y="28" width="1132" height="64" rx="18" fill="#0f172a" stroke="#1e293b"/>
+  <text x="66" y="68" font-family="Inter,Arial,sans-serif" font-size="26" font-weight="700" fill="#f8fafc">🛡 OpenSecDash</text>
+  <text x="940" y="67" font-family="Inter,Arial,sans-serif" font-size="18" fill="#94a3b8">homelab.example</text>
+  <text x="56" y="142" font-family="Inter,Arial,sans-serif" font-size="34" font-weight="700" fill="#f8fafc">Dashboard · Today's Events</text>
+  <g filter="url(#shadow)">
+    <rect x="56" y="178" width="248" height="126" rx="18" fill="#0f172a" stroke="#1e293b"/>
+    <text x="80" y="217" font-family="Inter,Arial,sans-serif" font-size="18" fill="#94a3b8">Bans today</text>
+    <text x="80" y="271" font-family="Inter,Arial,sans-serif" font-size="48" font-weight="800" fill="#f8fafc">12</text>
+    <rect x="328" y="178" width="248" height="126" rx="18" fill="#0f172a" stroke="#1e293b"/>
+    <text x="352" y="217" font-family="Inter,Arial,sans-serif" font-size="18" fill="#94a3b8">Access today</text>
+    <text x="352" y="271" font-family="Inter,Arial,sans-serif" font-size="48" font-weight="800" fill="#f8fafc">4,281</text>
+    <rect x="600" y="178" width="248" height="126" rx="18" fill="#0f172a" stroke="#1e293b"/>
+    <text x="624" y="217" font-family="Inter,Arial,sans-serif" font-size="18" fill="#94a3b8">Assets</text>
+    <text x="624" y="271" font-family="Inter,Arial,sans-serif" font-size="48" font-weight="800" fill="#f8fafc">37</text>
+    <rect x="872" y="178" width="248" height="126" rx="18" fill="#0f172a" stroke="#1e293b"/>
+    <text x="896" y="217" font-family="Inter,Arial,sans-serif" font-size="18" fill="#94a3b8">Updates</text>
+    <text x="896" y="271" font-family="Inter,Arial,sans-serif" font-size="48" font-weight="800" fill="#22c55e">5</text>
+  </g>
+  <rect x="56" y="342" width="520" height="260" rx="18" fill="#0f172a" stroke="#1e293b"/>
+  <text x="80" y="386" font-family="Inter,Arial,sans-serif" font-size="22" font-weight="700" fill="#f8fafc">Top countries today</text>
+  <g font-family="Inter,Arial,sans-serif" font-size="18">
+    <text x="82" y="434" fill="#e2e8f0">🇺🇸 United States</text><rect x="285" y="416" width="220" height="22" rx="11" fill="#2563eb"/>
+    <text x="82" y="480" fill="#e2e8f0">🇩🇪 Germany</text><rect x="285" y="462" width="150" height="22" rx="11" fill="#2563eb"/>
+    <text x="82" y="526" fill="#e2e8f0">🇳🇱 Netherlands</text><rect x="285" y="508" width="110" height="22" rx="11" fill="#2563eb"/>
+    <text x="82" y="572" fill="#e2e8f0">local</text><rect x="285" y="554" width="75" height="22" rx="11" fill="#64748b"/>
+  </g>
+  <rect x="600" y="342" width="520" height="260" rx="18" fill="#0f172a" stroke="#1e293b"/>
+  <text x="624" y="386" font-family="Inter,Arial,sans-serif" font-size="22" font-weight="700" fill="#f8fafc">Recent security context</text>
+  <g font-family="Inter,Arial,sans-serif" font-size="17">
+    <rect x="624" y="412" width="464" height="44" rx="12" fill="#020617" stroke="#1e293b"/><text x="644" y="440" fill="#f8fafc">security.ban · 203.0.113.42 · ssh-bf</text>
+    <rect x="624" y="468" width="464" height="44" rx="12" fill="#020617" stroke="#1e293b"/><text x="644" y="496" fill="#f8fafc">access.error · /wp-login.php · 404</text>
+    <rect x="624" y="524" width="464" height="44" rx="12" fill="#020617" stroke="#1e293b"/><text x="644" y="552" fill="#f8fafc">insight · possible WordPress scan</text>
+  </g>
+</svg>
