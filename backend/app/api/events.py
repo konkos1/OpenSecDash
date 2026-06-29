@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
 from app.database.dependencies import get_db
@@ -35,12 +35,11 @@ class EventCreate(BaseModel):
 
 
 class EventResponse(EventCreate):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     created_at: datetime | None = None
     timestamp: datetime | None = None
-
-    class Config:
-        from_attributes = True
 
 
 @router.post("", response_model=EventResponse)
