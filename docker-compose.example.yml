@@ -1,6 +1,6 @@
 services:
   opensecdash:
-    image: konkos/opensecdash:latest
+    image: konkos1/opensecdash:latest
     # During local development, you can replace the image with:
     # build: .
     container_name: opensecdash
