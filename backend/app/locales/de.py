@@ -79,6 +79,7 @@ DE = {
     "events.router": "Router",
     "events.service": "Service",
     "events.asn": "ASN",
+    "events.isp": "ISP",
     "events.switch_to_snapshot": "In Snapshot-Modus wechseln",
     "events.switch_to_live": "In Live-Modus wechseln",
     "events.live": "🟢 LIVE",

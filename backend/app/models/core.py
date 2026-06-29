@@ -97,6 +97,7 @@ class GeoIPCache(Base):
     provider: Mapped[str] = mapped_column(String(50), index=True)
     country: Mapped[str | None] = mapped_column(String(2), nullable=True, index=True)
     asn: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    isp: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     looked_up_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, index=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime, index=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)

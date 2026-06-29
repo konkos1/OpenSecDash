@@ -355,6 +355,7 @@ def searchable_event_fields():
         Event.ip,
         Event.country,
         Event.asn,
+        Event.isp,
         Event.hostname,
         Event.asset_id,
         Event.method,

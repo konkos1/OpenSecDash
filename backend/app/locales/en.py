@@ -79,6 +79,7 @@ EN = {
     "events.router": "Router",
     "events.service": "Service",
     "events.asn": "ASN",
+    "events.isp": "ISP",
     "events.switch_to_snapshot": "Switch to snapshot mode",
     "events.switch_to_live": "Switch to live mode",
     "events.live": "🟢 LIVE",

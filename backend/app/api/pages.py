@@ -164,6 +164,7 @@ TABLE_COLUMN_DEFINITIONS = [
     {"key": "router", "label_key": "events.router"},
     {"key": "service", "label_key": "events.service"},
     {"key": "asn", "label_key": "events.asn"},
+    {"key": "isp", "label_key": "events.isp"},
 ]
 TABLE_COLUMN_KEYS = [str(item["key"]) for item in TABLE_COLUMN_DEFINITIONS]
 DEFAULT_EVENTS_COLUMNS = "time,type,severity,ip,country,status,url"

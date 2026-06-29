@@ -24,6 +24,7 @@ class EventCreate(BaseModel):
     ip: str | None = None
     country: str | None = None
     asn: str | None = None
+    isp: str | None = None
     hostname: str | None = None
     asset_id: int | None = None
     method: str | None = None

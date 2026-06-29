@@ -93,6 +93,7 @@
                     {% if 'router' in active_columns %}<th>{{ t("events.router") }}</th>{% endif %}
                     {% if 'service' in active_columns %}<th>{{ t("events.service") }}</th>{% endif %}
                     {% if 'asn' in active_columns %}<th>{{ t("events.asn") }}</th>{% endif %}
+                    {% if 'isp' in active_columns %}<th>{{ t("events.isp") }}</th>{% endif %}
                 </tr>
             </thead>
             <tbody>
@@ -112,6 +113,7 @@
                         {% if 'router' in active_columns %}<td data-label="{{ t('events.router') }}">{{ event_data_value(event, 'router_name', 'RouterName') or '-' }}</td>{% endif %}
                         {% if 'service' in active_columns %}<td data-label="{{ t('events.service') }}">{{ event_data_value(event, 'service_name', 'ServiceName') or '-' }}</td>{% endif %}
                         {% if 'asn' in active_columns %}<td data-label="{{ t('events.asn') }}">{{ event.asn or '-' }}</td>{% endif %}
+                        {% if 'isp' in active_columns %}<td class="path-cell cell-stack" data-label="{{ t('events.isp') }}">{% if event.isp %}<button type="button" class="path-truncate text-action" data-full-text="{{ event.isp }}" data-overlay-title="{{ t('events.isp') }}">{{ event.isp }}</button>{% else %}-{% endif %}</td>{% endif %}
                     </tr>
                 {% else %}
                     <tr>
