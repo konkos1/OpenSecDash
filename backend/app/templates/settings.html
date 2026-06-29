@@ -42,9 +42,9 @@
 
         <label>{{ t("settings.theme") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.theme') }}">?</button>
             <select class="input" name="theme">
-                <option value="auto">{{ t("settings.theme_auto") }}</option>
-                <option value="dark">{{ t("settings.theme_dark") }}</option>
-                <option value="light">{{ t("settings.theme_light") }}</option>
+                <option value="auto" {% if theme == 'auto' %}selected{% endif %}>{{ t("settings.theme_auto") }}</option>
+                <option value="dark" {% if theme == 'dark' %}selected{% endif %}>{{ t("settings.theme_dark") }}</option>
+                <option value="light" {% if theme == 'light' %}selected{% endif %}>{{ t("settings.theme_light") }}</option>
             </select>
         </label>
 
