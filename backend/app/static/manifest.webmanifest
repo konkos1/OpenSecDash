@@ -1,0 +1,18 @@
+{
+  "name": "OpenSecDash",
+  "short_name": "OpenSecDash",
+  "description": "A security dashboard for homelabs.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/static/img/opensecdash-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="backend/app/static/img/opensecdash-icon.svg" alt="OpenSecDash logo" width="120" height="120">
+</p>
+
 # OpenSecDash
 
 > A security dashboard for homelabs, because your reverse proxy logs should not require a PhD, three terminals, and a sacrificial YAML file to become useful.
@@ -120,6 +124,47 @@ It combines:
 - manual CrowdSec actions when enabled
 
 For local/private IPs, destructive actions such as bans are intentionally disabled.
+
+### Responsive UI for real homelab life
+
+OpenSecDash is designed to work well beyond a large desktop monitor. That matters in a homelab, because you may check alerts from a phone on the couch, a tablet next to the rack, or a laptop while debugging a reverse proxy rule.
+
+Responsive UI examples:
+
+- **Dashboard cards adapt to the screen**: summary widgets stack on phones and spread out on wider displays.
+- **Tables become readable on mobile**: dense event/access tables switch into label/value rows instead of forcing horizontal scrolling everywhere.
+- **Long values stay usable**: URLs, paths, user agents, and ISP names are truncated in lists and can be opened in a touch-friendly overlay.
+- **Column selection helps small screens**: hide less important columns on Events/Access pages and keep the view focused.
+- **Touch-friendly actions**: buttons and toggles are sized for phones and tablets, not only mouse pointers.
+- **Sticky navigation**: the app header remains easy to reach while moving through event-heavy pages.
+
+This makes OpenSecDash practical as a lightweight “security control panel” you can keep open on a tablet or quickly check from your phone.
+
+### Install it from your browser like an app
+
+OpenSecDash includes a web app manifest, so modern browsers can add it as an app-like shortcut. This does not require an app store.
+
+Example with Chrome or Edge on desktop:
+
+1. Open your OpenSecDash URL, for example `https://opensecdash.example.com`.
+2. Click the install icon in the address bar, or open the browser menu.
+3. Choose **Install OpenSecDash** or **Apps → Install this site as an app**.
+4. Pin it to your dock/taskbar if you like.
+
+Example on iPhone/iPad with Safari:
+
+1. Open OpenSecDash in Safari.
+2. Tap **Share**.
+3. Tap **Add to Home Screen**.
+4. Launch it from the new home-screen icon.
+
+Example on Android with Chrome:
+
+1. Open OpenSecDash in Chrome.
+2. Tap the three-dot menu.
+3. Tap **Add to Home screen** or **Install app**.
+
+For the best install experience, serve OpenSecDash through HTTPS via your reverse proxy.
 
 ### Insights and correlation
 

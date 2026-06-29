@@ -1,42 +1,147 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
-  <title id="title">OpenSecDash dashboard overview mock screenshot</title>
-  <desc id="desc">Illustrative dark themed dashboard showing event counters, top countries, and recent security events.</desc>
+  <title id="title">OpenSecDash dashboard overview</title>
+  <desc id="desc">A visible mock screenshot of the OpenSecDash dashboard with the real brand icon, header navigation, summary cards, country and hour widgets, heatmap, and latest security events.</desc>
   <defs>
-    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#020617"/><stop offset="1" stop-color="#0f172a"/></linearGradient>
-    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%"><feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="#000" flood-opacity="0.35"/></filter>
+    <linearGradient id="pageBg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#020617"/>
+      <stop offset="1" stop-color="#111827"/>
+    </linearGradient>
+    <linearGradient id="iconBg" x1="72" y1="48" x2="440" y2="464" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#38bdf8"/>
+      <stop offset="0.48" stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="iconShield" x1="155" y1="108" x2="357" y2="404" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f8fafc"/>
+      <stop offset="1" stop-color="#dbeafe"/>
+    </linearGradient>
+    <linearGradient id="iconAccent" x1="178" y1="162" x2="342" y2="352" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#3b82f6"/>
+    </linearGradient>
+    <filter id="shadow" x="-8%" y="-8%" width="116%" height="116%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity="0.30"/>
+    </filter>
+    <symbol id="opensecdashIcon" viewBox="0 0 512 512">
+      <rect width="512" height="512" rx="116" fill="url(#iconBg)"/>
+      <path d="M76 354c80-34 124-34 204 0s124 34 156 10" fill="none" stroke="#7dd3fc" stroke-width="18" stroke-linecap="round" opacity="0.22"/>
+      <path d="M70 156c64 28 116 24 178-10s122-38 194-6" fill="none" stroke="#bfdbfe" stroke-width="14" stroke-linecap="round" opacity="0.18"/>
+      <path d="M256 82 378 130v101c0 82-45 154-122 199-77-45-122-117-122-199V130L256 82Z" fill="url(#iconShield)"/>
+      <path d="M256 116 344 151v78c0 61-31 116-88 153-57-37-88-92-88-153v-78l88-35Z" fill="#0f172a" opacity="0.94"/>
+      <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M202 244h108" stroke="#93c5fd" stroke-width="16" opacity="0.95"/>
+        <path d="M202 294h72" stroke="#38bdf8" stroke-width="16" opacity="0.95"/>
+        <path d="M202 194h44" stroke="#dbeafe" stroke-width="16" opacity="0.95"/>
+        <path d="M278 190c20 10 32 28 32 50s-12 40-32 50" stroke="url(#iconAccent)" stroke-width="18"/>
+        <path d="M312 168c30 18 48 45 48 78s-18 60-48 78" stroke="#7dd3fc" stroke-width="12" opacity="0.75"/>
+      </g>
+      <g fill="url(#iconAccent)">
+        <circle cx="184" cy="194" r="15"/>
+        <circle cx="184" cy="244" r="15"/>
+        <circle cx="184" cy="294" r="15"/>
+      </g>
+      <circle cx="256" cy="244" r="33" fill="#38bdf8" opacity="0.16"/>
+      <circle cx="256" cy="244" r="14" fill="#e0f2fe"/>
+    </symbol>
   </defs>
-  <rect width="1200" height="675" fill="url(#bg)"/>
-  <rect x="34" y="28" width="1132" height="64" rx="18" fill="#0f172a" stroke="#1e293b"/>
-  <text x="66" y="68" font-family="Inter,Arial,sans-serif" font-size="26" font-weight="700" fill="#f8fafc">🛡 OpenSecDash</text>
-  <text x="940" y="67" font-family="Inter,Arial,sans-serif" font-size="18" fill="#94a3b8">homelab.example</text>
-  <text x="56" y="142" font-family="Inter,Arial,sans-serif" font-size="34" font-weight="700" fill="#f8fafc">Dashboard · Today's Events</text>
-  <g filter="url(#shadow)">
-    <rect x="56" y="178" width="248" height="126" rx="18" fill="#0f172a" stroke="#1e293b"/>
-    <text x="80" y="217" font-family="Inter,Arial,sans-serif" font-size="18" fill="#94a3b8">Bans today</text>
-    <text x="80" y="271" font-family="Inter,Arial,sans-serif" font-size="48" font-weight="800" fill="#f8fafc">12</text>
-    <rect x="328" y="178" width="248" height="126" rx="18" fill="#0f172a" stroke="#1e293b"/>
-    <text x="352" y="217" font-family="Inter,Arial,sans-serif" font-size="18" fill="#94a3b8">Access today</text>
-    <text x="352" y="271" font-family="Inter,Arial,sans-serif" font-size="48" font-weight="800" fill="#f8fafc">4,281</text>
-    <rect x="600" y="178" width="248" height="126" rx="18" fill="#0f172a" stroke="#1e293b"/>
-    <text x="624" y="217" font-family="Inter,Arial,sans-serif" font-size="18" fill="#94a3b8">Assets</text>
-    <text x="624" y="271" font-family="Inter,Arial,sans-serif" font-size="48" font-weight="800" fill="#f8fafc">37</text>
-    <rect x="872" y="178" width="248" height="126" rx="18" fill="#0f172a" stroke="#1e293b"/>
-    <text x="896" y="217" font-family="Inter,Arial,sans-serif" font-size="18" fill="#94a3b8">Updates</text>
-    <text x="896" y="271" font-family="Inter,Arial,sans-serif" font-size="48" font-weight="800" fill="#22c55e">5</text>
+
+  <rect width="1200" height="675" fill="url(#pageBg)"/>
+
+  <!-- Header matching the app: dark bar, brand block on the left, nav on the right -->
+  <rect x="0" y="0" width="1200" height="92" fill="#0f172a" opacity="0.96"/>
+  <line x1="0" y1="92" x2="1200" y2="92" stroke="#1e293b" stroke-width="2"/>
+  <use href="#opensecdashIcon" x="42" y="23" width="42" height="42"/>
+  <text x="96" y="44" font-family="Inter,Arial,sans-serif" font-size="22" font-weight="800" fill="#f8fafc">OpenSecDash</text>
+  <text x="96" y="66" font-family="Inter,Arial,sans-serif" font-size="14" fill="#94a3b8">homelab.example</text>
+
+  <g font-family="Inter,Arial,sans-serif" font-size="14" fill="#e2e8f0">
+    <rect x="500" y="27" width="94" height="38" rx="10" fill="#1e293b"/>
+    <text x="520" y="51" fill="#ffffff">Dashboard</text>
+    <text x="620" y="51">CrowdSec</text>
+    <text x="708" y="51">Access</text>
+    <text x="779" y="51">Assets</text>
+    <text x="850" y="51">Events</text>
+    <text x="922" y="51">Diagnostics</text>
+    <text x="1028" y="51">Settings</text>
   </g>
-  <rect x="56" y="342" width="520" height="260" rx="18" fill="#0f172a" stroke="#1e293b"/>
-  <text x="80" y="386" font-family="Inter,Arial,sans-serif" font-size="22" font-weight="700" fill="#f8fafc">Top countries today</text>
-  <g font-family="Inter,Arial,sans-serif" font-size="18">
-    <text x="82" y="434" fill="#e2e8f0">🇺🇸 United States</text><rect x="285" y="416" width="220" height="22" rx="11" fill="#2563eb"/>
-    <text x="82" y="480" fill="#e2e8f0">🇩🇪 Germany</text><rect x="285" y="462" width="150" height="22" rx="11" fill="#2563eb"/>
-    <text x="82" y="526" fill="#e2e8f0">🇳🇱 Netherlands</text><rect x="285" y="508" width="110" height="22" rx="11" fill="#2563eb"/>
-    <text x="82" y="572" fill="#e2e8f0">local</text><rect x="285" y="554" width="75" height="22" rx="11" fill="#64748b"/>
+
+  <!-- Main content -->
+  <text x="44" y="143" font-family="Inter,Arial,sans-serif" font-size="26" font-weight="700" fill="#f8fafc">Dashboard · Today's Events</text>
+
+  <!-- Top widget cards -->
+  <g font-family="Inter,Arial,sans-serif" filter="url(#shadow)">
+    <g transform="translate(44 174)">
+      <rect width="208" height="110" rx="16" fill="#0f172a" stroke="#334155"/>
+      <text x="104" y="36" text-anchor="middle" font-size="14" fill="#94a3b8">Bans today</text>
+      <text x="104" y="80" text-anchor="middle" font-size="38" font-weight="800" fill="#f8fafc">12</text>
+    </g>
+    <g transform="translate(272 174)">
+      <rect width="208" height="110" rx="16" fill="#0f172a" stroke="#334155"/>
+      <text x="104" y="36" text-anchor="middle" font-size="14" fill="#94a3b8">Geoblocks today</text>
+      <text x="104" y="80" text-anchor="middle" font-size="38" font-weight="800" fill="#f8fafc">78</text>
+    </g>
+    <g transform="translate(500 174)">
+      <rect width="208" height="110" rx="16" fill="#0f172a" stroke="#334155"/>
+      <text x="104" y="36" text-anchor="middle" font-size="14" fill="#94a3b8">Access today</text>
+      <text x="104" y="80" text-anchor="middle" font-size="38" font-weight="800" fill="#f8fafc">4,281</text>
+    </g>
+    <g transform="translate(728 174)">
+      <rect width="208" height="110" rx="16" fill="#0f172a" stroke="#334155"/>
+      <text x="104" y="36" text-anchor="middle" font-size="14" fill="#94a3b8">Assets</text>
+      <text x="104" y="80" text-anchor="middle" font-size="38" font-weight="800" fill="#f8fafc">37</text>
+    </g>
+    <g transform="translate(956 174)">
+      <rect width="200" height="110" rx="16" fill="#0f172a" stroke="#334155"/>
+      <text x="100" y="36" text-anchor="middle" font-size="14" fill="#94a3b8">Updates</text>
+      <text x="100" y="80" text-anchor="middle" font-size="38" font-weight="800" fill="#f8fafc">5</text>
+    </g>
   </g>
-  <rect x="600" y="342" width="520" height="260" rx="18" fill="#0f172a" stroke="#1e293b"/>
-  <text x="624" y="386" font-family="Inter,Arial,sans-serif" font-size="22" font-weight="700" fill="#f8fafc">Recent security context</text>
-  <g font-family="Inter,Arial,sans-serif" font-size="17">
-    <rect x="624" y="412" width="464" height="44" rx="12" fill="#020617" stroke="#1e293b"/><text x="644" y="440" fill="#f8fafc">security.ban · 203.0.113.42 · ssh-bf</text>
-    <rect x="624" y="468" width="464" height="44" rx="12" fill="#020617" stroke="#1e293b"/><text x="644" y="496" fill="#f8fafc">access.error · /wp-login.php · 404</text>
-    <rect x="624" y="524" width="464" height="44" rx="12" fill="#020617" stroke="#1e293b"/><text x="644" y="552" fill="#f8fafc">insight · possible WordPress scan</text>
+
+  <!-- Row widgets -->
+  <g font-family="Inter,Arial,sans-serif" filter="url(#shadow)">
+    <g transform="translate(44 316)">
+      <rect width="350" height="178" rx="16" fill="#0f172a" stroke="#334155"/>
+      <text x="22" y="38" font-size="18" font-weight="700" fill="#f8fafc">Top countries today</text>
+      <line x1="0" y1="60" x2="350" y2="60" stroke="#1e293b"/>
+      <text x="22" y="93" font-size="15" fill="#e2e8f0">United States</text><text x="316" y="93" text-anchor="end" font-size="15" font-weight="700" fill="#f8fafc">42</text>
+      <line x1="22" y1="113" x2="328" y2="113" stroke="#1e293b"/>
+      <text x="22" y="143" font-size="15" fill="#e2e8f0">Germany</text><text x="316" y="143" text-anchor="end" font-size="15" font-weight="700" fill="#f8fafc">18</text>
+    </g>
+    <g transform="translate(424 316)">
+      <rect width="350" height="178" rx="16" fill="#0f172a" stroke="#334155"/>
+      <text x="22" y="38" font-size="18" font-weight="700" fill="#f8fafc">Top attack hours today</text>
+      <line x1="0" y1="60" x2="350" y2="60" stroke="#1e293b"/>
+      <text x="22" y="93" font-size="15" fill="#e2e8f0">02:00–03:00</text><text x="316" y="93" text-anchor="end" font-size="15" font-weight="700" fill="#f8fafc">34</text>
+      <line x1="22" y1="113" x2="328" y2="113" stroke="#1e293b"/>
+      <text x="22" y="143" font-size="15" fill="#e2e8f0">03:00–04:00</text><text x="316" y="143" text-anchor="end" font-size="15" font-weight="700" fill="#f8fafc">21</text>
+    </g>
+    <g transform="translate(804 316)">
+      <rect width="352" height="178" rx="16" fill="#0f172a" stroke="#334155"/>
+      <text x="22" y="38" font-size="18" font-weight="700" fill="#f8fafc">Top access hours today</text>
+      <line x1="0" y1="60" x2="352" y2="60" stroke="#1e293b"/>
+      <text x="22" y="93" font-size="15" fill="#e2e8f0">19:00–20:00</text><text x="318" y="93" text-anchor="end" font-size="15" font-weight="700" fill="#f8fafc">812</text>
+      <line x1="22" y1="113" x2="330" y2="113" stroke="#1e293b"/>
+      <text x="22" y="143" font-size="15" fill="#e2e8f0">20:00–21:00</text><text x="318" y="143" text-anchor="end" font-size="15" font-weight="700" fill="#f8fafc">705</text>
+    </g>
+  </g>
+
+  <!-- Lower cards -->
+  <g font-family="Inter,Arial,sans-serif" filter="url(#shadow)">
+    <g transform="translate(44 524)">
+      <rect width="542" height="108" rx="16" fill="#0f172a" stroke="#334155"/>
+      <text x="22" y="33" font-size="18" font-weight="700" fill="#f8fafc">Country heatmap</text>
+      <text x="22" y="56" font-size="13" fill="#94a3b8">Approximate source countries for today's events.</text>
+      <rect x="22" y="72" width="498" height="22" rx="10" fill="#020617" stroke="#334155"/>
+      <circle cx="156" cy="83" r="8" fill="#38bdf8" opacity="0.75"/>
+      <circle cx="286" cy="83" r="5" fill="#38bdf8" opacity="0.65"/>
+      <circle cx="342" cy="83" r="11" fill="#38bdf8" opacity="0.75"/>
+      <circle cx="404" cy="83" r="6" fill="#38bdf8" opacity="0.55"/>
+    </g>
+    <g transform="translate(614 524)">
+      <rect width="542" height="108" rx="16" fill="#0f172a" stroke="#334155"/>
+      <text x="22" y="33" font-size="18" font-weight="700" fill="#f8fafc">Latest security events</text>
+      <text x="22" y="66" font-size="14" fill="#e2e8f0">2026-06-29 02:14:09 · security.ban · 203.0.113.42</text>
+      <text x="22" y="91" font-size="14" fill="#e2e8f0">2026-06-29 02:13:51 · security.geoblock · 198.51.100.8</text>
+    </g>
   </g>
 </svg>
