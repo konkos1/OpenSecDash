@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, JSON, String, Text
+from sqlalchemy import Boolean, DateTime, JSON, String, Text, UniqueConstraint
 
 from app.core.time import utc_now
 from sqlalchemy.orm import Mapped, mapped_column
@@ -87,6 +87,24 @@ class AggregationMonthly(Base):
     metric: Mapped[str] = mapped_column(String(100), index=True)
     key: Mapped[str] = mapped_column(String(255), index=True)
     value: Mapped[int] = mapped_column(default=0)
+
+
+class CrowdSecDecision(Base):
+    __tablename__ = "crowdsec_decisions"
+    __table_args__ = (UniqueConstraint("decision_id", name="uq_crowdsec_decision_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    decision_id: Mapped[str] = mapped_column(String(100), index=True)
+    ip: Mapped[str] = mapped_column(String(128), index=True)
+    scope: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    decision_type: Mapped[str] = mapped_column(String(50), index=True)
+    origin: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    scenario: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    duration: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
+    raw_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    synced_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, index=True)
 
 
 class GeoIPCache(Base):

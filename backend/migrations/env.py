@@ -3,7 +3,7 @@ from pathlib import Path
 
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
+from sqlalchemy import create_engine
 from sqlalchemy import pool
 
 from alembic import context
@@ -93,13 +93,19 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
+    url = config.get_main_option("sqlalchemy.url")
+    connect_args = {"timeout": 10, "check_same_thread": False} if url.startswith("sqlite") else {}
+    connectable = create_engine(url, poolclass=pool.NullPool, connect_args=connect_args)
 
     with connectable.connect() as connection:
+        if url.startswith("sqlite"):
+            # Fail fast on locked SQLite databases instead of appearing to hang
+            # indefinitely during app startup migrations. Commit immediately:
+            # with SQLAlchemy 2.x even PRAGMA can open an implicit transaction;
+            # if left open, Alembic's version-table update may be rolled back
+            # on connection close while SQLite DDL has already persisted.
+            connection.exec_driver_sql("PRAGMA busy_timeout = 10000")
+            connection.commit()
         context.configure(
             connection=connection,
             target_metadata=target_metadata,

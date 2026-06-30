@@ -7,14 +7,15 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from app.plugins.base import ActionPlugin, DatasourcePlugin, PluginMetadata, PluginSetting
+from app.plugins.base import ActionPlugin, DatasourcePlugin, PeriodicPlugin, PluginMetadata, PluginSetting
+from app.services.crowdsec_decisions import sync_crowdsec_decisions
 from app.services.events import normalize_event_time
 
 
 logger = logging.getLogger(__name__)
 
 
-class Plugin(DatasourcePlugin, ActionPlugin):
+class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
     metadata = PluginMetadata(
         id="crowdsec", 
         name="CrowdSec", 
@@ -55,6 +56,7 @@ class Plugin(DatasourcePlugin, ActionPlugin):
 
     def __init__(self) -> None:
         self._offsets = {}; self._inodes = {}
+        self._decision_sync_counter = 0
 
     async def health(self, context) -> dict[str, str]:
         log_path = Path(context.get("log_path"))
@@ -72,6 +74,16 @@ class Plugin(DatasourcePlugin, ActionPlugin):
         version = (completed.stdout or completed.stderr or "cscli reachable").strip().splitlines()[0]
         logger.debug("CrowdSec health OK: %s", version)
         return {"status": "healthy", "message": f"cscli reachable: {version}"}
+
+    async def tick(self, context) -> None:
+        self._decision_sync_counter += 1
+        # The manager ticks roughly once per minute. Sync every second tick to
+        # keep cscli usage low while still keeping active bans reasonably fresh.
+        if self._decision_sync_counter % 2 == 1:
+            return
+        ok, message = sync_crowdsec_decisions(context.db)
+        if not ok:
+            raise RuntimeError(message)
 
     async def collect(self, context) -> list[dict[str, Any]]:
         events = []
@@ -133,7 +145,10 @@ class Plugin(DatasourcePlugin, ActionPlugin):
             duration = parameters.get("duration", "4h")
             cmd = [cscli, "decisions", "add", "--ip", target, "--duration", duration, "--reason", parameters.get("reason", "OpenSecDash manual ban")]
         else:
-            cmd = [cscli, "decisions", "delete", "--ip", target]
+            decision_id = str(parameters.get("decision_id") or "").strip()
+            if not decision_id:
+                raise RuntimeError("Missing active CrowdSec decision id for unban")
+            cmd = [cscli, "decisions", "delete", "--id", decision_id]
         logger.info("Executing CrowdSec action type=%s target=%s", action_type, target)
         completed = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
         if completed.returncode != 0:

@@ -22,7 +22,7 @@ from app.core.template_context import build_template_context, get_setting_value
 from app.core.time import datetime_iso_utc, format_datetime_for_timezone, local_day_start_as_utc, resolve_timezone, utc_now
 from app.database.dependencies import get_db
 from app.models.assets import Asset
-from app.models.core import Action, AggregationDaily, Datasource, Diagnostic, Insight, PluginRecord
+from app.models.core import Action, AggregationDaily, CrowdSecDecision, Datasource, Diagnostic, Insight, PluginRecord
 from app.models.events import Event
 from app.models.settings import Setting
 from app.models.systems import System
@@ -37,6 +37,7 @@ from app.services.asset_actions import (
     run_asset_metadata_action,
 )
 from app.services.actions import ActionAlreadyRunning, create_action
+from app.services.crowdsec_decisions import active_decision_for_ip, crowdsec_cscli_status, sync_crowdsec_decisions
 from app.services.asset_hosts import event_matches_asset_host, find_asset_by_host, normalize_asset_host, sync_asset_host_events
 from app.services.events import apply_event_filters, is_local_ip_value, store_event, tokenize_search_expression
 
@@ -685,6 +686,7 @@ async def save_access_columns(request: Request, db: Session = Depends(get_db)):
 def crowdsec_page(request: Request, db: Session = Depends(get_db)):
     require_plugin_enabled(db, "crowdsec")
     bans = db.query(Event).filter(Event.event_type.startswith("security.ban")).order_by(Event.event_time.desc()).limit(100).all()
+    active_decisions = {decision.ip: decision for decision in db.query(CrowdSecDecision).filter(CrowdSecDecision.decision_type == "ban").all()}
     scenario_counts: Counter[str] = Counter()
     scenario_rows = db.query(Event.data_json).filter(Event.event_type.startswith("security.ban")).all()
     for (data_json,) in scenario_rows:
@@ -702,7 +704,28 @@ def crowdsec_page(request: Request, db: Session = Depends(get_db)):
         .limit(10)
         .all()
     )
-    return render(request, db, "crowdsec.html", bans=bans, scenarios=scenarios, countries=countries)
+    return render(
+        request,
+        db,
+        "crowdsec.html",
+        bans=bans,
+        scenarios=scenarios,
+        countries=countries,
+        active_decisions=active_decisions,
+        cscli_status=crowdsec_cscli_status(db),
+        action_dry_run=get_setting_value(db, "action_dry_run", "true").lower() == "true",
+    )
+
+
+@router.post("/crowdsec/decisions/refresh")
+def crowdsec_decisions_refresh(request: Request, db: Session = Depends(get_db)):
+    require_plugin_enabled(db, "crowdsec")
+    sync_crowdsec_decisions(db, force=True)
+    db.commit()
+    next_url = str(request.query_params.get("next") or "/crowdsec")
+    if not next_url.startswith("/"):
+        next_url = "/crowdsec"
+    return RedirectResponse(url=next_url, status_code=303)
 
 
 @router.post("/actions/ip")
@@ -710,11 +733,12 @@ def action_ip_page(
     action_type: str = Form(...),
     ip: str = Form(...),
     duration: str = Form("4h"),
+    decision_id: str = Form(""),
     confirmed: bool = Form(False),
     db: Session = Depends(get_db),
 ):
     try:
-        create_action(db, action_type, ip, "ip", {"duration": duration, "reason": "Manual action"}, confirmed)
+        create_action(db, action_type, ip, "ip", {"duration": duration, "reason": "Manual action", "decision_id": decision_id}, confirmed)
     except ActionAlreadyRunning as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ValueError as exc:
@@ -724,7 +748,7 @@ def action_ip_page(
             plugin_id="crowdsec" if action_type.startswith("security.") or action_type.startswith("crowdsec_") else "core",
             target_type="ip",
             target=ip,
-            parameters={"duration": duration, "reason": "Manual action"},
+            parameters={"duration": duration, "reason": "Manual action", "decision_id": decision_id},
             status="failed",
             result=str(exc),
             requires_confirmation=action_type in {"security.ban", "security.unban", "crowdsec_ban", "crowdsec_unban"},
@@ -790,6 +814,8 @@ def ip_explorer_page(ip: str, request: Request, db: Session = Depends(get_db)):
                 "href": f"/events?ip={ip}&event_type=access.*",
             }
         )
+    active_decision = active_decision_for_ip(db, ip) if enabled_plugins["crowdsec"] else None
+    action_dry_run = get_setting_value(db, "action_dry_run", "true").lower() == "true"
     return render(
         request,
         db,
@@ -800,6 +826,9 @@ def ip_explorer_page(ip: str, request: Request, db: Session = Depends(get_db)):
         count_widgets=count_widgets,
         crowdsec_enabled=enabled_plugins["crowdsec"],
         local_ip_target=is_local_ip_value(ip),
+        active_decision=active_decision,
+        action_dry_run=action_dry_run,
+        cscli_status=crowdsec_cscli_status(db) if enabled_plugins["crowdsec"] else None,
     )
 
 

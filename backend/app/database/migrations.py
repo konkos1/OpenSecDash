@@ -7,7 +7,7 @@ from alembic import command
 from alembic.config import Config
 from alembic.runtime.migration import MigrationContext
 from alembic.script import ScriptDirectory
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import Session
 
 from app.core.settings import settings
@@ -37,8 +37,11 @@ def migration_status() -> dict[str, str | bool | None]:
     config = alembic_config()
     script = ScriptDirectory.from_config(config)
     head = script.get_current_head()
-    engine = create_engine(settings.database_url, connect_args={"check_same_thread": False})
+    connect_args = {"check_same_thread": False, "timeout": 10} if settings.database_url.startswith("sqlite") else {}
+    engine = create_engine(settings.database_url, connect_args=connect_args)
     with engine.connect() as connection:
+        if settings.database_url.startswith("sqlite"):
+            connection.execute(text("PRAGMA busy_timeout = 10000"))
         tables = set(inspect(connection).get_table_names())
         context = MigrationContext.configure(connection)
         current = context.get_current_revision()
@@ -75,7 +78,16 @@ def run_auto_migrations_if_enabled() -> dict[str, str | bool | None]:
         return {**before, "auto_migrate": True, "applied": False}
 
     logger.info("Database migration: auto-migration starting: current=%s head=%s", before["current"], before["head"])
-    command.upgrade(alembic_config(), "head")
+    try:
+        command.upgrade(alembic_config(), "head")
+    except Exception:
+        logger.exception(
+            "Database migration: auto-migration failed: current=%s head=%s. "
+            "If this is SQLite, stop other OpenSecDash/DB tools and retry.",
+            before["current"],
+            before["head"],
+        )
+        raise
     after = migration_status()
     logger.info("Database migration: auto-migration finished: current=%s head=%s", after["current"], after["head"])
     return {**after, "auto_migrate": True, "applied": True, "previous": before["current"]}

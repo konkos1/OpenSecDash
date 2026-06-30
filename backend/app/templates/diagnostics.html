@@ -25,7 +25,7 @@
                             {{ row.plugin.capabilities|join(', ') if row.plugin.capabilities else '' }}
                         </small>
                     </span>
-                    <b>{{ t("diagnostics.status." ~ row.configuration_status) }}</b>
+                    <b class="status-badge status-{{ row.configuration_status }}">{{ t("diagnostics.status." ~ row.configuration_status) }}</b>
                 </div>
             {% endfor %}
         </div>
@@ -39,7 +39,7 @@
                         <br>
                         <small class="muted">{{ row.message or '' }}</small>
                     </span>
-                    <b>{{ t("diagnostics.status." ~ row.effective_status) }}</b>
+                    <b class="status-badge status-{{ row.effective_status }}">{{ t("diagnostics.status." ~ row.effective_status) }}</b>
                 </div>
             {% else %}
                 <p class="muted">{{ t("diagnostics.no_diagnostics") }}</p>
@@ -56,7 +56,7 @@
                     <br>
                     <small class="muted">{{ source.source_type }} · {{ source.events_processed }} {{ t("diagnostics.events") }}</small>
                 </span>
-                <b>{{ t("diagnostics.status." ~ source.status) if t("diagnostics.status." ~ source.status) != "diagnostics.status." ~ source.status else source.status }}</b>
+                <b class="status-badge status-{{ source.status }}">{{ t("diagnostics.status." ~ source.status) if t("diagnostics.status." ~ source.status) != "diagnostics.status." ~ source.status else source.status }}</b>
             </div>
         {% else %}
             <p class="muted">{{ t("diagnostics.no_datasources") }}</p>
@@ -73,7 +73,7 @@
                     <br>
                     <small class="muted">{{ action.result or '' }}</small>
                 </span>
-                <b>{{ t("diagnostics.status." ~ action.status) if t("diagnostics.status." ~ action.status) != "diagnostics.status." ~ action.status else action.status }}</b>
+                <b class="status-badge status-{{ action.status }}">{{ t("diagnostics.status." ~ action.status) if t("diagnostics.status." ~ action.status) != "diagnostics.status." ~ action.status else action.status }}</b>
             </div>
         {% else %}
             <p class="muted">{{ t("diagnostics.no_actions") }}</p>

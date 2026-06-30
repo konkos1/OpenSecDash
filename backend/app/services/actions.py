@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.template_context import get_setting_value
 from app.core.time import utc_now
 from app.models.core import Action
+from app.services.crowdsec_decisions import active_decision_for_ip, sync_crowdsec_decisions
 from app.plugins.manager import get_plugin_manager
 from app.services.events import store_event
 
@@ -65,6 +66,16 @@ def create_action(
         raise ValueError("Action requires confirmation")
     if target_type == "ip" and action_type in CRITICAL_ACTIONS:
         validate_ip_target(target)
+    dry_run = get_setting_value(db, "action_dry_run", "true").lower() == "true"
+    if target_type == "ip" and action_type in {"security.unban", "crowdsec_unban"} and not dry_run:
+        decision = active_decision_for_ip(db, target)
+        decision_id = str((parameters or {}).get("decision_id") or "").strip()
+        if decision is None:
+            raise ValueError("No active CrowdSec ban decision found for this IP")
+        if not decision_id:
+            parameters = {**(parameters or {}), "decision_id": decision.decision_id}
+        elif decision_id != decision.decision_id:
+            raise ValueError("CrowdSec decision id does not match the active ban for this IP")
 
     action_key = _acquire_action(action_type, target_type, target)
     try:
@@ -109,6 +120,8 @@ def execute_action(db: Session, action: Action) -> None:
             action.status = (result or {}).get("status", "completed")
             action.result = (result or {}).get("result", "action plugin execution completed")
             logger.info("Action id=%s finished with status=%s", action.id, action.status)
+            if action.plugin_id == "crowdsec" and action.action_type in {"security.ban", "security.unban", "crowdsec_ban", "crowdsec_unban"}:
+                sync_crowdsec_decisions(db, force=True)
         except Exception as exc:
             logger.exception("Action id=%s failed", action.id)
             action.status = "failed"

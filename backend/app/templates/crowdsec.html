@@ -8,10 +8,33 @@
 
   <h2 class="text-2xl font-semibold mb-5">{{ t("crowdsec.title") }}</h2>
 
+  <div class="card mb-5">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div>
+        <h3 class="font-semibold">{{ t("crowdsec.cscli_status") }}</h3>
+        {% if action_dry_run %}
+          <p class="muted text-sm">{{ t("crowdsec.actions_dry_run") }}</p>
+          {% if cscli_status and cscli_status.status != 'healthy' %}
+            <p class="muted text-sm">{{ t("crowdsec.cscli_ignored_dry_run") }}</p>
+          {% endif %}
+        {% elif cscli_status and cscli_status.status == 'healthy' %}
+          <p class="muted text-sm">{{ t("crowdsec.cscli_ok") }}{% if cscli_status.last_error %}: {{ cscli_status.last_error }}{% endif %}</p>
+        {% elif cscli_status %}
+          <p class="alert-error text-sm">{{ t("crowdsec.cscli_error") }}: {{ cscli_status.last_error or '-' }}</p>
+        {% else %}
+          <p class="muted text-sm">{{ t("crowdsec.cscli_unknown") }}</p>
+        {% endif %}
+      </div>
+      <form method="post" action="/crowdsec/decisions/refresh" data-submit-busy>
+        <button class="btn-small" data-busy-label="{{ t('common.processing') }}">{{ t("crowdsec.refresh_decisions") }}</button>
+      </form>
+    </div>
+  </div>
+
   <section class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
     <div class="card">
       <h3 class="font-semibold mb-3">{{ t("crowdsec.active_bans") }}</h3>
-      <strong class="text-3xl">{{ bans|length }}</strong>
+      <strong class="text-3xl">{{ active_decisions|length }}</strong>
     </div>
 
     <div class="card">
@@ -60,12 +83,18 @@
             <td data-label="{{ t('crowdsec.scenario') }}">{{ ban.data_json.scenario if ban.data_json and ban.data_json.scenario else '-' }}</td>
             <td data-label="{{ t('crowdsec.duration') }}">{{ (ban.data_json.duration if ban.data_json else None)|duration }}</td>
             <td data-label="{{ t('common.action') }}">
-              <form method="post" action="/actions/ip" data-confirm="{{ t('crowdsec.confirm_unban') }} {{ ban.ip }}?" data-submit-busy>
-                <input type="hidden" name="action_type" value="security.unban">
-                <input type="hidden" name="ip" value="{{ ban.ip }}">
-                <input type="hidden" name="confirmed" value="true">
-                <button class="btn-small" data-busy-label="{{ t('common.processing') }}">{{ t("crowdsec.unban") }}</button>
-              </form>
+              {% set active_decision = active_decisions.get(ban.ip) if ban.ip else None %}
+              {% if active_decision or action_dry_run %}
+                <form method="post" action="/actions/ip" data-confirm="{{ t('crowdsec.confirm_unban') }} {{ ban.ip }}?" data-submit-busy>
+                  <input type="hidden" name="action_type" value="security.unban">
+                  <input type="hidden" name="ip" value="{{ ban.ip }}">
+                  <input type="hidden" name="decision_id" value="{{ active_decision.decision_id if active_decision else '' }}">
+                  <input type="hidden" name="confirmed" value="true">
+                  <button class="btn-small" data-busy-label="{{ t('common.processing') }}">{{ t("crowdsec.unban") }}</button>
+                </form>
+              {% else %}
+                <span class="muted">{{ t("crowdsec.not_active") }}</span>
+              {% endif %}
             </td>
           </tr>
         {% else %}
