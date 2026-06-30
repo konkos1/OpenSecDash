@@ -27,7 +27,7 @@ def get_setting_value(
 def enabled_plugin_map(db: Session) -> dict[str, bool]:
     return {
         plugin_id: get_setting_value(db, f"plugin.{plugin_id}.enabled", "false") == "true"
-        for plugin_id in ["apps_inventory", "crowdsec", "geoblock_log", "traefik_log", "mqtt", "mqtt-hass", "geoip"]
+        for plugin_id in ["apps_inventory", "proxmox_assets", "crowdsec", "geoblock_log", "traefik_log", "mqtt", "mqtt-hass", "geoip"]
     }
 
 
@@ -41,6 +41,10 @@ def build_template_context(db: Session) -> dict[str, object | Callable[[str], st
         enabled_plugins[plugin_id]
         for plugin_id in ["crowdsec", "geoblock_log", "traefik_log"]
     )
+    asset_plugins_enabled = any(
+        enabled_plugins[plugin_id]
+        for plugin_id in ["apps_inventory", "proxmox_assets"]
+    )
 
     return {
         "language": language,
@@ -49,5 +53,6 @@ def build_template_context(db: Session) -> dict[str, object | Callable[[str], st
         "theme": theme,
         "enabled_plugins": enabled_plugins,
         "event_plugins_enabled": event_plugins_enabled,
+        "asset_plugins_enabled": asset_plugins_enabled,
         "t": lambda key: translate(key, language),
     }

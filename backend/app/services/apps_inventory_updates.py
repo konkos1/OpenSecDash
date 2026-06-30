@@ -18,11 +18,16 @@ def _github_token(db: Session) -> str:
 
 
 def _apply_update_state(asset: Asset, latest_version: str | None) -> bool:
-    if not asset.version or not latest_version:
+    if not latest_version:
+        asset.latest_version = None
         asset.update_available = False
+        asset.last_checked = utc_now().replace(tzinfo=None)
         return False
     asset.latest_version = latest_version
     asset.last_checked = utc_now().replace(tzinfo=None)
+    if not asset.version:
+        asset.update_available = False
+        return True
     asset.update_available = latest_version.strip().lower() != asset.version.strip().lower()
     return True
 

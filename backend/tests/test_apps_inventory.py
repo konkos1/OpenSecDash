@@ -1,6 +1,7 @@
 from app.models.assets import Asset
 from app.models.settings import Setting
 from app.models.systems import System
+from app.api.pages import asset_system_matches_search
 from app.services.apps_inventory_import import import_apps_inventory
 from app.services.apps_inventory_updates import refresh_asset_update
 
@@ -26,6 +27,11 @@ def test_import_apps_inventory_creates_updates_and_marks_missing_assets_inactive
     assert first_result == {"systems_created": 1, "assets_created": 2, "assets_updated": 0, "assets_inactive": 0}
     system = db_session.query(System).filter_by(vmid="100").one()
     assert system.hostname == "edge-01"
+    assert system.source_plugin == "apps_inventory"
+    assert system.external_id == "apps_inventory:system:100"
+    traefik = db_session.query(Asset).filter_by(system_id=system.id, name="traefik").one()
+    assert traefik.source_plugin == "apps_inventory"
+    assert traefik.external_id == "apps_inventory:system:100:app:traefik"
     assert db_session.query(Asset).filter_by(system_id=system.id, is_active=True).count() == 2
 
     second_result = import_apps_inventory(
@@ -45,6 +51,41 @@ def test_import_apps_inventory_creates_updates_and_marks_missing_assets_inactive
     assert second_result == {"systems_created": 0, "assets_created": 0, "assets_updated": 1, "assets_inactive": 1}
     assert system.hostname == "edge-renamed"
     assert db_session.query(Asset).filter_by(system_id=system.id, name="crowdsec").one().is_active is False
+
+
+def test_asset_search_matches_system_and_app_fields(db_session):
+    system = System(vmid="104", hostname="proxy-lxc", system_type="lxc", source_plugin="proxmox_assets", external_id="proxmox:pve:guest:pve1:104")
+    db_session.add(system)
+    db_session.flush()
+    asset = Asset(system_id=system.id, name="Traefik", version="v3.0", release_url="https://github.com/traefik/traefik/releases/latest", host_url="edge.example.test")
+    db_session.add(asset)
+    db_session.commit()
+
+    assert asset_system_matches_search(system, [asset], "proxy") is True
+    assert asset_system_matches_search(system, [asset], "traefik github") is True
+    assert asset_system_matches_search(system, [asset], "edge.example") is True
+    assert asset_system_matches_search(system, [asset], "proxmox_assets") is False
+    assert asset_system_matches_search(system, [asset], "authentik") is False
+
+
+def test_refresh_asset_update_stores_latest_without_installed_version(monkeypatch, db_session):
+    asset = Asset(
+        system_id=1,
+        name="Traefik",
+        version="",
+        release_url="https://github.com/traefik/traefik/releases/latest",
+    )
+    db_session.add(asset)
+    db_session.commit()
+
+    monkeypatch.setattr("app.services.apps_inventory_updates.get_latest_github_release", lambda *, repo, github_token: "v3.0.0")
+
+    result = refresh_asset_update(db_session, asset)
+
+    assert result == {"checked": 1, "updated": 1, "failed": 0}
+    assert asset.latest_version == "v3.0.0"
+    assert asset.update_available is False
+    assert asset.last_checked is not None
 
 
 def test_refresh_asset_update_uses_github_release_and_token(monkeypatch, db_session):

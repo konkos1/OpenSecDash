@@ -272,8 +272,9 @@ Current plugins include:
 | CrowdSec | datasource, action, page, widget | Import security decisions and trigger ban/unban actions |
 | Traefik Access Log | datasource, page, widget | Import and classify access log entries |
 | GeoBlock Log | datasource, widget | Import geoblock events |
-| GeoIP / ASN / ISP | enrichment | Add country, ASN, and ISP metadata to public IP events |
+| GeoIP / ASN / ISP / City | enrichment | Add country, city, ASN, and ISP metadata to public IP events |
 | Apps Inventory | datasource, page, widget | Import installed apps and support update detection |
+| Proxmox Assets | datasource, widget | Import Proxmox nodes, VMs/LXCs, and optional app declarations from hidden notes metadata |
 | MQTT to Home Assistant | export | Publish asset update information to Home Assistant via MQTT |
 
 The plugin API is intentionally small. New datasource plugins, such as **Nginx** or **Caddy**, should be comfortable to build without changing the core app.

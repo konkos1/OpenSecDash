@@ -291,8 +291,11 @@ class PluginManager:
                     db.commit()
                 sleep_for = 60
                 publish_interval = ctx.get("publish_interval", "")
+                poll_interval = ctx.get("poll_interval", "")
                 if publish_interval.isdigit() and int(publish_interval) > 0:
                     sleep_for = max(int(publish_interval), 1)
+                elif poll_interval.isdigit() and int(poll_interval) > 0:
+                    sleep_for = max(int(poll_interval), 1)
                 await asyncio.sleep(sleep_for)
             except asyncio.CancelledError:
                 db.close()

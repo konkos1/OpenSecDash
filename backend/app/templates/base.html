@@ -38,7 +38,7 @@
                     <a class="nav {{ 'nav-active' if current_path == '/' else '' }}" href="/">{{ t("nav.dashboard") }}</a>
                     {% if enabled_plugins.crowdsec %}<a class="nav {{ 'nav-active' if current_path.startswith('/crowdsec') else '' }}" href="/crowdsec">{{ t("nav.crowdsec") }}</a>{% endif %}
                     {% if enabled_plugins.traefik_log %}<a class="nav {{ 'nav-active' if current_path.startswith('/access') else '' }}" href="/access">{{ t("nav.access") }}</a>{% endif %}
-                    {% if enabled_plugins.apps_inventory %}<a class="nav {{ 'nav-active' if current_path.startswith('/assets') else '' }}" href="/assets">{{ t("nav.assets") }}</a>{% endif %}
+                    {% if asset_plugins_enabled %}<a class="nav {{ 'nav-active' if current_path.startswith('/assets') else '' }}" href="/assets">{{ t("nav.assets") }}</a>{% endif %}
                     {% if event_plugins_enabled %}<a class="nav {{ 'nav-active' if current_path.startswith('/events') or current_path.startswith('/ip') else '' }}" href="/events">{{ t("nav.events") }}</a>{% endif %}
                     <a class="nav {{ 'nav-active' if current_path.startswith('/diagnostics') else '' }}" href="/diagnostics">{{ t("nav.diagnostics") }}</a>
                     <a class="nav {{ 'nav-active' if current_path.startswith('/settings') else '' }}" href="/settings">{{ t("nav.settings") }}</a>
@@ -49,7 +49,7 @@
                 <a class="nav {{ 'nav-active' if current_path == '/' else '' }}" href="/">{{ t("nav.dashboard") }}</a>
                 {% if enabled_plugins.crowdsec %}<a class="nav {{ 'nav-active' if current_path.startswith('/crowdsec') else '' }}" href="/crowdsec">{{ t("nav.crowdsec") }}</a>{% endif %}
                 {% if enabled_plugins.traefik_log %}<a class="nav {{ 'nav-active' if current_path.startswith('/access') else '' }}" href="/access">{{ t("nav.access") }}</a>{% endif %}
-                {% if enabled_plugins.apps_inventory %}<a class="nav {{ 'nav-active' if current_path.startswith('/assets') else '' }}" href="/assets">{{ t("nav.assets") }}</a>{% endif %}
+                {% if asset_plugins_enabled %}<a class="nav {{ 'nav-active' if current_path.startswith('/assets') else '' }}" href="/assets">{{ t("nav.assets") }}</a>{% endif %}
                 {% if event_plugins_enabled %}<a class="nav {{ 'nav-active' if current_path.startswith('/events') or current_path.startswith('/ip') else '' }}" href="/events">{{ t("nav.events") }}</a>{% endif %}
                 <a class="nav {{ 'nav-active' if current_path.startswith('/diagnostics') else '' }}" href="/diagnostics">{{ t("nav.diagnostics") }}</a>
                 <a class="nav {{ 'nav-active' if current_path.startswith('/settings') else '' }}" href="/settings">{{ t("nav.settings") }}</a>

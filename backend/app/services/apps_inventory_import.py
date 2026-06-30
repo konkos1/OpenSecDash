@@ -7,6 +7,20 @@ from app.core.time import utc_now
 from app.models.assets import Asset
 from app.models.systems import System
 
+SOURCE_PLUGIN = "apps_inventory"
+
+
+def _slug(value: str) -> str:
+    return "-".join(str(value).strip().lower().split())
+
+
+def _system_external_id(vmid: str) -> str:
+    return f"apps_inventory:system:{vmid}"
+
+
+def _asset_external_id(system_external_id: str, name: str) -> str:
+    return f"{system_external_id}:app:{_slug(name)}"
+
 
 def import_apps_inventory(
     db: Session,
@@ -28,13 +42,18 @@ def import_apps_inventory(
         if not vmid or not hostname:
             continue
 
-        system = db.query(System).filter(System.vmid == vmid).first()
+        system_external_id = _system_external_id(vmid)
+        system = db.query(System).filter(System.source_plugin == SOURCE_PLUGIN, System.external_id == system_external_id).first()
+        if system is None:
+            system = db.query(System).filter(System.vmid == vmid).first()
 
         if system is None:
             system = System(
                 vmid=vmid,
                 hostname=hostname,
                 system_type=system_type,
+                source_plugin=SOURCE_PLUGIN,
+                external_id=system_external_id,
             )
             db.add(system)
             db.flush()
@@ -42,6 +61,8 @@ def import_apps_inventory(
         else:
             system.hostname = hostname
             system.system_type = system_type
+            system.source_plugin = system.source_plugin or SOURCE_PLUGIN
+            system.external_id = system.external_id or system_external_id
 
         seen_asset_names: set[str] = set()
 
@@ -57,14 +78,21 @@ def import_apps_inventory(
 
             seen_asset_names.add(name)
 
+            asset_external_id = _asset_external_id(system_external_id, name)
             asset = (
                 db.query(Asset)
-                .filter(
-                    Asset.system_id == system.id,
-                    Asset.name == name,
-                )
+                .filter(Asset.source_plugin == SOURCE_PLUGIN, Asset.external_id == asset_external_id)
                 .first()
             )
+            if asset is None:
+                asset = (
+                    db.query(Asset)
+                    .filter(
+                        Asset.system_id == system.id,
+                        Asset.name == name,
+                    )
+                    .first()
+                )
 
             if asset is None:
                 asset = Asset(
@@ -77,11 +105,15 @@ def import_apps_inventory(
                     latest_version=None,
                     update_available=False,
                     is_active=True,
+                    source_plugin=SOURCE_PLUGIN,
+                    external_id=asset_external_id,
                     last_seen=now,
                 )
                 db.add(asset)
                 imported_assets += 1
             else:
+                asset.source_plugin = asset.source_plugin or SOURCE_PLUGIN
+                asset.external_id = asset.external_id or asset_external_id
                 if external_master:
                     asset.version = version
                     asset.release_url = release_url
@@ -94,7 +126,7 @@ def import_apps_inventory(
 
         existing_assets = (
             db.query(Asset)
-            .filter(Asset.system_id == system.id)
+            .filter(Asset.system_id == system.id, Asset.source_plugin == SOURCE_PLUGIN)
             .all()
         )
 

@@ -40,6 +40,7 @@ from app.services.actions import ActionAlreadyRunning, create_action
 from app.services.crowdsec_decisions import active_decision_for_ip, crowdsec_cscli_status, sync_crowdsec_decisions
 from app.services.asset_hosts import event_matches_asset_host, find_asset_by_host, normalize_asset_host, sync_asset_host_events
 from app.services.events import apply_event_filters, is_local_ip_value, store_event, tokenize_search_expression
+from app.services.proxmox_assets import sync_proxmox_assets
 
 router = APIRouter(tags=["pages"])
 templates = Jinja2Templates(directory="app/templates")
@@ -280,6 +281,10 @@ def events_feature_enabled(db: Session) -> bool:
     return any(is_plugin_enabled(db, plugin_id) for plugin_id in ["crowdsec", "geoblock_log", "traefik_log"])
 
 
+def assets_feature_enabled(db: Session) -> bool:
+    return any(is_plugin_enabled(db, plugin_id) for plugin_id in ["apps_inventory", "proxmox_assets"])
+
+
 def require_plugin_enabled(db: Session, plugin_id: str) -> None:
     if not is_plugin_enabled(db, plugin_id):
         raise HTTPException(status_code=404, detail="Feature is disabled")
@@ -287,6 +292,11 @@ def require_plugin_enabled(db: Session, plugin_id: str) -> None:
 
 def require_events_feature_enabled(db: Session) -> None:
     if not events_feature_enabled(db):
+        raise HTTPException(status_code=404, detail="Feature is disabled")
+
+
+def require_assets_feature_enabled(db: Session) -> None:
+    if not assets_feature_enabled(db):
         raise HTTPException(status_code=404, detail="Feature is disabled")
 
 
@@ -832,24 +842,63 @@ def ip_explorer_page(ip: str, request: Request, db: Session = Depends(get_db)):
     )
 
 
+def _search_blob(*values: object) -> str:
+    return " ".join(str(value or "") for value in values).lower()
+
+
+def asset_system_matches_search(system: System, apps: list[Asset], query: str) -> bool:
+    terms = [term for term in query.lower().split() if term]
+    if not terms:
+        return True
+    system_blob = _search_blob(system.vmid, system.hostname, system.system_type)
+    app_blobs = [
+        _search_blob(
+            app.name,
+            app.host_url,
+            app.version,
+            app.latest_version,
+            app.release_url,
+            app.update_check_type,
+            "active" if app.is_active else "inactive",
+            "update" if app.update_available else "no update",
+        )
+        for app in apps
+    ]
+    haystack = " ".join([system_blob, *app_blobs])
+    return all(term in haystack for term in terms)
+
+
+def _assets_url(*, show_inactive: bool, updates: bool, q: str) -> str:
+    params = {}
+    if show_inactive:
+        params["show_inactive"] = "true"
+    if updates:
+        params["updates"] = "true"
+    if q:
+        params["q"] = q
+    return "/assets" + (f"?{urlencode(params)}" if params else "")
+
+
 @router.get("/assets")
-def assets_page(request: Request, show_inactive: bool = False, updates: bool = False, db: Session = Depends(get_db)):
-    require_plugin_enabled(db, "apps_inventory")
+def assets_page(request: Request, show_inactive: bool = False, updates: bool = False, q: str = "", db: Session = Depends(get_db)):
+    require_assets_feature_enabled(db)
     systems = db.query(System).order_by(System.hostname).all()
     system_rows = []
+    clean_q = q.strip()
     for system in systems:
         apps_query = db.query(Asset).filter(Asset.system_id == system.id)
         if not show_inactive:
             apps_query = apps_query.filter(Asset.is_active == True)
         if updates:
             apps_query = apps_query.filter(Asset.update_available == True)
-        app_count = apps_query.count()
+        apps_for_row = apps_query.all()
+        if clean_q and not asset_system_matches_search(system, apps_for_row, clean_q):
+            continue
+        app_count = len(apps_for_row)
         if updates and app_count == 0:
             continue
-        update_available = (
-            apps_query.filter(Asset.update_available == True).count() > 0
-        )
-        latest_asset = apps_query.order_by(Asset.last_seen.desc()).first()
+        update_available = any(asset.update_available for asset in apps_for_row)
+        latest_asset = max(apps_for_row, key=lambda asset: asset.last_seen or system.last_seen or datetime.min) if apps_for_row else None
         last_seen = latest_asset.last_seen if latest_asset is not None else system.last_seen
         system_rows.append(
             {
@@ -868,13 +917,43 @@ def assets_page(request: Request, show_inactive: bool = False, updates: bool = F
         system_rows=system_rows,
         show_inactive=show_inactive,
         updates=updates,
+        q=clean_q,
+        assets_url_all=_assets_url(show_inactive=show_inactive, updates=False, q=clean_q),
+        assets_url_updates=_assets_url(show_inactive=show_inactive, updates=True, q=clean_q),
+        assets_url_clear=_assets_url(show_inactive=show_inactive, updates=updates, q=""),
+        assets_url_hide_inactive=_assets_url(show_inactive=False, updates=updates, q=clean_q),
+        assets_url_show_inactive=_assets_url(show_inactive=True, updates=updates, q=clean_q),
         mqtt_plugin_enabled=mqtt_plugin_enabled,
         mqtt_publishable_count=mqtt_publishable_count,
         asset_action_busy=asset_action_running(),
         asset_import_running=asset_action_running("import"),
         asset_update_check_running=asset_action_running("refresh_updates"),
         asset_mqtt_publish_running=asset_action_running("mqtt_publish"),
+        apps_inventory_enabled=is_plugin_enabled(db, "apps_inventory"),
+        proxmox_plugin_enabled=is_plugin_enabled(db, "proxmox_assets"),
+        proxmox_sync_running=asset_action_running("proxmox_sync"),
     )
+
+
+@router.post("/assets/proxmox-sync")
+def assets_proxmox_sync_page(db: Session = Depends(get_db)):
+    require_plugin_enabled(db, "proxmox_assets")
+    try:
+        from app.services.asset_actions import run_asset_action
+
+        run_asset_action(
+            "proxmox_sync",
+            lambda: sync_proxmox_assets(
+                db,
+                api_url=get_setting_value(db, "plugin.proxmox_assets.api_url", ""),
+                token_id=get_setting_value(db, "plugin.proxmox_assets.token_id", ""),
+                token_secret=get_setting_value(db, "plugin.proxmox_assets.token_secret", ""),
+                verify_tls=get_setting_value(db, "plugin.proxmox_assets.verify_tls", "true") == "true",
+            ),
+        )
+    except AssetActionAlreadyRunning as exc:
+        raise HTTPException(status_code=409, detail=f"Asset action is already running: {exc.action}") from exc
+    return RedirectResponse(url="/assets", status_code=303)
 
 
 @router.post("/assets/mqtt-publish")
@@ -891,7 +970,7 @@ def assets_mqtt_publish_page(db: Session = Depends(get_db)):
 
 @router.get("/assets/system/{system_id}")
 def asset_page(system_id: int, request: Request, show_inactive: bool = False, asset_id: int | None = None, db: Session = Depends(get_db)):
-    require_plugin_enabled(db, "apps_inventory")
+    require_assets_feature_enabled(db)
     system = db.query(System).filter(System.id == system_id).first()
     if system is None:
         raise HTTPException(status_code=404, detail="System not found")
@@ -954,7 +1033,7 @@ def update_asset_metadata(
     host_url: str = Form(""),
     db: Session = Depends(get_db),
 ):
-    require_plugin_enabled(db, "apps_inventory")
+    require_assets_feature_enabled(db)
     asset = db.query(Asset).filter(Asset.id == asset_id).first()
     if asset is None:
         raise HTTPException(status_code=404, detail="Asset not found")
@@ -996,7 +1075,7 @@ def toggle_asset_mqtt(asset_id: int, enabled: str = Form("false"), db: Session =
 
 @router.get("/assets/app/{asset_id}")
 def app_asset_page(asset_id: int, request: Request, db: Session = Depends(get_db)):
-    require_plugin_enabled(db, "apps_inventory")
+    require_assets_feature_enabled(db)
     asset = db.query(Asset).filter(Asset.id == asset_id).first()
     if asset is None:
         raise HTTPException(status_code=404, detail="Asset not found")
@@ -1005,6 +1084,7 @@ def app_asset_page(asset_id: int, request: Request, db: Session = Depends(get_db
 
 @router.post("/assets/import-source")
 def assets_import_source_page(db: Session = Depends(get_db)):
+    require_plugin_enabled(db, "apps_inventory")
     source_type = get_setting_value(
         db,
         "plugin.apps_inventory.source_type",

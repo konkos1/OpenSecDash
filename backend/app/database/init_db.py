@@ -84,11 +84,15 @@ def _migrate_legacy_sqlite() -> None:
         "release_web_url VARCHAR(2048)",
         "update_check_type VARCHAR(50) DEFAULT 'github_release'",
         "mqtt_publish_enabled BOOLEAN DEFAULT 0",
+        "source_plugin VARCHAR(100)",
+        "external_id VARCHAR(255)",
         "last_checked DATETIME",
     ]:
         _add_column("assets", column)
 
     _add_column("systems", "last_seen DATETIME")
+    _add_column("systems", "source_plugin VARCHAR(100)")
+    _add_column("systems", "external_id VARCHAR(255)")
     _add_column("geoip_cache", "isp VARCHAR(255)")
     _add_column("geoip_cache", "city VARCHAR(255)")
 

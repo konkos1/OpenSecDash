@@ -58,19 +58,47 @@
                         </td>
                         <td class="cell-stack" data-label="{{ t('asset.host_url') }}">
                             {% if apps_master == 'opensecdash' and app.is_active %}
-                                <input class="input min-w-48" form="asset-meta-{{ app.id }}" name="host_url" value="{{ app.host_url or '' }}" placeholder="app.example.com">
+                                <button class="btn-small btn-icon" type="button" data-columns-open="asset-host-dialog-{{ app.id }}" title="{{ app.host_url or t('asset.edit_host_url') }}" aria-label="{{ t('asset.edit_host_url') }}">✎</button>
+                                <dialog id="asset-host-dialog-{{ app.id }}" class="columns-dialog">
+                                    <div class="columns-dialog-panel">
+                                        <div class="columns-dialog-header">
+                                            <div>
+                                                <h3 class="font-semibold">{{ t('asset.edit_host_url') }}</h3>
+                                                <p class="muted text-sm">{{ app.name }}</p>
+                                            </div>
+                                            <button class="text-overlay-close" type="button" data-columns-close="asset-host-dialog-{{ app.id }}" aria-label="{{ t('common.close') }}">×</button>
+                                        </div>
+                                        <label class="block text-sm">
+                                            <span class="muted">{{ t('asset.host_url') }}</span>
+                                            <input class="input" form="asset-meta-{{ app.id }}" name="host_url" value="{{ app.host_url or '' }}" placeholder="app.example.com">
+                                        </label>
+                                        <div class="flex justify-end gap-2 mt-4">
+                                            <button class="btn-small btn-secondary" type="button" data-columns-close="asset-host-dialog-{{ app.id }}">{{ t('common.cancel') }}</button>
+                                            <button class="btn-small" form="asset-meta-{{ app.id }}" type="submit" data-busy-label="{{ t('common.saving') }}">{{ t('common.save_button') }}</button>
+                                        </div>
+                                    </div>
+                                </dialog>
                             {% else %}
                                 {{ app.host_url or '-' }}
                             {% endif %}
                         </td>
                         <td class="cell-stack" data-label="{{ t('assets.version') }}">
                             {% if apps_master == 'opensecdash' and app.is_active %}
-                                <input class="input min-w-40" form="asset-meta-{{ app.id }}" name="version" value="{{ app.version or '' }}">
+                                <div class="flex flex-col sm:flex-row gap-2 sm:items-center min-w-40">
+                                    <input class="input min-w-32" form="asset-meta-{{ app.id }}" name="version" value="{{ app.version or '' }}">
+                                    <button class="btn-small shrink-0" form="asset-meta-{{ app.id }}" type="submit" data-busy-label="{{ t('common.saving') }}" hidden>{{ t("common.save_button") }}</button>
+                                </div>
                             {% else %}
                                 {{ app.version }}
                             {% endif %}
                         </td>
-                        <td data-label="{{ t('assets.latest') }}">{{ app.latest_version or '-' }}</td>
+                        <td data-label="{{ t('assets.latest') }}">
+                            {% if app.latest_version and app.release_url %}
+                                <a href="{{ app.release_url }}" target="_blank" rel="noopener noreferrer">{{ app.latest_version }}</a>
+                            {% else %}
+                                {{ app.latest_version or '-' }}
+                            {% endif %}
+                        </td>
                         <td data-label="{{ t('assets.update') }}">
                             {% if not app.release_url %}
                                 -
@@ -83,10 +111,28 @@
                         <td data-label="{{ t('assets.status') }}">{{ t("assets.active") if app.is_active else t("assets.inactive") }}</td>
                         <td class="cell-stack" data-label="{{ t('assets.release') }}">
                             {% if apps_master == 'opensecdash' and app.is_active %}
-                                <div class="flex flex-col sm:flex-row gap-2 sm:items-center min-w-64">
-                                    <input class="input" form="asset-meta-{{ app.id }}" type="url" name="release_url" value="{{ app.release_url or '' }}" placeholder="https://github.com/.../releases/latest">
-                                    <button class="btn-small shrink-0" form="asset-meta-{{ app.id }}" type="submit" data-busy-label="{{ t('common.saving') }}" hidden>{{ t("common.save_button") }}</button>
+                                <div class="flex gap-2 items-center">
+                                    <button class="btn-small btn-icon" type="button" data-columns-open="asset-release-dialog-{{ app.id }}" title="{{ t('asset.edit_release_url') }}" aria-label="{{ t('asset.edit_release_url') }}">✎</button>
                                 </div>
+                                <dialog id="asset-release-dialog-{{ app.id }}" class="columns-dialog">
+                                    <div class="columns-dialog-panel">
+                                        <div class="columns-dialog-header">
+                                            <div>
+                                                <h3 class="font-semibold">{{ t('asset.edit_release_url') }}</h3>
+                                                <p class="muted text-sm">{{ app.name }}</p>
+                                            </div>
+                                            <button class="text-overlay-close" type="button" data-columns-close="asset-release-dialog-{{ app.id }}" aria-label="{{ t('common.close') }}">×</button>
+                                        </div>
+                                        <label class="block text-sm">
+                                            <span class="muted">{{ t('assets.release') }}</span>
+                                            <input class="input" form="asset-meta-{{ app.id }}" type="url" name="release_url" value="{{ app.release_url or '' }}" placeholder="https://github.com/.../releases/latest">
+                                        </label>
+                                        <div class="flex justify-end gap-2 mt-4">
+                                            <button class="btn-small btn-secondary" type="button" data-columns-close="asset-release-dialog-{{ app.id }}">{{ t('common.cancel') }}</button>
+                                            <button class="btn-small" form="asset-meta-{{ app.id }}" type="submit" data-busy-label="{{ t('common.saving') }}">{{ t('common.save_button') }}</button>
+                                        </div>
+                                    </div>
+                                </dialog>
                             {% elif app.release_url %}
                                 <a href="{{ app.release_url }}" target="_blank" rel="noopener noreferrer">{{ t("common.open") }}</a>
                             {% else %}

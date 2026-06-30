@@ -13,16 +13,25 @@
         </div>
 
         <div class="flex gap-2">
-            <form method="post" action="/assets/import-source" data-submit-busy>
-                <button class="btn" data-busy-label="{{ t('assets.import_running') }}" {% if asset_action_busy %}disabled{% endif %} {% if asset_import_running %}aria-busy="true"{% endif %}>
-                    {% if asset_import_running %}<span class="button-spinner" aria-hidden="true"></span>{{ t("assets.import_running") }}{% else %}{{ t("assets.import") }}{% endif %}
-                </button>
-            </form>
+            {% if apps_inventory_enabled %}
+                <form method="post" action="/assets/import-source" data-submit-busy>
+                    <button class="btn" data-busy-label="{{ t('assets.import_running') }}" {% if asset_action_busy %}disabled{% endif %} {% if asset_import_running %}aria-busy="true"{% endif %}>
+                        {% if asset_import_running %}<span class="button-spinner" aria-hidden="true"></span>{{ t("assets.import_running") }}{% else %}{{ t("assets.import") }}{% endif %}
+                    </button>
+                </form>
+            {% endif %}
             <form method="post" action="/assets/refresh-updates" data-submit-busy>
                 <button class="btn" data-busy-label="{{ t('assets.check_updates_running') }}" {% if asset_action_busy %}disabled{% endif %} {% if asset_update_check_running %}aria-busy="true"{% endif %}>
                     {% if asset_update_check_running %}<span class="button-spinner" aria-hidden="true"></span>{{ t("assets.check_updates_running") }}{% else %}{{ t("assets.check_updates") }}{% endif %}
                 </button>
             </form>
+            {% if proxmox_plugin_enabled %}
+                <form method="post" action="/assets/proxmox-sync" data-submit-busy>
+                    <button class="btn" data-busy-label="{{ t('assets.proxmox_sync_running') }}" {% if asset_action_busy %}disabled{% endif %} {% if proxmox_sync_running %}aria-busy="true"{% endif %}>
+                        {% if proxmox_sync_running %}<span class="button-spinner" aria-hidden="true"></span>{{ t("assets.proxmox_sync_running") }}{% else %}{{ t("assets.proxmox_sync") }}{% endif %}
+                    </button>
+                </form>
+            {% endif %}
             {% if mqtt_plugin_enabled and mqtt_publishable_count > 0 %}
                 <form method="post" action="/assets/mqtt-publish" data-submit-busy>
                     <button class="btn" data-busy-label="{{ t('assets.mqtt_publish_running') }}" {% if asset_action_busy %}disabled{% endif %} {% if asset_mqtt_publish_running %}aria-busy="true"{% endif %}>
@@ -33,13 +42,22 @@
         </div>
     </div>
 
-    <div class="card mb-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <span class="muted">{% if updates %}{{ t("assets.only_updates") }}{% else %}{{ t("assets.inactive_included") if show_inactive else t("assets.only_active_counted") }}{% endif %}</span>
+    <div class="card mb-5 flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+        <div class="flex-1 w-full">
+            <span class="muted block mb-3">{% if updates %}{{ t("assets.only_updates") }}{% else %}{{ t("assets.inactive_included") if show_inactive else t("assets.only_active_counted") }}{% endif %}</span>
+            <form class="flex flex-col sm:flex-row gap-2" method="get" action="/assets">
+                {% if show_inactive %}<input type="hidden" name="show_inactive" value="true">{% endif %}
+                {% if updates %}<input type="hidden" name="updates" value="true">{% endif %}
+                <input class="input" type="search" name="q" value="{{ q }}" placeholder="{{ t('assets.search_placeholder') }}">
+                <button class="btn-small" type="submit">{{ t("common.search") }}</button>
+                {% if q %}<a class="btn-small btn-secondary" href="{{ assets_url_clear }}">{{ t("common.clear") }}</a>{% endif %}
+            </form>
+        </div>
         <div class="flex flex-col sm:flex-row gap-2">
-            <a class="btn-small" href="{{ '/assets?updates=true' if show_inactive and updates else '/assets' if show_inactive else '/assets?show_inactive=true&updates=true' if updates else '/assets?show_inactive=true' }}">
+            <a class="btn-small" href="{{ assets_url_hide_inactive if show_inactive else assets_url_show_inactive }}">
                 {{ t("assets.hide_inactive") if show_inactive else t("assets.show_inactive") }}
             </a>
-            <a class="btn-small" href="{{ '/assets?show_inactive=true' if updates and show_inactive else '/assets' if updates else '/assets?updates=true&show_inactive=true' if show_inactive else '/assets?updates=true' }}">
+            <a class="btn-small" href="{{ assets_url_all if updates else assets_url_updates }}">
                 {{ t("assets.show_all_systems") if updates else t("assets.show_updates_only") }}
             </a>
         </div>
