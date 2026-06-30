@@ -42,6 +42,12 @@
         </div>
     </div>
 
+    {% if proxmox_error %}
+        <div class="alert-error mb-5">
+            {{ t("assets.proxmox_sync_failed") }}: {{ proxmox_error }}
+        </div>
+    {% endif %}
+
     <div class="card mb-5 flex flex-col lg:flex-row lg:items-end justify-between gap-4">
         <div class="flex-1 w-full">
             <span class="muted block mb-3">{% if updates %}{{ t("assets.only_updates") }}{% else %}{{ t("assets.inactive_included") if show_inactive else t("assets.only_active_counted") }}{% endif %}</span>

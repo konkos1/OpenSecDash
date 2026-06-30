@@ -880,7 +880,7 @@ def _assets_url(*, show_inactive: bool, updates: bool, q: str) -> str:
 
 
 @router.get("/assets")
-def assets_page(request: Request, show_inactive: bool = False, updates: bool = False, q: str = "", db: Session = Depends(get_db)):
+def assets_page(request: Request, show_inactive: bool = False, updates: bool = False, q: str = "", proxmox_error: str = "", db: Session = Depends(get_db)):
     require_assets_feature_enabled(db)
     systems = db.query(System).order_by(System.hostname).all()
     system_rows = []
@@ -918,6 +918,7 @@ def assets_page(request: Request, show_inactive: bool = False, updates: bool = F
         show_inactive=show_inactive,
         updates=updates,
         q=clean_q,
+        proxmox_error=proxmox_error.strip(),
         assets_url_all=_assets_url(show_inactive=show_inactive, updates=False, q=clean_q),
         assets_url_updates=_assets_url(show_inactive=show_inactive, updates=True, q=clean_q),
         assets_url_clear=_assets_url(show_inactive=show_inactive, updates=updates, q=""),
@@ -953,6 +954,17 @@ def assets_proxmox_sync_page(db: Session = Depends(get_db)):
         )
     except AssetActionAlreadyRunning as exc:
         raise HTTPException(status_code=409, detail=f"Asset action is already running: {exc.action}") from exc
+    except Exception as exc:
+        message = str(exc)
+        diagnostic = db.query(Diagnostic).filter(Diagnostic.plugin == "proxmox_assets", Diagnostic.component == "plugin").first()
+        if diagnostic is None:
+            diagnostic = Diagnostic(plugin="proxmox_assets", component="plugin")
+            db.add(diagnostic)
+        diagnostic.status = "error"
+        diagnostic.last_run = utc_now().replace(tzinfo=None)
+        diagnostic.last_error = message
+        db.commit()
+        return RedirectResponse(url=f"/assets?{urlencode({'proxmox_error': message[:500]})}", status_code=303)
     return RedirectResponse(url="/assets", status_code=303)
 
 

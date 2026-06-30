@@ -141,6 +141,7 @@ EN = {
     "assets.check_updates_running": "Checking…",
     "assets.proxmox_sync": "Sync Proxmox",
     "assets.proxmox_sync_running": "Syncing Proxmox…",
+    "assets.proxmox_sync_failed": "Proxmox synchronization failed",
     "assets.mqtt_publish_now": "Publish MQTT now",
     "assets.mqtt_publish_running": "Publishing MQTT…",
     "assets.show_inactive": "Show inactive",

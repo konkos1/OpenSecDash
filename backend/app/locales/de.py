@@ -141,6 +141,7 @@ DE = {
     "assets.check_updates_running": "Prüfung läuft…",
     "assets.proxmox_sync": "Proxmox synchronisieren",
     "assets.proxmox_sync_running": "Proxmox wird synchronisiert…",
+    "assets.proxmox_sync_failed": "Proxmox-Synchronisierung fehlgeschlagen",
     "assets.mqtt_publish_now": "MQTT jetzt veröffentlichen",
     "assets.mqtt_publish_running": "MQTT wird veröffentlicht…",
     "assets.show_inactive": "Inaktive anzeigen",
