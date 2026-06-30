@@ -69,6 +69,7 @@ EN = {
     "events.severity": "Severity",
     "events.ip": "IP Address",
     "events.country": "Country",
+    "events.city": "City",
     "events.status": "HTTP status",
     "events.search_placeholder": "General search",
     "events.search_help": "Searches all event fields, including JSON/raw data. Supports &&, || and parentheses, e.g. 2026-06-20 && /.env or (api && 404) || geoblock.",

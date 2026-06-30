@@ -169,6 +169,7 @@ TABLE_COLUMN_DEFINITIONS = [
     {"key": "severity", "label_key": "events.severity"},
     {"key": "ip", "label_key": "events.ip"},
     {"key": "country", "label_key": "events.country"},
+    {"key": "city", "label_key": "events.city"},
     {"key": "status", "label_key": "events.status"},
     {"key": "path", "label_key": "common.path"},
     {"key": "url", "label_key": "common.url"},

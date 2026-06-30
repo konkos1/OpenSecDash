@@ -23,6 +23,7 @@ class EventCreate(BaseModel):
     severity: str = "info"
     ip: str | None = None
     country: str | None = None
+    city: str | None = None
     asn: str | None = None
     isp: str | None = None
     hostname: str | None = None

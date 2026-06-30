@@ -34,7 +34,7 @@ DEFAULT_SETTINGS = {
 }
 
 CORE_PLUGINS = [
-    ("geoip", "GeoIP / ASN / ISP", ["enrichment"]),
+    ("geoip", "GeoIP / ASN / ISP / City", ["enrichment"]),
 ]
 
 
@@ -63,6 +63,7 @@ def _migrate_legacy_sqlite() -> None:
         "plugin_id VARCHAR(100)",
         "asn VARCHAR(32)",
         "isp VARCHAR(255)",
+        "city VARCHAR(255)",
         "asset_id INTEGER",
         "method VARCHAR(16)",
         "raw_data TEXT",
@@ -89,6 +90,7 @@ def _migrate_legacy_sqlite() -> None:
 
     _add_column("systems", "last_seen DATETIME")
     _add_column("geoip_cache", "isp VARCHAR(255)")
+    _add_column("geoip_cache", "city VARCHAR(255)")
 
 
 def seed_defaults(db: Session) -> None:

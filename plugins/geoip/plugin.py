@@ -11,10 +11,10 @@ logger = logging.getLogger(__name__)
 class Plugin(PeriodicPlugin):
     metadata = PluginMetadata(
         id="geoip",
-        name="GeoIP / ASN / ISP Enrichment",
+        name="GeoIP / ASN / ISP / City Enrichment",
         version="1.0.0",
         capabilities=["enrichment"],
-        description="Adds country codes, ASNs and ISPs to public IP events using a cached provider lookup.",
+        description="Adds country codes, cities, ASNs and ISPs to public IP events using a cached provider lookup.",
     )
     settings = [
         PluginSetting("enabled", "geoip.settings.enabled", "geoip.settings.enabled.help", "boolean", "true", [("false", "common.no"), ("true", "common.yes")]),
@@ -24,8 +24,8 @@ class Plugin(PeriodicPlugin):
     ]
     locales = {
         "en": {
-            "geoip.settings.enabled": "GeoIP/ASN/ISP enrichment enabled",
-            "geoip.settings.enabled.help": "Adds country code, ASN and ISP to new public-IP events when the producer did not already provide them.",
+            "geoip.settings.enabled": "GeoIP/City/ASN/ISP enrichment enabled",
+            "geoip.settings.enabled.help": "Adds country code, city, ASN and ISP to new public-IP events when the producer did not already provide them.",
             "geoip.settings.provider": "GeoIP provider",
             "geoip.settings.provider.help": "Provider used for lookups. ip-api works without an API key but uses the public free endpoint.",
             "geoip.option.ip_api": "ip-api.com",
@@ -37,8 +37,8 @@ class Plugin(PeriodicPlugin):
             "common.no": "No",
         },
         "de": {
-            "geoip.settings.enabled": "GeoIP/ASN/ISP-Anreicherung aktiviert",
-            "geoip.settings.enabled.help": "Ergänzt bei neuen Events mit öffentlicher IP Länder-Code, ASN und ISP, wenn der Erzeuger diese noch nicht geliefert hat.",
+            "geoip.settings.enabled": "GeoIP/Stadt/ASN/ISP-Anreicherung aktiviert",
+            "geoip.settings.enabled.help": "Ergänzt bei neuen Events mit öffentlicher IP Länder-Code, Stadt, ASN und ISP, wenn der Erzeuger diese noch nicht geliefert hat.",
             "geoip.settings.provider": "GeoIP-Provider",
             "geoip.settings.provider.help": "Provider für Lookups. ip-api funktioniert ohne API-Key, nutzt aber den öffentlichen Free-Endpunkt.",
             "geoip.option.ip_api": "ip-api.com",
