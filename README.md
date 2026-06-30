@@ -43,6 +43,7 @@ OpenSecDash is open source and built for homelab enthusiasts who want security v
 - [Important settings](#important-settings)
 - [Running OpenSecDash](#running-opensecdash)
   - [Docker Compose](#docker-compose)
+  - [Bare-metal installation](#bare-metal-installation)
   - [Recommended homelab placement](#recommended-homelab-placement)
   - [Important security note](#important-security-note)
   - [Local development](#local-development)
@@ -343,6 +344,8 @@ Examples:
 
 ## Running OpenSecDash
 
+Docker Compose is the recommended installation method for most homelabs. It keeps the Python runtime, dependencies, database path, and file permissions easier to reproduce.
+
 ### Docker Compose
 
 A Docker Compose example is available in [`docker-compose.example.yml`](docker-compose.example.yml).
@@ -370,6 +373,94 @@ Persistent data is stored in `/data` inside the container. The default database 
 ```text
 sqlite:////data/opensecdash.db
 ```
+
+### Bare-metal installation
+
+Bare-metal installation is supported if you prefer running OpenSecDash directly on a Linux host. Docker is still recommended unless you explicitly want to manage Python, systemd, file paths, and permissions yourself.
+
+A typical bare-metal setup uses:
+
+- a dedicated `opensecdash` system user
+- application code in `/opt/opensecdash`
+- persistent data in `/var/lib/opensecdash`
+- logs in `/var/log/opensecdash`
+- a systemd service
+- a reverse proxy or VPN in front of the app
+
+Create the user and directories:
+
+```bash
+sudo useradd --system --home /opt/opensecdash --shell /usr/sbin/nologin opensecdash
+sudo mkdir -p /opt/opensecdash /var/lib/opensecdash /var/log/opensecdash
+sudo chown -R opensecdash:opensecdash /opt/opensecdash /var/lib/opensecdash /var/log/opensecdash
+```
+
+Clone and install:
+
+```bash
+cd /opt/opensecdash
+sudo -u opensecdash git clone https://github.com/konkos1/OpenSecDash.git .
+cd /opt/opensecdash/backend
+sudo -u opensecdash python3 -m venv .venv
+sudo -u opensecdash .venv/bin/pip install --upgrade pip
+sudo -u opensecdash .venv/bin/pip install -e .
+```
+
+Create `/opt/opensecdash/backend/.env`:
+
+```env
+DATABASE_URL=sqlite:////var/lib/opensecdash/opensecdash.db
+AUTO_MIGRATE=true
+```
+
+Test the app manually:
+
+```bash
+cd /opt/opensecdash/backend
+sudo -u opensecdash .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+Then check:
+
+```bash
+curl http://127.0.0.1:8000/health
+```
+
+Create `/etc/systemd/system/opensecdash.service`:
+
+```ini
+[Unit]
+Description=OpenSecDash
+After=network.target
+
+[Service]
+User=opensecdash
+Group=opensecdash
+WorkingDirectory=/opt/opensecdash/backend
+EnvironmentFile=/opt/opensecdash/backend/.env
+ExecStart=/opt/opensecdash/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start it:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now opensecdash
+sudo systemctl status opensecdash
+```
+
+View logs:
+
+```bash
+journalctl -u opensecdash -f
+```
+
+If you want real CrowdSec actions outside dry-run mode, make sure the `opensecdash` user can execute `cscli` safely. Prefer a narrowly scoped sudoers rule over broad root access, and test with action simulation enabled first.
 
 ### Recommended homelab placement
 
