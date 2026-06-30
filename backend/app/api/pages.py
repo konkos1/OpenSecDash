@@ -1041,7 +1041,7 @@ def cleanup_inactive_assets(db: Session = Depends(get_db)):
 
 def _read_debug_log_tail(db: Session, max_bytes: int = 200_000) -> tuple[str, str]:
     if get_setting_value(db, "log_file_enabled", "true").lower() != "true":
-        return "", "File logging is disabled."
+        return "", "File logging is disabled. Docker installations usually write logs to stdout/stderr. Collect recent logs with: docker compose logs opensecdash --tail=500"
     log_path = get_setting_value(db, "log_file_path", "logs/opensecdash.log")
     path = Path(log_path).expanduser()
     if not path.exists() or not path.is_file():

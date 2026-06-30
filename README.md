@@ -374,6 +374,28 @@ Persistent data is stored in `/data` inside the container. The default database 
 sqlite:////data/opensecdash.db
 ```
 
+For Docker installs, the example disables OpenSecDash file logging and uses Docker stdout/stderr logs instead:
+
+```yaml
+environment:
+  LOG_FILE_ENABLED: "false"
+logging:
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+```
+
+This avoids an ever-growing application log file inside the container writable layer. To inspect logs, use:
+
+```bash
+docker compose logs opensecdash --tail=500
+```
+
+The Diagnostics debug ZIP still works when file logging is disabled. In that case, `opensecdash-log.txt` contains a short note explaining that Docker logs should be collected with `docker compose logs`.
+
+If you explicitly want file logging in Docker, enable it deliberately and write to a persistent volume, for example `/data/logs/opensecdash.log`, then configure external log rotation for that file.
+
 ### Bare-metal installation
 
 Bare-metal installation is supported if you prefer running OpenSecDash directly on a Linux host. Docker is still recommended unless you explicitly want to manage Python, systemd, file paths, and permissions yourself.

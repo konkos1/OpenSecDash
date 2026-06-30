@@ -10,6 +10,8 @@ body:
 
         Tip: OpenSecDash can create a debug ZIP package on the Diagnostics page. The package already redacts known sensitive values such as passwords, tokens, API keys, access keys, bearer credentials, URL usernames, and sensitive URL query parameters. Please still review every file before attaching it to a public issue.
 
+        Docker installs log to stdout/stderr by default. If file logging is disabled, the debug ZIP will not contain an app log tail. Please add sanitized output from `docker compose logs opensecdash --tail=500` when logs are relevant.
+
   - type: textarea
     id: summary
     attributes:
@@ -78,14 +80,14 @@ body:
     id: debug-report
     attributes:
       label: OpenSecDash debug package
-      description: Attach the sanitized ZIP package from Diagnostics → Download debug report, or paste relevant excerpts. Please review every file before publishing because hostnames, IPs, asset names, and log payloads may still be sensitive in your environment.
+      description: Attach the sanitized ZIP package from Diagnostics → Download debug report, or paste relevant excerpts. Please review every file before publishing because hostnames, IPs, asset names, and log payloads may still be sensitive in your environment. Docker users: if file logging is disabled, also include sanitized `docker compose logs opensecdash --tail=500` output when relevant.
       render: text
 
   - type: textarea
     id: logs
     attributes:
       label: Additional logs or screenshots
-      description: Paste other relevant sanitized logs or attach screenshots.
+      description: Paste other relevant sanitized logs or attach screenshots. For Docker Compose, prefer sanitized `docker compose logs opensecdash --tail=500` output.
       render: text
 
   - type: checkboxes

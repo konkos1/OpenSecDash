@@ -6,6 +6,16 @@ from app.models.core import Diagnostic, PluginRecord
 from app.models.settings import Setting
 
 
+def test_debug_report_includes_docker_log_hint_when_file_logging_disabled(db_session):
+    db_session.add(Setting(key="log_file_enabled", value="false"))
+    db_session.commit()
+
+    report = build_debug_report(db_session)
+
+    assert "File logging is disabled" in report
+    assert "docker compose logs opensecdash --tail=500" in report
+
+
 def test_debug_report_redacts_sensitive_settings_and_log_tail(db_session, tmp_path):
     log_file = tmp_path / "opensecdash.log"
     log_file.write_text(
