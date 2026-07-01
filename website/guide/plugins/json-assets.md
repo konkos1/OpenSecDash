@@ -26,6 +26,16 @@ It is useful for hosts that are not discovered by another plugin, or for environ
 }
 ```
 
+## Settings
+
+| Setting | What it does |
+| --- | --- |
+| Enabled | Enables the JSON Assets plugin and asset navigation/widgets. |
+| Source type | Loads `assets.json` from a local file or URL. |
+| Source | Path or URL to `assets.json`. Missing apps are marked inactive and kept for history. |
+| Master for app values | Controls whether version/release URL are maintained in OpenSecDash or overwritten from `assets.json` for existing apps. |
+| Inventory interval seconds | How often `assets.json` is reloaded automatically. Use `0` to disable automatic reloads. |
+
 ## Source behavior
 
 JSON Assets and Proxmox Assets can run in parallel. The JSON importer generates stable source IDs and only marks its own imported systems and apps inactive.

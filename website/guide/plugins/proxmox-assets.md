@@ -21,13 +21,16 @@ If the plugin imports nodes but no guests, check that the token can see guests i
 
 Do not give write/admin permissions. OpenSecDash does not need Guest Exec, SSH, or Proxmox write access for this plugin.
 
-## Plugin settings
+## Settings
 
-- Proxmox API URL, e.g. `https://pve.example.local:8006`
-- API token ID, e.g. `opensecdash@pve!inventory`
-- API token secret
-- Verify TLS certificate
-- Poll interval, default `300` seconds
+| Setting | What it does |
+| --- | --- |
+| Enabled | Enables Proxmox node/guest import and optional app declarations from Proxmox notes. |
+| Proxmox API URL | Base URL, for example `https://pve.example.local:8006`. |
+| API token ID | Token ID, for example `opensecdash@pve!inventory`. |
+| API token secret | Secret value for the API token. |
+| Verify TLS certificate | Enables certificate verification. Disable only for trusted self-signed homelab certificates. |
+| Poll interval seconds | How often Proxmox assets are synchronized. Default: `300`. |
 
 Disable TLS verification only for trusted self-signed homelab certificates.
 

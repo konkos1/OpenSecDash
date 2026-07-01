@@ -4,10 +4,14 @@ The CrowdSec plugin imports CrowdSec ban history and can execute ban/unban actio
 
 ## Settings
 
-- Enable the plugin
-- CrowdSec log path
-- `cscli` path
-- Poll interval for log imports
+| Setting | What it does |
+| --- | --- |
+| Enabled | Enables CrowdSec log import and CrowdSec actions. |
+| CrowdSec log path | Path to `crowdsec.log`. In Docker, mount the host log read-only into the container. Ban history, scenarios, and countries are derived from matching log lines. |
+| cscli path | Command or absolute path used for active decisions and ban/unban actions. |
+| CrowdSec poll interval seconds | How often the CrowdSec log is checked for appended ban history entries. |
+
+OpenSecDash also synchronizes active CrowdSec decisions for the Unban workflow.
 
 ## Typical setup
 

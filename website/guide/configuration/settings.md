@@ -118,17 +118,6 @@ Notes:
 - A plain search without `&&`, `||`, or parentheses is treated as one substring search.
 - The special value `-` can be used for country searches to find events without a country value.
 
-## Asset update checks
-
-This section is shown when at least one asset source plugin is enabled, currently JSON Assets or Proxmox Assets. These settings are shared by all asset sources and are not owned by one specific asset plugin.
-
-| Setting | What it does |
-| --- | --- |
-| GitHub API token | Optional token for GitHub release checks to avoid rate limits. |
-| GitHub release check interval seconds | How often GitHub releases are checked for known assets. Use `0` to disable automatic checks. |
-
-The section is named generically because future update-check providers may cover non-GitHub sources, such as Docker image release checks.
-
 ## Asset Explorer filters
 
 The Asset Explorer has several user-facing controls:
@@ -146,80 +135,4 @@ The Asset Explorer has several user-facing controls:
 
 Systems can be marked **stale** when they have not been seen recently. Proxmox Assets use a shorter threshold than JSON/manual sources because Proxmox syncs more frequently.
 
-## JSON Assets plugin settings
-
-| Setting | What it does |
-| --- | --- |
-| Enabled | Enables the JSON Assets plugin and asset navigation/widgets. |
-| Source type | Loads `assets.json` from a local file or URL. |
-| Source | Path or URL to `assets.json`. Missing apps are marked inactive and kept for history. |
-| Master for app values | Controls whether version/release URL are maintained in OpenSecDash or overwritten from `assets.json` for existing apps. |
-| Inventory interval seconds | How often `assets.json` is reloaded automatically. Use `0` to disable automatic reloads. |
-
-See [JSON Assets](../plugins/json-assets.md) for used JSON struture definition.
-
-## Proxmox Assets plugin settings
-
-| Setting | What it does |
-| --- | --- |
-| Enabled | Enables Proxmox node/guest import and optional app declarations from Proxmox notes. |
-| Proxmox API URL | Base URL, for example `https://pve.example.local:8006`. |
-| API token ID | Token ID, for example `opensecdash@pve!inventory`. |
-| API token secret | Secret value for the API token. |
-| Verify TLS certificate | Enables certificate verification. Disable only for trusted self-signed homelab certificates. |
-| Poll interval seconds | How often Proxmox assets are synchronized. Default: `300`. |
-
-See [Proxmox Assets](../plugins/proxmox-assets.md) for token permissions and notes metadata.
-
-## CrowdSec plugin settings
-
-| Setting | What it does |
-| --- | --- |
-| Enabled | Enables CrowdSec log import and CrowdSec actions. |
-| CrowdSec log path | Path to `crowdsec.log`. In Docker, mount the host log read-only into the container. Ban history, scenarios, and countries are derived from matching log lines. |
-| cscli path | Command or absolute path used for active decisions and ban/unban actions. |
-| CrowdSec poll interval seconds | How often the CrowdSec log is checked for appended ban history entries. |
-
-OpenSecDash also synchronizes active CrowdSec decisions for the Unban workflow.
-
-## GeoIP plugin settings
-
-| Setting | What it does |
-| --- | --- |
-| Enabled | Adds country, city, ASN, and ISP to new public-IP events when the producer did not already provide them. |
-| Provider | GeoIP provider. The bundled provider is `ip-api.com`. |
-| Cache TTL days | How long successful lookups stay cached before being refreshed. |
-| Timeout seconds | HTTP timeout for one GeoIP provider request. |
-
-Private/local/reserved IPs are skipped.
-
-## Traefik Access Log plugin settings
-
-| Setting | What it does |
-| --- | --- |
-| Enabled | Enables Traefik access log import. |
-| Log path | Path to the Traefik access log file. In Docker, mount the host log read-only into the container. |
-| Poll interval seconds | How often the log file is checked for appended lines. |
-| Hide local IPs by default | Controls whether local/private IPs are hidden by default in access views. |
-
-## GeoBlock Log plugin settings
-
-| Setting | What it does |
-| --- | --- |
-| Enabled | Enables GeoBlock log import. |
-| Log path | Path to the GeoBlock log file. |
-| Poll interval seconds | How often the log file is checked for appended lines. |
-
-## MQTT / Home Assistant plugin settings
-
-| Setting | What it does |
-| --- | --- |
-| Enabled | Enables publishing app update information to MQTT/Home Assistant. |
-| Host | MQTT broker hostname or IP. |
-| Port | MQTT broker port, usually `1883`. |
-| Username | MQTT username. |
-| Password | MQTT password. |
-| Topic prefix | Prefix for MQTT topics, for example `opensecdash`. |
-| Publish interval seconds | How often publishable app update information is sent automatically. |
-
-MQTT buttons in the Asset Explorer are available for assets from any asset source when MQTT is enabled and the asset has enough version/release metadata.
+Plugin-specific settings are documented on the individual [plugin pages](../plugins/index.md).

@@ -2,6 +2,35 @@
 
 Docker Compose is the recommended installation method.
 
+docker-compose.yml example:
+
+```yml
+services:
+  opensecdash:
+    image: konkos1/opensecdash:latest
+    container_name: opensecdash
+    ports:
+      - "8765:8000"
+    volumes:
+      - opensecdash-data:/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: unless-stopped
+
+volumes:
+  opensecdash-data:
+```
+Start the app:
+
+```bash
+docker compose up -d
+```
+
+Or:
+
 ```bash
 cp docker-compose.example.yml docker-compose.yml
 docker compose up -d

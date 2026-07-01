@@ -25,9 +25,9 @@ OpenSecDash collects security events, access logs, asset information, and update
 
 ## Documentation
 
-Full documentation lives at **https://opensecdash.app**.
+Full documentation lives at **https://opensecdash.app**. It includes installation guides, plugin documentation, operations notes, and troubleshooting help.
 
-The website source is in [`website/`](website/). It includes installation guides, plugin documentation, operations notes, and troubleshooting help.
+The website source is in [`website/`](website/).
 
 ## Quickstart
 

@@ -2,7 +2,7 @@
 
 Docker Compose is the recommended way to run OpenSecDash.
 
-docker-compose.yml -example:
+docker-compose.yml example:
 
 ```yml
 services:
