@@ -15,6 +15,10 @@ hero:
     - theme: alt
       text: View on GitHub
       link: https://github.com/konkos1/OpenSecDash
+    - theme: alt
+      text: View on Docker-Hub
+      link: https://hub.docker.com/r/konkos1/OpenSecDash
+      
 
 features:
   - icon: 🛡️

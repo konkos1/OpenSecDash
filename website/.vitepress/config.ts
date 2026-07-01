@@ -21,7 +21,8 @@ export default defineConfig({
       { text: 'GitHub', link: 'https://github.com/konkos1/OpenSecDash' }
     ],
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/konkos1/OpenSecDash' }
+      { icon: 'github', link: 'https://github.com/konkos1/OpenSecDash' },
+      { icon: 'docker', link: 'https://hub.docker.com/r/konkos1/OpenSecDash' }
     ],
     search: {
       provider: 'local'
