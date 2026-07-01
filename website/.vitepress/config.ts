@@ -59,7 +59,10 @@ export default defineConfig({
           { text: 'Overview', link: '/guide/plugins/' },
           { text: 'Proxmox Assets', link: '/guide/plugins/proxmox-assets' },
           { text: 'JSON Assets', link: '/guide/plugins/json-assets' },
+          { text: 'Asset update checks', link: '/guide/plugins/asset-update-checks' },
+          { text: 'MQTT to Home Assistant', link: '/guide/plugins/mqtt' },
           { text: 'CrowdSec', link: '/guide/plugins/crowdsec' },
+          { text: 'GeoBlock Log', link: '/guide/plugins/geoblock' },
           { text: 'GeoIP', link: '/guide/plugins/geoip' },
           { text: 'Traefik Access Log', link: '/guide/plugins/traefik' }
         ]

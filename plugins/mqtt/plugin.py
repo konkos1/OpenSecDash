@@ -57,7 +57,7 @@ class Plugin(ExportPlugin, PeriodicPlugin):
             "mqtt.settings.topic_prefix": "MQTT state topic prefix",
             "mqtt.settings.topic_prefix.help": "Base topic for state payloads. Asset update states are published below <prefix>/apps/<app>/state.",
             "mqtt.settings.publish_interval": "Publish interval",
-            "mqtt.settings.publish_interval.help": "Use 'auto' to publish when JSON Assets triggers MQTT, 0 for manual only, or a number of seconds for periodic publishing.",
+            "mqtt.settings.publish_interval.help": "Use 'auto' to publish when asset sources trigger MQTT, 0 for manual only, or a number of seconds for periodic publishing.",
             "common.yes": "Yes", "common.no": "No",
         },
         "de": {
@@ -76,7 +76,7 @@ class Plugin(ExportPlugin, PeriodicPlugin):
             "mqtt.settings.topic_prefix": "MQTT State-Topic-Präfix",
             "mqtt.settings.topic_prefix.help": "Basistopic für State-Payloads. Asset-Update-States werden unter <prefix>/apps/<app>/state publiziert.",
             "mqtt.settings.publish_interval": "Veröffentlichungsintervall",
-            "mqtt.settings.publish_interval.help": "'auto' veröffentlicht, wenn JSON Assets MQTT triggert, 0 bedeutet nur manuell, oder eine Sekundenanzahl für periodisches Veröffentlichen.",
+            "mqtt.settings.publish_interval.help": "'auto' veröffentlicht, wenn Asset-Quellen MQTT triggern, 0 bedeutet nur manuell, oder eine Sekundenanzahl für periodisches Veröffentlichen.",
             "common.yes": "Ja", "common.no": "Nein",
         },
     }
@@ -132,7 +132,7 @@ class Plugin(ExportPlugin, PeriodicPlugin):
         )
 
     async def export_asset(self, context, asset: Any) -> None:
-        # This hook is called by JSON Assets, the manual button, and the
+        # This hook is called by asset sources, the manual button, and the
         # periodic loop. Gate here so all entry points follow the same policy.
         interval = self.publish_interval(context)
         if interval != -1 and not context.manual_export and context.get("_periodic_export") != "true":
@@ -160,7 +160,7 @@ class Plugin(ExportPlugin, PeriodicPlugin):
             "device": {
                 "identifiers": ["opensecdash_mqtt_plugin"],
                 "name": "OpenSecDash Assets",
-                "model": "OpenSecDash JSON Assets",
+                "model": "OpenSecDash Assets",
                 "manufacturer": "konkos1",
             },
         }

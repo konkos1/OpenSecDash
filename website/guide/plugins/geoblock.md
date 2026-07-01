@@ -1,0 +1,45 @@
+# GeoBlock Log Plugin
+
+The GeoBlock Log plugin imports denied requests from the Traefik GeoBlock plugin log and stores them as security events.
+
+It is intended for setups using the Traefik plugin from `github.com/PascalMinder/geoblock` or a compatible log format.
+
+## What it creates
+
+Matching log lines are imported as:
+
+```text
+security.geoblock
+```
+
+The plugin extracts, when available:
+
+- event time
+- source IP
+- country
+- original raw log line
+
+These events appear on the Dashboard, Events page, IP Explorer, and can be enriched by GeoIP when GeoIP is enabled.
+
+## Settings
+
+| Setting | What it does |
+| --- | --- |
+| Enabled | Enables GeoBlock log watching/import. |
+| GeoBlock log path | Path to `geoblock.log`. In Docker, mount the host log read-only into the container. |
+| Poll interval seconds | How often the log file is checked for new entries. |
+
+## Docker note
+
+The container must be able to read the GeoBlock log path configured in Settings. Mount the host log read-only, for example:
+
+```yaml
+volumes:
+  - /var/log/traefik/geoblock.log:/var/log/traefik/geoblock.log:ro
+```
+
+Then configure the same path in OpenSecDash.
+
+## Diagnostics
+
+Diagnostics shows whether the configured log file exists and is readable. If the path is wrong or the file is not mounted into the container, the plugin reports an error.
