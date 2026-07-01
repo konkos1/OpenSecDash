@@ -31,6 +31,7 @@ export default defineConfig({
         text: 'Getting started',
         items: [
           { text: 'What is OpenSecDash?', link: '/guide/getting-started/what-is-opensecdash' },
+          { text: 'Features', link: '/guide/getting-started/features' },
           { text: 'Quickstart', link: '/guide/getting-started/quickstart' },
           { text: 'Security model', link: '/guide/getting-started/security-model' }
         ]
@@ -46,6 +47,7 @@ export default defineConfig({
       {
         text: 'Configuration',
         items: [
+          { text: 'Settings', link: '/guide/configuration/settings' },
           { text: 'Logging', link: '/guide/configuration/logging' },
           { text: 'Debug reports', link: '/guide/configuration/debug-reports' }
         ]
@@ -71,7 +73,8 @@ export default defineConfig({
       {
         text: 'Contributing',
         items: [
-          { text: 'Development', link: '/guide/contributing/development' }
+          { text: 'Development', link: '/guide/contributing/development' },
+          { text: 'Project information', link: '/guide/contributing/project' }
         ]
       }
     ],
