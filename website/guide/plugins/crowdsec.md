@@ -15,7 +15,7 @@ In Docker, mount the CrowdSec log read-only into the OpenSecDash container and c
 
 ```yaml
 volumes:
-  - /var/log/crowdsec.log:/logs/crowdsec.log:ro
+  - /var/log/crowdsec.log:/var/log/crowdsec.log:ro
 ```
 
 ## Actions and dry run

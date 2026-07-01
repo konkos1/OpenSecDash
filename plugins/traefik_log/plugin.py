@@ -25,6 +25,7 @@ class Plugin(DatasourcePlugin):
         PluginSetting("enabled", "traefik_log.settings.enabled", "traefik_log.settings.enabled.help", "boolean", "false", [("false", "common.no"), ("true", "common.yes")]),
         PluginSetting("log_path", "traefik_log.settings.log_path", "traefik_log.settings.log_path.help", "file", "/var/log/traefik/access.log"),
         PluginSetting("poll_interval", "traefik_log.settings.poll_interval", "traefik_log.settings.poll_interval.help", "number", "2"),
+        PluginSetting("hide_local_ips_default", "traefik_log.settings.hide_local_ips_default", "traefik_log.settings.hide_local_ips_default.help", "boolean", "false", [("false", "common.no"), ("true", "common.yes")]),
     ]
     locales = {
         "en": {
@@ -34,6 +35,8 @@ class Plugin(DatasourcePlugin):
             "traefik_log.settings.log_path.help": "Path to the Traefik JSON access.log. Fields are parsed like the proven traefik-logs.sh script.",
             "traefik_log.settings.poll_interval": "Traefik poll interval seconds",
             "traefik_log.settings.poll_interval.help": "How often the file is checked for appended lines and rotation.",
+            "traefik_log.settings.hide_local_ips_default": "Hide local IPs by default",
+            "traefik_log.settings.hide_local_ips_default.help": "Starts the Access page with local/private IPs hidden unless the filter is changed manually.",
             "common.yes": "Yes",
             "common.no": "No",
         },
@@ -44,6 +47,8 @@ class Plugin(DatasourcePlugin):
             "traefik_log.settings.log_path.help": "Pfad zum Traefik JSON access.log. Die Felder werden wie im erprobten traefik-logs.sh geparst.",
             "traefik_log.settings.poll_interval": "Traefik Prüfintervall in Sekunden",
             "traefik_log.settings.poll_interval.help": "Wie oft die Datei auf neue Zeilen und Rotation geprüft wird.",
+            "traefik_log.settings.hide_local_ips_default": "Lokale IPs standardmäßig ausblenden",
+            "traefik_log.settings.hide_local_ips_default.help": "Öffnet die Access-Seite standardmäßig mit ausgeblendeten lokalen/privaten IPs, solange der Filter nicht manuell geändert wird.",
             "common.yes": "Ja",
             "common.no": "Nein",
         },

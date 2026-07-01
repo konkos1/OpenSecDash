@@ -669,14 +669,18 @@ def access_page(
     q_utc_terms_by_term = {token: utc_search_terms_for_ui_time(token, timezone_name) for token in q_tokens}
     today_enabled = today == "true"
     snapshot_cutoff = parse_snapshot_before(snapshot_before)
+    local_filter_touched = "local_ip_filter" in request.query_params
+    hide_local_default = get_setting_value(db, "plugin.traefik_log.hide_local_ips_default", "false") == "true"
+    hide_local_enabled = hide_local_ips == "true" or (hide_local_ips is None and show_local_ips is None and not local_filter_touched and hide_local_default)
+    show_local_enabled = show_local_ips == "true"
     filters = {
         "event_type": "access.*",
         "q": q_value,
         "q_utc_terms": utc_search_terms_for_ui_time(q_value, timezone_name),
         "q_utc_terms_by_term": q_utc_terms_by_term,
         "plugins": ["traefik_log"],
-        "hide_local_ips": hide_local_ips == "true",
-        "show_local_ips": show_local_ips == "true",
+        "hide_local_ips": hide_local_enabled,
+        "show_local_ips": show_local_enabled,
         "event_time_from": today_start(db) if today_enabled else None,
         "event_time_to": snapshot_cutoff,
     }
@@ -693,8 +697,8 @@ def access_page(
         active_columns=active_columns,
         columns_setting_action="/access/columns",
         q=q or "",
-        hide_local_ips=hide_local_ips == "true",
-        show_local_ips=show_local_ips == "true",
+        hide_local_ips=hide_local_enabled,
+        show_local_ips=show_local_enabled,
         today=today_enabled,
         snapshot_before=snapshot_before or "",
         live_default=get_setting_value(db, "live_default", "true"),

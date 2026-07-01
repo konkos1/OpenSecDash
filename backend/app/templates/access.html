@@ -30,6 +30,7 @@
 
     <form class="card grid grid-cols-1 md:grid-cols-6 gap-3 mb-5" method="get">
         <input type="hidden" name="snapshot_before" value="{{ snapshot_before or '' }}" data-snapshot-before>
+        <input type="hidden" name="local_ip_filter" value="1">
         <div class="field-help md:col-span-4" style="position:relative">
             <input class="input" name="q" value="{{ q or '' }}" placeholder="{{ t('access.search_placeholder') }}">
             <button type="button" class="help" style="position:absolute;right:.45rem;top:.95rem;margin-left:0;z-index:5" data-tooltip="{{ t('access.search_help') }}">?</button>
