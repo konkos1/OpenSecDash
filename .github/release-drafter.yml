@@ -1,0 +1,16 @@
+name-template: "OpenSecDash $RESOLVED_VERSION"
+tag-template: "v$RESOLVED_VERSION"
+change-template: "- #$NUMBER $TITLE by @$AUTHOR"
+no-changes-template: "- No pull requests in this release."
+change-title-escapes: "\\<*_&"
+
+template: |
+  ## Changes
+
+  $CHANGES
+
+  ## Contributors
+
+  $CONTRIBUTORS
+
+contributor-template: "- @$CONTRIBUTOR"

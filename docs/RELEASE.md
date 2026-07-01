@@ -12,7 +12,7 @@ v0.2.0
 v1.0.0
 ```
 
-The Docker publish workflow runs for tags matching:
+The Docker publish and Release Drafter workflows run for tags matching:
 
 ```text
 v*.*.*
@@ -63,15 +63,12 @@ konkos1/opensecdash:0.1.0
 konkos1/opensecdash:latest
 ```
 
+The Release Drafter workflow publishes a GitHub Release for the same tag. Release notes are based on merged pull requests, not a full commit list. Each entry includes the PR number, title, and contributor.
+
 ## After publishing
 
-1. Create a GitHub Release from the tag.
-2. Add a short changelog:
-   - new features
-   - fixes
-   - security updates
-   - breaking changes, if any
-3. Verify the Docker image can be pulled and started:
+1. Verify the generated GitHub Release notes.
+2. Verify the Docker image can be pulled and started:
 
 ```bash
 docker pull konkos1/opensecdash:v0.1.0
