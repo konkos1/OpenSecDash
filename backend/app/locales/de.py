@@ -254,6 +254,8 @@ DE = {
     "action.type.crowdsec_unban": "Manueller CrowdSec-Unban",
     "diagnostics.no_actions": "Keine Aktionen ausgelöst",
 
+    "footer.documentation": "Dokumentation",
+
     "settings.title": "Einstellungen",
     "settings.core": "Allgemein",
     "settings.version": "OpenSecDash-Version",

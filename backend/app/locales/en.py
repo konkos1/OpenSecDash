@@ -253,6 +253,8 @@ EN = {
     "action.type.crowdsec_unban": "Manual CrowdSec unban",
     "diagnostics.no_actions": "No actions triggered",
 
+    "footer.documentation": "Documentation",
+
     "settings.title": "Settings",
     "settings.core": "General",
     "settings.version": "OpenSecDash version",
