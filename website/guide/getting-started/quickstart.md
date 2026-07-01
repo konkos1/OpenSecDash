@@ -11,10 +11,6 @@ services:
     container_name: opensecdash
     ports:
       - "8765:8000"
-    environment:
-      DATABASE_URL: sqlite:////data/opensecdash.db
-      AUTO_MIGRATE: "true"
-      LOG_FILE_ENABLED: "false"
     volumes:
       - opensecdash-data:/data
     logging:

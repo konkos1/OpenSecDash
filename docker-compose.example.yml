@@ -6,14 +6,6 @@ services:
     container_name: opensecdash
     ports:
       - "8765:8000"
-    environment:
-      DATABASE_URL: sqlite:////data/opensecdash.db
-      AUTO_MIGRATE: "true"
-      # Docker installs should log to stdout/stderr and let Docker rotate logs.
-      LOG_FILE_ENABLED: "false"
-      # Optional: change the internal bind address/port if you really need to.
-      # OSD_HOST: 0.0.0.0
-      # OSD_PORT: "8000"
     volumes:
       - opensecdash-data:/data
       # Optional: mount host log files or inventory files read-only for plugins.
@@ -21,6 +13,7 @@ services:
       # - /var/log/geoblock.log:/logs/geoblock.log:ro
       # - /var/log/crowdsec.log:/logs/crowdsec.log:ro
       # - ./assets.json:/data/assets.json:ro
+    # Optional but recommended: keep Docker's json-file logs bounded.
     logging:
       driver: json-file
       options:

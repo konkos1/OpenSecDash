@@ -1,3 +1,5 @@
+import os
+
 from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
 
@@ -21,9 +23,9 @@ DEFAULT_SETTINGS = {
     "asset_updates.github_interval": "21600",
     "action_dry_run": "true",
     "apps_master": "opensecdash",
-    "log_file_enabled": "true",
-    "log_file_path": "logs/opensecdash.log",
-    "log_level": "INFO",
+    "log_file_enabled": os.getenv("LOG_FILE_ENABLED", "true"),
+    "log_file_path": os.getenv("LOG_FILE_PATH", "logs/opensecdash.log"),
+    "log_level": os.getenv("LOG_LEVEL", "INFO"),
     "mqtt_enabled": "false",
     "mqtt_host": "",
     "mqtt_port": "1883",

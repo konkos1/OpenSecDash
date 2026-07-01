@@ -4,11 +4,7 @@ OpenSecDash writes service logs to stdout/stderr. Optional file logging can be e
 
 ## Docker
 
-For Docker installs, file logging should normally stay disabled:
-
-```env
-LOG_FILE_ENABLED=false
-```
+For Docker installs, file logging is disabled by default in the image.
 
 Docker log rotation should be handled by the container runtime. The example compose file uses:
 
