@@ -129,7 +129,7 @@ The Asset Explorer has several user-facing controls:
 | Show inactive | Includes inactive systems/apps that were previously imported but no longer seen by their source. |
 | Updates only | Shows only systems that currently have apps with available updates. |
 | Proxmox sync | Manually synchronizes Proxmox Assets when that plugin is enabled. |
-| Import | Manually imports JSON Assets when that plugin is enabled. |
+| JSON sync | Manually synchronizes JSON Assets when that plugin is enabled. |
 | Check updates | Checks GitHub release URLs for assets. During one run, the same repository is queried only once. |
 | Publish MQTT now | Publishes currently publishable app update states when MQTT is enabled. |
 
