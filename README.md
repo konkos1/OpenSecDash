@@ -25,6 +25,8 @@ OpenSecDash collects security events, access logs, asset information, and update
 
 OpenSecDash is open source and built for homelab enthusiasts who want security visibility without building a full observability platform first.
 
+Full documentation lives at **https://opensecdash.app**. The website source is kept in this repository under [`website/`](website/).
+
 ## Table of contents
 
 - [OpenSecDash is not a Grafana replacement](#opensecdash-is-not-a-grafana-replacement)

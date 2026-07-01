@@ -1,0 +1,13 @@
+{
+  "name": "opensecdash-website",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "docs:dev": "vitepress dev --host 127.0.0.1",
+    "docs:build": "vitepress build",
+    "docs:preview": "vitepress preview --host 127.0.0.1"
+  },
+  "devDependencies": {
+    "vitepress": "^1.6.4"
+  }
+}
