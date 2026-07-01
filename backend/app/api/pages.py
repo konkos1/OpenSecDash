@@ -31,6 +31,7 @@ from app.plugins.manager import get_plugin_manager
 from app.services.asset_actions import (
     AssetActionAlreadyRunning,
     asset_action_running,
+    export_publishable_asset_updates,
     import_assets_source_action,
     publish_asset_updates_action,
     refresh_asset_updates_action,
@@ -969,13 +970,16 @@ def assets_proxmox_sync_page(db: Session = Depends(get_db)):
 
         run_asset_action(
             "proxmox_sync",
-            lambda: sync_proxmox_assets(
-                db,
-                api_url=get_setting_value(db, "plugin.proxmox_assets.api_url", ""),
-                token_id=get_setting_value(db, "plugin.proxmox_assets.token_id", ""),
-                token_secret=get_setting_value(db, "plugin.proxmox_assets.token_secret", ""),
-                verify_tls=get_setting_value(db, "plugin.proxmox_assets.verify_tls", "true") == "true",
-            ),
+            lambda: (
+                sync_proxmox_assets(
+                    db,
+                    api_url=get_setting_value(db, "plugin.proxmox_assets.api_url", ""),
+                    token_id=get_setting_value(db, "plugin.proxmox_assets.token_id", ""),
+                    token_secret=get_setting_value(db, "plugin.proxmox_assets.token_secret", ""),
+                    verify_tls=get_setting_value(db, "plugin.proxmox_assets.verify_tls", "true") == "true",
+                ),
+                export_publishable_asset_updates(db),
+            )[0],
         )
     except AssetActionAlreadyRunning as exc:
         raise HTTPException(status_code=409, detail=f"Asset action is already running: {exc.action}") from exc
@@ -995,7 +999,7 @@ def assets_proxmox_sync_page(db: Session = Depends(get_db)):
 
 @router.post("/assets/mqtt-publish")
 def assets_mqtt_publish_page(db: Session = Depends(get_db)):
-    require_plugin_enabled(db, "json_assets")
+    require_assets_feature_enabled(db)
     if get_setting_value(db, "plugin.mqtt-hass.enabled", get_setting_value(db, "plugin.mqtt.enabled", "false")) != "true":
         raise HTTPException(status_code=404, detail="Feature is disabled")
     try:

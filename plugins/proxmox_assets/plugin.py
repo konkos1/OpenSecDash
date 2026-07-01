@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from app.plugins.base import PeriodicPlugin, PluginMetadata, PluginSetting
+from app.models.assets import Asset
+from app.plugins.base import PeriodicPlugin, PluginContext, PluginMetadata, PluginSetting
 from app.services.proxmox_assets import ProxmoxClient, inspect_proxmox_guest_visibility, proxmox_visibility_message, sync_proxmox_assets
 
 
@@ -9,7 +10,7 @@ class Plugin(PeriodicPlugin):
         id="proxmox_assets",
         name="Proxmox Assets",
         version="1.0.0",
-        capabilities=["datasource", "widget"],
+        capabilities=["datasource", "page", "widget"],
         description="Imports Proxmox nodes, VMs/LXCs, and optional app metadata from hidden notes blocks.",
     )
     settings = [
@@ -68,7 +69,7 @@ class Plugin(PeriodicPlugin):
         except Exception as exc:
             return {"status": "error", "message": str(exc)}
 
-    async def tick(self, context) -> None:
+    async def tick(self, context: PluginContext) -> None:
         sync_proxmox_assets(
             context.db,
             api_url=context.get("api_url"),
@@ -76,3 +77,18 @@ class Plugin(PeriodicPlugin):
             token_secret=context.get("token_secret"),
             verify_tls=context.get("verify_tls", "true") == "true",
         )
+        await self._export_assets(context)
+
+    async def _export_assets(self, context: PluginContext) -> None:
+        publishable_assets = (
+            context.db.query(Asset)
+            .filter(
+                Asset.mqtt_publish_enabled == True,
+                Asset.version.isnot(None),
+                Asset.latest_version.isnot(None),
+                Asset.release_url.isnot(None),
+            )
+            .all()
+        )
+        for asset in publishable_assets:
+            await context.export_asset_update(asset)
