@@ -8,7 +8,7 @@
 
     <h2 class="text-2xl font-semibold mb-5">{{ t("settings.title") }}</h2>
 
-    <form class="space-y-5" method="post" action="/settings" data-unsaved-warning="{{ t('settings.unsaved_changes') }}" x-data='{ settings: {{ plugin_settings_state | tojson }} }'>
+    <form class="space-y-5" method="post" action="/settings" data-unsaved-warning="{{ t('settings.unsaved_changes') }}" x-data='{ settings: {{ plugin_settings_state | tojson }}, logFileEnabled: {{ log_file_enabled | tojson }} }'>
         <section class="card grid grid-cols-1 md:grid-cols-2 gap-4">
             <h3 class="font-semibold md:col-span-2">{{ t("settings.core") }}</h3>
             <label>{{ t("settings.domain") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.domain') }}">?</button>
@@ -59,26 +59,25 @@
             </select>
         </label>
 
-        </section>
+        <label>{{ t("settings.log_file_enabled") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.log_file_enabled') }}">?</button>
+            <select class="input" name="log_file_enabled" x-model="logFileEnabled">
+                <option value="true" {% if log_file_enabled == 'true' %}selected{% endif %}>{{ t("common.yes") }}</option>
+                <option value="false" {% if log_file_enabled == 'false' %}selected{% endif %}>{{ t("common.no") }}</option>
+            </select>
+        </label>
 
-        <section class="card grid grid-cols-1 md:grid-cols-2 gap-4">
-            <h3 class="font-semibold md:col-span-2">{{ t("settings.logging") }}</h3>
-            <label>{{ t("settings.log_file_enabled") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.log_file_enabled') }}">?</button>
-                <select class="input" name="log_file_enabled">
-                    <option value="true" {% if log_file_enabled == 'true' %}selected{% endif %}>{{ t("common.yes") }}</option>
-                    <option value="false" {% if log_file_enabled == 'false' %}selected{% endif %}>{{ t("common.no") }}</option>
-                </select>
-            </label>
-            <label>{{ t("settings.log_level") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.log_level') }}">?</button>
-                <select class="input" name="log_level">
-                    {% for level in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'] %}
-                        <option value="{{ level }}" {% if log_level == level %}selected{% endif %}>{{ level }}</option>
-                    {% endfor %}
-                </select>
-            </label>
-            <label class="md:col-span-2">{{ t("settings.log_file_path") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.log_file_path') }}">?</button>
-                <input class="input" type="text" name="log_file_path" value="{{ log_file_path }}" placeholder="logs/opensecdash.log">
-            </label>
+        <label>{{ t("settings.log_level") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.log_level') }}">?</button>
+            <select class="input" name="log_level">
+                {% for level in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'] %}
+                    <option value="{{ level }}" {% if log_level == level %}selected{% endif %}>{{ level }}</option>
+                {% endfor %}
+            </select>
+        </label>
+
+        <label class="md:col-span-2" x-show="logFileEnabled === 'true'" x-cloak>{{ t("settings.log_file_path") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.log_file_path') }}">?</button>
+            <input class="input" type="text" name="log_file_path" value="{{ log_file_path }}" placeholder="logs/opensecdash.log">
+        </label>
+
         </section>
 
         {% for group in plugin_setting_groups %}
