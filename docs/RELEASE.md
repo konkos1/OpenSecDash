@@ -12,7 +12,7 @@ v0.2.0
 v1.0.0
 ```
 
-The Docker publish and Release Drafter workflows run for tags matching:
+The Docker publish and GitHub Release workflows run for tags matching:
 
 ```text
 v*.*.*
@@ -63,7 +63,7 @@ konkos1/opensecdash:0.1.0
 konkos1/opensecdash:latest
 ```
 
-The Release Drafter workflow publishes a GitHub Release for the same tag. Release notes are based on merged pull requests, not a full commit list. Each entry includes the PR number, title, and contributor.
+The Release workflow publishes a GitHub Release for the same tag. Release notes are generated from pull requests associated with commits between the previous version tag and the new tag, not from a full commit list. Each entry includes the PR number, title, and contributor.
 
 ## After publishing
 

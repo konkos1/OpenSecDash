@@ -1,0 +1,86 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  github-release:
+    name: Publish GitHub release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Build PR-based release notes
+        id: notes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+          previous_tag="$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+' | grep -vx "${TAG}" | head -n1 || true)"
+          if [[ -n "${previous_tag}" ]]; then
+            range="${previous_tag}..${TAG}"
+          else
+            range="${TAG}"
+          fi
+
+          tmp_prs="$(mktemp)"
+          git log --format=%H "${range}" | while read -r sha; do
+            gh api \
+              -H "Accept: application/vnd.github+json" \
+              "/repos/${REPO}/commits/${sha}/pulls" \
+              --jq '.[] | [.number, .title, .user.login] | @tsv' || true
+          done | sort -n -u > "${tmp_prs}"
+
+          {
+            echo "## Changes"
+            echo
+            if [[ -s "${tmp_prs}" ]]; then
+              awk -F '\t' '{ printf "- #%s %s by @%s\n", $1, $2, $3 }' "${tmp_prs}"
+            else
+              echo "- No pull requests in this release."
+            fi
+            echo
+            echo "## Contributors"
+            echo
+            if [[ -s "${tmp_prs}" ]]; then
+              awk -F '\t' '{ print $3 }' "${tmp_prs}" | sort -u | awk '{ printf "- @%s\n", $1 }'
+            else
+              echo "- No pull request contributors in this release."
+            fi
+          } > release-notes.md
+
+          echo "Generated release notes for ${TAG} from range ${range}:"
+          cat release-notes.md
+
+      - name: Publish release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ steps.notes.outputs.version }}
+        run: |
+          set -euo pipefail
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            gh release edit "${TAG}" --title "OpenSecDash ${VERSION}" --notes-file release-notes.md
+          else
+            gh release create "${TAG}" --title "OpenSecDash ${VERSION}" --notes-file release-notes.md --verify-tag
+          fi
