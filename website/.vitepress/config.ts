@@ -76,7 +76,7 @@ export default defineConfig({
       }
     ],
     footer: {
-      message: 'Released under the MIT License.',
+      message: 'Released under the GNU Affero General Public License v3.0.',
       copyright: 'Copyright © OpenSecDash contributors'
     }
   }
