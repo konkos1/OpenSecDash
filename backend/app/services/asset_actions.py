@@ -6,9 +6,9 @@ from sqlalchemy.orm import Session
 
 from app.models.assets import Asset
 from app.plugins.manager import get_plugin_manager
-from app.services.apps_inventory_import import import_apps_inventory
-from app.services.apps_inventory_source import load_asset_source
-from app.services.apps_inventory_updates import refresh_asset_updates
+from app.services.json_assets_import import import_json_assets
+from app.services.json_assets_source import load_asset_source
+from app.services.json_assets_updates import refresh_asset_updates
 
 T = TypeVar("T")
 
@@ -73,7 +73,7 @@ def export_publishable_asset_updates(db: Session, *, manual: bool = False) -> No
 
 def import_assets_inventory_action(db: Session, inventory: dict[str, Any]) -> Any:
     def action() -> Any:
-        result = import_apps_inventory(db=db, inventory=inventory)
+        result = import_json_assets(db=db, inventory=inventory)
         export_publishable_asset_updates(db)
         return result
 
@@ -83,7 +83,7 @@ def import_assets_inventory_action(db: Session, inventory: dict[str, Any]) -> An
 def import_assets_source_action(db: Session, *, source_type: str, source: str) -> Any:
     def action() -> Any:
         inventory = load_asset_source(source_type=source_type, source=source)
-        result = import_apps_inventory(db=db, inventory=inventory)
+        result = import_json_assets(db=db, inventory=inventory)
         export_publishable_asset_updates(db)
         return result
 

@@ -204,9 +204,9 @@ def sync_proxmox_assets(db: Session, *, api_url: str, token_id: str, token_secre
             continue
         system_type = _system_type_for_kind(kind)
         name = str(guest.get("name") or f"{system_type}-{vmid}").strip()
-        # `systems.vmid` is unique for historical Apps Inventory data. Include
+        # `systems.vmid` is unique for historical JSON Assets data. Include
         # the Proxmox node in the displayed VMID to avoid collisions when a user
-        # runs Apps Inventory and Proxmox Assets in parallel or during migration.
+        # runs JSON Assets and Proxmox Assets in parallel or during migration.
         display_vmid = f"{node_name}:{vmid}"
         external_id = f"proxmox:{source_host}:guest:{node_name}:{vmid}"
         guest_system = db.query(System).filter(System.source_plugin == SOURCE_PLUGIN, System.external_id == external_id).first()

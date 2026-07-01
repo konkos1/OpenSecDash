@@ -51,13 +51,13 @@ def import_assets_from_source(
 ):
     source_type = get_setting_value(
         db,
-        "plugin.apps_inventory.source_type",
+        "plugin.json_assets.source_type",
         get_setting_value(db, "plugin.assets.source_type", get_setting_value(db, "asset_source_type", "url")),
     )
 
     source = get_setting_value(
         db,
-        "plugin.apps_inventory.source",
+        "plugin.json_assets.source",
         get_setting_value(db, "plugin.assets.source", get_setting_value(db, "asset_source", "")),
     )
 

@@ -16,7 +16,7 @@ DEFAULT_SETTINGS = {
     "theme": "auto",
     "timezone": "auto",
     "asset_source_type": "file",
-    "asset_source": "dev-data/apps-installed.json",
+    "asset_source": "dev-data/assets.json",
     "github_token": "",
     "action_dry_run": "true",
     "apps_master": "opensecdash",

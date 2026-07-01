@@ -2,7 +2,7 @@
 
 The Proxmox Assets plugin imports Proxmox nodes, VMs, and LXCs into OpenSecDash. It can also create application assets from a hidden metadata block in Proxmox guest notes.
 
-Apps Inventory JSON and Proxmox Assets can run in parallel. Each source gets stable source IDs and only manages its own imported assets.
+JSON Assets and Proxmox Assets can run in parallel. Each source gets stable source IDs and only manages its own imported assets.
 
 ## Recommended Proxmox permissions
 
@@ -75,7 +75,7 @@ proxmox:pve.example.local:8006:guest:pve1:104
 proxmox:pve.example.local:8006:guest:pve1:104:app:traefik
 ```
 
-In the Asset Explorer, Proxmox guests display VMIDs as `node:vmid` (for example `pve1:104`). This avoids collisions with existing Apps Inventory JSON systems that may already use plain VMIDs such as `104`.
+In the Asset Explorer, Proxmox guests display VMIDs as `node:vmid` (for example `pve1:104`). This avoids collisions with existing JSON Assets systems that may already use plain VMIDs such as `104`.
 
 If an app name in the notes block changes, OpenSecDash treats it as a new app and marks the old Proxmox-imported app inactive.
 

@@ -13,7 +13,7 @@
         </div>
 
         <div class="flex gap-2">
-            {% if apps_inventory_enabled %}
+            {% if json_assets_enabled %}
                 <form method="post" action="/assets/import-source" data-submit-busy>
                     <button class="btn" data-busy-label="{{ t('assets.import_running') }}" {% if asset_action_busy %}disabled{% endif %} {% if asset_import_running %}aria-busy="true"{% endif %}>
                         {% if asset_import_running %}<span class="button-spinner" aria-hidden="true"></span>{{ t("assets.import_running") }}{% else %}{{ t("assets.import") }}{% endif %}

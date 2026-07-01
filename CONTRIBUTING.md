@@ -47,7 +47,7 @@ OpenSecDash is plugin-first. A plugin can provide capabilities such as:
 
 Plugins define metadata, settings, capabilities, and optional translations. The core app handles storage, settings UI, diagnostics, and lifecycle wiring.
 
-If you want to add a datasource plugin, start by looking at the existing plugins in [`plugins/`](plugins/), especially `traefik_log` and `apps_inventory`.
+If you want to add a datasource plugin, start by looking at the existing plugins in [`plugins/`](plugins/), especially `traefik_log` and `json_assets`.
 
 ## Security-related contributions
 

@@ -138,7 +138,7 @@ DE = {
     "assets.source": "Quelle",
     "assets.source_all": "Alle Quellen",
     "assets.clear_source": "Quelle zurücksetzen",
-    "assets.source.apps_inventory": "Apps Inventory JSON",
+    "assets.source.json_assets": "JSON Assets",
     "assets.source.proxmox_assets": "Proxmox Assets",
     "assets.source.manual": "Manuell",
     "assets.stale": "veraltet",

@@ -1,6 +1,6 @@
-# Apps Inventory JSON
+# JSON Assets
 
-The Apps Inventory plugin imports systems and installed apps from a JSON source.
+The JSON Assets plugin imports systems and installed apps from a JSON source.
 
 It is useful for hosts that are not discovered by another plugin, or for environments where a simple generated JSON file is easier than an API integration.
 
@@ -27,7 +27,7 @@ It is useful for hosts that are not discovered by another plugin, or for environ
 
 ## Source behavior
 
-Apps Inventory and Proxmox Assets can run in parallel. The JSON importer generates stable source IDs and only marks its own imported apps inactive.
+JSON Assets and Proxmox Assets can run in parallel. The JSON importer generates stable source IDs and only marks its own imported apps inactive.
 
 ## Update checks
 

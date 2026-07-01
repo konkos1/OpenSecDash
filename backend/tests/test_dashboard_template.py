@@ -20,7 +20,7 @@ def render_dashboard(*, rollup_plugins_enabled: bool) -> str:
         theme="dark",
         timezone="auto",
         domain="homelab.example",
-        enabled_plugins={"crowdsec": rollup_plugins_enabled, "geoblock_log": False, "traefik_log": False, "apps_inventory": False},
+        enabled_plugins={"crowdsec": rollup_plugins_enabled, "geoblock_log": False, "traefik_log": False, "json_assets": False},
         event_plugins_enabled=rollup_plugins_enabled,
         t=lambda key: key,
         widgets=[],

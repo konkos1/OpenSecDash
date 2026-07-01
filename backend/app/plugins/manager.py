@@ -356,8 +356,8 @@ class PluginManager:
 
     async def export_asset_update(self, db: Session, asset: Any, manual: bool = False) -> None:
         # Cross-plugin calls must attribute failures to the callee. For example,
-        # Apps Inventory can trigger MQTT, but auth errors belong to MQTT's
-        # diagnostic row, not the Apps Inventory plugin.
+        # JSON Assets can trigger MQTT, but auth errors belong to MQTT's
+        # diagnostic row, not the JSON Assets plugin.
         for plugin in self.plugins.values():
             if isinstance(plugin, ExportPlugin):
                 ctx = self.context(db, plugin, manual_export=manual)

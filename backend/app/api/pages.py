@@ -26,7 +26,7 @@ from app.models.core import Action, AggregationDaily, CrowdSecDecision, Datasour
 from app.models.events import Event
 from app.models.settings import Setting
 from app.models.systems import System
-from app.services.apps_inventory_updates import refresh_asset_update
+from app.services.json_assets_updates import refresh_asset_update
 from app.plugins.manager import get_plugin_manager
 from app.services.asset_actions import (
     AssetActionAlreadyRunning,
@@ -282,7 +282,7 @@ def events_feature_enabled(db: Session) -> bool:
 
 
 def assets_feature_enabled(db: Session) -> bool:
-    return any(is_plugin_enabled(db, plugin_id) for plugin_id in ["apps_inventory", "proxmox_assets"])
+    return any(is_plugin_enabled(db, plugin_id) for plugin_id in ["json_assets", "proxmox_assets"])
 
 
 def require_plugin_enabled(db: Session, plugin_id: str) -> None:
@@ -323,7 +323,7 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
     today_key = since.strftime("%Y-%m-%d")
     rollup_day = latest_historical_rollup_day(db, today_key)
     enabled_plugins = {
-        "apps_inventory": is_plugin_enabled(db, "apps_inventory"),
+        "json_assets": is_plugin_enabled(db, "json_assets"),
         "crowdsec": is_plugin_enabled(db, "crowdsec"),
         "geoblock_log": is_plugin_enabled(db, "geoblock_log"),
         "traefik_log": is_plugin_enabled(db, "traefik_log"),
@@ -402,7 +402,7 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
         widgets.append({"title_key": "dashboard.geoblocks_today", "value": geoblocks, "href": "/events?event_type=security.geoblock&today=true"})
     if enabled_plugins["traefik_log"]:
         widgets.append({"title_key": "dashboard.access_today", "value": access_events, "href": "/events?event_type=access.*&today=true"})
-    if enabled_plugins["apps_inventory"]:
+    if enabled_plugins["json_assets"]:
         widgets.extend(
             [
                 {"title_key": "dashboard.assets", "value": db.query(Asset).filter(Asset.is_active == True).count(), "href": "/assets"},
@@ -955,7 +955,7 @@ def assets_page(request: Request, show_inactive: bool = False, updates: bool = F
         asset_import_running=asset_action_running("import"),
         asset_update_check_running=asset_action_running("refresh_updates"),
         asset_mqtt_publish_running=asset_action_running("mqtt_publish"),
-        apps_inventory_enabled=is_plugin_enabled(db, "apps_inventory"),
+        json_assets_enabled=is_plugin_enabled(db, "json_assets"),
         proxmox_plugin_enabled=is_plugin_enabled(db, "proxmox_assets"),
         proxmox_sync_running=asset_action_running("proxmox_sync"),
     )
@@ -995,7 +995,7 @@ def assets_proxmox_sync_page(db: Session = Depends(get_db)):
 
 @router.post("/assets/mqtt-publish")
 def assets_mqtt_publish_page(db: Session = Depends(get_db)):
-    require_plugin_enabled(db, "apps_inventory")
+    require_plugin_enabled(db, "json_assets")
     if get_setting_value(db, "plugin.mqtt-hass.enabled", get_setting_value(db, "plugin.mqtt.enabled", "false")) != "true":
         raise HTTPException(status_code=404, detail="Feature is disabled")
     try:
@@ -1058,7 +1058,7 @@ def asset_page(system_id: int, request: Request, show_inactive: bool = False, as
         focused_asset=focused_asset,
         show_inactive=show_inactive,
         mqtt_plugin_enabled=mqtt_plugin_enabled,
-        apps_master=get_setting_value(db, "plugin.apps_inventory.apps_master", get_setting_value(db, "apps_master", "opensecdash")),
+        apps_master=get_setting_value(db, "plugin.json_assets.apps_master", get_setting_value(db, "apps_master", "opensecdash")),
     )
 
 
@@ -1074,7 +1074,7 @@ def update_asset_metadata(
     asset = db.query(Asset).filter(Asset.id == asset_id).first()
     if asset is None:
         raise HTTPException(status_code=404, detail="Asset not found")
-    if get_setting_value(db, "plugin.apps_inventory.apps_master", get_setting_value(db, "apps_master", "opensecdash")) != "opensecdash" or not asset.is_active:
+    if get_setting_value(db, "plugin.json_assets.apps_master", get_setting_value(db, "apps_master", "opensecdash")) != "opensecdash" or not asset.is_active:
         raise HTTPException(status_code=403, detail="Asset metadata is managed externally or inactive")
     def save_metadata() -> None:
         asset.version = version.strip()
@@ -1121,16 +1121,16 @@ def app_asset_page(asset_id: int, request: Request, db: Session = Depends(get_db
 
 @router.post("/assets/import-source")
 def assets_import_source_page(db: Session = Depends(get_db)):
-    require_plugin_enabled(db, "apps_inventory")
+    require_plugin_enabled(db, "json_assets")
     source_type = get_setting_value(
         db,
-        "plugin.apps_inventory.source_type",
+        "plugin.json_assets.source_type",
         get_setting_value(db, "plugin.assets.source_type", get_setting_value(db, "asset_source_type", "file")),
     )
     source = get_setting_value(
         db,
-        "plugin.apps_inventory.source",
-        get_setting_value(db, "plugin.assets.source", get_setting_value(db, "asset_source", "dev-data/apps-installed.json")),
+        "plugin.json_assets.source",
+        get_setting_value(db, "plugin.assets.source", get_setting_value(db, "asset_source", "dev-data/assets.json")),
     )
     if source:
         try:
@@ -1341,7 +1341,7 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
         theme=get_setting_value(db, "theme", "auto"),
         timezone=get_setting_value(db, "timezone", "auto"),
         asset_source_type=get_setting_value(db, "asset_source_type", "file"),
-        asset_source=get_setting_value(db, "asset_source", "dev-data/apps-installed.json"),
+        asset_source=get_setting_value(db, "asset_source", "dev-data/assets.json"),
         github_token=get_setting_value(db, "github_token", ""),
         action_dry_run=get_setting_value(db, "action_dry_run", "true"),
         log_file_enabled=get_setting_value(db, "log_file_enabled", "true"),

@@ -275,7 +275,7 @@ Current plugins include:
 | Traefik Access Log | datasource, page, widget | Import and classify access log entries |
 | GeoBlock Log | datasource, widget | Import geoblock events |
 | GeoIP / ASN / ISP / City | enrichment | Add country, city, ASN, and ISP metadata to public IP events |
-| Apps Inventory | datasource, page, widget | Import installed apps and support update detection |
+| JSON Assets | datasource, page, widget | Import installed apps and support update detection |
 | Proxmox Assets | datasource, widget | Import Proxmox nodes, VMs/LXCs, and optional app declarations from hidden notes metadata |
 | MQTT to Home Assistant | export | Publish asset update information to Home Assistant via MQTT |
 

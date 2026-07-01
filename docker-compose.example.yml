@@ -20,7 +20,7 @@ services:
       # - /var/log/access.log:/logs/access.log:ro
       # - /var/log/geoblock.log:/logs/geoblock.log:ro
       # - /var/log/crowdsec.log:/logs/crowdsec.log:ro
-      # - ./apps-installed.json:/data/apps-installed.json:ro
+      # - ./assets.json:/data/assets.json:ro
     logging:
       driver: json-file
       options:

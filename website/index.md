@@ -25,7 +25,7 @@ features:
     details: Investigate what happened around a specific IP address and correlate access, block, and ban activity.
   - icon: 🧩
     title: Plugin-based
-    details: Start with CrowdSec, Traefik, GeoIP, Proxmox Assets, Apps Inventory, MQTT, and extend from there.
+    details: Start with CrowdSec, Traefik, GeoIP, Proxmox Assets, JSON Assets, MQTT, and extend from there.
   - icon: 📦
     title: Assets and updates
     details: Track apps running in your homelab, check GitHub releases, and keep imported sources separate and safe.

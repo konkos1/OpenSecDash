@@ -7,7 +7,7 @@ from app.core.time import utc_now
 from app.models.assets import Asset
 from app.models.systems import System
 
-SOURCE_PLUGIN = "apps_inventory"
+SOURCE_PLUGIN = "json_assets"
 
 
 def _slug(value: str) -> str:
@@ -15,14 +15,14 @@ def _slug(value: str) -> str:
 
 
 def _system_external_id(vmid: str) -> str:
-    return f"apps_inventory:system:{vmid}"
+    return f"json_assets:system:{vmid}"
 
 
 def _asset_external_id(system_external_id: str, name: str) -> str:
     return f"{system_external_id}:app:{_slug(name)}"
 
 
-def import_apps_inventory(
+def import_json_assets(
     db: Session,
     inventory: dict[str, Any],
 ) -> dict[str, int]:
@@ -32,7 +32,7 @@ def import_apps_inventory(
     inactive_assets = 0
 
     now = utc_now().replace(tzinfo=None)
-    external_master = get_setting_value(db, "plugin.apps_inventory.apps_master", get_setting_value(db, "apps_master", "opensecdash")) == "external"
+    external_master = get_setting_value(db, "plugin.json_assets.apps_master", get_setting_value(db, "apps_master", "opensecdash")) == "external"
 
     for system_data in inventory.get("systems", []):
         vmid = str(system_data.get("vmid", "")).strip()

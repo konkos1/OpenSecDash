@@ -55,7 +55,7 @@ export default defineConfig({
         items: [
           { text: 'Overview', link: '/guide/plugins/' },
           { text: 'Proxmox Assets', link: '/guide/plugins/proxmox-assets' },
-          { text: 'Apps Inventory JSON', link: '/guide/plugins/apps-inventory' },
+          { text: 'JSON Assets', link: '/guide/plugins/json-assets' },
           { text: 'CrowdSec', link: '/guide/plugins/crowdsec' },
           { text: 'GeoIP', link: '/guide/plugins/geoip' },
           { text: 'Traefik Access Log', link: '/guide/plugins/traefik' }
