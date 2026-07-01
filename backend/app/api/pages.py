@@ -290,7 +290,17 @@ def assets_feature_enabled(db: Session) -> bool:
 def diagnostic_plugin_enabled(db: Session, plugin_id: str) -> bool:
     if plugin_id == "asset_updates":
         return assets_feature_enabled(db)
+    if plugin_id == "geoip":
+        return is_plugin_enabled(db, "geoip") and events_feature_enabled(db)
     return is_plugin_enabled(db, plugin_id)
+
+
+def diagnostic_disabled_message(db: Session, plugin_id: str) -> str:
+    if plugin_id == "asset_updates" and not assets_feature_enabled(db):
+        return "No asset source plugin is enabled."
+    if plugin_id == "geoip" and is_plugin_enabled(db, "geoip") and not events_feature_enabled(db):
+        return "No event datasource plugin is enabled."
+    return "Plugin is disabled and not running."
 
 
 def require_plugin_enabled(db: Session, plugin_id: str) -> None:
@@ -1320,7 +1330,7 @@ def diagnostics_page(request: Request, db: Session = Depends(get_db)):
             {
                 "item": item,
                 "effective_status": item.status if enabled else "disabled",
-                "message": item.last_error if enabled else item.last_error or "Plugin is disabled and not running.",
+                "message": item.last_error if enabled else diagnostic_disabled_message(db, item.plugin),
             }
         )
     return render(
