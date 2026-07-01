@@ -12,6 +12,7 @@ from sqlalchemy import func
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.logging import configure_logging_from_db, setup_service_logging
+from app.core.version import get_app_version
 
 setup_service_logging()
 
@@ -36,7 +37,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     db = SessionLocal()
     try:
         configure_logging_from_db(db)
-        logger.info("OpenSecDash starting...")
+        logger.info("OpenSecDash %s starting...", get_app_version())
         if migration_result.get("applied"):
             logger.info(
                 "Database migration: schema upgraded from %s to %s",
@@ -59,11 +60,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         yield
     finally:
-        logger.info("OpenSecDash stopping gracefully...")
+        logger.info("OpenSecDash %s stopping gracefully...", get_app_version())
         await manager.shutdown()
 
 
-app = FastAPI(title="OpenSecDash", lifespan=lifespan)
+app = FastAPI(title="OpenSecDash", version=get_app_version(), lifespan=lifespan)
 
 app.include_router(settings_router)
 app.include_router(events_router)

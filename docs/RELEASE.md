@@ -1,6 +1,6 @@
 # Release Checklist
 
-OpenSecDash publishes Docker images from version tags.
+OpenSecDash publishes Docker images from version tags. The Git tag is the release version source of truth; `backend/pyproject.toml` intentionally stays at `0.0.0`.
 
 ## Version format
 
@@ -55,23 +55,13 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
-The GitHub Actions Docker publish workflow will build and push:
+The GitHub Actions Docker publish workflow derives `0.1.0` from the tag, passes it into the image as `OPENSECDASH_VERSION`, and builds/pushes:
 
 ```text
 konkos1/opensecdash:v0.1.0
+konkos1/opensecdash:0.1.0
 konkos1/opensecdash:latest
 ```
-
-## Docker Hub prerequisites
-
-Configure these GitHub Actions secrets:
-
-```text
-DOCKERHUB_USERNAME
-DOCKERHUB_TOKEN
-```
-
-Use a Docker Hub access token, not your Docker Hub password.
 
 ## After publishing
 

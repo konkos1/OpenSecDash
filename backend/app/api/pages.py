@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 from app.core.logging import configure_logging_from_db, redact_sensitive
 from app.core.template_context import build_template_context, get_setting_value
 from app.core.time import datetime_iso_utc, format_datetime_for_timezone, local_day_start_as_utc, resolve_timezone, utc_now
+from app.core.version import get_app_version
 from app.database.dependencies import get_db
 from app.models.assets import Asset
 from app.models.core import Action, AggregationDaily, CrowdSecDecision, Datasource, Diagnostic, Insight, PluginRecord
@@ -1195,6 +1196,7 @@ def build_debug_report_files(db: Session) -> dict[str, str]:
             "OpenSecDash Debug Package",
             [
                 _debug_line("Generated at", generated_at),
+                _debug_line("OpenSecDash version", get_app_version()),
                 _debug_line("Python", platform.python_version()),
                 _debug_line("Platform", platform.platform()),
                 "",

@@ -256,6 +256,7 @@ DE = {
 
     "settings.title": "Einstellungen",
     "settings.core": "Allgemein",
+    "settings.version": "OpenSecDash-Version",
     "settings.domain": "Primäre Domäne",
     "settings.language": "Sprache",
     "settings.retention_days": "Aufbewahrung in Tagen",

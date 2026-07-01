@@ -2,6 +2,7 @@ import io
 import zipfile
 
 from app.api.pages import build_debug_report, build_debug_report_zip
+from app.core.version import get_app_version
 from app.models.core import Diagnostic, PluginRecord
 from app.models.settings import Setting
 
@@ -40,6 +41,7 @@ def test_debug_report_redacts_sensitive_settings_and_log_tail(db_session, tmp_pa
     report = build_debug_report(db_session)
 
     assert "OpenSecDash Debug Package" in report
+    assert f"OpenSecDash version: {get_app_version()}" in report
     assert "Redaction notice" in report
     assert "github_token: <redacted>" in report
     assert "plain-secret-token" not in report

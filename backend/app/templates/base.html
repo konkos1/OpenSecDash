@@ -65,6 +65,10 @@
             {% endif %}
             {% block content %}{% endblock %}
         </main>
+
+        <footer class="max-w-7xl mx-auto px-4 pb-6 text-center text-xs text-slate-500">
+            {{ t("settings.version") }}: <span class="font-mono">{{ app_version }}</span>
+        </footer>
         
         <script src="/static/js/app.js"></script>
     </body>

@@ -255,6 +255,7 @@ EN = {
 
     "settings.title": "Settings",
     "settings.core": "General",
+    "settings.version": "OpenSecDash version",
     "settings.domain": "Primary Domain",
     "settings.language": "Language",
     "settings.retention_days": "Retention days",

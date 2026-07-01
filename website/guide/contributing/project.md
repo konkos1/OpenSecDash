@@ -21,6 +21,8 @@ Please do not report security vulnerabilities in public issues. Use the instruct
 
 Release preparation is documented in `docs/RELEASE.md`.
 
+The Git tag is the release version source of truth. For a tag such as `v0.2.0`, the Docker publish workflow derives `0.2.0`, passes it into the container as `OPENSECDASH_VERSION`, and publishes matching Docker tags. `backend/pyproject.toml` intentionally stays at `0.0.0`.
+
 ## Project status
 
 OpenSecDash is an early-stage OSS/homelab project. APIs, plugin behavior, and UI details may still change before a stable release.

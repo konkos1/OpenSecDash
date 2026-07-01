@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.i18n import translate
 from app.core.language import get_language
+from app.core.version import get_app_version
 from app.models.settings import Setting
 
 
@@ -54,5 +55,6 @@ def build_template_context(db: Session) -> dict[str, object | Callable[[str], st
         "enabled_plugins": enabled_plugins,
         "event_plugins_enabled": event_plugins_enabled,
         "asset_plugins_enabled": asset_plugins_enabled,
+        "app_version": get_app_version(),
         "t": lambda key: translate(key, language),
     }
