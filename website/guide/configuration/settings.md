@@ -118,6 +118,17 @@ Notes:
 - A plain search without `&&`, `||`, or parentheses is treated as one substring search.
 - The special value `-` can be used for country searches to find events without a country value.
 
+## Asset update checks
+
+This section is shown when at least one asset source plugin is enabled, currently JSON Assets or Proxmox Assets. These settings are shared by all asset sources and are not owned by one specific asset plugin.
+
+| Setting | What it does |
+| --- | --- |
+| GitHub API token | Optional token for GitHub release checks to avoid rate limits. |
+| GitHub release check interval seconds | How often GitHub releases are checked for known assets. Use `0` to disable automatic checks. |
+
+The section is named generically because future update-check providers may cover non-GitHub sources, such as Docker image release checks.
+
 ## Asset Explorer filters
 
 The Asset Explorer has several user-facing controls:
@@ -144,8 +155,6 @@ Systems can be marked **stale** when they have not been seen recently. Proxmox A
 | Source | Path or URL to `assets.json`. Missing apps are marked inactive and kept for history. |
 | Master for app values | Controls whether version/release URL are maintained in OpenSecDash or overwritten from `assets.json` for existing apps. |
 | Inventory interval seconds | How often `assets.json` is reloaded automatically. Use `0` to disable automatic reloads. |
-| GitHub API token | Optional token for release checks to avoid GitHub rate limits. |
-| GitHub release check interval seconds | How often GitHub releases are checked automatically. Use `0` to disable automatic checks. |
 
 See [JSON Assets](../plugins/json-assets.md) for used JSON struture definition.
 

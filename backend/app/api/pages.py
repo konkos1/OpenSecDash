@@ -287,6 +287,12 @@ def assets_feature_enabled(db: Session) -> bool:
     return any(is_plugin_enabled(db, plugin_id) for plugin_id in ["json_assets", "proxmox_assets"])
 
 
+def diagnostic_plugin_enabled(db: Session, plugin_id: str) -> bool:
+    if plugin_id == "asset_updates":
+        return assets_feature_enabled(db)
+    return is_plugin_enabled(db, plugin_id)
+
+
 def require_plugin_enabled(db: Session, plugin_id: str) -> None:
     if not is_plugin_enabled(db, plugin_id):
         raise HTTPException(status_code=404, detail="Feature is disabled")
@@ -1190,7 +1196,7 @@ def build_debug_report_files(db: Session) -> dict[str, str]:
     generated_at = utc_now().isoformat()
     log_text, log_status = _read_debug_log_tail(db)
     plugins = db.query(PluginRecord).order_by(PluginRecord.id).all()
-    enabled_plugins = {plugin.id: is_plugin_enabled(db, plugin.id) for plugin in plugins}
+    enabled_plugins = {plugin.id: diagnostic_plugin_enabled(db, plugin.id) for plugin in plugins}
     return {
         "README.txt": _debug_file(
             "OpenSecDash Debug Package",
@@ -1300,7 +1306,7 @@ def diagnostics_page(request: Request, db: Session = Depends(get_db)):
     plugin_rows = [
         {
             "plugin": plugin,
-            "configuration_status": "enabled" if is_plugin_enabled(db, plugin.id) else "disabled",
+            "configuration_status": "enabled" if diagnostic_plugin_enabled(db, plugin.id) else "disabled",
         }
         for plugin in plugins
     ]
@@ -1309,12 +1315,12 @@ def diagnostics_page(request: Request, db: Session = Depends(get_db)):
         if item.plugin == "system":
             diagnostic_rows.append({"item": item, "effective_status": item.status, "message": item.last_error or ""})
             continue
-        enabled = is_plugin_enabled(db, item.plugin)
+        enabled = diagnostic_plugin_enabled(db, item.plugin)
         diagnostic_rows.append(
             {
                 "item": item,
                 "effective_status": item.status if enabled else "disabled",
-                "message": item.last_error if enabled else "Plugin is disabled and not running.",
+                "message": item.last_error if enabled else item.last_error or "Plugin is disabled and not running.",
             }
         )
     return render(
@@ -1348,11 +1354,12 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
         timezone=get_setting_value(db, "timezone", "auto"),
         asset_source_type=get_setting_value(db, "asset_source_type", "file"),
         asset_source=get_setting_value(db, "asset_source", "dev-data/assets.json"),
-        github_token=get_setting_value(db, "github_token", ""),
         action_dry_run=get_setting_value(db, "action_dry_run", "true"),
         log_file_enabled=get_setting_value(db, "log_file_enabled", "true"),
         log_file_path=get_setting_value(db, "log_file_path", "logs/opensecdash.log"),
         log_level=get_setting_value(db, "log_level", "INFO"),
+        asset_updates_github_token=get_setting_value(db, "asset_updates.github_token", ""),
+        asset_updates_github_interval=get_setting_value(db, "asset_updates.github_interval", "21600"),
         plugin_setting_groups=plugin_setting_groups,
         plugin_settings_state=plugin_settings_state,
     )
@@ -1369,11 +1376,12 @@ async def save_settings(
     timezone: str = Form("auto"),
     asset_source_type: str = Form("file"),
     asset_source: str = Form(""),
-    github_token: str = Form(""),
     action_dry_run: str = Form("true"),
     log_file_enabled: str = Form("false"),
     log_file_path: str = Form("logs/opensecdash.log"),
     log_level: str = Form("INFO"),
+    asset_updates_github_token: str = Form(""),
+    asset_updates_github_interval: str = Form("21600"),
     db: Session = Depends(get_db),
 ):
     if language not in {"de", "en"}:
@@ -1390,11 +1398,12 @@ async def save_settings(
         "timezone": timezone,
         "asset_source_type": asset_source_type,
         "asset_source": asset_source,
-        "github_token": github_token,
         "action_dry_run": action_dry_run,
         "log_file_enabled": log_file_enabled,
         "log_file_path": log_file_path,
         "log_level": log_level if log_level in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"} else "INFO",
+        "asset_updates.github_token": asset_updates_github_token,
+        "asset_updates.github_interval": asset_updates_github_interval,
     }.items():
         save_setting(db, key, value)
 

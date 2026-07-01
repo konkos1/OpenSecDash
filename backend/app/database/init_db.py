@@ -17,7 +17,8 @@ DEFAULT_SETTINGS = {
     "timezone": "auto",
     "asset_source_type": "file",
     "asset_source": "dev-data/assets.json",
-    "github_token": "",
+    "asset_updates.github_token": "",
+    "asset_updates.github_interval": "21600",
     "action_dry_run": "true",
     "apps_master": "opensecdash",
     "log_file_enabled": "true",
@@ -34,6 +35,7 @@ DEFAULT_SETTINGS = {
 }
 
 CORE_PLUGINS = [
+    ("asset_updates", "Asset update checks", ["core", "updates"]),
     ("geoip", "GeoIP / ASN / ISP / City", ["enrichment"]),
 ]
 
@@ -97,11 +99,34 @@ def _migrate_legacy_sqlite() -> None:
     _add_column("geoip_cache", "city VARCHAR(255)")
 
 
+def _migrate_asset_update_settings(db: Session) -> None:
+    migrations = {
+        "asset_updates.github_token": ["plugin.json_assets.github_token", "plugin.assets.github_token", "github_token"],
+        "asset_updates.github_interval": ["plugin.json_assets.github_interval"],
+    }
+    for new_key, old_keys in migrations.items():
+        existing = db.query(Setting).filter(Setting.key == new_key).first()
+        if existing is not None and existing.value:
+            continue
+        for old_key in old_keys:
+            legacy = db.query(Setting).filter(Setting.key == old_key).first()
+            if legacy is not None and legacy.value:
+                if existing is None:
+                    db.add(Setting(key=new_key, value=legacy.value))
+                else:
+                    existing.value = legacy.value
+                break
+    for old_key in ["plugin.json_assets.github_token", "plugin.json_assets.github_interval", "plugin.assets.github_token"]:
+        db.query(Setting).filter(Setting.key == old_key).delete()
+
+
 def seed_defaults(db: Session) -> None:
     # ASN enrichment is implemented by the bundled GeoIP plugin. Remove the old
     # placeholder core record if an earlier development database contains it.
     db.query(Diagnostic).filter(Diagnostic.plugin == "asn").delete()
     db.query(PluginRecord).filter(PluginRecord.id == "asn").delete()
+
+    _migrate_asset_update_settings(db)
 
     for key, value in DEFAULT_SETTINGS.items():
         if db.query(Setting).filter(Setting.key == key).first() is None:

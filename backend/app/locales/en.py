@@ -274,6 +274,10 @@ EN = {
     "settings.log_file_enabled": "Write log file",
     "settings.log_file_path": "Log file path",
     "settings.log_level": "Log level",
+    "settings.asset_update_checks": "Asset update checks",
+    "settings.asset_update_checks_help": "Shared update-check settings for asset sources such as JSON Assets and Proxmox Assets.",
+    "settings.asset_updates_github_token": "GitHub API token",
+    "settings.asset_updates_github_interval": "GitHub release check interval seconds",
     "settings.dry_run": "Dry run",
     "settings.execute_via_plugin": "Execute via plugin",
     "settings.unsaved_changes": "Discard unsaved settings changes?",
@@ -287,5 +291,7 @@ EN = {
     "settings.help.log_file_enabled": "Writes an additional log file. Service/journal logging always remains active.",
     "settings.help.log_file_path": "Path to the optional log file. Relative paths are resolved against the backend working directory.",
     "settings.help.log_level": "Minimum level for service and file logs. INFO is the recommended default; DEBUG can be very verbose.",
+    "settings.help.asset_updates_github_token": "Optional token used for release checks to avoid GitHub rate limits.",
+    "settings.help.asset_updates_github_interval": "How often GitHub releases are checked for known assets. Use 0 to disable automatic checks.",
 
 }

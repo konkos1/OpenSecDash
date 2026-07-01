@@ -12,10 +12,12 @@ from sqlalchemy.orm import Session
 
 from app.core.template_context import get_setting_value
 from app.database.session import SessionLocal
+from app.models.assets import Asset
 from app.models.core import Datasource, Diagnostic, PluginRecord
 from app.models.settings import Setting
 from app.plugins.base import ActionPlugin, DatasourcePlugin, ExportPlugin, PeriodicPlugin, Plugin, PluginContext, PluginSetting
 from app.core.time import utc_now
+from app.services.json_assets_updates import refresh_asset_updates
 
 
 logger = logging.getLogger(__name__)
@@ -176,12 +178,74 @@ class PluginManager:
 
     async def startup(self) -> None:
         logger.info("Starting %d plugin task groups", len(self.plugins))
+        self.tasks.append(asyncio.create_task(self._asset_update_loop(), name="core-asset-update-checks"))
         for plugin in self.plugins.values():
             self.tasks.append(asyncio.create_task(self._health_loop(plugin), name=f"plugin-health-{plugin.metadata.id}"))
             if isinstance(plugin, DatasourcePlugin):
                 self.tasks.append(asyncio.create_task(self._datasource_loop(plugin), name=f"plugin-datasource-{plugin.metadata.id}"))
             if isinstance(plugin, PeriodicPlugin):
                 self.tasks.append(asyncio.create_task(self._periodic_loop(plugin), name=f"plugin-periodic-{plugin.metadata.id}"))
+
+    async def _asset_update_loop(self) -> None:
+        last_run = 0.0
+        while True:
+            db = SessionLocal()
+            try:
+                asset_sources_enabled = any(
+                    get_setting_value(db, f"plugin.{plugin_id}.enabled", "false") == "true"
+                    for plugin_id in ["json_assets", "proxmox_assets"]
+                )
+                interval = self._setting_interval(get_setting_value(db, "asset_updates.github_interval", "21600"))
+                if not asset_sources_enabled:
+                    self._update_diagnostic(db, "asset_updates", "disabled", "No asset source plugin is enabled.")
+                    db.commit()
+                elif interval <= 0:
+                    self._update_diagnostic(db, "asset_updates", "disabled", "Automatic asset update checks are disabled.")
+                    db.commit()
+                else:
+                    now = asyncio.get_running_loop().time()
+                    if last_run == 0 or now - last_run >= interval:
+                        result = refresh_asset_updates(db)
+                        logger.debug("Asset update checks completed: %s", result)
+                        self._update_diagnostic(
+                            db,
+                            "asset_updates",
+                            "healthy",
+                            f"Last check: checked={result['checked']}, updated={result['updated']}, failed={result['failed']}",
+                        )
+                        db.commit()
+                        last_run = now
+                        await self._export_publishable_assets(db)
+                await asyncio.sleep(60)
+            except asyncio.CancelledError:
+                db.close()
+                raise
+            except Exception:
+                logger.exception("Asset update check failed")
+                await asyncio.sleep(60)
+            finally:
+                db.close()
+
+    @staticmethod
+    def _setting_interval(value: str) -> int:
+        try:
+            return max(int(value), 0)
+        except (TypeError, ValueError):
+            return 0
+
+    async def _export_publishable_assets(self, db: Session) -> None:
+        publishable_assets = (
+            db.query(Asset)
+            .filter(
+                Asset.mqtt_publish_enabled == True,
+                Asset.version.isnot(None),
+                Asset.latest_version.isnot(None),
+                Asset.release_url.isnot(None),
+            )
+            .all()
+        )
+        for asset in publishable_assets:
+            await self.export_asset_update(db, asset)
 
     async def shutdown(self) -> None:
         if not self.tasks:
@@ -344,6 +408,7 @@ class PluginManager:
             db.add(diagnostic)
         diagnostic.status = status
         diagnostic.last_error = error
+        diagnostic.last_run = utc_now().replace(tzinfo=None)
 
     async def execute_action(self, db: Session, action_type: str, target: str, parameters: dict[str, Any]) -> dict[str, Any] | None:
         for plugin in self.plugins.values():

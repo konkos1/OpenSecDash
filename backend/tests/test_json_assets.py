@@ -135,7 +135,7 @@ def test_refresh_asset_updates_caches_repositories_per_run(monkeypatch, db_sessi
 
 
 def test_refresh_asset_update_uses_github_release_and_token(monkeypatch, db_session):
-    db_session.add(Setting(key="plugin.json_assets.github_token", value="secret-token"))
+    db_session.add(Setting(key="asset_updates.github_token", value="secret-token"))
     asset = Asset(
         system_id=1,
         name="OpenSecDash",

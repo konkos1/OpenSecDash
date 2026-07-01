@@ -9,7 +9,6 @@ from app.core.logging import redact_sensitive
 from app.plugins.base import PeriodicPlugin, PluginContext, PluginMetadata, PluginSetting
 from app.services.json_assets_import import import_json_assets
 from app.services.json_assets_source import load_asset_source
-from app.services.json_assets_updates import refresh_asset_updates
 
 
 logger = logging.getLogger(__name__)
@@ -66,22 +65,6 @@ class Plugin(PeriodicPlugin):
             "3600",
             visible_if=("enabled", "true"),
         ),
-        PluginSetting(
-            "github_token",
-            "json_assets.settings.github_token",
-            "json_assets.settings.github_token.help",
-            "password",
-            "",
-            visible_if=("enabled", "true"),
-        ),
-        PluginSetting(
-            "github_interval",
-            "json_assets.settings.github_interval",
-            "json_assets.settings.github_interval.help",
-            "number",
-            "21600",
-            visible_if=("enabled", "true"),
-        ),
     ]
     locales = {
         "en": {
@@ -97,10 +80,6 @@ class Plugin(PeriodicPlugin):
             "json_assets.option.master_external": "External import",
             "json_assets.settings.inventory_interval": "assets.json update interval seconds",
             "json_assets.settings.inventory_interval.help": "How often the assets.json source is reloaded automatically. Use 0 to disable automatic reloads.",
-            "json_assets.settings.github_token": "GitHub API token",
-            "json_assets.settings.github_token.help": "Optional token used for release checks to avoid GitHub rate limits.",
-            "json_assets.settings.github_interval": "GitHub release check interval seconds",
-            "json_assets.settings.github_interval.help": "How often GitHub releases are checked for installed apps. Use 0 to disable automatic checks.",
             "json_assets.option.file": "File",
             "json_assets.option.url": "URL",
             "common.yes": "Yes",
@@ -119,10 +98,6 @@ class Plugin(PeriodicPlugin):
             "json_assets.option.master_external": "Externer Import",
             "json_assets.settings.inventory_interval": "assets.json Aktualisierungsintervall in Sekunden",
             "json_assets.settings.inventory_interval.help": "Wie oft die assets.json Quelle automatisch neu geladen wird. 0 deaktiviert automatische Importe.",
-            "json_assets.settings.github_token": "GitHub API Token",
-            "json_assets.settings.github_token.help": "Optionaler Token für Release-Prüfungen, um GitHub Rate Limits zu vermeiden.",
-            "json_assets.settings.github_interval": "GitHub Release-Prüfintervall in Sekunden",
-            "json_assets.settings.github_interval.help": "Wie oft GitHub Releases für installierte Apps geprüft werden. 0 deaktiviert automatische Prüfungen.",
             "json_assets.option.file": "Datei",
             "json_assets.option.url": "URL",
             "common.yes": "Ja",
@@ -132,7 +107,6 @@ class Plugin(PeriodicPlugin):
 
     def __init__(self) -> None:
         self._last_inventory_import = 0.0
-        self._last_github_check = 0.0
 
     async def health(self, context: PluginContext) -> dict[str, str]:
         source = context.get("source", "dev-data/assets.json")
@@ -148,18 +122,11 @@ class Plugin(PeriodicPlugin):
     async def tick(self, context: PluginContext) -> None:
         now = time.monotonic()
         inventory_interval = self._interval(context.get("inventory_interval", "3600"))
-        github_interval = self._interval(context.get("github_interval", "21600"))
 
         if inventory_interval > 0 and self._is_due(self._last_inventory_import, inventory_interval, now):
             result = self._import_inventory(context)
             logger.debug("JSON assets import completed: %s", result)
             self._last_inventory_import = now
-            await self._export_assets(context)
-
-        if github_interval > 0 and self._is_due(self._last_github_check, github_interval, now):
-            refresh_asset_updates(context.db)
-            logger.debug("JSON assets GitHub release check completed")
-            self._last_github_check = now
             await self._export_assets(context)
 
     @staticmethod

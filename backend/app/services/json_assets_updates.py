@@ -14,11 +14,7 @@ ReleaseCache: TypeAlias = dict[str, tuple[bool, str | None]]
 
 
 def _github_token(db: Session) -> str:
-    return get_setting_value(
-        db,
-        "plugin.json_assets.github_token",
-        get_setting_value(db, "plugin.assets.github_token", get_setting_value(db, "github_token", "")),
-    )
+    return get_setting_value(db, "asset_updates.github_token", "")
 
 
 def _apply_update_state(asset: Asset, latest_version: str | None) -> bool:

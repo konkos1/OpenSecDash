@@ -30,7 +30,7 @@ def test_debug_report_redacts_sensitive_settings_and_log_tail(db_session, tmp_pa
         [
             Setting(key="log_file_enabled", value="true"),
             Setting(key="log_file_path", value=str(log_file)),
-            Setting(key="github_token", value="plain-secret-token"),
+            Setting(key="asset_updates.github_token", value="plain-secret-token"),
             Setting(key="domain", value="homelab.example"),
             PluginRecord(id="test_plugin", name="Test Plugin", version="1.0.0", capabilities=["datasource"], status="healthy"),
             Diagnostic(plugin="test_plugin", component="plugin", status="healthy"),
@@ -43,7 +43,7 @@ def test_debug_report_redacts_sensitive_settings_and_log_tail(db_session, tmp_pa
     assert "OpenSecDash Debug Package" in report
     assert f"OpenSecDash version: {get_app_version()}" in report
     assert "Redaction notice" in report
-    assert "github_token: <redacted>" in report
+    assert "asset_updates.github_token: <redacted>" in report
     assert "plain-secret-token" not in report
     assert "super-secret" not in report
     assert "abc123" not in report
@@ -69,7 +69,7 @@ def test_debug_report_redacts_sensitive_settings_and_log_tail(db_session, tmp_pa
         settings = archive.read("settings.txt").decode("utf-8")
         log_tail = archive.read("opensecdash-log.txt").decode("utf-8")
 
-    assert "github_token: <redacted>" in settings
+    assert "asset_updates.github_token: <redacted>" in settings
     assert "plain-secret-token" not in settings
     assert "super-secret" not in log_tail
     assert "token=<redacted>" in log_tail

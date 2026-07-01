@@ -80,6 +80,19 @@
 
         </section>
 
+        <section class="card grid grid-cols-1 md:grid-cols-2 gap-4" x-show="settings['plugin.json_assets.enabled'] === 'true' || settings['plugin.proxmox_assets.enabled'] === 'true'" x-cloak>
+            <h3 class="font-semibold md:col-span-2">{{ t("settings.asset_update_checks") }}</h3>
+            <p class="muted text-sm md:col-span-2">{{ t("settings.asset_update_checks_help") }}</p>
+
+            <label>{{ t("settings.asset_updates_github_token") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.asset_updates_github_token') }}">?</button>
+                <input class="input" type="password" name="asset_updates_github_token" value="{{ asset_updates_github_token }}">
+            </label>
+
+            <label>{{ t("settings.asset_updates_github_interval") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.asset_updates_github_interval') }}">?</button>
+                <input class="input" type="number" min="0" name="asset_updates_github_interval" value="{{ asset_updates_github_interval }}">
+            </label>
+        </section>
+
         {% for group in plugin_setting_groups %}
             <section class="card">
                 <h3 class="font-semibold mb-1">{{ group.name }}</h3>

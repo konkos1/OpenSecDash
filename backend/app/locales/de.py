@@ -275,6 +275,10 @@ DE = {
     "settings.log_file_enabled": "Logdatei schreiben",
     "settings.log_file_path": "Logdatei-Pfad",
     "settings.log_level": "Log-Level",
+    "settings.asset_update_checks": "Asset update checks",
+    "settings.asset_update_checks_help": "Gemeinsame Update-Prüfungs-Einstellungen für Asset-Quellen wie JSON Assets und Proxmox Assets.",
+    "settings.asset_updates_github_token": "GitHub API Token",
+    "settings.asset_updates_github_interval": "GitHub Release-Prüfintervall in Sekunden",
     "settings.dry_run": "Simulation",
     "settings.execute_via_plugin": "Über Plugin ausführen",
     "settings.unsaved_changes": "Ungespeicherte Änderungen an den Einstellungen verwerfen?",
@@ -288,5 +292,7 @@ DE = {
     "settings.help.log_file_enabled": "Schreibt zusätzlich zum Service-/Journal-Log eine Datei. Service-Logging bleibt immer aktiv.",
     "settings.help.log_file_path": "Pfad zur optionalen Logdatei. Relative Pfade beziehen sich auf das Backend-Arbeitsverzeichnis.",
     "settings.help.log_level": "Mindeststufe für Service- und Datei-Logs. INFO ist der empfohlene Standard; DEBUG kann sehr ausführlich sein.",
+    "settings.help.asset_updates_github_token": "Optionaler Token für Release-Prüfungen, um GitHub Rate Limits zu vermeiden.",
+    "settings.help.asset_updates_github_interval": "Wie oft GitHub Releases für bekannte Assets geprüft werden. 0 deaktiviert automatische Prüfungen.",
 
 }
