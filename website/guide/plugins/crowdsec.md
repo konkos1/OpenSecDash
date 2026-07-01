@@ -9,6 +9,15 @@ The CrowdSec plugin imports CrowdSec ban history and can execute ban/unban actio
 - `cscli` path
 - Poll interval for log imports
 
+## Typical setup
+
+In Docker, mount the CrowdSec log read-only into the OpenSecDash container and configure the plugin path in Settings.
+
+```yaml
+volumes:
+  - /var/log/crowdsec.log:/logs/crowdsec.log:ro
+```
+
 ## Actions and dry run
 
 OpenSecDash has an action simulation mode. While dry run is enabled, ban/unban actions are recorded but not executed.

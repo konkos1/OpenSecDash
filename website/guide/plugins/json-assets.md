@@ -8,6 +8,7 @@ It is useful for hosts that are not discovered by another plugin, or for environ
 
 ```json
 {
+  "last_update": "01.07.2026 12:00:01",
   "systems": [
     {
       "vmid": "100",
@@ -17,7 +18,7 @@ It is useful for hosts that are not discovered by another plugin, or for environ
         {
           "name": "traefik",
           "version": "v3.0.0",
-          "release_url": "https://github.com/traefik/traefik/releases/latest"
+          "url": "https://github.com/traefik/traefik/releases/latest"
         }
       ]
     }
@@ -27,7 +28,7 @@ It is useful for hosts that are not discovered by another plugin, or for environ
 
 ## Source behavior
 
-JSON Assets and Proxmox Assets can run in parallel. The JSON importer generates stable source IDs and only marks its own imported apps inactive.
+JSON Assets and Proxmox Assets can run in parallel. The JSON importer generates stable source IDs and only marks its own imported systems and apps inactive.
 
 ## Update checks
 

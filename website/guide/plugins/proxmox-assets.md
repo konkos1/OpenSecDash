@@ -2,8 +2,6 @@
 
 The Proxmox Assets plugin imports Proxmox nodes, VMs, and LXCs into OpenSecDash. It can also create application assets from a hidden metadata block in Proxmox guest notes.
 
-JSON Assets and Proxmox Assets can run in parallel. Each source gets stable source IDs and only manages its own imported assets.
-
 ## Recommended Proxmox permissions
 
 Create a dedicated read-only API token, for example:
@@ -54,20 +52,22 @@ apps:
     update_check:
       type: github_release
       repo: crowdsecurity/crowdsec
+  - name: GeoBlock
+  - name: Tor Block
 -->
 ```
 
-Supported fields for v1:
+Currently supported fields:
 
 - `apps[].name` required
 - `apps[].update_check.type` optional, currently `github_release`
 - `apps[].update_check.repo` optional, e.g. `traefik/traefik`
 
-Do not put URLs or installed versions into Proxmox notes for v1. Those fields should be edited in OpenSecDash and should not be overwritten by the Proxmox sync.
+Do not put URLs or installed versions into Proxmox notes. Those fields should be edited in OpenSecDash and should not be overwritten by the Proxmox sync.
 
 ## Source IDs
 
-The plugin uses stable source IDs such as:
+The plugin uses internally stable source IDs such as:
 
 ```text
 proxmox:pve.example.local:8006:node:pve1
@@ -79,17 +79,22 @@ In the Asset Explorer, Proxmox guests display VMIDs as `node:vmid` (for example 
 
 If an app name in the notes block changes, OpenSecDash treats it as a new app and marks the old Proxmox-imported app inactive.
 
+## Source behavior
+
+JSON Assets and Proxmox Assets can run in parallel. The Proxmox importer generates stable source IDs and only marks its own imported systems and apps inactive.
+
 ## Troubleshooting
 
 ### zsh and API tokens
 
-Proxmox token IDs contain `!`, for example `opensecdash@pve!inventory`. In zsh, wrap curl headers in single quotes:
+Proxmox token IDs contain `!`, for example `opensecdash@pve!inventory`. In zsh, wrap curl headers in single quotes, to check manually if your token settings are correct:
 
 ```bash
 curl -k \
   -H 'Authorization: PVEAPIToken=opensecdash@pve!inventory=TOKEN_SECRET' \
   'https://pve.example.local:8006/api2/json/cluster/resources'
 ```
+Expected response: List of Proxmox cluster(s) and their respective guest(s).
 
 ### Nodes visible, guests missing
 

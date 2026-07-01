@@ -6,10 +6,10 @@ OpenSecDash settings are available from the Settings page. Plugin-specific setti
 
 | Setting | What it does |
 | --- | --- |
-| Primary Domain | Shown as the identity of this OpenSecDash instance. Useful when screenshots/debug reports need to identify which homelab instance they came from. |
+| Primary Domain | Shown as the identity of this OpenSecDash instance. Useful when screenshots/debug reports need to identify which homelab instance they came from or simply as branding. |
 | Language | UI language. Technical event identifiers such as `access.denied` stay unchanged. |
-| Retention days | How long raw events should be kept, depending on cleanup/retention behavior. |
-| Default Events mode | Starts the Events page in Live or Snapshot mode. Live keeps updating; Snapshot freezes the current view for investigation. |
+| Retention days | How long raw events should be kept in local database, depending on cleanup/retention behavior. |
+| Default Events mode | Starts the Events- and Access page in Live or Snapshot mode. Live keeps updating; Snapshot freezes the current view for investigation. |
 | Theme | Dark, light, or automatic browser/system theme. |
 | Timezone | Display timestamps in `auto`, `UTC`, or an IANA timezone such as `Europe/Berlin`. |
 
@@ -124,7 +124,7 @@ The Asset Explorer has several user-facing controls:
 
 | Control | What it does |
 | --- | --- |
-| Search | Searches visible/understandable system and app fields such as hostname, VMID, system type, app name, host URL, versions, release URL, update type, active/inactive, and update state. Internal source IDs are not searched. |
+| Search | Searches visible/understandable system and app fields such as hostname, VMID, system type, app name, host URL, versions, release URL, active/inactive, and update state. Internal source IDs are not searched. |
 | Source | Filters by asset source, for example JSON Assets or Proxmox Assets. |
 | Show inactive | Includes inactive systems/apps that were previously imported but no longer seen by their source. |
 | Updates only | Shows only systems that currently have apps with available updates. |
@@ -147,6 +147,8 @@ Systems can be marked **stale** when they have not been seen recently. Proxmox A
 | GitHub API token | Optional token for release checks to avoid GitHub rate limits. |
 | GitHub release check interval seconds | How often GitHub releases are checked automatically. Use `0` to disable automatic checks. |
 
+See [JSON Assets](../plugins/json-assets.md) for used JSON struture definition.
+
 ## Proxmox Assets plugin settings
 
 | Setting | What it does |
@@ -165,7 +167,7 @@ See [Proxmox Assets](../plugins/proxmox-assets.md) for token permissions and not
 | Setting | What it does |
 | --- | --- |
 | Enabled | Enables CrowdSec log import and CrowdSec actions. |
-| CrowdSec log path | Path to `crowdsec.log`. Ban history, scenarios, and countries are derived from matching log lines. |
+| CrowdSec log path | Path to `crowdsec.log`. In Docker, mount the host log read-only into the container. Ban history, scenarios, and countries are derived from matching log lines. |
 | cscli path | Command or absolute path used for active decisions and ban/unban actions. |
 | CrowdSec poll interval seconds | How often the CrowdSec log is checked for appended ban history entries. |
 
@@ -206,8 +208,8 @@ Private/local/reserved IPs are skipped.
 | Enabled | Enables publishing app update information to MQTT/Home Assistant. |
 | Host | MQTT broker hostname or IP. |
 | Port | MQTT broker port, usually `1883`. |
-| Username | Optional MQTT username. |
-| Password | Optional MQTT password. |
+| Username | MQTT username. |
+| Password | MQTT password. |
 | Topic prefix | Prefix for MQTT topics, for example `opensecdash`. |
 | Publish interval seconds | How often publishable app update information is sent automatically. |
 
