@@ -1,3 +1,5 @@
+from typing import TypeAlias
+
 from sqlalchemy.orm import Session
 
 from app.core.template_context import get_setting_value
@@ -7,6 +9,8 @@ from app.models.assets import Asset
 
 from app.services.github_releases import get_latest_github_release
 from app.services.github_releases import github_repo_from_url
+
+ReleaseCache: TypeAlias = dict[str, tuple[bool, str | None]]
 
 
 def _github_token(db: Session) -> str:
@@ -32,7 +36,19 @@ def _apply_update_state(asset: Asset, latest_version: str | None) -> bool:
     return True
 
 
-def refresh_asset_update(db: Session, asset: Asset) -> dict[str, int]:
+def _cached_latest_release(db: Session, repo: str, cache: ReleaseCache | None) -> tuple[bool, str | None]:
+    if cache is not None and repo in cache:
+        return cache[repo]
+    try:
+        result = (True, get_latest_github_release(repo=repo, github_token=_github_token(db)))
+    except Exception:
+        result = (False, None)
+    if cache is not None:
+        cache[repo] = result
+    return result
+
+
+def refresh_asset_update(db: Session, asset: Asset, release_cache: ReleaseCache | None = None) -> dict[str, int]:
     """Refresh update metadata for one asset after user edits or imports.
 
     This intentionally recalculates ``update_available`` from the currently
@@ -49,9 +65,8 @@ def refresh_asset_update(db: Session, asset: Asset) -> dict[str, int]:
         asset.update_available = False
         return {"checked": 0, "updated": 0, "failed": 0}
 
-    try:
-        latest_version = get_latest_github_release(repo=repo, github_token=_github_token(db))
-    except Exception:
+    ok, latest_version = _cached_latest_release(db, repo, release_cache)
+    if not ok:
         return {"checked": 1, "updated": 0, "failed": 1}
 
     if not latest_version:
@@ -66,9 +81,10 @@ def refresh_asset_updates(db: Session) -> dict[str, int]:
     failed = 0
 
     assets = db.query(Asset).all()
+    release_cache: ReleaseCache = {}
 
     for asset in assets:
-        result = refresh_asset_update(db, asset)
+        result = refresh_asset_update(db, asset, release_cache)
         checked += result["checked"]
         updated += result["updated"]
         failed += result["failed"]

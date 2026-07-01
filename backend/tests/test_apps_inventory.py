@@ -6,7 +6,7 @@ from app.models.settings import Setting
 from app.models.systems import System
 from app.api.pages import asset_last_seen_stale, asset_system_matches_search
 from app.services.apps_inventory_import import import_apps_inventory
-from app.services.apps_inventory_updates import refresh_asset_update
+from app.services.apps_inventory_updates import refresh_asset_update, refresh_asset_updates
 
 
 def test_import_apps_inventory_creates_updates_and_marks_missing_assets_inactive(db_session):
@@ -111,6 +111,27 @@ def test_refresh_asset_update_stores_latest_without_installed_version(monkeypatc
     assert asset.latest_version == "v3.0.0"
     assert asset.update_available is False
     assert asset.last_checked is not None
+
+
+def test_refresh_asset_updates_caches_repositories_per_run(monkeypatch, db_session):
+    db_session.add_all([
+        Asset(system_id=1, name="Traefik A", version="v2.0", release_url="https://github.com/traefik/traefik/releases/latest"),
+        Asset(system_id=1, name="Traefik B", version="v2.1", release_url="https://github.com/traefik/traefik/releases/latest"),
+        Asset(system_id=1, name="CrowdSec", version="v1.0", release_url="https://github.com/crowdsecurity/crowdsec/releases/latest"),
+    ])
+    db_session.commit()
+    calls = []
+
+    def fake_latest_release(*, repo: str, github_token: str) -> str:
+        calls.append(repo)
+        return "v3.0.0" if repo == "traefik/traefik" else "v2.0.0"
+
+    monkeypatch.setattr("app.services.apps_inventory_updates.get_latest_github_release", fake_latest_release)
+
+    result = refresh_asset_updates(db_session)
+
+    assert result == {"checked": 3, "updated": 3, "failed": 0}
+    assert sorted(calls) == ["crowdsecurity/crowdsec", "traefik/traefik"]
 
 
 def test_refresh_asset_update_uses_github_release_and_token(monkeypatch, db_session):
