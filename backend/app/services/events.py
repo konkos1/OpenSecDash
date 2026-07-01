@@ -354,6 +354,7 @@ def searchable_event_fields():
         Event.severity,
         Event.ip,
         Event.country,
+        Event.city,
         Event.asn,
         Event.isp,
         Event.hostname,
