@@ -76,7 +76,9 @@ def test_sync_proxmox_assets_prefers_cluster_resources(monkeypatch, db_session):
     result = sync_proxmox_assets(db_session, api_url="https://pve.local:8006", token_id="id", token_secret="secret")
 
     assert result["systems_created"] == 2
-    assert db_session.query(System).filter(System.external_id == "proxmox:pve.local:8006:guest:pve1:104").one().hostname == "proxy-lxc"
+    imported_guest = db_session.query(System).filter(System.external_id == "proxmox:pve.local:8006:guest:pve1:104").one()
+    assert imported_guest.hostname == "proxy-lxc"
+    assert imported_guest.vmid == "pve1:104"
     assert db_session.query(Asset).filter(Asset.name == "Traefik").one().external_id == "proxmox:pve.local:8006:guest:pve1:104:app:traefik"
 
 
@@ -105,3 +107,15 @@ def test_sync_proxmox_assets_imports_systems_and_apps(monkeypatch, db_session):
     assert asset.name == "Traefik"
     assert asset.external_id == "proxmox:pve.local:8006:guest:pve1:104:app:traefik"
     assert asset.release_url == "https://github.com/traefik/traefik/releases/latest"
+
+
+def test_proxmox_system_vmid_does_not_collide_with_apps_inventory(monkeypatch, db_session):
+    monkeypatch.setattr(proxmox_assets, "ProxmoxClient", FakeClusterClient)
+    db_session.add(System(vmid="104", hostname="old-json-host", system_type="lxc", source_plugin="apps_inventory", external_id="apps_inventory:system:104"))
+    db_session.commit()
+
+    result = sync_proxmox_assets(db_session, api_url="https://pve.local:8006", token_id="id", token_secret="secret")
+
+    assert result["systems_created"] == 2
+    assert db_session.query(System).filter(System.vmid == "104").one().source_plugin == "apps_inventory"
+    assert db_session.query(System).filter(System.vmid == "pve1:104").one().source_plugin == "proxmox_assets"

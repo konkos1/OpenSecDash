@@ -204,13 +204,17 @@ def sync_proxmox_assets(db: Session, *, api_url: str, token_id: str, token_secre
             continue
         system_type = _system_type_for_kind(kind)
         name = str(guest.get("name") or f"{system_type}-{vmid}").strip()
+        # `systems.vmid` is unique for historical Apps Inventory data. Include
+        # the Proxmox node in the displayed VMID to avoid collisions when a user
+        # runs Apps Inventory and Proxmox Assets in parallel or during migration.
+        display_vmid = f"{node_name}:{vmid}"
         external_id = f"proxmox:{source_host}:guest:{node_name}:{vmid}"
         guest_system = db.query(System).filter(System.source_plugin == SOURCE_PLUGIN, System.external_id == external_id).first()
         if guest_system is None:
-            guest_system = System(vmid=vmid, hostname=name, system_type=system_type, source_plugin=SOURCE_PLUGIN, external_id=external_id, last_seen=now)
+            guest_system = System(vmid=display_vmid, hostname=name, system_type=system_type, source_plugin=SOURCE_PLUGIN, external_id=external_id, last_seen=now)
             db.add(guest_system); db.flush(); systems_created += 1
         else:
-            guest_system.hostname = name; guest_system.system_type = system_type; guest_system.last_seen = now; systems_updated += 1
+            guest_system.vmid = display_vmid; guest_system.hostname = name; guest_system.system_type = system_type; guest_system.last_seen = now; systems_updated += 1
 
         notes = ""
         try:

@@ -75,6 +75,8 @@ proxmox:pve.example.local:8006:guest:pve1:104
 proxmox:pve.example.local:8006:guest:pve1:104:app:traefik
 ```
 
+In the Asset Explorer, Proxmox guests display VMIDs as `node:vmid` (for example `pve1:104`). This avoids collisions with existing Apps Inventory JSON systems that may already use plain VMIDs such as `104`.
+
 If an app name in the notes block changes, OpenSecDash treats it as a new app and marks the old Proxmox-imported app inactive.
 
 ## Troubleshooting
