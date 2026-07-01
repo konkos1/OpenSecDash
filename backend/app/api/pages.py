@@ -868,7 +868,20 @@ def asset_system_matches_search(system: System, apps: list[Asset], query: str) -
     return all(term in haystack for term in terms)
 
 
-def _assets_url(*, show_inactive: bool, updates: bool, q: str) -> str:
+def asset_stale_threshold(source_plugin: str | None) -> timedelta:
+    if source_plugin == "proxmox_assets":
+        return timedelta(hours=24)
+    return timedelta(days=7)
+
+
+def asset_last_seen_stale(last_seen: datetime | None, source_plugin: str | None, now: datetime | None = None) -> bool:
+    if last_seen is None:
+        return True
+    current = now or utc_now().replace(tzinfo=None)
+    return current - last_seen > asset_stale_threshold(source_plugin)
+
+
+def _assets_url(*, show_inactive: bool, updates: bool, q: str, source: str = "") -> str:
     params = {}
     if show_inactive:
         params["show_inactive"] = "true"
@@ -876,16 +889,23 @@ def _assets_url(*, show_inactive: bool, updates: bool, q: str) -> str:
         params["updates"] = "true"
     if q:
         params["q"] = q
+    if source:
+        params["source"] = source
     return "/assets" + (f"?{urlencode(params)}" if params else "")
 
 
 @router.get("/assets")
-def assets_page(request: Request, show_inactive: bool = False, updates: bool = False, q: str = "", proxmox_error: str = "", db: Session = Depends(get_db)):
+def assets_page(request: Request, show_inactive: bool = False, updates: bool = False, q: str = "", source: str = "", proxmox_error: str = "", db: Session = Depends(get_db)):
     require_assets_feature_enabled(db)
     systems = db.query(System).order_by(System.hostname).all()
     system_rows = []
     clean_q = q.strip()
+    clean_source = source.strip()
+    source_options = [value for (value,) in db.query(System.source_plugin).distinct().order_by(System.source_plugin).all() if value]
+    now = utc_now().replace(tzinfo=None)
     for system in systems:
+        if clean_source and system.source_plugin != clean_source:
+            continue
         apps_query = db.query(Asset).filter(Asset.system_id == system.id)
         if not show_inactive:
             apps_query = apps_query.filter(Asset.is_active == True)
@@ -906,6 +926,8 @@ def assets_page(request: Request, show_inactive: bool = False, updates: bool = F
                 "app_count": app_count,
                 "update_available": update_available,
                 "last_seen": last_seen,
+                "source": system.source_plugin or "manual",
+                "stale": asset_last_seen_stale(last_seen, system.source_plugin, now),
             }
         )
     mqtt_plugin_enabled = get_setting_value(db, "plugin.mqtt-hass.enabled", get_setting_value(db, "plugin.mqtt.enabled", "false")) == "true"
@@ -918,12 +940,15 @@ def assets_page(request: Request, show_inactive: bool = False, updates: bool = F
         show_inactive=show_inactive,
         updates=updates,
         q=clean_q,
+        source=clean_source,
+        source_options=source_options,
         proxmox_error=proxmox_error.strip(),
-        assets_url_all=_assets_url(show_inactive=show_inactive, updates=False, q=clean_q),
-        assets_url_updates=_assets_url(show_inactive=show_inactive, updates=True, q=clean_q),
-        assets_url_clear=_assets_url(show_inactive=show_inactive, updates=updates, q=""),
-        assets_url_hide_inactive=_assets_url(show_inactive=False, updates=updates, q=clean_q),
-        assets_url_show_inactive=_assets_url(show_inactive=True, updates=updates, q=clean_q),
+        assets_url_all=_assets_url(show_inactive=show_inactive, updates=False, q=clean_q, source=clean_source),
+        assets_url_updates=_assets_url(show_inactive=show_inactive, updates=True, q=clean_q, source=clean_source),
+        assets_url_clear=_assets_url(show_inactive=show_inactive, updates=updates, q="", source=clean_source),
+        assets_url_clear_source=_assets_url(show_inactive=show_inactive, updates=updates, q=clean_q),
+        assets_url_hide_inactive=_assets_url(show_inactive=False, updates=updates, q=clean_q, source=clean_source),
+        assets_url_show_inactive=_assets_url(show_inactive=True, updates=updates, q=clean_q, source=clean_source),
         mqtt_plugin_enabled=mqtt_plugin_enabled,
         mqtt_publishable_count=mqtt_publishable_count,
         asset_action_busy=asset_action_running(),

@@ -1,7 +1,10 @@
+from datetime import timedelta
+
+from app.core.time import utc_now
 from app.models.assets import Asset
 from app.models.settings import Setting
 from app.models.systems import System
-from app.api.pages import asset_system_matches_search
+from app.api.pages import asset_last_seen_stale, asset_system_matches_search
 from app.services.apps_inventory_import import import_apps_inventory
 from app.services.apps_inventory_updates import refresh_asset_update
 
@@ -66,6 +69,28 @@ def test_asset_search_matches_system_and_app_fields(db_session):
     assert asset_system_matches_search(system, [asset], "edge.example") is True
     assert asset_system_matches_search(system, [asset], "proxmox_assets") is False
     assert asset_system_matches_search(system, [asset], "authentik") is False
+
+
+def test_asset_last_seen_stale_uses_source_thresholds():
+    now = utc_now().replace(tzinfo=None)
+
+    assert asset_last_seen_stale(now - timedelta(hours=25), "proxmox_assets", now) is True
+    assert asset_last_seen_stale(now - timedelta(hours=23), "proxmox_assets", now) is False
+    assert asset_last_seen_stale(now - timedelta(days=8), "apps_inventory", now) is True
+    assert asset_last_seen_stale(now - timedelta(days=6), "apps_inventory", now) is False
+    assert asset_last_seen_stale(None, "proxmox_assets", now) is True
+
+
+def test_asset_sources_are_available_for_filtering(db_session):
+    db_session.add_all([
+        System(vmid="100", hostname="json-host", system_type="vm", source_plugin="apps_inventory", external_id="apps_inventory:system:100"),
+        System(vmid="101", hostname="pve-host", system_type="lxc", source_plugin="proxmox_assets", external_id="proxmox:pve:guest:pve1:101"),
+    ])
+    db_session.commit()
+
+    sources = [value for (value,) in db_session.query(System.source_plugin).distinct().order_by(System.source_plugin).all() if value]
+
+    assert sources == ["apps_inventory", "proxmox_assets"]
 
 
 def test_refresh_asset_update_stores_latest_without_installed_version(monkeypatch, db_session):

@@ -55,8 +55,15 @@
                 {% if show_inactive %}<input type="hidden" name="show_inactive" value="true">{% endif %}
                 {% if updates %}<input type="hidden" name="updates" value="true">{% endif %}
                 <input class="input" type="search" name="q" value="{{ q }}" placeholder="{{ t('assets.search_placeholder') }}">
+                <select class="input sm:w-56" name="source">
+                    <option value="">{{ t("assets.source_all") }}</option>
+                    {% for option in source_options %}
+                        <option value="{{ option }}" {% if source == option %}selected{% endif %}>{{ t("assets.source." ~ option) if t("assets.source." ~ option) != "assets.source." ~ option else option }}</option>
+                    {% endfor %}
+                </select>
                 <button class="btn-small" type="submit">{{ t("common.search") }}</button>
                 {% if q %}<a class="btn-small btn-secondary" href="{{ assets_url_clear }}">{{ t("common.clear") }}</a>{% endif %}
+                {% if source %}<a class="btn-small btn-secondary" href="{{ assets_url_clear_source }}">{{ t("assets.clear_source") }}</a>{% endif %}
             </form>
         </div>
         <div class="flex flex-col sm:flex-row gap-2">
@@ -76,6 +83,7 @@
                     <th>{{ t("assets.system") }}</th>
                     <th>{{ t("assets.system_type") }}</th>
                     <th>{{ t("assets.vmid") }}</th>
+                    <th>{{ t("assets.source") }}</th>
                     <th>{{ t("assets.installed_apps") }}</th>
                     <th>{{ t("assets.any_update") }}</th>
                     <th>{{ t("assets.last_seen") }}</th>
@@ -87,6 +95,7 @@
                         <td><a href="/assets/system/{{ row.system.id }}" class="font-semibold">{{ row.system.hostname }}</a></td>
                         <td>{{ row.system.system_type }}</td>
                         <td>{{ row.system.vmid }}</td>
+                        <td><span class="status-badge status-disabled">{{ t("assets.source." ~ row.source) if t("assets.source." ~ row.source) != "assets.source." ~ row.source else row.source }}</span></td>
                         <td><strong>{{ row.app_count }}</strong> {{ t("assets.installed_apps_value") }}</td>
                         <td>
                             {% if row.update_available %}
@@ -95,11 +104,14 @@
                                 {{ t("common.no") }}
                             {% endif %}
                         </td>
-                        <td>{{ row.last_seen|datetime }}</td>
+                        <td>
+                            {{ row.last_seen|datetime }}
+                            {% if row.stale %}<span class="badge-warning ml-2">{{ t("assets.stale") }}</span>{% endif %}
+                        </td>
                     </tr>
                 {% else %}
                     <tr>
-                        <td colspan="6">{{ t("assets.no_systems") }}</td>
+                        <td colspan="7">{{ t("assets.no_systems") }}</td>
                     </tr>
                 {% endfor %}
             </tbody>
@@ -110,10 +122,10 @@
         {% for row in system_rows %}
             <a class="card block" href="/assets/system/{{ row.system.id }}">
                 <div class="font-semibold">{{ row.system.hostname }}</div>
-                <div class="muted">{{ row.system.system_type }} · {{ t("assets.vmid") }} {{ row.system.vmid }}</div>
+                <div class="muted">{{ row.system.system_type }} · {{ t("assets.vmid") }} {{ row.system.vmid }} · {{ t("assets.source." ~ row.source) if t("assets.source." ~ row.source) != "assets.source." ~ row.source else row.source }}</div>
                 <div><strong>{{ row.app_count }}</strong> {{ t("assets.installed_apps") }}</div>
                 <div>{{ t("assets.any_update") }} {% if row.update_available %}<span class="badge">{{ t("common.yes") }}</span>{% else %}{{ t("common.no") }}{% endif %}</div>
-                <div>{{ t("assets.last_seen") }}: {{ row.last_seen|datetime }}</div>
+                <div>{{ t("assets.last_seen") }}: {{ row.last_seen|datetime }}{% if row.stale %} <span class="badge-warning">{{ t("assets.stale") }}</span>{% endif %}</div>
             </a>
         {% else %}
             <article class="card">{{ t("assets.no_systems") }}</article>
