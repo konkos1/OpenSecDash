@@ -19,8 +19,11 @@ The dashboard gives you a quick overview of current homelab security activity:
 - top countries
 - busiest attack/access hours
 - recent security context
+- completed-day historical rollups when available
 
 The Events page supports **Live** and **Snapshot** modes. Live mode keeps the UI fresh. Snapshot mode freezes the current view so you can filter and inspect without the table moving under your mouse.
+
+See [Dashboard rollups](../operations/dashboard-rollups.md) for how historical rollup widgets differ from today's live dashboard data.
 
 ## Events and access logs
 

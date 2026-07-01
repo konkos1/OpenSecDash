@@ -71,6 +71,7 @@ export default defineConfig({
         text: 'Operations',
         items: [
           { text: 'Updating', link: '/guide/operations/updating' },
+          { text: 'Dashboard rollups', link: '/guide/operations/dashboard-rollups' },
           { text: 'Troubleshooting', link: '/guide/operations/troubleshooting' }
         ]
       },
