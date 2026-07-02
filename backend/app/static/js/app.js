@@ -47,6 +47,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
     const dirtyForms = new Set();
+    let skipBeforeUnloadWarning = false;
 
     document.querySelectorAll("form[data-unsaved-warning]")
         .forEach(form => {
@@ -72,7 +73,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
     window.addEventListener("beforeunload", event => {
-        if (dirtyForms.size === 0) {
+        if (skipBeforeUnloadWarning || dirtyForms.size === 0) {
             return;
         }
 
@@ -186,7 +187,11 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!confirm(message)) {
             event.preventDefault();
             event.stopPropagation();
+            return;
         }
+
+        skipBeforeUnloadWarning = true;
+        dirtyForms.clear();
     }, true);
 });
 
