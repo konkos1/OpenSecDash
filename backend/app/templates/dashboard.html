@@ -31,8 +31,7 @@
   {% if country_data_plugins %}
     <section class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
       <div class="card">
-        <h3 class="font-semibold mb-1">{{ t("dashboard.top_countries") }}</h3>
-        <p class="muted text-sm mb-3">{{ t("dashboard.top_countries_help") }}</p>
+        <h3 class="font-semibold mb-3">{{ t("dashboard.top_countries") }} <button type="button" class="help" data-tooltip="{{ t('dashboard.top_countries_help') }}">?</button></h3>
         {% for country,count in top_countries %}
           <a class="row" href="{{ today_events_href }}&country={{ country }}">
             <span>{{ country|country_name }}</span>
@@ -45,8 +44,7 @@
 
       {% if enabled_plugins.crowdsec or enabled_plugins.geoblock_log %}
         <div class="card">
-          <h3 class="font-semibold mb-1">{{ t("dashboard.top_attack_hours") }}</h3>
-          <p class="muted text-sm mb-3">{{ t("dashboard.top_attack_hours_help") }}</p>
+          <h3 class="font-semibold mb-3">{{ t("dashboard.top_attack_hours") }} <button type="button" class="help" data-tooltip="{{ t('dashboard.top_attack_hours_help') }}">?</button></h3>
           {% for item in attack_hours %}
             <a class="row" href="{{ item.href }}">
               <span>{{ "%02d:00–%02d:00"|format(item.hour, (item.hour + 1) % 24) }}</span>
@@ -60,8 +58,7 @@
 
       {% if enabled_plugins.traefik_log %}
         <div class="card">
-          <h3 class="font-semibold mb-1">{{ t("dashboard.top_access_hours") }}</h3>
-          <p class="muted text-sm mb-3">{{ t("dashboard.top_access_hours_help") }}</p>
+          <h3 class="font-semibold mb-3">{{ t("dashboard.top_access_hours") }} <button type="button" class="help" data-tooltip="{{ t('dashboard.top_access_hours_help') }}">?</button></h3>
           {% for item in access_hours %}
             <a class="row" href="{{ item.href }}">
               <span>{{ "%02d:00–%02d:00"|format(item.hour, (item.hour + 1) % 24) }}</span>
@@ -76,8 +73,7 @@
 
     <section class="grid grid-cols-1 mt-6">
       <div class="card">
-        <h3 class="font-semibold mb-1">{{ t("dashboard.country_heatmap") }}</h3>
-        <p class="muted text-sm mb-3">{{ t("dashboard.country_heatmap_help") }}</p>
+        <h3 class="font-semibold mb-3">{{ t("dashboard.country_heatmap") }} <button type="button" class="help" data-tooltip="{{ t('dashboard.country_heatmap_help') }}">?</button></h3>
         {% if country_heatmap %}
           <div class="world-map relative rounded-xl overflow-hidden border border-slate-700 bg-slate-950">
             <img src="/static/img/world-map.svg" alt="{{ t('dashboard.country_heatmap') }}" class="world-map-image w-full h-auto block" loading="lazy">

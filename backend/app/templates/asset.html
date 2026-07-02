@@ -182,7 +182,7 @@
         {% endif %}
 
         <div class="card mb-5" x-show="selectedHost === 'combined'">
-            <h3 class="font-semibold mb-3">{{ t("asset.insights") }}{% if focused_asset %} · {{ focused_asset.name }}{% endif %}</h3>
+            <h3 class="font-semibold mb-3">{{ t("asset.insights") }} <button type="button" class="help" data-tooltip="{{ t('ip.insights_help') }}">?</button>{% if focused_asset %} · {{ focused_asset.name }}{% endif %}</h3>
             {% for insight in insights %}
                 <div class="row">
                     <span>{{ insight.title }}<br><small class="muted">{{ insight.description }}</small></span>
@@ -195,7 +195,7 @@
 
         {% for section in host_event_sections %}
             <div class="card mb-5" x-show="selectedHost === '{{ section.host }}'" x-cloak>
-                <h3 class="font-semibold mb-1">{{ t("asset.insights") }} · {{ section.host }}</h3>
+                <h3 class="font-semibold mb-1">{{ t("asset.insights") }} <button type="button" class="help" data-tooltip="{{ t('ip.insights_help') }}">?</button> · {{ section.host }}</h3>
                 <p class="muted text-sm mb-3">
                     {{ t("asset.apps") }}:
                     {% for app in section.apps %}{{ app.name }}{% if not loop.last %}, {% endif %}{% endfor %}

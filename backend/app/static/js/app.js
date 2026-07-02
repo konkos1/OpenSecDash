@@ -139,7 +139,25 @@ document.addEventListener("DOMContentLoaded", () => {
             const tooltip = document.createElement("div");
             tooltip.className = "help-tooltip";
             tooltip.textContent = helpButton.dataset.tooltip;
-            helpButton.appendChild(tooltip);
+            document.body.appendChild(tooltip);
+
+            const gap = 8;
+            const margin = 8;
+            const buttonRect = helpButton.getBoundingClientRect();
+            const tooltipRect = tooltip.getBoundingClientRect();
+            const left = Math.min(
+                Math.max(buttonRect.left + (buttonRect.width / 2) - (tooltipRect.width / 2), margin),
+                window.innerWidth - tooltipRect.width - margin,
+            );
+            let top = buttonRect.top - tooltipRect.height - gap;
+            if (top < margin) {
+                top = buttonRect.bottom + gap;
+            }
+            if (top + tooltipRect.height > window.innerHeight - margin) {
+                top = Math.max(margin, window.innerHeight - tooltipRect.height - margin);
+            }
+            tooltip.style.left = `${left}px`;
+            tooltip.style.top = `${top}px`;
             return;
         }
 

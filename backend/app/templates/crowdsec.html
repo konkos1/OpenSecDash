@@ -33,8 +33,7 @@
 
   <section class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
     <div class="card">
-      <h3 class="font-semibold mb-1">{{ t("crowdsec.active_bans") }}</h3>
-      <p class="muted text-sm mb-3">{{ t("crowdsec.active_bans_help") }}</p>
+      <h3 class="font-semibold mb-3">{{ t("crowdsec.active_bans") }} <button type="button" class="help" data-tooltip="{{ t('crowdsec.active_bans_help') }}">?</button></h3>
       <strong class="text-3xl">{{ active_decisions|length }}</strong>
     </div>
 
