@@ -45,7 +45,7 @@ jobs:
 
       - name: Wait for Cloudflare deployment propagation
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: sleep 120
+        run: sleep 60
 
       - name: Submit URLs to IndexNow
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -54,4 +54,5 @@ jobs:
         env:
           INDEXNOW_KEY: ${{ secrets.INDEXNOW_KEY }}
           INDEXNOW_HOST: opensecdash.app
+          INDEXNOW_ENDPOINT: https://www.bing.com/indexnow
         run: npm run indexnow:submit

@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 const key = (process.env.INDEXNOW_KEY || '').trim()
 const host = process.env.INDEXNOW_HOST || 'opensecdash.app'
 const sitemapPath = process.env.INDEXNOW_SITEMAP || '.vitepress/dist/sitemap.xml'
+const endpoint = process.env.INDEXNOW_ENDPOINT || 'https://www.bing.com/indexnow'
 const keyLocation = `https://${host}/${key}.txt`
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -52,7 +53,7 @@ const payload = {
 }
 
 for (let attempt = 1; attempt <= 3; attempt += 1) {
-  const response = await fetch('https://api.indexnow.org/indexnow', {
+  const response = await fetch(endpoint, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(payload)
@@ -73,6 +74,11 @@ for (let attempt = 1; attempt <= 3; attempt += 1) {
     console.log(`IndexNow authorization not ready yet; retrying (${attempt}/3)...`)
     await sleep(10000)
     continue
+  }
+
+  if (response.status === 403) {
+    console.log('IndexNow rejected the submission even though the key file is reachable. Skipping without failing the deployment.')
+    process.exit(0)
   }
 
   throw new Error(`IndexNow submission failed with HTTP ${response.status}`)
