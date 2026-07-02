@@ -109,6 +109,7 @@ export default defineConfig({
         text: 'Contributing',
         items: [
           { text: 'Development', link: '/guide/contributing/development' },
+          { text: 'Plugin development', link: '/guide/contributing/plugin-development' },
           { text: 'Contributing insight rules', link: '/guide/contributing/insight-rules' },
           { text: 'Project information', link: '/guide/contributing/project' }
         ]
