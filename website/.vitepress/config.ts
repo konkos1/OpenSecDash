@@ -47,7 +47,6 @@ export default defineConfig({
       { text: 'Docs', link: '/guide/getting-started/what-is-opensecdash' },
       { text: 'Install', link: '/guide/installation/docker' },
       { text: 'Plugins', link: '/guide/plugins/' },
-      { text: 'GitHub', link: 'https://github.com/konkos1/OpenSecDash' }
     ],
     socialLinks: [
       { icon: 'github', link: 'https://github.com/konkos1/OpenSecDash' },
