@@ -28,7 +28,7 @@ sudo -u opensecdash .venv/bin/pip install -e .
 
 Create `/opt/opensecdash/backend/.env`:
 
-```env
+```ini
 DATABASE_URL=sqlite:////var/lib/opensecdash/opensecdash.db
 AUTO_MIGRATE=true
 LOG_FILE_ENABLED=true
