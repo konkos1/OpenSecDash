@@ -31,4 +31,15 @@ jobs:
 
       - name: Build website
         working-directory: website
+        env:
+          INDEXNOW_KEY: ${{ secrets.INDEXNOW_KEY }}
         run: npm run docs:build
+
+      - name: Submit URLs to IndexNow
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        working-directory: website
+        env:
+          INDEXNOW_KEY: ${{ secrets.INDEXNOW_KEY }}
+          INDEXNOW_HOST: opensecdash.app
+        run: npm run indexnow:submit

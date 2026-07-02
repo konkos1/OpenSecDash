@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "docs:dev": "vitepress dev --host 127.0.0.1",
-    "docs:build": "vitepress build",
+    "docs:build": "node scripts/write-indexnow-key.mjs && vitepress build",
+    "indexnow:submit": "node scripts/submit-indexnow.mjs",
     "docs:preview": "vitepress preview --host 127.0.0.1"
   },
   "devDependencies": {
