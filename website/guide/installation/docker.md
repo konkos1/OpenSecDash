@@ -44,18 +44,11 @@ http://localhost:8765
 
 ## Ports
 
-The app listens on port `8000` inside the container. The example maps it to host port `8765`:
+The app listens on port `8000` inside the container. The example maps it to host port `8765` to avoid common homelab conflicts:
 
 ```yaml
 ports:
   - "8765:8000"
-```
-
-You can change the host port without changing the app port:
-
-```yaml
-ports:
-  - "9000:8000"
 ```
 
 The internal app host/port can also be overridden, but this is rarely needed:
