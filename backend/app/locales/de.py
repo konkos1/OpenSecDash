@@ -222,8 +222,6 @@ DE = {
     "insight.description.blocked_request": "Eine blockierte Anfrage und ein Access-Fehler traten im Korrelationsfenster auf.",
     "insight.title.ban_after_access": "CrowdSec-Ban nach Access-Fehlern",
     "insight.description.ban_after_access": "Ein CrowdSec-Ban und Access-Fehler traten im Korrelationsfenster auf.",
-    "insight.title.wordpress_scan": "Möglicher WordPress-Scan",
-    "insight.description.wordpress_scan": "Die Anfrage passt zur Scanner-Regel für WordPress-Pfade.",
 
     "diagnostics.title": "Diagnose",
     "diagnostics.download_debug_report": "Debug-Bericht herunterladen",

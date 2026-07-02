@@ -13,6 +13,7 @@ from app.models.core import AggregationDaily, AggregationMonthly, Insight
 from app.models.events import Event
 from app.services.asset_hosts import find_asset_by_host
 from app.services.geoip import enrich_event_values
+from app.services.insight_rules import apply_declarative_insight_rules
 
 
 logger = logging.getLogger(__name__)
@@ -295,30 +296,7 @@ def create_rule_based_insights(db: Session, event: Event) -> None:
                     )
                 )
 
-    if event.event_type == "access.error" and event.path and "wp-login" in event.path:
-        recent_count = (
-            db.query(Event)
-            .filter(
-                Event.path.contains("wp-login"),
-                Event.event_time >= event.event_time - timedelta(minutes=5),
-            )
-            .count()
-        )
-        if recent_count >= 1:
-            ids = [event.id]
-            if not _insight_exists(db, "wordpress_scan", ids):
-                db.add(
-                    Insight(
-                        type="wordpress_scan",
-                        confidence=0.7,
-                        level="medium",
-                        title="Possible WordPress scan",
-                        description=f"Request to {event.path} matched the v1 scanner rule.",
-                        related_event_ids=ids,
-                        ip=event.ip,
-                        asset_id=event.asset_id,
-                    )
-                )
+    apply_declarative_insight_rules(db, event)
 
 
 def is_local_ip_value(value: str | None) -> bool:

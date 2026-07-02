@@ -39,6 +39,7 @@ DEFAULT_SETTINGS = {
 CORE_PLUGINS = [
     ("asset_updates", "Asset update checks", ["core", "updates"]),
     ("geoip", "GeoIP / ASN / ISP / City", ["enrichment"]),
+    ("insight_rules", "Insights engine", ["core", "insight", "rules"]),
 ]
 
 
@@ -118,7 +119,7 @@ def _migrate_asset_update_settings(db: Session) -> None:
                 else:
                     existing.value = legacy.value
                 break
-    for old_key in ["plugin.json_assets.github_token", "plugin.json_assets.github_interval", "plugin.assets.github_token"]:
+    for old_key in ["plugin.json_assets.github_token", "plugin.json_assets.github_interval", "plugin.assets.github_token", "insight_rules.cache_json"]:
         db.query(Setting).filter(Setting.key == old_key).delete()
 
 

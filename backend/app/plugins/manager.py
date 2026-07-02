@@ -17,6 +17,7 @@ from app.models.core import Datasource, Diagnostic, PluginRecord
 from app.models.settings import Setting
 from app.plugins.base import ActionPlugin, DatasourcePlugin, ExportPlugin, PeriodicPlugin, Plugin, PluginContext, PluginSetting
 from app.core.time import utc_now
+from app.services.insight_rules import refresh_insight_rules
 from app.services.json_assets_updates import refresh_asset_updates
 
 
@@ -179,6 +180,7 @@ class PluginManager:
     async def startup(self) -> None:
         logger.info("Starting %d plugin task groups", len(self.plugins))
         self.tasks.append(asyncio.create_task(self._asset_update_loop(), name="core-asset-update-checks"))
+        self.tasks.append(asyncio.create_task(self._insight_rules_loop(), name="core-insight-rules"))
         for plugin in self.plugins.values():
             self.tasks.append(asyncio.create_task(self._health_loop(plugin), name=f"plugin-health-{plugin.metadata.id}"))
             if isinstance(plugin, DatasourcePlugin):
@@ -246,6 +248,22 @@ class PluginManager:
         )
         for asset in publishable_assets:
             await self.export_asset_update(db, asset)
+
+    async def _insight_rules_loop(self) -> None:
+        while True:
+            db = SessionLocal()
+            try:
+                result = refresh_insight_rules(db)
+                logger.debug("Insights engine rules refresh result: %s", result)
+                await asyncio.sleep(24 * 60 * 60)
+            except asyncio.CancelledError:
+                db.close()
+                raise
+            except Exception:
+                logger.exception("Insights engine rules refresh failed")
+                await asyncio.sleep(60 * 60)
+            finally:
+                db.close()
 
     async def shutdown(self) -> None:
         if not self.tasks:

@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "ruleset_version": "2026-07-02",
+  "rules": [
+    {
+      "id": "web.wordpress_scan",
+      "title": "Possible WordPress scan",
+      "description": "Requests targeting common WordPress paths were observed.",
+      "level": "medium",
+      "confidence": 0.7,
+      "event_types": ["access.denied", "access.error"],
+      "path_contains_any": [
+        "/wp-login.php",
+        "/wp-admin",
+        "/xmlrpc.php",
+        "/wp-content/",
+        "/wp-includes/"
+      ],
+      "group_by": "ip",
+      "window_minutes": 5,
+      "threshold": 1
+    },
+    {
+      "id": "web.phpmyadmin_probe",
+      "title": "Possible phpMyAdmin probe",
+      "description": "Requests targeting common phpMyAdmin paths were observed.",
+      "level": "medium",
+      "confidence": 0.7,
+      "event_types": ["access.denied", "access.error"],
+      "path_contains_any": [
+        "/phpmyadmin",
+        "/phpMyAdmin",
+        "/pma/",
+        "/myadmin",
+        "/mysqladmin"
+      ],
+      "group_by": "ip",
+      "window_minutes": 5,
+      "threshold": 1
+    },
+    {
+      "id": "web.env_file_probe",
+      "title": "Possible environment file probe",
+      "description": "Requests targeting exposed environment/configuration files were observed.",
+      "level": "high",
+      "confidence": 0.82,
+      "event_types": ["access.denied", "access.error"],
+      "path_contains_any": [
+        "/.env",
+        "/.env.local",
+        "/.env.production",
+        "/config.php",
+        "/config.json",
+        "/settings.php"
+      ],
+      "group_by": "ip",
+      "window_minutes": 5,
+      "threshold": 1
+    },
+    {
+      "id": "web.git_probe",
+      "title": "Possible exposed Git repository probe",
+      "description": "Requests targeting exposed .git paths were observed.",
+      "level": "high",
+      "confidence": 0.82,
+      "event_types": ["access.denied", "access.error"],
+      "path_contains_any": [
+        "/.git/",
+        "/.git/config",
+        "/.git/HEAD"
+      ],
+      "group_by": "ip",
+      "window_minutes": 5,
+      "threshold": 1
+    },
+    {
+      "id": "web.admin_probe",
+      "title": "Possible admin panel probe",
+      "description": "Requests targeting common admin panel paths were observed.",
+      "level": "medium",
+      "confidence": 0.65,
+      "event_types": ["access.denied", "access.error"],
+      "path_contains_any": [
+        "/admin",
+        "/administrator",
+        "/login",
+        "/manager/html",
+        "/boaform/admin/formLogin"
+      ],
+      "group_by": "ip",
+      "window_minutes": 10,
+      "threshold": 3
+    }
+  ]
+}

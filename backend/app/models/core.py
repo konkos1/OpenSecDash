@@ -54,6 +54,30 @@ class Insight(Base):
     asset_id: Mapped[int | None] = mapped_column(nullable=True, index=True)
 
 
+class InsightRule(Base):
+    __tablename__ = "insight_rules"
+    __table_args__ = (UniqueConstraint("rule_id", name="uq_insight_rule_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    rule_id: Mapped[str] = mapped_column(String(120), index=True)
+    source: Mapped[str] = mapped_column(String(50), default="bundled", index=True)
+    schema_version: Mapped[str] = mapped_column(String(20), default="1")
+    ruleset_version: Mapped[str] = mapped_column(String(20), default="")
+    title: Mapped[str] = mapped_column(String(255))
+    description: Mapped[str] = mapped_column(Text, default="")
+    level: Mapped[str] = mapped_column(String(20), default="medium")
+    confidence: Mapped[float] = mapped_column(default=0.7)
+    event_types: Mapped[list] = mapped_column(JSON, default=list)
+    path_contains_any: Mapped[list] = mapped_column(JSON, default=list)
+    group_by: Mapped[str] = mapped_column(String(50), default="ip")
+    window_minutes: Mapped[int] = mapped_column(default=5)
+    threshold: Mapped[int] = mapped_column(default=1)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, index=True)
+
+
 class Action(Base):
     __tablename__ = "actions"
 

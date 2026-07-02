@@ -24,6 +24,7 @@ from app.database.session import SessionLocal
 from app.core.template_context import get_setting_value
 from app.models.events import Event
 from app.plugins.manager import get_plugin_manager
+from app.services.insight_rules import refresh_insight_rules
 
 templates = Jinja2Templates(directory="app/templates")
 logger = logging.getLogger(__name__)
@@ -53,6 +54,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         else:
             logger.info("Database migration: schema up to date: %s", migration_result.get("current"))
         update_migration_diagnostic(db)
+        refresh_insight_rules(db)
         manager.seed_database(db)
     finally:
         db.close()

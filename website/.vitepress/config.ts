@@ -101,6 +101,7 @@ export default defineConfig({
         items: [
           { text: 'Updating', link: '/guide/operations/updating' },
           { text: 'Dashboard rollups', link: '/guide/operations/dashboard-rollups' },
+          { text: 'Insights engine', link: '/guide/operations/insight-rules' },
           { text: 'Troubleshooting', link: '/guide/operations/troubleshooting' }
         ]
       },
@@ -108,6 +109,7 @@ export default defineConfig({
         text: 'Contributing',
         items: [
           { text: 'Development', link: '/guide/contributing/development' },
+          { text: 'Contributing insight rules', link: '/guide/contributing/insight-rules' },
           { text: 'Project information', link: '/guide/contributing/project' }
         ]
       }

@@ -27,6 +27,7 @@ from app.models.core import Action, AggregationDaily, CrowdSecDecision, Datasour
 from app.models.events import Event
 from app.models.settings import Setting
 from app.models.systems import System
+from app.services.insight_rules import debug_summary as insight_rules_debug_summary
 from app.services.json_assets_updates import refresh_asset_update
 from app.plugins.manager import get_plugin_manager
 from app.services.asset_actions import (
@@ -292,6 +293,8 @@ def diagnostic_plugin_enabled(db: Session, plugin_id: str) -> bool:
         return assets_feature_enabled(db)
     if plugin_id == "geoip":
         return is_plugin_enabled(db, "geoip") and events_feature_enabled(db)
+    if plugin_id == "insight_rules":
+        return events_feature_enabled(db)
     return is_plugin_enabled(db, plugin_id)
 
 
@@ -299,6 +302,8 @@ def diagnostic_disabled_message(db: Session, plugin_id: str) -> str:
     if plugin_id == "asset_updates" and not assets_feature_enabled(db):
         return "No asset source plugin is enabled."
     if plugin_id == "geoip" and is_plugin_enabled(db, "geoip") and not events_feature_enabled(db):
+        return "No event datasource plugin is enabled."
+    if plugin_id == "insight_rules" and not events_feature_enabled(db):
         return "No event datasource plugin is enabled."
     return "Plugin is disabled and not running."
 
@@ -1270,6 +1275,7 @@ def build_debug_report_files(db: Session) -> dict[str, str]:
                 _debug_line("actions", db.query(Action).count()),
             ],
         ),
+        "insight-rules.txt": _debug_file("Insights Engine Rules", insight_rules_debug_summary(db)),
         "recent-actions.txt": _debug_file(
             "Recent actions",
             [

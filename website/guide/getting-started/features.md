@@ -95,12 +95,14 @@ For the best install experience, serve OpenSecDash through HTTPS via your revers
 
 ## Insights and correlation
 
-OpenSecDash creates simple rule-based insights from event patterns, for example:
+OpenSecDash creates simple insights from event patterns, for example:
 
-- possible WordPress scans
+- possible WordPress/phpMyAdmin/config-file probes from declarative insight rules
 - access errors followed by security bans
 - geoblocked requests
 - manually triggered security bans
+
+Heuristic web-probe rules can be updated from the OpenSecDash website without an app release. See [Insights engine](../operations/insight-rules.md).
 
 The goal is not to be a SIEM. The goal is to surface useful context quickly.
 

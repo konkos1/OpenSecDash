@@ -221,8 +221,6 @@ EN = {
     "insight.description.blocked_request": "A blocked request and an access error occurred inside the correlation window.",
     "insight.title.ban_after_access": "CrowdSec ban after access errors",
     "insight.description.ban_after_access": "A CrowdSec ban and access errors occurred inside the correlation window.",
-    "insight.title.wordpress_scan": "Possible WordPress scan",
-    "insight.description.wordpress_scan": "The request matched the scanner rule for WordPress paths.",
 
     "diagnostics.title": "Diagnostics",
     "diagnostics.download_debug_report": "Download debug report",
