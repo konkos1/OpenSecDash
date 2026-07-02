@@ -25,4 +25,4 @@ npm run docs:dev
 
 Before contributing, read the repository's `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, and CLA notes.
 
-If you want to add a new integration, see [Plugin development](./plugin-development.md). For heuristic web-probe detections, see [Contributing insight rules](./insight-rules.md).
+If you want to add a new integration, see [Plugin development](./plugin-development.md). For heuristic web-probe detections, see [Contributing insight rules](./insight-rules.md). For UI languages, see [Translations](./translations.md).
