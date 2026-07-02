@@ -135,4 +135,6 @@ The Asset Explorer has several user-facing controls:
 
 Systems can be marked **stale** when they have not been seen recently. Proxmox Assets use a shorter threshold than JSON/manual sources because Proxmox syncs more frequently.
 
+## Plugin-specific settings
+
 Plugin-specific settings are documented on the individual [plugin pages](../plugins/index.md).

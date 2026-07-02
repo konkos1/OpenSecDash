@@ -29,9 +29,9 @@ These events appear on the Dashboard, Events page, IP Explorer, and can be enric
 | GeoBlock log path | Path to `geoblock.log`. In Docker, mount the host log read-only into the container. |
 | Poll interval seconds | How often the log file is checked for new entries. |
 
-## Docker note
+## Typical setup
 
-The container must be able to read the GeoBlock log path configured in Settings. Mount the host log read-only, for example:
+In Docker, mount the GeoBlock log read-only into the OpenSecDash container and configure the same path in Settings.
 
 ```yaml
 volumes:
