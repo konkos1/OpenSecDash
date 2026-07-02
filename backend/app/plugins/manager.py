@@ -17,6 +17,7 @@ from app.models.core import Datasource, Diagnostic, PluginRecord
 from app.models.settings import Setting
 from app.plugins.base import ActionPlugin, DatasourcePlugin, ExportPlugin, PeriodicPlugin, Plugin, PluginContext, PluginSetting
 from app.core.time import utc_now
+from app.services.events import cleanup_events_by_retention, compact_completed_daily_rollups
 from app.services.insight_rules import refresh_insight_rules
 from app.services.json_assets_updates import refresh_asset_updates
 
@@ -181,6 +182,8 @@ class PluginManager:
         logger.info("Starting %d plugin task groups", len(self.plugins))
         self.tasks.append(asyncio.create_task(self._asset_update_loop(), name="core-asset-update-checks"))
         self.tasks.append(asyncio.create_task(self._insight_rules_loop(), name="core-insight-rules"))
+        self.tasks.append(asyncio.create_task(self._rollup_compaction_loop(), name="core-rollup-compaction"))
+        self.tasks.append(asyncio.create_task(self._retention_cleanup_loop(), name="core-retention-cleanup"))
         for plugin in self.plugins.values():
             self.tasks.append(asyncio.create_task(self._health_loop(plugin), name=f"plugin-health-{plugin.metadata.id}"))
             if isinstance(plugin, DatasourcePlugin):
@@ -261,6 +264,43 @@ class PluginManager:
                 raise
             except Exception:
                 logger.exception("Insights engine rules refresh failed")
+                await asyncio.sleep(60 * 60)
+            finally:
+                db.close()
+
+    async def _rollup_compaction_loop(self) -> None:
+        while True:
+            db = SessionLocal()
+            try:
+                compacted = compact_completed_daily_rollups(db)
+                if compacted:
+                    logger.info("Compacted %d completed rollup month(s)", compacted)
+                db.commit()
+                await asyncio.sleep(60 * 60)
+            except asyncio.CancelledError:
+                db.close()
+                raise
+            except Exception:
+                logger.exception("Rollup compaction failed")
+                await asyncio.sleep(60 * 60)
+            finally:
+                db.close()
+
+    async def _retention_cleanup_loop(self) -> None:
+        while True:
+            db = SessionLocal()
+            try:
+                retention_days = self._setting_interval(get_setting_value(db, "retention_days", "30"))
+                deleted = cleanup_events_by_retention(db, retention_days)
+                if deleted:
+                    logger.info("Retention cleanup removed %d raw event(s)", deleted)
+                db.commit()
+                await asyncio.sleep(60 * 60)
+            except asyncio.CancelledError:
+                db.close()
+                raise
+            except Exception:
+                logger.exception("Retention cleanup failed")
                 await asyncio.sleep(60 * 60)
             finally:
                 db.close()

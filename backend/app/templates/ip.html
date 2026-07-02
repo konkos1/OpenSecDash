@@ -76,8 +76,7 @@
     {% endif %}
     
     <div class="card mb-5">
-        <h3 class="font-semibold mb-1">{{ t("ip.insights") }}</h3>
-        <p class="muted text-sm mb-1">{{ t("ip.insights_help") }}</p>
+        <h3 class="font-semibold mb-1">{{ t("ip.insights") }} <button type="button" class="help" data-tooltip="{{ t('ip.insights_help') }}">?</button></h3>
         <p class="muted text-sm mb-3">{{ t("table.limit.ip_insights") }}</p>
         {% for insight in insights %}
             <div class="row">

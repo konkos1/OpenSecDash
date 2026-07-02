@@ -1,62 +1,49 @@
-# Dashboard rollups
+# Rollups
 
-Dashboard rollups are precomputed daily counters used for fast historical dashboard summaries.
+Rollups are precomputed counters for historical event activity. They keep long-term summaries available even after raw events are removed by retention.
 
-The live dashboard focuses on **today**. Rollups are different: they represent the latest completed historical day with rollup data, not the current day.
+The rollup page is available only when at least one event datasource plugin is enabled, such as CrowdSec, GeoBlock Log, or Traefik Access Log.
 
-## What is shown
+## Daily and monthly rollups
 
-When at least one rollup-capable event datasource is enabled, the Dashboard can show a **Historical rollup events** section with:
+OpenSecDash keeps two rollup levels:
 
-- total rolled-up events for the selected historical day
-- top event types, for example `access.error` or `security.ban`
-- top scenarios, for example CrowdSec scenario names when available in event payloads
+- **Daily rollups** for the current calendar month.
+- **Monthly rollups** for completed calendar months.
 
-Rollup-capable event datasources currently include:
+OpenSecDash checks rollup compaction regularly in a background task based on the current system date/time. When a month is complete, it aggregates that month's daily rows into one compact monthly rollup and then removes the daily rows for that month. The previous day's daily rollup is kept for one extra day so Dashboard comparison badges still work on the first day of a new month. Monthly rollups are kept long-term because they are very small.
 
-- CrowdSec
-- GeoBlock Log
-- Traefik Access Log
+Raw events and access events are still managed by normal retention. Before retention deletes raw events, OpenSecDash keeps the required daily/monthly rollups: completed months are compacted first, and daily rollups for the current month are not deleted by retention. This keeps the database small while preserving historical activity summaries.
 
-If none of these plugins are enabled, the rollup widget is hidden.
+## Rollup Explorer
 
-## Which day is used
+Use **Rollups** in the navigation to open the Rollup Explorer.
 
-OpenSecDash intentionally does **not** use today for historical rollups.
+You can select:
 
-Instead it selects the newest rollup day that is earlier than today:
+- a specific day, backed by daily rollups
+- a specific calendar month, backed by monthly rollups for completed months or daily rollups for the current month
 
-```text
-latest aggregation day < today
-```
+The page shows summary cards and breakdown tables.
 
-This avoids showing a partial current-day rollup next to live dashboard widgets.
-
-Example:
-
-```text
-Today:      2026-07-01
-Rollup day: 2026-06-30
-```
-
-If no completed historical rollup exists yet, the widget shows no data.
-
-## Metrics
-
-Rollup rows are stored by metric name:
+## Summary metrics
 
 | Metric | Meaning |
 | --- | --- |
-| `event_type` | Counts grouped by OpenSecDash event type. |
-| `scenario` | Counts grouped by correlated scenario value, such as CrowdSec scenarios. |
+| Total events | All rolled-up events. |
+| Access events | Events whose type starts with `access.`. |
+| Security events | Events whose type starts with `security.`. |
+| Bans | Events whose type starts with `security.ban`. |
+| Geoblocks | Events with type `security.geoblock`. |
 
-## Live data vs rollup data
+## Detail metrics
 
-| Dashboard area | Data source |
+| Metric | Meaning |
 | --- | --- |
-| Today's cards | Live/raw events from today. |
-| Top countries today | Live/raw events from today. |
-| Top attack/access hours today | Live/raw events from today. |
-| Historical rollup events | Precomputed completed-day rollups. |
+| Event type | Counts grouped by OpenSecDash event type. |
+| Scenario | Counts grouped by correlated scenario value, such as CrowdSec scenarios. |
+| Country | Counts grouped by event country. |
 
-This split keeps the dashboard useful for live monitoring while still allowing fast summaries of historical data.
+## Dashboard
+
+The Dashboard intentionally focuses on today's activity. Historical rollups live in the Rollup Explorer instead of Dashboard widgets.

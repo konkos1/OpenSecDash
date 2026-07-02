@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from app.models.core import AggregationDaily, AggregationMonthly, Insight
+from app.models.core import AggregationDaily, Insight
 from app.models.events import Event
 from app.models.settings import Setting
 from app.services.events import apply_event_filters, classify_access_status, store_event, tokenize_search_expression
@@ -45,7 +45,8 @@ def test_store_event_deduplicates_and_updates_rollups_and_insights(db_session):
     assert getattr(duplicate, "_opensecdash_created") is False
     assert db_session.query(Event).count() == 1
     assert db_session.query(AggregationDaily).filter_by(date="2026-01-02", metric="event_type", key="security.ban").one().value == 1
-    assert db_session.query(AggregationMonthly).filter_by(month="2026-01", metric="country", key="US").one().value == 1
+    assert db_session.query(AggregationDaily).filter_by(date="2026-01-02", metric="country", key="US").one().value == 1
+    assert db_session.query(AggregationDaily).filter_by(date="2026-01-02", metric="summary", key="bans").one().value == 1
     assert db_session.query(Insight).filter_by(type="security_ban_observed", ip="8.8.8.8").count() == 1
 
 

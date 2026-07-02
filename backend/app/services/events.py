@@ -5,7 +5,7 @@ import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import String, and_, cast, or_
+from sqlalchemy import String, and_, cast, func, or_
 from sqlalchemy.orm import Session
 
 from app.core.time import utc_now
@@ -171,17 +171,30 @@ def cleanup_duplicate_events(db: Session) -> int:
     return len(duplicate_ids)
 
 
-def update_rollups(db: Session, event: Event) -> None:
-    day = event.event_time.strftime("%Y-%m-%d")
-    month = event.event_time.strftime("%Y-%m")
-    metrics: list[tuple[str, str]] = [("event_type", event.event_type)]
+def rollup_metrics_for_event(event: Event) -> list[tuple[str, str]]:
+    event_type = event.event_type or "unknown"
+    metrics: list[tuple[str, str]] = [("summary", "total_events"), ("event_type", event_type)]
+    if event_type.startswith("access."):
+        metrics.append(("summary", "access_events"))
+    if event_type.startswith("security."):
+        metrics.append(("summary", "security_events"))
+    if event_type.startswith("security.ban"):
+        metrics.append(("summary", "bans"))
+    if event_type == "security.geoblock":
+        metrics.append(("summary", "geoblocks"))
     if event.country:
         metrics.append(("country", event.country))
     scenario = (event.data_json or {}).get("scenario") or (event.data_json or {}).get("crowdsec_scenario")
     if scenario:
         metrics.append(("scenario", str(scenario)))
+    return metrics
 
-    for metric, key in metrics:
+
+def update_rollups(db: Session, event: Event) -> None:
+    day = event.event_time.strftime("%Y-%m-%d")
+    event_month = event.event_time.strftime("%Y-%m")
+    current_month = utc_now().replace(tzinfo=None).strftime("%Y-%m")
+    for metric, key in rollup_metrics_for_event(event):
         daily = (
             db.query(AggregationDaily)
             .filter(
@@ -193,22 +206,77 @@ def update_rollups(db: Session, event: Event) -> None:
         )
         if daily is None:
             db.add(AggregationDaily(date=day, metric=metric, key=key, value=1))
+            db.flush()
         else:
             daily.value += 1
 
-        monthly = (
-            db.query(AggregationMonthly)
-            .filter(
-                AggregationMonthly.month == month,
-                AggregationMonthly.metric == metric,
-                AggregationMonthly.key == key,
+        if event_month < current_month:
+            monthly = (
+                db.query(AggregationMonthly)
+                .filter(
+                    AggregationMonthly.month == event_month,
+                    AggregationMonthly.metric == metric,
+                    AggregationMonthly.key == key,
+                )
+                .first()
             )
-            .first()
+            if monthly is None:
+                db.add(AggregationMonthly(month=event_month, metric=metric, key=key, value=1))
+                db.flush()
+            else:
+                monthly.value += 1
+
+
+def compact_completed_daily_rollups(db: Session, reference_time: datetime | None = None) -> int:
+    now = reference_time or utc_now().replace(tzinfo=None)
+    current_month = now.strftime("%Y-%m")
+    yesterday = (now - timedelta(days=1)).strftime("%Y-%m-%d")
+    months = [
+        str(month)
+        for (month,) in db.query(func.substr(AggregationDaily.date, 1, 7)).distinct().all()
+        if month and str(month) < current_month
+    ]
+    compacted = 0
+    for month in months:
+        monthly_exists = db.query(AggregationMonthly).filter(AggregationMonthly.month == month).first() is not None
+        if not monthly_exists:
+            rows = (
+                db.query(AggregationDaily.metric, AggregationDaily.key, func.sum(AggregationDaily.value))
+                .filter(AggregationDaily.date.like(f"{month}-%"))
+                .group_by(AggregationDaily.metric, AggregationDaily.key)
+                .all()
+            )
+            for metric, key, value in rows:
+                db.add(AggregationMonthly(month=month, metric=str(metric), key=str(key), value=int(value or 0)))
+
+        deleted = (
+            db.query(AggregationDaily)
+            .filter(AggregationDaily.date.like(f"{month}-%"), AggregationDaily.date != yesterday)
+            .delete(synchronize_session=False)
         )
-        if monthly is None:
-            db.add(AggregationMonthly(month=month, metric=metric, key=key, value=1))
-        else:
-            monthly.value += 1
+        if deleted or not monthly_exists:
+            compacted += 1
+    return compacted
+
+
+def cleanup_events_by_retention(db: Session, retention_days: int, reference_time: datetime | None = None) -> int:
+    """Delete raw events after rollups for their period are safe.
+
+    Retention never deletes daily/monthly rollup rows. Completed months are
+    compacted before raw events are removed; current-month daily rollups remain
+    available even if raw events from early in the month fall outside retention.
+    """
+    if retention_days <= 0:
+        return 0
+    now = reference_time or utc_now().replace(tzinfo=None)
+    compact_completed_daily_rollups(db, now)
+    cutoff = now - timedelta(days=retention_days)
+    deleted = (
+        db.query(Event)
+        .filter(Event.event_time < cutoff, Event.retention_class == "raw")
+        .delete(synchronize_session=False)
+    )
+    return int(deleted or 0)
 
 
 def _insight_exists(db: Session, insight_type: str, event_ids: list[int]) -> bool:

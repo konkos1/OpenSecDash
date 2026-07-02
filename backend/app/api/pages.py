@@ -23,7 +23,7 @@ from app.core.time import datetime_iso_utc, format_datetime_for_timezone, local_
 from app.core.version import get_app_version
 from app.database.dependencies import get_db
 from app.models.assets import Asset
-from app.models.core import Action, AggregationDaily, CrowdSecDecision, Datasource, Diagnostic, Insight, PluginRecord
+from app.models.core import Action, AggregationDaily, AggregationMonthly, CrowdSecDecision, Datasource, Diagnostic, Insight, PluginRecord
 from app.models.events import Event
 from app.models.settings import Setting
 from app.models.systems import System
@@ -42,7 +42,7 @@ from app.services.asset_actions import (
 from app.services.actions import ActionAlreadyRunning, create_action
 from app.services.crowdsec_decisions import active_decision_for_ip, crowdsec_cscli_status, sync_crowdsec_decisions
 from app.services.asset_hosts import event_matches_asset_host, find_asset_by_host, normalize_asset_host, sync_asset_host_events
-from app.services.events import apply_event_filters, is_local_ip_value, store_event, tokenize_search_expression
+from app.services.events import apply_event_filters, compact_completed_daily_rollups, is_local_ip_value, store_event, tokenize_search_expression
 from app.services.proxmox_assets import sync_proxmox_assets
 
 router = APIRouter(tags=["pages"])
@@ -323,28 +323,98 @@ def require_assets_feature_enabled(db: Session) -> None:
         raise HTTPException(status_code=404, detail="Feature is disabled")
 
 
-def latest_historical_rollup_day(db: Session, before_day: str) -> str | None:
-    return db.query(func.max(AggregationDaily.date)).filter(AggregationDaily.date < before_day).scalar()
+def rollup_rows(db: Session, period: str, value: str, metric: str, limit: int | None = None) -> list[dict[str, str | int]]:
+    if period == "month":
+        monthly_rows = (
+            db.query(AggregationMonthly.key, AggregationMonthly.value)
+            .filter(AggregationMonthly.month == value, AggregationMonthly.metric == metric)
+            .order_by(AggregationMonthly.value.desc(), AggregationMonthly.key.asc())
+        )
+        if limit is not None:
+            monthly_rows = monthly_rows.limit(limit)
+        rows = monthly_rows.all()
+        if rows:
+            return [{"key": str(key), "value": int(row_value or 0)} for key, row_value in rows]
+        daily_query = (
+            db.query(AggregationDaily.key, func.sum(AggregationDaily.value))
+            .filter(AggregationDaily.date.like(f"{value}-%"), AggregationDaily.metric == metric)
+            .group_by(AggregationDaily.key)
+            .order_by(func.sum(AggregationDaily.value).desc(), AggregationDaily.key.asc())
+        )
+        if limit is not None:
+            daily_query = daily_query.limit(limit)
+        return [{"key": str(key), "value": int(row_value or 0)} for key, row_value in daily_query.all()]
 
-
-def dashboard_rollup_rows(db: Session, day: str | None, metric: str, limit: int = 5) -> list[dict[str, str | int]]:
-    if not day:
-        return []
-    rows = (
+    query = (
         db.query(AggregationDaily.key, AggregationDaily.value)
-        .filter(AggregationDaily.date == day, AggregationDaily.metric == metric)
+        .filter(AggregationDaily.date == value, AggregationDaily.metric == metric)
         .order_by(AggregationDaily.value.desc(), AggregationDaily.key.asc())
-        .limit(limit)
-        .all()
     )
-    return [{"key": str(key), "value": int(value or 0)} for key, value in rows]
+    if limit is not None:
+        query = query.limit(limit)
+    return [{"key": str(key), "value": int(row_value or 0)} for key, row_value in query.all()]
+
+
+def available_rollup_periods(db: Session) -> tuple[list[str], list[str]]:
+    days = [str(day) for (day,) in db.query(AggregationDaily.date).distinct().order_by(AggregationDaily.date.desc()).all()]
+    monthly_months = {str(month) for (month,) in db.query(AggregationMonthly.month).distinct().all()}
+    daily_months = {day[:7] for day in days}
+    months = sorted(monthly_months | daily_months, reverse=True)
+    return days, months
+
+
+def summary_from_event_type_rows(rows: list[dict[str, str | int]]) -> dict[str, int]:
+    summary = {
+        "total_events": 0,
+        "access_events": 0,
+        "security_events": 0,
+        "bans": 0,
+        "geoblocks": 0,
+    }
+    for row in rows:
+        key = str(row["key"])
+        value = int(row["value"])
+        summary["total_events"] += value
+        if key.startswith("access."):
+            summary["access_events"] += value
+        if key.startswith("security."):
+            summary["security_events"] += value
+        if key.startswith("security.ban"):
+            summary["bans"] += value
+        if key == "security.geoblock":
+            summary["geoblocks"] += value
+    return summary
+
+
+def rollup_summary(db: Session, period: str, value: str) -> dict[str, int] | None:
+    summary_rows = rollup_rows(db, period, value, "summary")
+    if summary_rows:
+        return {str(row["key"]): int(row["value"]) for row in summary_rows}
+    event_type_rows = rollup_rows(db, period, value, "event_type")
+    if event_type_rows:
+        return summary_from_event_type_rows(event_type_rows)
+    return None
+
+
+def dashboard_delta(current: int, previous: int | None) -> dict[str, str]:
+    previous = previous or 0
+    if previous == 0:
+        if current == 0:
+            return {"label": "±0%", "class": "dashboard-delta-same"}
+        return {"label_key": "dashboard.delta_new", "class": "dashboard-delta-up"}
+    percent = round(((current - previous) / previous) * 100)
+    if percent > 0:
+        return {"label": f"+{percent}%", "class": "dashboard-delta-up"}
+    if percent < 0:
+        return {"label": f"{percent}%", "class": "dashboard-delta-down"}
+    return {"label": "±0%", "class": "dashboard-delta-same"}
 
 
 @router.get("/")
 def dashboard_page(request: Request, db: Session = Depends(get_db)):
     since = today_start(db)
-    today_key = since.strftime("%Y-%m-%d")
-    rollup_day = latest_historical_rollup_day(db, today_key)
+    yesterday_key = (since - timedelta(days=1)).strftime("%Y-%m-%d")
+    yesterday_summary = rollup_summary(db, "day", yesterday_key) or {}
     enabled_plugins = {
         "json_assets": is_plugin_enabled(db, "json_assets"),
         "proxmox_assets": is_plugin_enabled(db, "proxmox_assets"),
@@ -421,11 +491,11 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
         )
     widgets = []
     if enabled_plugins["crowdsec"]:
-        widgets.append({"title_key": "dashboard.active_bans", "value": active_bans, "href": "/events?event_type=security.ban*&today=true"})
+        widgets.append({"title_key": "dashboard.active_bans", "value": active_bans, "href": "/events?event_type=security.ban*&today=true", "delta": dashboard_delta(active_bans, yesterday_summary.get("bans"))})
     if enabled_plugins["geoblock_log"]:
-        widgets.append({"title_key": "dashboard.geoblocks_today", "value": geoblocks, "href": "/events?event_type=security.geoblock&today=true"})
+        widgets.append({"title_key": "dashboard.geoblocks_today", "value": geoblocks, "href": "/events?event_type=security.geoblock&today=true", "delta": dashboard_delta(geoblocks, yesterday_summary.get("geoblocks"))})
     if enabled_plugins["traefik_log"]:
-        widgets.append({"title_key": "dashboard.access_today", "value": access_events, "href": "/events?event_type=access.*&today=true"})
+        widgets.append({"title_key": "dashboard.access_today", "value": access_events, "href": "/events?event_type=access.*&today=true", "delta": dashboard_delta(access_events, yesterday_summary.get("access_events"))})
     if assets_feature_enabled(db):
         widgets.extend(
             [
@@ -433,10 +503,6 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
                 {"title_key": "dashboard.updates", "value": db.query(Asset).filter(Asset.update_available == True).count(), "href": "/assets?updates=true"},
             ]
         )
-
-    rollup_event_types = dashboard_rollup_rows(db, rollup_day, "event_type")
-    rollup_scenarios = dashboard_rollup_rows(db, rollup_day, "scenario")
-    rollup_total = sum(row["value"] for row in rollup_event_types if isinstance(row["value"], int))
 
     max_country_count = max((count for _, count in top_countries), default=0)
     country_heatmap = [
@@ -455,14 +521,40 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
         attack_hours=attack_hours,
         access_hours=access_hours,
         country_heatmap=country_heatmap,
-        rollup_day=rollup_day or "-",
-        rollup_event_types=rollup_event_types,
-        rollup_scenarios=rollup_scenarios,
-        rollup_total=rollup_total,
-        rollup_plugins_enabled=bool(country_data_plugins),
         today_events_href="/events?today=true",
         country_data_plugins=country_data_plugins,
         latest_security_events=latest_security_events,
+    )
+
+
+@router.get("/rollups")
+def rollups_page(request: Request, db: Session = Depends(get_db)):
+    require_events_feature_enabled(db)
+    compact_completed_daily_rollups(db)
+    days, months = available_rollup_periods(db)
+    requested_period = request.query_params.get("period") or "month"
+    period = requested_period if requested_period in {"day", "month"} else "month"
+    available_values = months if period == "month" else days
+    requested_value = (request.query_params.get("value") or "").strip()
+    selected_value = requested_value if requested_value in available_values else (available_values[0] if available_values else "")
+
+    summary_rows = rollup_rows(db, period, selected_value, "summary") if selected_value else []
+    event_type_rows = rollup_rows(db, period, selected_value, "event_type") if selected_value else []
+    summary = {str(row["key"]): int(row["value"]) for row in summary_rows}
+    if not summary and event_type_rows:
+        summary = summary_from_event_type_rows(event_type_rows)
+    return render(
+        request,
+        db,
+        "rollups.html",
+        period=period,
+        selected_value=selected_value,
+        available_days=days,
+        available_months=months,
+        summary=summary,
+        event_type_rows=event_type_rows,
+        scenario_rows=rollup_rows(db, period, selected_value, "scenario") if selected_value else [],
+        country_rows=rollup_rows(db, period, selected_value, "country", limit=20) if selected_value else [],
     )
 
 

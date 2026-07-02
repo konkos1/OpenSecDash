@@ -10,7 +10,7 @@ from app.models.settings import Setting
 from app.models.systems import System
 
 
-def render_dashboard(*, rollup_plugins_enabled: bool) -> str:
+def render_dashboard(*, event_plugins_enabled: bool) -> str:
     env = Environment(
         loader=FileSystemLoader("app/templates"),
         autoescape=select_autoescape(["html"]),
@@ -27,36 +27,22 @@ def render_dashboard(*, rollup_plugins_enabled: bool) -> str:
         theme="dark",
         timezone="auto",
         domain="homelab.example",
-        enabled_plugins={"crowdsec": rollup_plugins_enabled, "geoblock_log": False, "traefik_log": False, "json_assets": False, "proxmox_assets": False},
-        event_plugins_enabled=rollup_plugins_enabled,
+        enabled_plugins={"crowdsec": event_plugins_enabled, "geoblock_log": False, "traefik_log": False, "json_assets": False, "proxmox_assets": False},
+        event_plugins_enabled=event_plugins_enabled,
         t=lambda key: key,
         widgets=[],
         top_countries=[],
         attack_hours=[],
         access_hours=[],
         country_heatmap=[],
-        rollup_plugins_enabled=rollup_plugins_enabled,
-        rollup_day="2026-06-29",
-        rollup_event_types=[],
-        rollup_scenarios=[],
-        rollup_total=0,
         today_events_href="/events?today=true",
-        country_data_plugins=["crowdsec"] if rollup_plugins_enabled else [],
+        country_data_plugins=["crowdsec"] if event_plugins_enabled else [],
         latest_security_events=[],
     )
 
 
-def test_dashboard_shows_rollup_widget_without_rollup_data_when_data_plugin_enabled():
-    html = render_dashboard(rollup_plugins_enabled=True)
-
-    assert "dashboard.rollups_historical" in html
-    assert "dashboard.rollup_event_types" in html
-    assert "dashboard.rollup_scenarios" in html
-    assert "dashboard.no_data" in html
-
-
-def test_dashboard_hides_rollup_widget_when_no_rollup_data_plugin_enabled():
-    html = render_dashboard(rollup_plugins_enabled=False)
+def test_dashboard_does_not_show_historical_rollup_widgets():
+    html = render_dashboard(event_plugins_enabled=True)
 
     assert "dashboard.rollups_historical" not in html
     assert "dashboard.rollup_event_types" not in html

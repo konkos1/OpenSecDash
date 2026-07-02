@@ -24,7 +24,7 @@
 
     <body class="bg-slate-950 text-slate-100 min-h-screen" data-ui-timezone="{{ timezone }}" data-theme="{{ theme }}">
         {% set current_path = request.url.path %}
-        {% set top_level_paths = ['/', '/crowdsec', '/access', '/assets', '/events', '/diagnostics', '/settings'] %}
+        {% set top_level_paths = ['/', '/crowdsec', '/access', '/assets', '/events', '/rollups', '/diagnostics', '/settings'] %}
         <header class="border-b border-slate-800 bg-slate-900/90 sticky top-0 z-10">
             <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
                 <a href="/" class="brand-link flex flex-col">
@@ -40,6 +40,7 @@
                     {% if enabled_plugins.traefik_log %}<a class="nav {{ 'nav-active' if current_path.startswith('/access') else '' }}" href="/access">{{ t("nav.access") }}</a>{% endif %}
                     {% if asset_plugins_enabled %}<a class="nav {{ 'nav-active' if current_path.startswith('/assets') else '' }}" href="/assets">{{ t("nav.assets") }}</a>{% endif %}
                     {% if event_plugins_enabled %}<a class="nav {{ 'nav-active' if current_path.startswith('/events') or current_path.startswith('/ip') else '' }}" href="/events">{{ t("nav.events") }}</a>{% endif %}
+                    {% if event_plugins_enabled %}<a class="nav {{ 'nav-active' if current_path.startswith('/rollups') else '' }}" href="/rollups">{{ t("nav.rollups") }}</a>{% endif %}
                     <a class="nav {{ 'nav-active' if current_path.startswith('/diagnostics') else '' }}" href="/diagnostics">{{ t("nav.diagnostics") }}</a>
                     <a class="nav {{ 'nav-active' if current_path.startswith('/settings') else '' }}" href="/settings">{{ t("nav.settings") }}</a>
                 </nav>
@@ -51,6 +52,7 @@
                 {% if enabled_plugins.traefik_log %}<a class="nav {{ 'nav-active' if current_path.startswith('/access') else '' }}" href="/access">{{ t("nav.access") }}</a>{% endif %}
                 {% if asset_plugins_enabled %}<a class="nav {{ 'nav-active' if current_path.startswith('/assets') else '' }}" href="/assets">{{ t("nav.assets") }}</a>{% endif %}
                 {% if event_plugins_enabled %}<a class="nav {{ 'nav-active' if current_path.startswith('/events') or current_path.startswith('/ip') else '' }}" href="/events">{{ t("nav.events") }}</a>{% endif %}
+                {% if event_plugins_enabled %}<a class="nav {{ 'nav-active' if current_path.startswith('/rollups') else '' }}" href="/rollups">{{ t("nav.rollups") }}</a>{% endif %}
                 <a class="nav {{ 'nav-active' if current_path.startswith('/diagnostics') else '' }}" href="/diagnostics">{{ t("nav.diagnostics") }}</a>
                 <a class="nav {{ 'nav-active' if current_path.startswith('/settings') else '' }}" href="/settings">{{ t("nav.settings") }}</a>
             </nav>

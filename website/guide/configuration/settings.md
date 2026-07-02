@@ -8,7 +8,7 @@ OpenSecDash settings are available from the Settings page. Plugin-specific setti
 | --- | --- |
 | Primary Domain | Shown as the identity of this OpenSecDash instance. Useful when screenshots/debug reports need to identify which homelab instance they came from or simply as branding. |
 | Language | UI language. Technical event identifiers such as `access.denied` stay unchanged. |
-| Retention days | How long raw events should be kept in local database, depending on cleanup/retention behavior. |
+| Retention days | How long raw events are kept in the local database. Rollups are preserved before cleanup so historical summaries remain available. |
 | Default Events mode | Starts the Events- and Access page in Live or Snapshot mode. Live keeps updating; Snapshot freezes the current view for investigation. |
 | Theme | Dark, light, or automatic browser/system theme. |
 | Timezone | Display timestamps in `auto`, `UTC`, or an IANA timezone such as `Europe/Berlin`. |

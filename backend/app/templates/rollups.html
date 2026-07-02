@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}
+  {{ t("app.name") }} · {{ t("rollups.title") }}
+{% endblock %}
+
+{% block content %}
+
+  <div class="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-5">
+    <div>
+      <h2 class="text-2xl font-semibold">{{ t("rollups.title") }}</h2>
+      <p class="muted text-sm mt-1">{{ t("rollups.help") }}</p>
+    </div>
+  </div>
+
+  {% if available_days or available_months %}
+    <form class="card flex flex-col sm:flex-row sm:items-end gap-3 mb-5" method="get">
+      <label class="text-sm sm:w-40">
+        <span class="muted block mb-1">{{ t("rollups.period") }}</span>
+        <select class="input" name="period" onchange="this.form.elements.value.disabled = true; this.form.submit()">
+          <option value="month" {% if period == 'month' %}selected{% endif %}>{{ t("rollups.month") }}</option>
+          <option value="day" {% if period == 'day' %}selected{% endif %}>{{ t("rollups.day") }}</option>
+        </select>
+      </label>
+      <label class="text-sm sm:w-48">
+        <span class="muted block mb-1">{{ t("rollups.value") }}</span>
+        <select class="input" name="value" onchange="this.form.submit()" {% if not selected_value %}disabled{% endif %}>
+          {% if period == 'month' %}
+            {% if available_months %}
+              {% for value in available_months %}<option value="{{ value }}" {% if value == selected_value %}selected{% endif %}>{{ value }}</option>{% endfor %}
+            {% else %}
+              <option value="">{{ t("rollups.no_months") }}</option>
+            {% endif %}
+          {% else %}
+            {% if available_days %}
+              {% for value in available_days %}<option value="{{ value }}" {% if value == selected_value %}selected{% endif %}>{{ value }}</option>{% endfor %}
+            {% else %}
+              <option value="">{{ t("rollups.no_days") }}</option>
+            {% endif %}
+          {% endif %}
+        </select>
+      </label>
+    </form>
+
+    <section class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-5">
+      {% for key in ["total_events", "access_events", "security_events", "bans", "geoblocks"] %}
+        <div class="card flex flex-col items-center text-center">
+          <span class="muted text-sm">{{ t("rollups." ~ key) }}</span>
+          <strong class="text-3xl">{{ summary.get(key, 0) }}</strong>
+        </div>
+      {% endfor %}
+    </section>
+
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div class="card overflow-x-auto responsive-table">
+        <h3 class="font-semibold mb-3">{{ t("rollups.by_event_type") }}</h3>
+        <table class="w-full text-sm table-middle">
+          <tbody>
+            {% for row in event_type_rows %}
+              <tr><td>{{ row.key }}</td><td class="text-right"><strong>{{ row.value }}</strong></td></tr>
+            {% else %}
+              <tr><td>{{ t("dashboard.no_data") }}</td><td></td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="card overflow-x-auto responsive-table">
+        <h3 class="font-semibold mb-3">{{ t("rollups.by_scenario") }}</h3>
+        <table class="w-full text-sm table-middle">
+          <tbody>
+            {% for row in scenario_rows %}
+              <tr><td>{{ row.key }}</td><td class="text-right"><strong>{{ row.value }}</strong></td></tr>
+            {% else %}
+              <tr><td>{{ t("dashboard.no_data") }}</td><td></td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="card overflow-x-auto responsive-table">
+        <h3 class="font-semibold mb-3">{{ t("rollups.by_country") }}</h3>
+        <table class="w-full text-sm table-middle">
+          <tbody>
+            {% for row in country_rows %}
+              <tr><td>{{ row.key|country_name }}</td><td class="text-right"><strong>{{ row.value }}</strong></td></tr>
+            {% else %}
+              <tr><td>{{ t("dashboard.no_data") }}</td><td></td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  {% else %}
+    <section class="card">
+      <p class="muted">{{ t("rollups.no_periods") }}</p>
+    </section>
+  {% endif %}
+
+{% endblock %}

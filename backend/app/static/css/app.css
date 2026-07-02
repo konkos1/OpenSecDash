@@ -16,6 +16,11 @@ tbody tr:hover { background: rgba(15, 23, 42, .65); }
 .nav { border-radius: .6rem; color: #e2e8f0; padding: .5rem .75rem; text-decoration: none; }
 .nav:hover, .nav-active { background: #1e293b; color: white; }
 .card { background: rgb(15 23 42); border: 1px solid rgb(30 41 59); border-radius: 1rem; padding: 1rem; }
+.dashboard-widget { min-height: 7rem; position: relative; }
+.dashboard-delta { bottom: .75rem; font-size: .8rem; font-weight: 800; position: absolute; right: .85rem; }
+.dashboard-delta-up { color: #f87171; }
+.dashboard-delta-down { color: #4ade80; }
+.dashboard-delta-same { color: #94a3b8; }
 .row { align-items: center; border-bottom: 1px solid rgb(30 41 59); display: flex; gap: 1rem; justify-content: space-between; padding: .6rem 0; }
 .row:last-child { border-bottom: 0; }
 .btn, .btn-small { background: #2563eb; border-radius: .7rem; color: white; display: inline-flex; min-height: 2.5rem; align-items: center; justify-content: center; padding: .55rem .9rem; }

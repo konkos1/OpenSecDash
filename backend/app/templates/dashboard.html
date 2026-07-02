@@ -13,9 +13,12 @@
   {% if widgets %}
     <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
       {% for widget in widgets %}
-        <a href="{{ widget.href }}" class="card hover:border-blue-500 flex flex-col items-center text-center">
+        <a href="{{ widget.href }}" class="card dashboard-widget hover:border-blue-500 flex flex-col items-center text-center">
           <span class="text-slate-400 text-sm">{{ t(widget.title_key) }}</span>
           <strong class="text-3xl">{{ widget.value }}</strong>
+          {% if widget.delta %}
+            <small class="dashboard-delta {{ widget.delta.class }}" title="{{ t('dashboard.delta_vs_yesterday') }}">{{ t(widget.delta.label_key) if widget.delta.label_key else widget.delta.label }}</small>
+          {% endif %}
         </a>
       {% endfor %}
     </section>
@@ -116,38 +119,5 @@
     </section>
   {% endif %}
 
-  {% if rollup_plugins_enabled %}
-    <section class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
-      <div class="card flex flex-col items-center text-center">
-        <span class="text-slate-400 text-sm">{{ t("dashboard.rollups_historical") }}</span>
-        <strong class="text-3xl">{{ rollup_total }}</strong>
-        <small class="muted mt-1">{{ t("dashboard.rollup_day") }}: {{ rollup_day }}</small>
-      </div>
-      <div class="card">
-        <h3 class="font-semibold mb-1">{{ t("dashboard.rollup_event_types") }}</h3>
-        <p class="muted text-sm mb-3">{{ t("dashboard.rollup_help") }}</p>
-        {% for row in rollup_event_types %}
-          <a class="row" href="/events?event_type={{ row.key|url_path_quote }}">
-            <span>{{ row.key }}</span>
-            <b>{{ row.value }}</b>
-          </a>
-        {% else %}
-          <p class="muted">{{ t("dashboard.no_data") }}</p>
-        {% endfor %}
-      </div>
-      <div class="card">
-        <h3 class="font-semibold mb-1">{{ t("dashboard.rollup_scenarios") }}</h3>
-        <p class="muted text-sm mb-3">{{ t("dashboard.rollup_scenarios_help") }}</p>
-        {% for row in rollup_scenarios %}
-          <a class="row" href="/events?q={{ row.key|url_path_quote }}">
-            <span>{{ row.key }}</span>
-            <b>{{ row.value }}</b>
-          </a>
-        {% else %}
-          <p class="muted">{{ t("dashboard.no_data") }}</p>
-        {% endfor %}
-      </div>
-    </section>
-  {% endif %}
 
 {% endblock %}
