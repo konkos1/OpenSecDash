@@ -10,7 +10,7 @@ In Docker, mount the Traefik access log read-only into the OpenSecDash container
 
 ```yaml
 volumes:
-  - /var/log/traefik/access.log:/var/log/traefik/access.log:ro
+  - /var/log/traefik/access.log:/logs/access.log:ro
 ```
 
 ## Settings

@@ -35,7 +35,7 @@ In Docker, mount the GeoBlock log read-only into the OpenSecDash container and c
 
 ```yaml
 volumes:
-  - /var/log/traefik/geoblock.log:/var/log/traefik/geoblock.log:ro
+  - /var/log/traefik/geoblock.log:/logs/geoblock.log:ro
 ```
 
 Then configure the same path in OpenSecDash.

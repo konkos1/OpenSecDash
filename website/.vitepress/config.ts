@@ -1,16 +1,45 @@
 import { defineConfig } from 'vitepress'
 
+const hostname = 'https://opensecdash.app'
+
+function canonicalUrl(relativePath: string) {
+  const cleanPath = relativePath
+    .replace(/(^|\/)index\.md$/, '$1')
+    .replace(/\.md$/, '')
+    .replace(/\/$/, '')
+
+  return cleanPath ? `${hostname}/${cleanPath}` : `${hostname}/`
+}
+
 export default defineConfig({
   title: 'OpenSecDash',
   description: 'A security dashboard for homelabs',
   cleanUrls: true,
   lastUpdated: true,
+  sitemap: {
+    hostname
+  },
   head: [
     ['link', { rel: 'icon', href: '/favicon.svg' }],
+    ['meta', { name: 'robots', content: 'index,follow' }],
     ['meta', { property: 'og:type', content: 'website' }],
+    ['meta', { property: 'og:site_name', content: 'OpenSecDash' }],
     ['meta', { property: 'og:title', content: 'OpenSecDash' }],
-    ['meta', { property: 'og:description', content: 'A security dashboard for homelabs' }]
+    ['meta', { property: 'og:description', content: 'A security dashboard for homelabs' }],
+    ['meta', { property: 'og:image', content: `${hostname}/og-image.png` }],
+    ['meta', { property: 'og:image:type', content: 'image/png' }],
+    ['meta', { property: 'og:image:width', content: '1200' }],
+    ['meta', { property: 'og:image:height', content: '630' }],
+    ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
+    ['meta', { name: 'twitter:image', content: `${hostname}/og-image.png` }]
   ],
+  transformHead({ pageData }) {
+    const url = canonicalUrl(pageData.relativePath)
+    return [
+      ['link', { rel: 'canonical', href: url }],
+      ['meta', { property: 'og:url', content: url }]
+    ]
+  },
   themeConfig: {
     logo: '/favicon.svg',
     siteTitle: 'OpenSecDash',
