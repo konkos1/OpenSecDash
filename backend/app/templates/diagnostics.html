@@ -65,7 +65,8 @@
 
     <section class="card">
         <h3 class="font-semibold mb-1">{{ t("diagnostics.recent_actions") }}</h3>
-        <p class="muted mb-3 text-sm">{{ t("diagnostics.recent_actions_help") }}</p>
+        <p class="muted mb-1 text-sm">{{ t("diagnostics.recent_actions_help") }}</p>
+        <p class="muted mb-3 text-sm">{{ t("table.limit.diagnostics_actions") }}</p>
         {% for action in actions %}
             <div class="row">
                 {% set action_label_key = "action.type." ~ action.action_type %}

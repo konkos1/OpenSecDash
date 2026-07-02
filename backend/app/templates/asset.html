@@ -167,46 +167,119 @@
         </table>
     </div>
 
-    <div class="card mb-5">
-        <h3 class="font-semibold mb-3">{{ t("asset.insights") }}</h3>
-        {% for insight in insights %}
-            <div class="row">
-                <span>{{ insight.title }}<br><small class="muted">{{ insight.description }}</small></span>
-                <b>{{ insight.level }}</b>
+    <section id="asset-events" class="space-y-4" x-data="{ selectedHost: 'combined' }">
+        {% if host_event_sections and not focused_asset %}
+            <div class="card">
+                <h3 class="font-semibold mb-1">{{ t("asset.host_event_tables") }}</h3>
+                <p class="muted text-sm mb-3">{{ t("asset.host_event_tabs_help") }}</p>
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" class="btn-small" :class="selectedHost === 'combined' ? '' : 'btn-secondary'" @click="selectedHost = 'combined'">{{ t("asset.combined_events") }}</button>
+                    {% for section in host_event_sections %}
+                        <button type="button" class="btn-small" :class="selectedHost === '{{ section.host }}' ? '' : 'btn-secondary'" @click="selectedHost = '{{ section.host }}'">{{ section.host }}</button>
+                    {% endfor %}
+                </div>
             </div>
-        {% else %}
-            <p class="muted">{{ t("asset.no_system_insights") }}</p>
-        {% endfor %}
-    </div>
+        {% endif %}
 
-    <div id="asset-events" class="card overflow-x-auto responsive-table">
-        <h3 class="font-semibold mb-3">{{ t("asset.events") }}{% if focused_asset %} · {{ focused_asset.name }}{% endif %}</h3>
-        <table class="w-full text-sm table-middle">
-            <thead>
-                <tr>
-                    <th>{{ t("common.time") }}</th>
-                    <th>{{ t("common.type") }}</th>
-                    <th>{{ t("common.ip") }}</th>
-                    <th>{{ t("common.status") }}</th>
-                    <th>{{ t("common.path") }}</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for event in events %}
-                    <tr>
-                        <td class="time-cell" data-label="{{ t('common.time') }}">{{ event.event_time|datetime }}</td>
-                        <td data-label="{{ t('common.type') }}">{{ event.event_type }}</td>
-                        <td data-label="{{ t('common.ip') }}">{% if event.ip %}<a href="/ip/{{ event.ip|url_path_quote }}">{{ event.ip }}</a>{% else %}-{% endif %}</td>
-                        <td data-label="{{ t('common.status') }}">{% if event.status_code %}<button type="button" class="text-action text-overlay-trigger" data-full-text="{{ event.status_code|http_status_label }}" data-overlay-title="{{ t('common.status') }}">{{ event.status_code }}</button>{% else %}-{% endif %}</td>
-                        <td class="path-cell cell-stack" data-label="{{ t('common.path') }}">{% if event.path %}<button type="button" class="path-truncate text-action" data-full-text="{{ event.path }}" data-overlay-title="{{ t('common.path') }}">{{ event.path }}</button>{% else %}-{% endif %}</td>
-                    </tr>
+        <div class="card mb-5" x-show="selectedHost === 'combined'">
+            <h3 class="font-semibold mb-3">{{ t("asset.insights") }}{% if focused_asset %} · {{ focused_asset.name }}{% endif %}</h3>
+            {% for insight in insights %}
+                <div class="row">
+                    <span>{{ insight.title }}<br><small class="muted">{{ insight.description }}</small></span>
+                    <b>{{ insight.level }}</b>
+                </div>
+            {% else %}
+                <p class="muted">{{ t("asset.no_system_insights") }}</p>
+            {% endfor %}
+        </div>
+
+        {% for section in host_event_sections %}
+            <div class="card mb-5" x-show="selectedHost === '{{ section.host }}'" x-cloak>
+                <h3 class="font-semibold mb-1">{{ t("asset.insights") }} · {{ section.host }}</h3>
+                <p class="muted text-sm mb-3">
+                    {{ t("asset.apps") }}:
+                    {% for app in section.apps %}{{ app.name }}{% if not loop.last %}, {% endif %}{% endfor %}
+                </p>
+                {% for insight in section.insights %}
+                    <div class="row">
+                        <span>{{ insight.title }}<br><small class="muted">{{ insight.description }}</small></span>
+                        <b>{{ insight.level }}</b>
+                    </div>
                 {% else %}
-                    <tr>
-                        <td colspan="5">{{ t("asset.no_linked_events") }}</td>
-                    </tr>
+                    <p class="muted">{{ t("asset.no_system_insights") }}</p>
                 {% endfor %}
-            </tbody>
-        </table>
-    </div>
+            </div>
+        {% endfor %}
+
+        <div class="card overflow-x-auto responsive-table" x-show="selectedHost === 'combined'">
+            <h3 class="font-semibold mb-1">{{ t("asset.events") }}{% if focused_asset %} · {{ focused_asset.name }}{% endif %}</h3>
+            {% if host_event_sections and not focused_asset %}<p class="muted text-sm mb-3">{{ t("asset.events_all_hosts_help") }}</p>{% endif %}
+            <table class="w-full text-sm table-middle">
+                <thead>
+                    <tr>
+                        <th>{{ t("common.time") }}</th>
+                        <th>{{ t("common.type") }}</th>
+                        <th>{{ t("common.ip") }}</th>
+                        <th>{{ t("access.host") }}</th>
+                        <th>{{ t("common.status") }}</th>
+                        <th>{{ t("common.path") }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for event in events %}
+                        <tr>
+                            <td class="time-cell" data-label="{{ t('common.time') }}">{{ event.event_time|datetime }}</td>
+                            <td data-label="{{ t('common.type') }}">{{ event.event_type }}</td>
+                            <td data-label="{{ t('common.ip') }}">{% if event.ip %}<a href="/ip/{{ event.ip|url_path_quote }}">{{ event.ip }}</a>{% else %}-{% endif %}</td>
+                            <td data-label="{{ t('access.host') }}">{{ event.hostname or '-' }}</td>
+                            <td data-label="{{ t('common.status') }}">{% if event.status_code %}<button type="button" class="text-action text-overlay-trigger" data-full-text="{{ event.status_code|http_status_label }}" data-overlay-title="{{ t('common.status') }}">{{ event.status_code }}</button>{% else %}-{% endif %}</td>
+                            <td class="path-cell cell-stack" data-label="{{ t('common.path') }}">{% if event.path %}<button type="button" class="path-truncate text-action" data-full-text="{{ event.path }}" data-overlay-title="{{ t('common.path') }}">{{ event.path }}</button>{% else %}-{% endif %}</td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="6">{{ t("asset.no_linked_events") }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% for section in host_event_sections %}
+            <div class="card overflow-x-auto responsive-table" x-show="selectedHost === '{{ section.host }}'" x-cloak>
+                <h3 class="font-semibold mb-1">{{ t("asset.events") }} · {{ section.host }}</h3>
+                <p class="muted text-sm mb-1">
+                    {{ t("asset.apps") }}:
+                    {% for app in section.apps %}{{ app.name }}{% if not loop.last %}, {% endif %}{% endfor %}
+                </p>
+                <p class="muted text-sm mb-3">{{ t("asset.host_events_limit_help") }}</p>
+                <table class="w-full text-sm table-middle">
+                    <thead>
+                        <tr>
+                            <th>{{ t("common.time") }}</th>
+                            <th>{{ t("common.type") }}</th>
+                            <th>{{ t("common.ip") }}</th>
+                            <th>{{ t("common.status") }}</th>
+                            <th>{{ t("common.path") }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for event in section.events %}
+                            <tr>
+                                <td class="time-cell" data-label="{{ t('common.time') }}">{{ event.event_time|datetime }}</td>
+                                <td data-label="{{ t('common.type') }}">{{ event.event_type }}</td>
+                                <td data-label="{{ t('common.ip') }}">{% if event.ip %}<a href="/ip/{{ event.ip|url_path_quote }}">{{ event.ip }}</a>{% else %}-{% endif %}</td>
+                                <td data-label="{{ t('common.status') }}">{% if event.status_code %}<button type="button" class="text-action text-overlay-trigger" data-full-text="{{ event.status_code|http_status_label }}" data-overlay-title="{{ t('common.status') }}">{{ event.status_code }}</button>{% else %}-{% endif %}</td>
+                                <td class="path-cell cell-stack" data-label="{{ t('common.path') }}">{% if event.path %}<button type="button" class="path-truncate text-action" data-full-text="{{ event.path }}" data-overlay-title="{{ t('common.path') }}">{{ event.path }}</button>{% else %}-{% endif %}</td>
+                            </tr>
+                        {% else %}
+                            <tr>
+                                <td colspan="5">{{ t("asset.no_linked_events") }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endfor %}
+    </section>
 
 {% endblock %}

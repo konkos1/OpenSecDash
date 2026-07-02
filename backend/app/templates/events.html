@@ -64,7 +64,8 @@
   </form>
 
   <div class="hidden md:block card overflow-x-auto">
-    <div class="flex justify-end mb-3">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+      <p class="muted text-sm">{{ t("table.limit.events") }}</p>
       <button type="button" class="btn-small btn-icon" data-columns-open="events-columns" aria-label="{{ t('table.columns') }}" title="{{ t('table.columns') }}">⚙</button>
     </div>
     <dialog id="events-columns" class="columns-dialog">
@@ -141,6 +142,7 @@
     </table>
   </div>
 
+  <p class="muted text-sm mt-3 md:hidden">{{ t("table.limit.events") }}</p>
   <div class="grid md:hidden gap-3">
     {% for event in events %}
       <article class="card">

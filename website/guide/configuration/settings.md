@@ -135,6 +135,25 @@ The Asset Explorer has several user-facing controls:
 
 Systems can be marked **stale** when they have not been seen recently. Proxmox Assets use a shorter threshold than JSON/manual sources because Proxmox syncs more frequently.
 
-## Plugin-specific settings
+On a system detail page, OpenSecDash shows a host tab row directly below the apps table. The combined view is the default; selecting a host filters both insights and events to that app host.
+
+Event tables on this page are intentionally capped for performance: the combined view shows the newest 100 events, and each host-specific tab shows the newest 50 events for that host.
+
+## UI row limits
+
+Some tables/lists intentionally show only the newest or top rows for performance and readability:
+
+| Area | Limit |
+| --- | --- |
+| Events page | Newest 200 matching events |
+| Access page | Newest 200 matching access events |
+| CrowdSec history | Newest 100 ban history entries |
+| IP Explorer insights | Up to 50 latest insight types |
+| IP Explorer events | Newest 200 events for the IP |
+| Asset system combined events | Newest 100 events |
+| Asset host tab events | Newest 50 events for that host |
+| Diagnostics recent actions | Newest 20 manual actions |
+| Dashboard top lists | Top 5 rows |
+| Dashboard latest security events | Newest 10 security events |
 
 Plugin-specific settings are documented on the individual [plugin pages](../plugins/index.md).

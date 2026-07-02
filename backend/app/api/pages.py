@@ -347,6 +347,7 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
     rollup_day = latest_historical_rollup_day(db, today_key)
     enabled_plugins = {
         "json_assets": is_plugin_enabled(db, "json_assets"),
+        "proxmox_assets": is_plugin_enabled(db, "proxmox_assets"),
         "crowdsec": is_plugin_enabled(db, "crowdsec"),
         "geoblock_log": is_plugin_enabled(db, "geoblock_log"),
         "traefik_log": is_plugin_enabled(db, "traefik_log"),
@@ -415,7 +416,7 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
             db.query(Event)
             .filter(Event.event_type.startswith("security."), Event.plugin.in_(security_data_plugins))
             .order_by(Event.event_time.desc())
-            .limit(8)
+            .limit(10)
             .all()
         )
     widgets = []
@@ -425,7 +426,7 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
         widgets.append({"title_key": "dashboard.geoblocks_today", "value": geoblocks, "href": "/events?event_type=security.geoblock&today=true"})
     if enabled_plugins["traefik_log"]:
         widgets.append({"title_key": "dashboard.access_today", "value": access_events, "href": "/events?event_type=access.*&today=true"})
-    if enabled_plugins["json_assets"]:
+    if assets_feature_enabled(db):
         widgets.extend(
             [
                 {"title_key": "dashboard.assets", "value": db.query(Asset).filter(Asset.is_active == True).count(), "href": "/assets"},
@@ -1047,6 +1048,42 @@ def asset_page(system_id: int, request: Request, show_inactive: bool = False, as
     apps = apps_query.order_by(Asset.name).all()
     app_ids = [asset.id for asset in apps]
     focused_asset = next((asset for asset in apps if asset.id == asset_id), None)
+    host_apps: dict[str, list[Asset]] = {}
+    host_labels: dict[str, str] = {}
+    for app in apps:
+        normalized_host = normalize_asset_host(app.host_url)
+        if not normalized_host:
+            continue
+        host_apps.setdefault(normalized_host, []).append(app)
+        host_labels.setdefault(normalized_host, app.host_url or normalized_host)
+    host_event_sections = []
+    event_ids_by_host: dict[str, list[int]] = {}
+    for event_id, hostname in db.query(Event.id, Event.hostname).filter(Event.hostname.isnot(None)).all():
+        normalized_event_host = normalize_asset_host(hostname)
+        if normalized_event_host in host_apps:
+            event_ids_by_host.setdefault(normalized_event_host, []).append(event_id)
+    for host, host_app_list in sorted(host_apps.items(), key=lambda item: item[0]):
+        host_app_ids = [app.id for app in host_app_list]
+        host_matched_ids = event_ids_by_host.get(host, [])
+        host_events_query = db.query(Event).filter(Event.asset_id.in_(host_app_ids))
+        if host_matched_ids:
+            host_events_query = db.query(Event).filter(or_(Event.asset_id.in_(host_app_ids), Event.id.in_(host_matched_ids)))
+        host_insights = (
+            db.query(Insight)
+            .filter(Insight.asset_id.in_(host_app_ids))
+            .order_by(Insight.timestamp.desc())
+            .limit(25)
+            .all()
+        )
+        host_event_sections.append(
+            {
+                "host": host,
+                "label": host_labels[host],
+                "apps": host_app_list,
+                "events": host_events_query.order_by(Event.event_time.desc()).limit(50).all(),
+                "insights": host_insights,
+            }
+        )
     if focused_asset is not None:
         focused_host = normalize_asset_host(focused_asset.host_url)
         events_query = db.query(Event).filter(Event.asset_id == focused_asset.id)
@@ -1084,6 +1121,7 @@ def asset_page(system_id: int, request: Request, show_inactive: bool = False, as
         system=system,
         apps=apps,
         events=events,
+        host_event_sections=host_event_sections,
         insights=insights,
         focused_asset=focused_asset,
         show_inactive=show_inactive,
@@ -1123,7 +1161,7 @@ def update_asset_metadata(
         run_asset_metadata_action(asset.id, save_metadata)
     except AssetActionAlreadyRunning as exc:
         raise HTTPException(status_code=409, detail=f"Asset action is already running: {exc.action}") from exc
-    return RedirectResponse(url=f"/assets/system/{asset.system_id}?asset_id={asset.id}#asset-events", status_code=303)
+    return RedirectResponse(url=f"/assets/system/{asset.system_id}#asset-events", status_code=303)
 
 
 @router.post("/assets/{asset_id}/mqtt")
@@ -1146,7 +1184,7 @@ def app_asset_page(asset_id: int, request: Request, db: Session = Depends(get_db
     asset = db.query(Asset).filter(Asset.id == asset_id).first()
     if asset is None:
         raise HTTPException(status_code=404, detail="Asset not found")
-    return RedirectResponse(url=f"/assets/system/{asset.system_id}?asset_id={asset.id}", status_code=303)
+    return RedirectResponse(url=f"/assets/system/{asset.system_id}#asset-events", status_code=303)
 
 
 @router.post("/assets/import-source")

@@ -77,7 +77,8 @@
     
     <div class="card mb-5">
         <h3 class="font-semibold mb-1">{{ t("ip.insights") }}</h3>
-        <p class="muted text-sm mb-3">{{ t("ip.insights_help") }}</p>
+        <p class="muted text-sm mb-1">{{ t("ip.insights_help") }}</p>
+        <p class="muted text-sm mb-3">{{ t("table.limit.ip_insights") }}</p>
         {% for insight in insights %}
             <div class="row">
                 <span>{{ t("insight.title." ~ insight.type) if t("insight.title." ~ insight.type) != "insight.title." ~ insight.type else insight.title }}
@@ -92,7 +93,8 @@
     </div>
     
     <div class="card overflow-x-auto responsive-table">
-        <h3 class="font-semibold mb-3">{{ t("ip.events") }}</h3>
+        <h3 class="font-semibold mb-1">{{ t("ip.events") }}</h3>
+        <p class="muted text-sm mb-3">{{ t("table.limit.ip_events") }}</p>
         <table class="w-full text-sm table-middle">
             <thead>
                 <tr>
