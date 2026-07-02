@@ -2,6 +2,18 @@
 
 Bare-metal installation is supported if you prefer running OpenSecDash directly on a Linux host. Docker is still recommended unless you explicitly want to manage Python, systemd, file paths, and permissions yourself.
 
+## Host requirements
+
+Minimum for a small homelab instance:
+
+| Resource | Minimum | Recommended |
+| --- | --- | --- |
+| CPU | 1 vCPU | 2 vCPU |
+| RAM | 512 MB | 1 GB+ |
+| Storage | 1 GB free | SSD with several GB free, depending on log volume and retention |
+
+OpenSecDash is lightweight, but storage usage depends on imported event volume, configured retention, and debug/log output.
+
 ## Layout
 
 A typical setup uses:

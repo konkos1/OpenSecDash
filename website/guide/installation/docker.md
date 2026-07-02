@@ -2,6 +2,20 @@
 
 Docker Compose is the recommended installation method.
 
+## Host requirements
+
+Minimum for a small homelab instance:
+
+| Resource | Minimum | Recommended |
+| --- | --- | --- |
+| CPU | 1 vCPU | 2 vCPU |
+| RAM | 512 MB | 1 GB+ |
+| Storage | 1 GB free | SSD with several GB free, depending on log volume and retention |
+
+OpenSecDash is lightweight, but storage usage depends on imported event volume, configured retention, and debug/log output.
+
+## Compose file
+
 docker-compose.yml example:
 
 ```yml
