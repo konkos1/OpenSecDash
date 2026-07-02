@@ -210,6 +210,16 @@ function localizeOpenSecDashCountries() {
             }
             element.textContent = displayNames.of(code) || code;
         });
+    document.querySelectorAll("[data-country-title]")
+        .forEach(element => {
+            const code = element.dataset.countryTitle;
+            if (!code) {
+                return;
+            }
+            const label = displayNames.of(code) || code;
+            const count = element.dataset.countryCount;
+            element.setAttribute("title", count ? `${label} · ${count}` : label);
+        });
 }
 
 function showTextOverlay(text, overlayTitle) {

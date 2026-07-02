@@ -83,6 +83,8 @@
                 class="absolute rounded-full border border-sky-200 bg-sky-400/30 hover:bg-sky-300/50"
                 style="left: calc({{ '%.2f'|format(point.x) }}% - {{ '%.2f'|format(point.radius) }}px); top: calc({{ '%.2f'|format(point.y) }}% - {{ '%.2f'|format(point.radius) }}px); width: {{ '%.2f'|format(point.radius * 2) }}px; height: {{ '%.2f'|format(point.radius * 2) }}px; box-shadow: 0 0 18px rgba(125, 211, 252, .55);"
                 title="{{ point.country }} · {{ point.count }}"
+                data-country-title="{{ point.country }}"
+                data-country-count="{{ point.count }}"
               >
                 <span class="sr-only">{{ point.country|country_name }} · {{ point.count }}</span>
               </a>
