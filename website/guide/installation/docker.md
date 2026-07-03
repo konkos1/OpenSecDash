@@ -110,6 +110,10 @@ Logging settings are stored in the app database after initial setup. Changing `L
 
 ## Plugin file mounts
 
+OpenSecDash is easiest to operate when it can read the relevant log files locally. In many homelab setups that means running the OpenSecDash container on the same Docker host or guest as Traefik, GeoBlock, CrowdSec, and similar tools, then mounting their log files read-only into the container.
+
+If those tools run on a different host/VM, you need to make their logs available to OpenSecDash first, for example with bind mounts, shared storage, or another log shipping approach.
+
 Plugins that read local files need those files mounted into the container. Examples:
 
 ```yaml

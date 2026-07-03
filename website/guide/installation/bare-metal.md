@@ -14,6 +14,12 @@ Minimum for a small homelab instance:
 
 OpenSecDash is lightweight, but storage usage depends on imported event volume, configured retention, and debug/log output.
 
+## Placement
+
+OpenSecDash is easiest to operate when it can read relevant log files locally. For bare-metal installs, consider running it on the same guest/host as Traefik, GeoBlock, CrowdSec, and similar tools, or ensure their log files are available through shared storage or another log shipping approach.
+
+If OpenSecDash runs separately, make sure file permissions and paths still allow the `opensecdash` user to read the configured log files.
+
 ## Layout
 
 A typical setup uses:
