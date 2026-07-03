@@ -4,14 +4,14 @@ Asset update checks are a core OpenSecDash feature used by asset source plugins 
 
 Asset plugins provide systems/apps and optional release metadata. The core update checker then checks whether a newer release is available.
 
-## When it is shown
+## When it is active
 
-The **Asset update checks** settings section appears only when at least one supported asset source plugin is enabled:
+The **Asset update checks** settings section is visible on the Settings page, but it is greyed out until at least one supported asset source plugin is enabled:
 
 - JSON Assets
 - Proxmox Assets
 
-Diagnostics also shows **Asset update checks** as active only when an asset source is enabled. If no asset source is enabled, it is shown as disabled because there is nothing to check.
+Diagnostics shows **Asset update checks** as active only when an asset source is enabled. If no asset source is enabled, it is shown as disabled because there is nothing to check.
 
 ## Current provider: GitHub releases
 

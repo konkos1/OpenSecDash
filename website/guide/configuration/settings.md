@@ -1,6 +1,6 @@
 # Settings
 
-OpenSecDash settings are available from the Settings page. Plugin-specific settings are shown only when the corresponding plugin is enabled.
+OpenSecDash settings are available from the Settings page. Dependent settings usually stay visible but are greyed out until their parent setting or plugin is enabled, so you can still see what can be configured.
 
 ## General settings
 

@@ -129,7 +129,7 @@ Supported setting types:
 | `file` | Text/file path input with existence diagnostics when enabled. |
 | `url` | URL input; values are sanitized when saved. |
 
-If a plugin has an `enabled` setting, all other settings are automatically hidden until the plugin is enabled, unless you define an explicit `visible_if`.
+If a plugin has an `enabled` setting, other settings are automatically greyed out until the plugin is enabled, unless you define an explicit `visible_if`. This keeps available configuration visible without making inactive options look editable.
 
 Settings are stored as:
 
