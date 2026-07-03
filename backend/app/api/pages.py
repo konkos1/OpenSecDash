@@ -396,6 +396,11 @@ def rollup_summary(db: Session, period: str, value: str) -> dict[str, int] | Non
     return None
 
 
+def dashboard_yesterday_rollup_key(timezone_name: str | None) -> str:
+    timezone = resolve_timezone(timezone_name)
+    return (utc_now().astimezone(timezone) - timedelta(days=1)).strftime("%Y-%m-%d")
+
+
 def dashboard_delta(current: int, previous: int | None) -> dict[str, str]:
     previous = previous or 0
     if previous == 0:
@@ -412,8 +417,9 @@ def dashboard_delta(current: int, previous: int | None) -> dict[str, str]:
 
 @router.get("/")
 def dashboard_page(request: Request, db: Session = Depends(get_db)):
+    timezone_name = get_setting_value(db, "timezone", "auto")
     since = today_start(db)
-    yesterday_key = (since - timedelta(days=1)).strftime("%Y-%m-%d")
+    yesterday_key = dashboard_yesterday_rollup_key(timezone_name)
     yesterday_summary = rollup_summary(db, "day", yesterday_key) or {}
     enabled_plugins = {
         "json_assets": is_plugin_enabled(db, "json_assets"),
@@ -453,7 +459,6 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
             .limit(5)
             .all()
         )
-    timezone_name = get_setting_value(db, "timezone", "auto")
     try:
         dashboard_timezone = ZoneInfo(timezone_name) if timezone_name and timezone_name != "auto" else ZoneInfo("UTC")
     except ZoneInfoNotFoundError:

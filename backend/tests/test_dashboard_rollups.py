@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
-from app.api.pages import available_rollup_periods, dashboard_delta, rollup_rows, rollup_summary, summary_from_event_type_rows
+from app.api.pages import available_rollup_periods, dashboard_delta, dashboard_yesterday_rollup_key, rollup_rows, rollup_summary, summary_from_event_type_rows
 from app.models.core import AggregationDaily, AggregationMonthly
 from app.models.events import Event
 import app.services.events as events_service
@@ -90,6 +90,15 @@ def test_compact_completed_daily_rollups_keeps_yesterday_for_dashboard_delta(db_
 
     assert db_session.query(AggregationDaily).filter_by(date="2026-07-31").count() == 0
     assert rollup_rows(db_session, "month", "2026-07", "summary") == [{"key": "total_events", "value": 10}]
+
+
+def test_dashboard_yesterday_rollup_key_uses_configured_timezone(monkeypatch):
+    import app.api.pages as pages
+
+    monkeypatch.setattr(pages, "utc_now", lambda: datetime(2026, 7, 2, 22, 30, tzinfo=UTC))
+
+    assert dashboard_yesterday_rollup_key("Europe/Berlin") == "2026-07-02"
+    assert dashboard_yesterday_rollup_key("UTC") == "2026-07-01"
 
 
 def test_dashboard_delta_formats_direction_and_missing_previous():
