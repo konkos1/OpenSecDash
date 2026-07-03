@@ -366,7 +366,8 @@ def available_rollup_periods(db: Session) -> tuple[list[str], list[str]]:
 def summary_from_event_type_rows(rows: list[dict[str, str | int]]) -> dict[str, int]:
     summary = {
         "total_events": 0,
-        "access_events": 0,
+        "access_external_events": 0,
+        "access_internal_events": 0,
         "security_events": 0,
         "bans": 0,
         "geoblocks": 0,
@@ -375,8 +376,6 @@ def summary_from_event_type_rows(rows: list[dict[str, str | int]]) -> dict[str, 
         key = str(row["key"])
         value = int(row["value"])
         summary["total_events"] += value
-        if key.startswith("access."):
-            summary["access_events"] += value
         if key.startswith("security."):
             summary["security_events"] += value
         if key.startswith("security.ban"):
@@ -437,7 +436,19 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
     event_count = db.query(Event).filter(Event.event_time >= since, Event.plugin.in_(country_data_plugins)).count() if country_data_plugins else 0
     active_bans = db.query(Event).filter(Event.event_type.startswith("security.ban"), Event.event_time >= since, Event.plugin == "crowdsec").count() if enabled_plugins["crowdsec"] else 0
     geoblocks = db.query(Event).filter(Event.event_type == "security.geoblock", Event.event_time >= since, Event.plugin == "geoblock_log").count() if enabled_plugins["geoblock_log"] else 0
-    access_events = db.query(Event).filter(Event.event_type.startswith("access."), Event.event_time >= since, Event.plugin == "traefik_log").count() if enabled_plugins["traefik_log"] else 0
+    access_external_events = 0
+    access_internal_events = 0
+    if enabled_plugins["traefik_log"]:
+        access_ips = (
+            db.query(Event.ip)
+            .filter(Event.event_type.startswith("access."), Event.event_time >= since, Event.plugin == "traefik_log", Event.ip.isnot(None), Event.ip != "")
+            .all()
+        )
+        for (ip,) in access_ips:
+            if is_local_ip_value(ip):
+                access_internal_events += 1
+            else:
+                access_external_events += 1
     security_data_plugins = [
         plugin_id
         for plugin_id in ["crowdsec", "geoblock_log"]
@@ -500,7 +511,8 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
     if enabled_plugins["geoblock_log"]:
         widgets.append({"title_key": "dashboard.geoblocks_today", "value": geoblocks, "href": "/events?event_type=security.geoblock&today=true", "delta": dashboard_delta(geoblocks, yesterday_summary.get("geoblocks"))})
     if enabled_plugins["traefik_log"]:
-        widgets.append({"title_key": "dashboard.access_today", "value": access_events, "href": "/events?event_type=access.*&today=true", "delta": dashboard_delta(access_events, yesterday_summary.get("access_events"))})
+        widgets.append({"title_key": "dashboard.access_external_today", "value": access_external_events, "href": "/events?event_type=access.*&today=true&hide_local_ips=true", "delta": dashboard_delta(access_external_events, yesterday_summary.get("access_external_events"))})
+        widgets.append({"title_key": "dashboard.access_internal_today", "value": access_internal_events, "href": "/events?event_type=access.*&today=true&show_local_ips=true", "delta": dashboard_delta(access_internal_events, yesterday_summary.get("access_internal_events"))})
     if assets_feature_enabled(db):
         widgets.extend(
             [

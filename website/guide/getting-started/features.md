@@ -14,7 +14,7 @@ The dashboard gives you a quick overview of current homelab security activity:
 
 - CrowdSec bans
 - GeoBlock events
-- access events
+- external and internal access events
 - assets and available updates
 - top countries
 - busiest attack/access hours

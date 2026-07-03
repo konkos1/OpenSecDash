@@ -30,11 +30,12 @@ The page shows summary cards and breakdown tables.
 
 | Metric | Meaning |
 | --- | --- |
-| Total events | All rolled-up events. |
-| Access events | Events whose type starts with `access.`. |
+| External access | Access events with a public/routable client IP. |
+| Internal access | Access events with a local/private/reserved client IP. Access events without an IP are ignored for this split and remain visible in the Event Explorer. |
 | Security events | Events whose type starts with `security.`. |
 | Bans | Events whose type starts with `security.ban`. |
 | Geoblocks | Events with type `security.geoblock`. |
+| Total events | All rolled-up events, including access events without an IP. |
 
 ## Detail metrics
 
@@ -46,4 +47,4 @@ The page shows summary cards and breakdown tables.
 
 ## Dashboard
 
-The Dashboard intentionally focuses on today's activity. Historical rollups live in the Rollup Explorer instead of Dashboard widgets.
+The Dashboard intentionally focuses on today's activity. It shows separate external/internal access counters so changes are easier to understand. Historical rollups live in the Rollup Explorer instead of Dashboard widgets.

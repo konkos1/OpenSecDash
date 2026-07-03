@@ -174,8 +174,8 @@ def cleanup_duplicate_events(db: Session) -> int:
 def rollup_metrics_for_event(event: Event) -> list[tuple[str, str]]:
     event_type = event.event_type or "unknown"
     metrics: list[tuple[str, str]] = [("summary", "total_events"), ("event_type", event_type)]
-    if event_type.startswith("access."):
-        metrics.append(("summary", "access_events"))
+    if event_type.startswith("access.") and event.ip:
+        metrics.append(("summary", "access_internal_events" if is_local_ip_value(event.ip) else "access_external_events"))
     if event_type.startswith("security."):
         metrics.append(("summary", "security_events"))
     if event_type.startswith("security.ban"):

@@ -8,15 +8,16 @@ from app.services.events import cleanup_events_by_retention, compact_completed_d
 
 
 def test_update_rollups_adds_summary_metrics(db_session):
-    update_rollups(db_session, Event(event_time=datetime(2026, 7, 2, 12), event_type="access.error", plugin="traefik_log"))
+    update_rollups(db_session, Event(event_time=datetime(2026, 7, 2, 12), event_type="access.error", plugin="traefik_log", ip="8.8.8.8"))
+    update_rollups(db_session, Event(event_time=datetime(2026, 7, 2, 12, 30), event_type="access.error", plugin="traefik_log"))
     update_rollups(db_session, Event(event_time=datetime(2026, 7, 2, 13), event_type="security.ban", plugin="crowdsec", data_json={"scenario": "ssh-bf"}))
     db_session.commit()
 
     rows = rollup_rows(db_session, "day", "2026-07-02", "summary")
 
     assert rows == [
-        {"key": "total_events", "value": 2},
-        {"key": "access_events", "value": 1},
+        {"key": "total_events", "value": 3},
+        {"key": "access_external_events", "value": 1},
         {"key": "bans", "value": 1},
         {"key": "security_events", "value": 1},
     ]
@@ -26,13 +27,13 @@ def test_update_rollups_adds_summary_metrics(db_session):
 def test_update_rollups_updates_monthly_for_historical_completed_month_events(db_session, monkeypatch):
     monkeypatch.setattr(events_service, "utc_now", lambda: datetime(2026, 7, 2, 12))
 
-    update_rollups(db_session, Event(event_time=datetime(2026, 6, 15, 12), event_type="access.error", plugin="traefik_log"))
+    update_rollups(db_session, Event(event_time=datetime(2026, 6, 15, 12), event_type="access.error", plugin="traefik_log", ip="10.0.0.5"))
     update_rollups(db_session, Event(event_time=datetime(2026, 6, 16, 12), event_type="security.geoblock", plugin="geoblock_log"))
     db_session.commit()
 
     assert rollup_rows(db_session, "month", "2026-06", "summary") == [
         {"key": "total_events", "value": 2},
-        {"key": "access_events", "value": 1},
+        {"key": "access_internal_events", "value": 1},
         {"key": "geoblocks", "value": 1},
         {"key": "security_events", "value": 1},
     ]
@@ -120,7 +121,8 @@ def test_summary_from_event_type_rows_supports_legacy_rollups_without_summary_me
         ]
     ) == {
         "total_events": 19,
-        "access_events": 13,
+        "access_external_events": 0,
+        "access_internal_events": 0,
         "security_events": 6,
         "bans": 2,
         "geoblocks": 4,
@@ -134,7 +136,8 @@ def test_rollup_summary_falls_back_to_event_type_rows(db_session):
 
     assert rollup_summary(db_session, "day", "2026-07-02") == {
         "total_events": 5,
-        "access_events": 3,
+        "access_external_events": 0,
+        "access_internal_events": 0,
         "security_events": 2,
         "bans": 2,
         "geoblocks": 0,
@@ -151,7 +154,7 @@ def test_available_rollup_periods_includes_current_daily_month_and_monthly(db_se
 
 def test_retention_cleanup_keeps_daily_rollups_needed_for_current_month(db_session):
     db_session.add(Event(event_time=datetime(2026, 7, 1), timestamp=datetime(2026, 7, 1), event_type="access.error", plugin="traefik_log", retention_class="raw"))
-    db_session.add(AggregationDaily(date="2026-07-01", metric="summary", key="access_events", value=1))
+    db_session.add(AggregationDaily(date="2026-07-01", metric="summary", key="access_external_events", value=1))
     db_session.commit()
 
     deleted = cleanup_events_by_retention(db_session, 1, datetime(2026, 7, 3))
@@ -159,7 +162,7 @@ def test_retention_cleanup_keeps_daily_rollups_needed_for_current_month(db_sessi
 
     assert deleted == 1
     assert db_session.query(Event).count() == 0
-    assert rollup_rows(db_session, "month", "2026-07", "summary") == [{"key": "access_events", "value": 1}]
+    assert rollup_rows(db_session, "month", "2026-07", "summary") == [{"key": "access_external_events", "value": 1}]
 
 
 def test_retention_cleanup_compacts_completed_month_before_deleting_raw_events(db_session):
