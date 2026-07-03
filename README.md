@@ -9,6 +9,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/github/license/konkos1/OpenSecDash" alt="License"></a>
   <a href="https://github.com/konkos1/OpenSecDash/releases"><img src="https://img.shields.io/github/v/release/konkos1/OpenSecDash" alt="Latest Release"></a>
   <a href="https://hub.docker.com/r/konkos1/opensecdash"><img src="https://img.shields.io/docker/pulls/konkos1/opensecdash" alt="Docker Pulls"></a>
+  <a href="https://www.buymeacoffee.com/konkos1"><img src="https://img.shields.io/badge/Buy%20me%20a%20coffee-konkos1-FFDD00?logo=buymeacoffee&logoColor=000" alt="Buy me a coffee"></a>
 </p>
 
 > A security dashboard for homelabs, because your reverse proxy logs should not require a PhD, three terminals, and a sacrificial YAML file to become useful.
@@ -60,6 +61,10 @@ See the [plugin documentation](https://opensecdash.app/guide/plugins/) for setup
 OpenSecDash currently does **not** include built-in user management or authentication.
 
 Do **not** expose it directly to the public internet. Keep it on your LAN, behind a VPN, or behind a trusted auth reverse proxy such as Authentik, Authelia, Pocket ID, or another forward-auth solution.
+
+## Support
+
+If OpenSecDash helps your homelab, you can [buy me a coffee](https://www.buymeacoffee.com/konkos1).
 
 ## Development
 

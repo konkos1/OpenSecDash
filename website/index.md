@@ -18,6 +18,9 @@ hero:
     - theme: alt
       text: View on Docker-Hub
       link: https://hub.docker.com/r/konkos1/OpenSecDash
+    - theme: alt
+      text: Buy me a coffee
+      link: https://www.buymeacoffee.com/konkos1
       
 
 features:
