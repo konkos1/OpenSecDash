@@ -25,7 +25,13 @@ OpenSecDash collects security events, access logs, asset information, and update
 
 ## Documentation
 
-Full documentation lives at **https://opensecdash.app**. It includes installation guides, plugin documentation, operations notes, and troubleshooting help.
+Full documentation lives at **https://opensecdash.app**:
+
+- [Quickstart](https://opensecdash.app/guide/getting-started/quickstart)
+- [Docker installation](https://opensecdash.app/guide/installation/docker)
+- [Plugins](https://opensecdash.app/guide/plugins/)
+- [Operations and troubleshooting](https://opensecdash.app/guide/operations/troubleshooting)
+- [Contributing](https://opensecdash.app/guide/contributing/development)
 
 The website source is in [`website/`](website/).
 
@@ -38,23 +44,15 @@ cp docker-compose.example.yml docker-compose.yml
 docker compose up -d
 ```
 
-Then open:
+Then open `http://localhost:8765`.
 
-```text
-http://localhost:8765
-```
-
-The example maps host port `8765` to the internal app port `8000` and stores persistent data in the Docker volume.
+See the [Docker installation guide](https://opensecdash.app/guide/installation/docker) for host requirements, ports, persistent data, and plugin file mounts.
 
 ## Built-in integrations
 
-- CrowdSec
-- Traefik Access Log
-- GeoBlock Log
-- GeoIP / ASN / ISP / City
-- JSON Assets
-- Proxmox Assets
-- MQTT to Home Assistant
+OpenSecDash includes plugins for CrowdSec, Traefik access logs, GeoBlock logs, GeoIP enrichment, JSON/Proxmox assets, and MQTT export.
+
+See the [plugin documentation](https://opensecdash.app/guide/plugins/) for setup details.
 
 ## Security note
 
@@ -64,42 +62,13 @@ Do **not** expose it directly to the public internet. Keep it on your LAN, behin
 
 ## Development
 
-Run backend checks:
-
-```bash
-cd backend
-uv run pytest -q
-uv run pyright ../backend/app ../backend/tests ../plugins
-```
-
-Run the app locally:
-
-```bash
-cd backend
-uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-Run the docs website locally:
-
-```bash
-cd website
-npm install
-npm run docs:dev
-```
+See the [development guide](https://opensecdash.app/guide/contributing/development) for local setup, backend checks, and website development.
 
 ## Contributing
 
-Community contributions are very welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow, tests, and plugin contribution notes.
+Community contributions are very welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md) and the [contributor documentation](https://opensecdash.app/guide/contributing/project).
 
-Useful contribution areas include:
-
-- datasource plugins for Nginx, Caddy, Authentik, Authelia, firewall logs, and more
-- export plugins
-- additional insights and correlation rules
-- UI improvements
-- documentation
-- tests
-- packaging and deployment examples
+Please do not open public issues for vulnerabilities. See [SECURITY.md](SECURITY.md) for responsible disclosure guidance.
 
 ### Contributor License Agreement
 
@@ -114,14 +83,6 @@ The intent is simple:
 The confirmation should be quick and low-friction. No fax machine, no blood oath, no enterprise procurement portal.
 
 See [docs/CLA.md](docs/CLA.md) for the contributor agreement text.
-
-### Security reports
-
-Please do not open public issues for vulnerabilities. See [SECURITY.md](SECURITY.md) for responsible disclosure guidance.
-
-### Releases
-
-Release steps are documented in [docs/RELEASE.md](docs/RELEASE.md).
 
 ---
 
