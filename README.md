@@ -13,11 +13,12 @@
 
 > A security dashboard for homelabs, because your reverse proxy logs should not require a PhD, three terminals, and a sacrificial YAML file to become useful.
 
-OpenSecDash collects security events, access logs, asset information, and update signals from common homelab tools. It turns them into a simple, live-first web UI for answering practical questions:
+OpenSecDash collects security events, access logs, asset information, and update signals from common homelab tools. Its Insights engine turns noisy events into actionable context, so you can spot probes, bans, geoblocks, and suspicious patterns without building a full SIEM. It gives you a simple, live-first web UI for answering practical questions:
 
 - Who is knocking on my services?
 - Which requests were blocked or failed?
 - What happened around a specific IP address?
+- Which events look like meaningful security insights instead of background noise?
 - Which apps are installed, and which need updates?
 - Are my plugins and datasources healthy?
 

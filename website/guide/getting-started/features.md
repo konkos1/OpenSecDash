@@ -19,11 +19,11 @@ The dashboard gives you a quick overview of current homelab security activity:
 - top countries
 - busiest attack/access hours
 - recent security context
-- completed-day historical rollups when available
+- small comparison badges based on yesterday's rollups when available
 
 The Events page supports **Live** and **Snapshot** modes. Live mode keeps the UI fresh. Snapshot mode freezes the current view so you can filter and inspect without the table moving under your mouse.
 
-See [Dashboard rollups](../operations/dashboard-rollups.md) for how historical rollup widgets differ from today's live dashboard data.
+Historical rollups live in the [Rollup Explorer](../operations/dashboard-rollups.md), while the Dashboard stays focused on today's activity.
 
 ## Events and access logs
 
@@ -93,18 +93,20 @@ OpenSecDash includes a web app manifest, so modern browsers can add it as an app
 
 For the best install experience, serve OpenSecDash through HTTPS via your reverse proxy.
 
-## Insights and correlation
+## Insights engine and correlation
 
-OpenSecDash creates simple insights from event patterns, for example:
+The Insights engine is one of OpenSecDash's core features. It turns noisy homelab events into small, actionable hints that explain why something is interesting.
+
+OpenSecDash creates insights from event patterns, for example:
 
 - possible WordPress/phpMyAdmin/config-file probes from declarative insight rules
 - access errors followed by security bans
 - geoblocked requests
 - manually triggered security bans
 
-Heuristic web-probe rules can be updated from the OpenSecDash website without an app release. See [Insights engine](../operations/insight-rules.md).
+Heuristic web-probe rules can be updated from the OpenSecDash website without an app release, while still using declarative JSON data instead of remote code execution. See [Insights engine](../operations/insight-rules.md).
 
-The goal is not to be a SIEM. The goal is to surface useful context quickly.
+The goal is not to be a SIEM. The goal is to surface useful context quickly and separate meaningful signals from background noise.
 
 ## Asset Explorer
 

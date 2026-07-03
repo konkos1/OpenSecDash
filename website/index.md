@@ -4,7 +4,7 @@ layout: home
 hero:
   name: OpenSecDash
   text: A security dashboard for homelabs
-  tagline: Turn reverse proxy logs, CrowdSec decisions, Proxmox inventory, and app update signals into a practical live-first security UI.
+  tagline: Turn reverse proxy logs, CrowdSec decisions, Proxmox inventory, app update signals, and heuristic insights into a practical live-first security UI.
   image:
     src: /favicon.svg
     alt: OpenSecDash logo
@@ -24,9 +24,12 @@ features:
   - icon: 🛡️
     title: Security-first homelab visibility
     details: See access logs, security events, blocked requests, IP context, and CrowdSec actions in one focused dashboard.
+  - icon: 🔎
+    title: Insights engine
+    details: "Surface useful security context from noisy events: web probes, bans, geoblocks, correlations, and remotely updated declarative rules."
   - icon: 🧭
     title: IP Explorer
-    details: Investigate what happened around a specific IP address and correlate access, block, and ban activity.
+    details: Investigate what happened around a specific IP address and correlate access, block, ban, and insight activity.
   - icon: 🧩
     title: Plugin-based
     details: Start with CrowdSec, Traefik, GeoIP, Proxmox Assets, JSON Assets, MQTT, and extend from there.
@@ -43,7 +46,7 @@ features:
 
 ## Live-first, not Grafana-shaped
 
-OpenSecDash is not a Grafana replacement. It focuses on security-oriented context: IP-centric investigations, event taxonomy, access-log correlation, asset inventory, update signals, plugin health, and controlled actions such as CrowdSec ban/unban.
+OpenSecDash is not a Grafana replacement. It focuses on security-oriented context: IP-centric investigations, event taxonomy, access-log correlation, the Insights engine, asset inventory, update signals, plugin health, and controlled actions such as CrowdSec ban/unban.
 
 ![OpenSecDash dashboard overview](/assets/readme/dashboard-overview.svg)
 
