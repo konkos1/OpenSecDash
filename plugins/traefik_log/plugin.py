@@ -6,11 +6,16 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from app.plugins.base import DatasourcePlugin, PluginMetadata, PluginSetting
+from app.plugins.base import DatasourcePlugin, PluginMetadata, PluginSetting, tail_text_file
 from app.services.events import classify_access_status, normalize_event_time
 
 
 logger = logging.getLogger(__name__)
+
+# Cap per tick so a huge first-time backlog is drained over several ticks
+# instead of one long blocking read; the manager also runs collect() in a
+# worker thread, but a bounded batch keeps progress/commits incremental.
+MAX_LINES_PER_TICK = 2000
 
 
 class Plugin(DatasourcePlugin):
@@ -57,6 +62,7 @@ class Plugin(DatasourcePlugin):
     def __init__(self) -> None:
         self._offsets: dict[str, int] = {}
         self._inodes: dict[str, int] = {}
+        self._sizes: dict[str, int] = {}
 
     async def health(self, context) -> dict[str, str]:
         path = Path(context.get("log_path"))
@@ -68,20 +74,25 @@ class Plugin(DatasourcePlugin):
         path = Path(context.get("log_path"))
         if not path.exists():
             raise FileNotFoundError(path)
-        stat = path.stat()
         key = str(path)
-        offset = self._offsets.get(key, 0)
-        if self._inodes.get(key) != stat.st_ino or stat.st_size < offset:
-            offset = 0
-            self._inodes[key] = stat.st_ino
+        result = tail_text_file(
+            path,
+            self._offsets.get(key, 0),
+            self._inodes.get(key),
+            max_lines=MAX_LINES_PER_TICK,
+            last_size=self._sizes.get(key),
+        )
+        self._offsets[key] = result.offset
+        self._inodes[key] = result.inode
+        self._sizes[key] = result.file_size
+        progress_percent = int(result.offset / result.file_size * 100) if result.file_size else 100
+        context.report_backlog(result.more_available, progress_percent)
+
         events = []
-        with path.open("r", encoding="utf-8", errors="ignore") as handle:
-            handle.seek(offset)
-            for line in handle:
-                parsed = self.parse_line(line)
-                if parsed:
-                    events.append(parsed)
-            self._offsets[key] = handle.tell()
+        for line in result.lines:
+            parsed = self.parse_line(line)
+            if parsed:
+                events.append(parsed)
         if events:
             logger.debug("Parsed %d Traefik access log lines with events from %s", len(events), path)
         return events

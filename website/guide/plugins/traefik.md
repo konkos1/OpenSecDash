@@ -15,6 +15,8 @@ volumes:
 
 The plugin's `Traefik access log path` already defaults to `/logs/access.log`, so no Settings change is needed if you mount it there.
 
+If the mounted file already has a lot of history, the first import can take a while; see [Troubleshooting: first import of a large existing log](../operations/troubleshooting.md#first-import-of-a-large-existing-log).
+
 ## Settings
 
 | Setting | What it does |

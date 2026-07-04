@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 
-from app.models.core import AggregationDaily, Insight
+from app.core.time import utc_now
+from app.models.core import AggregationDaily, GeoIPCache, Insight
 from app.models.events import Event
 from app.models.settings import Setting
 from app.services.events import (
@@ -28,6 +29,36 @@ def test_normalize_event_time_applies_assumed_timezone_only_when_naive():
     # is unaffected by `assume_tz` - it's unambiguous already.
     assert normalize_event_time("2026-06-20T04:00:54+02:00", assume_tz="America/New_York") == datetime(2026, 6, 20, 2, 0, 54)
     assert normalize_event_time("2026-06-20T04:00:54Z", assume_tz="America/New_York") == datetime(2026, 6, 20, 4, 0, 54)
+
+
+def test_store_event_never_enriches_geoip_inline(db_session):
+    # Ingestion no longer does GeoIP enrichment inline (see geoip.enrich_pending_events) -
+    # a first-time import of a large log could otherwise mean thousands of
+    # synchronous lookup HTTP calls in a row. Even with GeoIP enabled and a
+    # cache hit available, a freshly stored event must come back unenriched
+    # and flagged for the background backfill pass to pick up.
+    db_session.add_all(
+        [
+            Setting(key="plugin.geoip.enabled", value="true"),
+            GeoIPCache(
+                lookup_key="8.8.8.8",
+                provider="ip-api",
+                country="US",
+                city="Mountain View",
+                asn="AS15169",
+                isp="Google LLC",
+                looked_up_at=utc_now().replace(tzinfo=None),
+                expires_at=(utc_now() + timedelta(days=1)).replace(tzinfo=None),
+            ),
+        ]
+    )
+    db_session.commit()
+
+    event = store_event(db_session, source="test", plugin="traefik_log", event_type="access.allowed", ip="8.8.8.8")
+
+    assert event.country is None
+    assert event.city is None
+    assert event.geoip_checked is False
 
 
 def test_store_event_deduplicates_and_updates_rollups_and_insights(db_session):

@@ -13,7 +13,6 @@ from app.core.time import utc_now
 from app.models.core import AggregationDaily, AggregationMonthly, Insight
 from app.models.events import Event
 from app.services.asset_hosts import find_asset_by_host
-from app.services.geoip import enrich_event_values
 from app.services.insight_rules import apply_declarative_insight_rules
 
 
@@ -128,7 +127,10 @@ def store_event(db: Session, **values: Any) -> Event:
         matched_asset = find_asset_by_host(db, values.get("hostname"))
         if matched_asset is not None:
             values["asset_id"] = matched_asset.id
-    enrich_event_values(db, values)
+    # GeoIP enrichment happens out-of-band (see geoip.enrich_pending_events),
+    # not here: a first-time import of a large log can otherwise mean
+    # thousands of synchronous lookup HTTP calls in a row for uncached IPs,
+    # which is by far the biggest single contributor to ingestion stalling.
 
     duplicate = find_duplicate_event(db, values)
     if duplicate is not None:

@@ -18,11 +18,17 @@ from app.models.settings import Setting
 from app.plugins.base import ActionPlugin, DatasourcePlugin, ExportPlugin, PeriodicPlugin, Plugin, PluginContext, PluginSetting
 from app.core.time import utc_now
 from app.services.events import cleanup_events_by_retention, compact_completed_daily_rollups
+from app.services.geoip import enrich_pending_events
 from app.services.insight_rules import refresh_insight_rules
 from app.services.json_assets_updates import refresh_asset_updates
 
 
 logger = logging.getLogger(__name__)
+
+BACKLOG_CATCHUP_DELAY_SECONDS = 0.2
+GEOIP_BACKFILL_BATCH_SIZE = 50
+
+_UNSET: Any = object()
 
 
 class PluginManager:
@@ -184,6 +190,7 @@ class PluginManager:
         self.tasks.append(asyncio.create_task(self._insight_rules_loop(), name="core-insight-rules"))
         self.tasks.append(asyncio.create_task(self._rollup_compaction_loop(), name="core-rollup-compaction"))
         self.tasks.append(asyncio.create_task(self._retention_cleanup_loop(), name="core-retention-cleanup"))
+        self.tasks.append(asyncio.create_task(self._geoip_backfill_loop(), name="core-geoip-backfill"))
         for plugin in self.plugins.values():
             self.tasks.append(asyncio.create_task(self._health_loop(plugin), name=f"plugin-health-{plugin.metadata.id}"))
             if isinstance(plugin, DatasourcePlugin):
@@ -305,6 +312,25 @@ class PluginManager:
             finally:
                 db.close()
 
+    async def _geoip_backfill_loop(self) -> None:
+        while True:
+            db = SessionLocal()
+            try:
+                processed = enrich_pending_events(db, limit=GEOIP_BACKFILL_BATCH_SIZE)
+                db.commit()
+                # Keep draining quickly while a backlog exists (e.g. right
+                # after a large log import), back off once caught up.
+                await asyncio.sleep(1 if processed >= GEOIP_BACKFILL_BATCH_SIZE else 15)
+            except asyncio.CancelledError:
+                db.close()
+                raise
+            except Exception:
+                logger.exception("GeoIP backfill failed")
+                db.rollback()
+                await asyncio.sleep(30)
+            finally:
+                db.close()
+
     async def shutdown(self) -> None:
         if not self.tasks:
             return
@@ -359,36 +385,14 @@ class PluginManager:
         while True:
             db = SessionLocal()
             try:
-                ctx = self.context(db, plugin)
-                interval = int(ctx.get("poll_interval", "5") or "5")
-                enabled = ctx.get("enabled", "false").lower() == "true"
-                self._update_datasource(db, plugin.metadata.id, enabled, "running" if enabled else "disabled", None, 0)
-                if enabled:
-                    events = await plugin.collect(ctx)
-                    found = 0
-                    stored_count = 0
-                    duplicate_count = 0
-                    last_event_at = None
-                    for event in events:
-                        stored = ctx.emit_event(**event)
-                        found += 1
-                        if getattr(stored, "_opensecdash_created", False):
-                            stored_count += 1
-                        else:
-                            duplicate_count += 1
-                        last_event_at = stored.event_time
-                    if found:
-                        logger.debug(
-                            "Datasource plugin %s processed events found=%d stored=%d duplicates=%d",
-                            plugin.metadata.id,
-                            found,
-                            stored_count,
-                            duplicate_count,
-                        )
-                    db.commit()
-                    self._update_datasource(db, plugin.metadata.id, True, "healthy", None, stored_count, last_event_at)
-                    db.commit()
-                await asyncio.sleep(max(interval, 1))
+                # The whole tick (file I/O, event storage, commits) runs in a
+                # worker thread. A plugin's first run against a large existing
+                # log can otherwise take long enough to freeze the entire app
+                # for every visitor, since it shares one event loop with the
+                # web server. Batches are capped (see tail_text_file callers)
+                # so each threaded tick still finishes quickly.
+                interval, backlog_pending = await asyncio.to_thread(self._run_datasource_tick, db, plugin)
+                await asyncio.sleep(self._next_datasource_delay(interval, backlog_pending))
             except asyncio.CancelledError:
                 db.close()
                 raise
@@ -401,6 +405,74 @@ class PluginManager:
                 await asyncio.sleep(10)
             finally:
                 db.close()
+
+    def _run_datasource_tick(self, db: Session, plugin: DatasourcePlugin) -> tuple[int, bool]:
+        """Runs one full datasource tick synchronously. Called via ``asyncio.to_thread``."""
+        ctx = self.context(db, plugin)
+        interval = int(ctx.get("poll_interval", "5") or "5")
+        enabled = ctx.get("enabled", "false").lower() == "true"
+        self._update_datasource(
+            db,
+            plugin.metadata.id,
+            enabled,
+            "running" if enabled else "disabled",
+            None,
+            0,
+            backlog_pending=False if not enabled else _UNSET,
+            backlog_progress_percent=None if not enabled else _UNSET,
+        )
+        if not enabled:
+            # Without this commit, disabling a plugin never persists its
+            # "disabled" status/enabled flag - the row (and any stale
+            # backlog_pending flag) would silently keep showing whatever it
+            # last was, since the session closes uncommitted below.
+            db.commit()
+            return interval, False
+
+        events = asyncio.run(plugin.collect(ctx))
+        found = 0
+        stored_count = 0
+        duplicate_count = 0
+        last_event_at = None
+        for event in events:
+            stored = ctx.emit_event(**event)
+            found += 1
+            if getattr(stored, "_opensecdash_created", False):
+                stored_count += 1
+            else:
+                duplicate_count += 1
+            last_event_at = stored.event_time
+        if found:
+            logger.debug(
+                "Datasource plugin %s processed events found=%d stored=%d duplicates=%d",
+                plugin.metadata.id,
+                found,
+                stored_count,
+                duplicate_count,
+            )
+        db.commit()
+        self._update_datasource(
+            db,
+            plugin.metadata.id,
+            True,
+            "healthy",
+            None,
+            stored_count,
+            last_event_at,
+            backlog_pending=ctx.backlog_pending,
+            backlog_progress_percent=ctx.backlog_progress_percent,
+        )
+        db.commit()
+        return interval, ctx.backlog_pending
+
+    @staticmethod
+    def _next_datasource_delay(interval: int, backlog_pending: bool) -> float:
+        if backlog_pending:
+            # Drain a large backlog across many quick batches instead of
+            # waiting a full poll_interval between each one, while the brief
+            # sleep still gives the event loop a chance to serve requests.
+            return BACKLOG_CATCHUP_DELAY_SECONDS
+        return max(interval, 1)
 
     async def _periodic_loop(self, plugin: PeriodicPlugin) -> None:
         while True:
@@ -440,6 +512,8 @@ class PluginManager:
         error: str | None,
         processed: int,
         last_event_at: Any | None = None,
+        backlog_pending: bool = _UNSET,
+        backlog_progress_percent: int | None = _UNSET,
     ) -> None:
         datasource = db.query(Datasource).filter(Datasource.plugin_id == plugin_id).first()
         if datasource is None:
@@ -458,6 +532,13 @@ class PluginManager:
         datasource.events_processed += processed
         if last_event_at is not None:
             datasource.last_event_at = last_event_at
+        # Callers that only refresh enabled/status (not the result of an
+        # actual collect() run) omit these, leaving the last known value in
+        # place instead of flickering it back to "not pending" every tick.
+        if backlog_pending is not _UNSET:
+            datasource.backlog_pending = backlog_pending
+        if backlog_progress_percent is not _UNSET:
+            datasource.backlog_progress_percent = backlog_progress_percent
 
     def _update_diagnostic(self, db: Session, plugin_id: str, status: str, error: str | None) -> None:
         diagnostic = db.query(Diagnostic).filter(Diagnostic.plugin == plugin_id, Diagnostic.component == "plugin").first()
