@@ -400,6 +400,80 @@ def dashboard_yesterday_rollup_key(timezone_name: str | None) -> str:
     return (utc_now().astimezone(timezone) - timedelta(days=1)).strftime("%Y-%m-%d")
 
 
+def dashboard_metric_counts(
+    db: Session,
+    enabled_plugins: dict[str, bool],
+    start: datetime,
+    end: datetime | None = None,
+) -> dict[str, int]:
+    def in_range(query):
+        query = query.filter(Event.event_time >= start)
+        if end is not None:
+            query = query.filter(Event.event_time < end)
+        return query
+
+    bans = (
+        in_range(db.query(Event).filter(Event.event_type.startswith("security.ban"), Event.plugin == "crowdsec")).count()
+        if enabled_plugins["crowdsec"]
+        else 0
+    )
+    geoblocks = (
+        in_range(db.query(Event).filter(Event.event_type == "security.geoblock", Event.plugin == "geoblock_log")).count()
+        if enabled_plugins["geoblock_log"]
+        else 0
+    )
+    access_external_events = 0
+    access_internal_events = 0
+    if enabled_plugins["traefik_log"]:
+        access_ips = in_range(
+            db.query(Event.ip).filter(
+                Event.event_type.startswith("access."),
+                Event.plugin == "traefik_log",
+                Event.ip.isnot(None),
+                Event.ip != "",
+            )
+        ).all()
+        for (ip,) in access_ips:
+            if is_local_ip_value(ip):
+                access_internal_events += 1
+            else:
+                access_external_events += 1
+    return {
+        "bans": bans,
+        "geoblocks": geoblocks,
+        "access_external_events": access_external_events,
+        "access_internal_events": access_internal_events,
+    }
+
+
+def dashboard_yesterday_summary(
+    db: Session,
+    timezone_name: str | None,
+    since: datetime,
+    enabled_plugins: dict[str, bool],
+) -> dict[str, int]:
+    """Yesterday's counts for the dashboard delta widgets, in local-calendar terms.
+
+    Events are always stored in UTC; timezone only applies at read time so
+    changing the setting never leaves stale, timezone-tagged data behind. Raw
+    events give an exact local-day count (mirroring `since` for "today"), but
+    retention may already have deleted them for "yesterday" - the daily rollup
+    (bucketed by UTC calendar day, not local calendar day) is used as a
+    best-effort fallback in that case, since a whole UTC-day bucket can't be
+    sliced at an arbitrary local-day boundary.
+    """
+    yesterday_start = since - timedelta(days=1)
+    yesterday_end = since
+    try:
+        retention_days = int(get_setting_value(db, "retention_days", "30"))
+    except (TypeError, ValueError):
+        retention_days = 30
+    retention_cutoff = utc_now().replace(tzinfo=None) - timedelta(days=retention_days)
+    if retention_days <= 0 or yesterday_start >= retention_cutoff:
+        return dashboard_metric_counts(db, enabled_plugins, yesterday_start, yesterday_end)
+    return rollup_summary(db, "day", dashboard_yesterday_rollup_key(timezone_name)) or {}
+
+
 def dashboard_delta(current: int, previous: int | None) -> dict[str, str]:
     previous = previous or 0
     if previous == 0:
@@ -418,8 +492,6 @@ def dashboard_delta(current: int, previous: int | None) -> dict[str, str]:
 def dashboard_page(request: Request, db: Session = Depends(get_db)):
     timezone_name = get_setting_value(db, "timezone", "auto")
     since = today_start(db)
-    yesterday_key = dashboard_yesterday_rollup_key(timezone_name)
-    yesterday_summary = rollup_summary(db, "day", yesterday_key) or {}
     enabled_plugins = {
         "json_assets": is_plugin_enabled(db, "json_assets"),
         "proxmox_assets": is_plugin_enabled(db, "proxmox_assets"),
@@ -427,6 +499,7 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
         "geoblock_log": is_plugin_enabled(db, "geoblock_log"),
         "traefik_log": is_plugin_enabled(db, "traefik_log"),
     }
+    yesterday_summary = dashboard_yesterday_summary(db, timezone_name, since, enabled_plugins)
     country_data_plugins = [
         plugin_id
         for plugin_id in ["crowdsec", "geoblock_log", "traefik_log"]
@@ -434,21 +507,11 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
     ]
 
     event_count = db.query(Event).filter(Event.event_time >= since, Event.plugin.in_(country_data_plugins)).count() if country_data_plugins else 0
-    active_bans = db.query(Event).filter(Event.event_type.startswith("security.ban"), Event.event_time >= since, Event.plugin == "crowdsec").count() if enabled_plugins["crowdsec"] else 0
-    geoblocks = db.query(Event).filter(Event.event_type == "security.geoblock", Event.event_time >= since, Event.plugin == "geoblock_log").count() if enabled_plugins["geoblock_log"] else 0
-    access_external_events = 0
-    access_internal_events = 0
-    if enabled_plugins["traefik_log"]:
-        access_ips = (
-            db.query(Event.ip)
-            .filter(Event.event_type.startswith("access."), Event.event_time >= since, Event.plugin == "traefik_log", Event.ip.isnot(None), Event.ip != "")
-            .all()
-        )
-        for (ip,) in access_ips:
-            if is_local_ip_value(ip):
-                access_internal_events += 1
-            else:
-                access_external_events += 1
+    today_counts = dashboard_metric_counts(db, enabled_plugins, since)
+    active_bans = today_counts["bans"]
+    geoblocks = today_counts["geoblocks"]
+    access_external_events = today_counts["access_external_events"]
+    access_internal_events = today_counts["access_internal_events"]
     security_data_plugins = [
         plugin_id
         for plugin_id in ["crowdsec", "geoblock_log"]
@@ -1519,6 +1582,7 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
         live_default=get_setting_value(db, "live_default", "true"),
         theme=get_setting_value(db, "theme", "auto"),
         timezone=get_setting_value(db, "timezone", "auto"),
+        log_timestamp_timezone=get_setting_value(db, "log_timestamp_timezone", "UTC"),
         asset_source_type=get_setting_value(db, "asset_source_type", "file"),
         asset_source=get_setting_value(db, "asset_source", "/assets/assets.json"),
         action_dry_run=get_setting_value(db, "action_dry_run", "true"),
@@ -1541,6 +1605,7 @@ async def save_settings(
     live_default: str = Form("true"),
     theme: str = Form("auto"),
     timezone: str = Form("auto"),
+    log_timestamp_timezone: str = Form("UTC"),
     asset_source_type: str = Form("file"),
     asset_source: str = Form(""),
     action_dry_run: str = Form("true"),
@@ -1563,6 +1628,7 @@ async def save_settings(
         "live_default": live_default,
         "theme": theme,
         "timezone": timezone,
+        "log_timestamp_timezone": log_timestamp_timezone,
         "asset_source_type": asset_source_type,
         "asset_source": asset_source,
         "action_dry_run": action_dry_run,

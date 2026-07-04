@@ -12,6 +12,15 @@ OpenSecDash settings are available from the Settings page. Dependent settings us
 | Default Events mode | Starts the Events- and Access page in Live or Snapshot mode. Live keeps updating; Snapshot freezes the current view for investigation. |
 | Theme | Dark, light, or automatic browser/system theme. |
 | Timezone | Display timestamps in `auto`, `UTC`, or an IANA timezone such as `Europe/Berlin`. |
+| Log timestamp timezone | Assumed timezone for log lines that don't include a timezone offset themselves. Defaults to `UTC`. See [Storage is always UTC](#storage-is-always-utc) below. |
+
+## Storage is always UTC
+
+Every timestamp OpenSecDash stores is normalized to UTC. The `Timezone` setting only controls how timestamps are *displayed*; it never changes what's stored. This means changing the timezone setting later never leaves old data inconsistent with new data - everything in the database was already UTC, and only the display layer re-reads the current setting.
+
+Most log formats OpenSecDash reads already state their own timezone explicitly (for example Traefik's `StartUTC` field, or CrowdSec's `time="...+02:00"` entries), so those are converted to UTC unambiguously and are unaffected by any setting.
+
+Some log formats don't include a timezone offset at all - for example the GeoBlock Traefik plugin logs plain timestamps like `2026/06/20 04:00:54` with no offset, which is really the log-writer's local wall-clock time. For those, OpenSecDash needs to be told which timezone that naive timestamp is actually in before it can convert it to UTC - that's what `Log timestamp timezone` is for. It defaults to `UTC`, which is correct if the host/container producing that log already runs its system clock in UTC (the common case for Docker deployments). Set it to the actual local timezone of that log source (for example `Europe/Berlin`) if it doesn't.
 
 ## Actions
 

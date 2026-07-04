@@ -52,6 +52,10 @@
             <input class="input" name="timezone" value="{{ timezone }}" placeholder="auto / Europe/Berlin">
         </label>
 
+        <label>{{ t("settings.log_timestamp_timezone") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.log_timestamp_timezone') }}">?</button>
+            <input class="input" name="log_timestamp_timezone" value="{{ log_timestamp_timezone }}" placeholder="UTC / Europe/Berlin">
+        </label>
+
         <label>{{ t("settings.action_simulation") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.action_simulation') }}">?</button>
             <select class="input" name="action_dry_run">
                 <option value="true" {% if action_dry_run == 'true' %}selected{% endif %}>{{ t("settings.dry_run") }}</option>

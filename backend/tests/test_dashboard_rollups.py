@@ -1,8 +1,17 @@
 from datetime import UTC, datetime
 
-from app.api.pages import available_rollup_periods, dashboard_delta, dashboard_yesterday_rollup_key, rollup_rows, rollup_summary, summary_from_event_type_rows
+from app.api.pages import (
+    available_rollup_periods,
+    dashboard_delta,
+    dashboard_yesterday_rollup_key,
+    dashboard_yesterday_summary,
+    rollup_rows,
+    rollup_summary,
+    summary_from_event_type_rows,
+)
 from app.models.core import AggregationDaily, AggregationMonthly
 from app.models.events import Event
+from app.models.settings import Setting
 import app.services.events as events_service
 from app.services.events import cleanup_events_by_retention, compact_completed_daily_rollups, update_rollups
 
@@ -100,6 +109,48 @@ def test_dashboard_yesterday_rollup_key_uses_configured_timezone(monkeypatch):
 
     assert dashboard_yesterday_rollup_key("Europe/Berlin") == "2026-07-02"
     assert dashboard_yesterday_rollup_key("UTC") == "2026-07-01"
+
+
+def test_dashboard_yesterday_summary_uses_exact_local_day_when_within_retention(db_session, monkeypatch):
+    import app.api.pages as pages
+
+    # "Now" = 2026-07-02 22:30 UTC = 2026-07-03 00:30 Europe/Berlin (Berlin's "today" just started).
+    monkeypatch.setattr(pages, "utc_now", lambda: datetime(2026, 7, 2, 22, 30, tzinfo=UTC))
+
+    # This event is stored under the UTC calendar day 2026-07-01, but in Berlin
+    # local time it's 2026-07-02 01:30 - i.e. Berlin-"yesterday". The UTC-bucketed
+    # rollup can't see it under the "2026-07-02" key; the exact raw-event query must.
+    db_session.add(Event(event_time=datetime(2026, 7, 1, 23, 30), event_type="security.ban", plugin="crowdsec"))
+    db_session.commit()
+
+    berlin_midnight_utc = datetime(2026, 7, 2, 22, 0)  # 2026-07-03 00:00 Europe/Berlin, as naive UTC
+    summary = pages.dashboard_yesterday_summary(
+        db_session,
+        "Europe/Berlin",
+        berlin_midnight_utc,
+        {"crowdsec": True, "geoblock_log": False, "traefik_log": False},
+    )
+
+    assert summary["bans"] == 1
+
+
+def test_dashboard_yesterday_summary_falls_back_to_rollup_outside_retention(db_session, monkeypatch):
+    import app.api.pages as pages
+
+    monkeypatch.setattr(pages, "utc_now", lambda: datetime(2026, 7, 2, 12, 0, tzinfo=UTC))
+    db_session.add(Setting(key="retention_days", value="1"))
+    db_session.add(AggregationDaily(date="2026-07-01", metric="summary", key="bans", value=5))
+    db_session.commit()
+
+    since = datetime(2026, 7, 2, 0, 0)
+    summary = pages.dashboard_yesterday_summary(
+        db_session,
+        "UTC",
+        since,
+        {"crowdsec": True, "geoblock_log": False, "traefik_log": False},
+    )
+
+    assert summary.get("bans") == 5
 
 
 def test_dashboard_delta_formats_direction_and_missing_previous():

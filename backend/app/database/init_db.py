@@ -17,6 +17,7 @@ DEFAULT_SETTINGS = {
     "retention_days": "30",
     "theme": "auto",
     "timezone": "auto",
+    "log_timestamp_timezone": "UTC",
     "asset_source_type": "file",
     "asset_source": "/assets/assets.json",
     "asset_updates.github_token": "",

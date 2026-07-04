@@ -4,6 +4,7 @@ import ipaddress
 import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy import String, and_, cast, func, or_
 from sqlalchemy.orm import Session
@@ -19,16 +20,32 @@ from app.services.insight_rules import apply_declarative_insight_rules
 logger = logging.getLogger(__name__)
 
 
-def normalize_event_time(value: Any | None = None) -> datetime:
+def _apply_assumed_timezone(naive_value: datetime, assume_tz: str | None) -> datetime:
+    if not assume_tz or assume_tz == "UTC":
+        return naive_value
+    try:
+        zone = ZoneInfo(assume_tz)
+    except ZoneInfoNotFoundError:
+        return naive_value
+    return naive_value.replace(tzinfo=zone).astimezone(UTC).replace(tzinfo=None)
+
+
+def normalize_event_time(value: Any | None = None, assume_tz: str | None = None) -> datetime:
     """Normalize incoming timestamps to naive UTC for DB compatibility.
 
     The UI converts these values back to the configured display timezone. Keeping
     storage normalized makes filtering and future tests deterministic.
+
+    `assume_tz` (an IANA zone name) only matters when `value` carries no timezone
+    or UTC offset at all - it says which timezone that naive timestamp should be
+    read as before converting to UTC. It has no effect on values that already
+    carry an explicit offset (e.g. Traefik's `StartUTC` or CrowdSec's logrus
+    timestamps), since those are unambiguous already.
     """
     if isinstance(value, datetime):
         if value.tzinfo is not None:
             return value.astimezone(UTC).replace(tzinfo=None)
-        return value
+        return _apply_assumed_timezone(value, assume_tz)
     if not value:
         return utc_now().replace(tzinfo=None)
     text = str(value).replace("Z", "+00:00")
@@ -36,7 +53,7 @@ def normalize_event_time(value: Any | None = None) -> datetime:
         parsed = datetime.fromisoformat(text)
         if parsed.tzinfo is not None:
             return parsed.astimezone(UTC).replace(tzinfo=None)
-        return parsed
+        return _apply_assumed_timezone(parsed, assume_tz)
     except ValueError:
         return utc_now().replace(tzinfo=None)
 

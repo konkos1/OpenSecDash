@@ -4,6 +4,7 @@ import logging
 import re
 from pathlib import Path
 
+from app.core.template_context import get_setting_value
 from app.models.events import Event
 from app.plugins.base import DatasourcePlugin, PluginMetadata, PluginSetting
 from app.services.events import normalize_event_time
@@ -61,10 +62,11 @@ class Plugin(DatasourcePlugin):
         if not path.exists():
             raise FileNotFoundError(path)
         self._load_seen_events(context)
+        assumed_tz = get_setting_value(context.db, "log_timestamp_timezone", "UTC")
         events = []
         with path.open("r", encoding="utf-8", errors="ignore") as handle:
             for line in handle:
-                parsed = self.parse_line(line)
+                parsed = self.parse_line(line, assumed_tz)
                 if not parsed:
                     continue
                 raw_data = parsed["raw_data"]
@@ -88,7 +90,7 @@ class Plugin(DatasourcePlugin):
         self._seen_loaded = True
         logger.debug("Loaded %d previously seen GeoBlock raw events", len(self._seen_raw))
 
-    def parse_line(self, line: str):
+    def parse_line(self, line: str, assumed_tz: str = "UTC"):
         if "request denied" not in line:
             return None
         ip_match = re.search(r"denied \[([^\]]+)\]", line)
@@ -96,10 +98,16 @@ class Plugin(DatasourcePlugin):
         time_match = re.search(r"GeoBlock:\s+(\d{4})/(\d{2})/(\d{2})\s+(\d{2}:\d{2}:\d{2})", line)
         event_time = None
         if time_match:
+            # GeoBlock's own log line has no timezone offset (Go's default log
+            # format) - it's the log writer's local wall-clock time, so the
+            # configured `log_timestamp_timezone` setting decides how it maps
+            # to UTC. Timestamps that already carry an explicit offset (e.g.
+            # Traefik/CrowdSec logs) go through the tz-aware branch in
+            # normalize_event_time() instead and ignore that setting entirely.
             event_time = f"{time_match.group(1)}-{time_match.group(2)}-{time_match.group(3)} {time_match.group(4)}"
         raw_data = line.strip()
         return {
-            "event_time": normalize_event_time(event_time),
+            "event_time": normalize_event_time(event_time, assume_tz=assumed_tz),
             "source": "GeoBlock Log",
             "source_id": "geoblock-log",
             "plugin": self.metadata.id,

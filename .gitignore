@@ -228,3 +228,4 @@ backend/opensecdash.db
 
 # VS Code workspace
 *.code-workspace
+/.claude

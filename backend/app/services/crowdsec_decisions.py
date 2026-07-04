@@ -9,7 +9,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.core.template_context import get_setting_value
-from app.core.time import utc_now
+from app.core.time import as_utc, utc_now
 from app.models.core import CrowdSecDecision, Diagnostic
 
 logger = logging.getLogger(__name__)
@@ -31,7 +31,7 @@ def _parse_datetime(value: object) -> datetime | None:
     except ValueError:
         return None
     if parsed.tzinfo is not None:
-        parsed = parsed.astimezone().replace(tzinfo=None)
+        parsed = as_utc(parsed).replace(tzinfo=None)
     return parsed
 
 

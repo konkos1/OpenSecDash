@@ -3,12 +3,31 @@ from datetime import datetime, timedelta
 from app.models.core import AggregationDaily, Insight
 from app.models.events import Event
 from app.models.settings import Setting
-from app.services.events import apply_event_filters, classify_access_status, store_event, tokenize_search_expression
+from app.services.events import (
+    apply_event_filters,
+    classify_access_status,
+    normalize_event_time,
+    store_event,
+    tokenize_search_expression,
+)
 
 
 def disable_geoip(db_session):
     db_session.add(Setting(key="plugin.geoip.enabled", value="false"))
     db_session.commit()
+
+
+def test_normalize_event_time_applies_assumed_timezone_only_when_naive():
+    # A naive timestamp (no offset in the source, e.g. GeoBlock's own log format)
+    # is interpreted in the configured assumed timezone before converting to UTC.
+    assert normalize_event_time("2026-06-20 04:00:54", assume_tz="Europe/Berlin") == datetime(2026, 6, 20, 2, 0, 54)
+    assert normalize_event_time("2026-06-20 04:00:54", assume_tz="UTC") == datetime(2026, 6, 20, 4, 0, 54)
+    assert normalize_event_time("2026-06-20 04:00:54") == datetime(2026, 6, 20, 4, 0, 54)
+
+    # A timestamp that already carries an explicit offset (Traefik/CrowdSec style)
+    # is unaffected by `assume_tz` - it's unambiguous already.
+    assert normalize_event_time("2026-06-20T04:00:54+02:00", assume_tz="America/New_York") == datetime(2026, 6, 20, 2, 0, 54)
+    assert normalize_event_time("2026-06-20T04:00:54Z", assume_tz="America/New_York") == datetime(2026, 6, 20, 4, 0, 54)
 
 
 def test_store_event_deduplicates_and_updates_rollups_and_insights(db_session):

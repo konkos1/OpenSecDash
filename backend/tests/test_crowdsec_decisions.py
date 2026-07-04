@@ -1,5 +1,5 @@
 import json
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import pytest
 
@@ -7,7 +7,14 @@ from app.core.time import utc_now
 from app.models.core import CrowdSecDecision
 from app.models.settings import Setting
 from app.services.actions import create_action
-from app.services.crowdsec_decisions import active_decision_for_ip, crowdsec_cscli_status, sync_crowdsec_decisions
+from app.services.crowdsec_decisions import _parse_datetime, active_decision_for_ip, crowdsec_cscli_status, sync_crowdsec_decisions
+
+
+def test_parse_datetime_converts_to_utc_regardless_of_offset():
+    # "+02:00" is 2 hours ahead of UTC; the naive result must always be the
+    # UTC-equivalent instant, not shifted by the interpreter's local timezone.
+    assert _parse_datetime("2026-06-29T14:00:00+02:00") == datetime(2026, 6, 29, 12, 0, 0)
+    assert _parse_datetime("2026-06-29T12:00:00Z") == datetime(2026, 6, 29, 12, 0, 0)
 
 
 class Completed:
