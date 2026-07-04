@@ -32,9 +32,6 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          version="${TAG#v}"
-          echo "version=${version}" >> "$GITHUB_OUTPUT"
-
           previous_tag="$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+' | grep -vx "${TAG}" | head -n1 || true)"
           if [[ -n "${previous_tag}" ]]; then
             range="${previous_tag}..${TAG}"
@@ -76,11 +73,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
-          VERSION: ${{ steps.notes.outputs.version }}
         run: |
           set -euo pipefail
           if gh release view "${TAG}" >/dev/null 2>&1; then
-            gh release edit "${TAG}" --title "OpenSecDash ${VERSION}" --notes-file release-notes.md
+            gh release edit "${TAG}" --title "${TAG}" --notes-file release-notes.md
           else
-            gh release create "${TAG}" --title "OpenSecDash ${VERSION}" --notes-file release-notes.md --verify-tag
+            gh release create "${TAG}" --title "${TAG}" --notes-file release-notes.md --verify-tag
           fi
