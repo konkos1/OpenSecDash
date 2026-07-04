@@ -241,7 +241,7 @@ def cleanup_expired_cache(db: Session) -> int:
     return int(deleted or 0)
 
 
-def enrich_pending_events(db: Session, limit: int = 50, write_lock: Any = None) -> int:
+def enrich_pending_events(db: Session, limit: int = 50) -> int:
     """Backfill GeoIP fields for recently stored events, a few at a time.
 
     Ingestion (``store_event``) never enriches inline anymore - a fresh import
@@ -251,11 +251,10 @@ def enrich_pending_events(db: Session, limit: int = 50, write_lock: Any = None) 
     slow/unreachable GeoIP provider can only ever delay when country/city/ASN
     show up, not block anything else.
 
-    ``write_lock`` (a ``threading.Lock``), when given, is only held around each
-    per-event ``commit()`` - never around the lookup itself, since that can be
-    a slow/blocking network call to the GeoIP provider and must not make other
-    threads wait on the SQLite write lock for that long. When omitted (e.g. in
-    tests), the caller is expected to commit after this returns, as before.
+    Committing per-event (rather than once for the whole batch) means a
+    slow/blocking GeoIP lookup only ever holds the SQLite write lock for one
+    event's worth of time, not the whole batch - the app-wide write lock in
+    ``app.database.session`` is acquired automatically on each commit.
     """
     if not geoip_enabled(db):
         return 0
@@ -280,7 +279,5 @@ def enrich_pending_events(db: Session, limit: int = 50, write_lock: Any = None) 
         event.asn = values.get("asn") or event.asn
         event.isp = values.get("isp") or event.isp
         event.geoip_checked = True
-        if write_lock is not None:
-            with write_lock:
-                db.commit()
+        db.commit()
     return len(events)

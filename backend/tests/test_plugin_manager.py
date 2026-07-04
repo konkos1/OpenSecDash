@@ -1,4 +1,3 @@
-import threading
 from pathlib import Path
 
 from app.models.core import Datasource, Diagnostic, PluginRecord
@@ -141,11 +140,6 @@ def test_next_datasource_delay_is_short_while_backlog_pending():
     assert PluginManager._next_datasource_delay(10, True) < 1
     assert PluginManager._next_datasource_delay(10, False) == 10
     assert PluginManager._next_datasource_delay(0, False) == 1
-
-
-def test_run_datasource_tick_uses_a_shared_lock_instance():
-    manager = PluginManager(Path("/not-used"))
-    assert isinstance(manager._write_lock, type(threading.Lock()))
 
 
 def test_run_datasource_tick_commits_periodically_for_large_batches(db_session, monkeypatch):
