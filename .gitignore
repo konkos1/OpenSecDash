@@ -225,6 +225,9 @@ docs/internal/
 
 # local Database
 backend/opensecdash.db
+backend/opensecdash.db-wal
+backend/opensecdash.db-shm
+backend/opensecdash.db-journal
 
 # VS Code workspace
 *.code-workspace
