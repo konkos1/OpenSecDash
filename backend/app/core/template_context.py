@@ -38,6 +38,7 @@ def build_template_context(db: Session) -> dict[str, object | Callable[[str], st
     domain = get_setting_value(db, "domain", "")
     timezone = get_setting_value(db, "timezone", "auto")
     theme = get_setting_value(db, "theme", "auto")
+    live_page_refresh = get_setting_value(db, "live_page_refresh", "true") == "true"
     enabled_plugins = enabled_plugin_map(db)
     event_plugins_enabled = any(
         enabled_plugins[plugin_id]
@@ -59,6 +60,7 @@ def build_template_context(db: Session) -> dict[str, object | Callable[[str], st
         "domain": domain,
         "timezone": timezone,
         "theme": theme,
+        "live_page_refresh": live_page_refresh,
         "enabled_plugins": enabled_plugins,
         "event_plugins_enabled": event_plugins_enabled,
         "asset_plugins_enabled": asset_plugins_enabled,

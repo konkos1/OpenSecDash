@@ -1,0 +1,25 @@
+{# Rendered both inline (base.html, first page load) and standalone by GET
+   /fragments/backlog-banner (periodic htmx poll) so both stay identical. The
+   outer element always exists (even with nothing pending) so it can keep
+   polling and pick up a backlog that starts later, not just one already
+   present on the page that first loaded it. #}
+<div
+    id="backlog-banner-region"
+    hx-get="/fragments/backlog-banner"
+    hx-select="#backlog-banner-region"
+    hx-target="this"
+    hx-swap="outerHTML"
+    {% if live_page_refresh %}hx-trigger="every 10s"{% endif %}
+>
+    {% if backlog_datasources %}
+        <div class="backlog-banner">
+            <div class="max-w-7xl mx-auto px-4 py-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+                <span class="button-spinner" aria-hidden="true"></span>
+                <strong>{{ t("common.backlog_banner_title") }}</strong>
+                {% for datasource in backlog_datasources %}
+                    <span class="backlog-banner-item">{{ datasource.name }}{% if datasource.backlog_progress_percent is not none %} ({{ datasource.backlog_progress_percent }}%){% endif %}{{ "," if not loop.last }}</span>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+</div>

@@ -2,9 +2,46 @@ document.addEventListener("DOMContentLoaded", () => {
     localizeOpenSecDashDatetimes();
     localizeOpenSecDashCountries();
 
+    // Every periodically/live-refreshed region on any page (Events/Access,
+    // Dashboard, CrowdSec, Diagnostics, Assets) goes through an htmx outerHTML
+    // swap. That replaces the DOM node, which would otherwise silently reset
+    // both the page's vertical scroll and any inner horizontal table scroll
+    // back to the top/left on every refresh - especially disruptive on small
+    // (mobile) screens where users are scrolled deep into a list. Restoring
+    // it here, once, covers every such region instead of duplicating this in
+    // each place that triggers a refresh.
+    let pendingScrollRestore = null;
+
+    document.body.addEventListener("htmx:beforeSwap", event => {
+        const target = event.detail && event.detail.target;
+        if (!target || !target.id) {
+            return;
+        }
+        pendingScrollRestore = {
+            id: target.id,
+            windowScrollY: window.scrollY,
+            scrollLefts: Array.from(target.querySelectorAll(".overflow-x-auto")).map(el => el.scrollLeft),
+        };
+    });
+
     document.body.addEventListener("htmx:afterSwap", () => {
         localizeOpenSecDashDatetimes();
         localizeOpenSecDashCountries();
+
+        if (!pendingScrollRestore) {
+            return;
+        }
+        const { id, windowScrollY, scrollLefts } = pendingScrollRestore;
+        pendingScrollRestore = null;
+        const target = document.getElementById(id);
+        if (target) {
+            Array.from(target.querySelectorAll(".overflow-x-auto")).forEach((el, index) => {
+                if (scrollLefts[index] !== undefined) {
+                    el.scrollLeft = scrollLefts[index];
+                }
+            });
+        }
+        window.scrollTo(0, windowScrollY);
     });
 
     document.querySelectorAll("[data-uppercase-value]")
@@ -450,24 +487,13 @@ function openSecDashLiveMode(initialLive, messages = {}, resultsSelector = null)
                 window.location.reload();
                 return;
             }
-            // Swapping the results region replaces the scrollable table wrapper
-            // with a new DOM node, which would otherwise reset horizontal scroll
-            // (e.g. after enabling extra columns) back to the left on every
-            // refresh. Capture and reapply it across the swap.
-            const oldScrollable = document.querySelector(`${this.resultsSelector} .overflow-x-auto`);
-            const scrollLeft = oldScrollable ? oldScrollable.scrollLeft : null;
+            // Horizontal/vertical scroll position across the swap is handled
+            // globally for every htmx swap in the app - see htmx:beforeSwap /
+            // htmx:afterSwap near the top of this file.
             htmx.ajax("GET", window.location.href, {
                 target: this.resultsSelector,
                 select: this.resultsSelector,
                 swap: "outerHTML",
-            }).then(() => {
-                if (scrollLeft === null) {
-                    return;
-                }
-                const newScrollable = document.querySelector(`${this.resultsSelector} .overflow-x-auto`);
-                if (newScrollable) {
-                    newScrollable.scrollLeft = scrollLeft;
-                }
             });
         },
 
@@ -490,6 +516,78 @@ function openSecDashLiveMode(initialLive, messages = {}, resultsSelector = null)
             const url = new URL(window.location.href);
             url.searchParams.delete("snapshot_before");
             window.location.href = url.toString();
+        },
+    };
+}
+
+// Lighter-weight sibling of openSecDashLiveMode() for pages that don't have a
+// Live/Snapshot toggle (Dashboard, CrowdSec): always connects unless the
+// "Auto-refresh" setting is off, and has no snapshot mode of its own.
+function openSecDashAutoRefresh(resultsSelector, enabled) {
+    return {
+        enabled: Boolean(enabled),
+        socket: null,
+        reconnectTimer: null,
+        refreshTimer: null,
+        lastRefreshAt: 0,
+        refreshThrottleMs: 3000,
+
+        init() {
+            if (this.enabled) {
+                this.connect();
+            }
+        },
+
+        connect() {
+            if (!this.enabled || (this.socket && this.socket.readyState === WebSocket.OPEN)) {
+                return;
+            }
+            const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+            try {
+                this.socket = new WebSocket(`${protocol}://${window.location.host}/ws/events`);
+            } catch (_error) {
+                return;
+            }
+            this.socket.onmessage = event => {
+                let payload = null;
+                try {
+                    payload = JSON.parse(event.data);
+                } catch (_error) {
+                    return;
+                }
+                if (this.enabled && payload.type === "events_changed") {
+                    this.scheduleRefresh();
+                }
+            };
+            this.socket.onclose = () => {
+                this.socket = null;
+                if (this.enabled) {
+                    this.reconnectTimer = window.setTimeout(() => this.connect(), 2000);
+                }
+            };
+        },
+
+        scheduleRefresh() {
+            if (this.refreshTimer) {
+                return;
+            }
+            const wait = Math.max(0, this.refreshThrottleMs - (Date.now() - this.lastRefreshAt));
+            this.refreshTimer = window.setTimeout(() => {
+                this.refreshTimer = null;
+                this.lastRefreshAt = Date.now();
+                this.refreshResults();
+            }, wait);
+        },
+
+        refreshResults() {
+            if (typeof htmx === "undefined") {
+                return;
+            }
+            htmx.ajax("GET", window.location.href, {
+                target: resultsSelector,
+                select: resultsSelector,
+                swap: "outerHTML",
+            });
         },
     };
 }

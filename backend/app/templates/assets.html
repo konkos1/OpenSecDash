@@ -76,6 +76,14 @@
         </div>
     </div>
 
+    <div
+        id="assets-results"
+        hx-get="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}"
+        hx-select="#assets-results"
+        hx-target="this"
+        hx-swap="outerHTML"
+        {% if live_page_refresh %}hx-trigger="every 30s"{% endif %}
+    >
     <div class="hidden md:block card overflow-x-auto">
         <table class="w-full text-sm">
             <thead>
@@ -130,6 +138,7 @@
         {% else %}
             <article class="card">{{ t("assets.no_systems") }}</article>
         {% endfor %}
+    </div>
     </div>
 
 {% endblock %}

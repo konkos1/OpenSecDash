@@ -488,6 +488,16 @@ def dashboard_delta(current: int, previous: int | None) -> dict[str, str]:
     return {"label": "±0%", "class": "dashboard-delta-same"}
 
 
+@router.get("/fragments/backlog-banner")
+def backlog_banner_fragment(request: Request, db: Session = Depends(get_db)):
+    # Polled by every page (see backlog_banner.html) so the sitewide "still
+    # catching up" banner updates its percentage and disappears on its own,
+    # instead of only refreshing on the next full page navigation. Rendering
+    # this tiny standalone fragment avoids re-running whatever (possibly
+    # expensive) page happens to be open just to read the banner state.
+    return render(request, db, "backlog_banner.html")
+
+
 @router.get("/")
 def dashboard_page(request: Request, db: Session = Depends(get_db)):
     timezone_name = get_setting_value(db, "timezone", "auto")
@@ -1583,6 +1593,7 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
         theme=get_setting_value(db, "theme", "auto"),
         timezone=get_setting_value(db, "timezone", "auto"),
         log_timestamp_timezone=get_setting_value(db, "log_timestamp_timezone", "UTC"),
+        live_page_refresh=get_setting_value(db, "live_page_refresh", "true"),
         asset_source_type=get_setting_value(db, "asset_source_type", "file"),
         asset_source=get_setting_value(db, "asset_source", "/assets/assets.json"),
         action_dry_run=get_setting_value(db, "action_dry_run", "true"),
@@ -1606,6 +1617,7 @@ async def save_settings(
     theme: str = Form("auto"),
     timezone: str = Form("auto"),
     log_timestamp_timezone: str = Form("UTC"),
+    live_page_refresh: str = Form("true"),
     asset_source_type: str = Form("file"),
     asset_source: str = Form(""),
     action_dry_run: str = Form("true"),
@@ -1629,6 +1641,7 @@ async def save_settings(
         "theme": theme,
         "timezone": timezone,
         "log_timestamp_timezone": log_timestamp_timezone,
+        "live_page_refresh": live_page_refresh,
         "asset_source_type": asset_source_type,
         "asset_source": asset_source,
         "action_dry_run": action_dry_run,

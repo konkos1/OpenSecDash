@@ -15,6 +15,17 @@ td, th { border-bottom: 1px solid rgb(30 41 59); padding: .65rem; vertical-align
 tbody tr:hover { background: rgba(15, 23, 42, .65); }
 .nav { border-radius: .6rem; color: #e2e8f0; padding: .5rem .75rem; text-decoration: none; }
 .nav:hover, .nav-active { background: #1e293b; color: white; }
+/* Slightly earlier than Tailwind's default md (768px) breakpoint, so the nav
+   links don't end up cramped against the OpenSecDash branding right before
+   switching to the burger menu. */
+.nav-links-desktop { display: none; }
+.nav-menu-toggle { display: inline-flex; }
+.nav-links-mobile { display: none; }
+@media (min-width: 960px) {
+  .nav-links-desktop { display: flex; }
+  .nav-menu-toggle { display: none; }
+  .nav-links-mobile { display: none; }
+}
 .card { background: rgb(15 23 42); border: 1px solid rgb(30 41 59); border-radius: 1rem; padding: 1rem; }
 .dashboard-widget { min-height: 7rem; position: relative; }
 .dashboard-delta { bottom: .75rem; font-size: .8rem; font-weight: 800; position: absolute; right: .85rem; }
