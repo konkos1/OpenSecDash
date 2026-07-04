@@ -488,6 +488,16 @@ def dashboard_delta(current: int, previous: int | None) -> dict[str, str]:
     return {"label": "±0%", "class": "dashboard-delta-same"}
 
 
+@router.get("/fragments/backlog-banner")
+def backlog_banner_fragment(request: Request, db: Session = Depends(get_db)):
+    # Polled by every page (see backlog_banner.html) so the sitewide "still
+    # catching up" banner updates its percentage and disappears on its own,
+    # instead of only refreshing on the next full page navigation. Rendering
+    # this tiny standalone fragment avoids re-running whatever (possibly
+    # expensive) page happens to be open just to read the banner state.
+    return render(request, db, "backlog_banner.html")
+
+
 @router.get("/")
 def dashboard_page(request: Request, db: Session = Depends(get_db)):
     timezone_name = get_setting_value(db, "timezone", "auto")
