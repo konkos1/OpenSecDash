@@ -1,9 +1,24 @@
+import threading
 from pathlib import Path
 
 from app.models.core import Datasource, Diagnostic, PluginRecord
+from app.models.events import Event
 from app.models.settings import Setting
 from app.plugins.base import DatasourcePlugin, PluginMetadata, PluginSetting
 from app.plugins.manager import PluginManager
+import app.plugins.manager as manager_module
+
+
+class ManyEventsPlugin(DatasourcePlugin):
+    metadata = PluginMetadata(id="many_events", name="Many Events", capabilities=["datasource"])
+    settings = [PluginSetting("enabled", "many_events.enabled", "many_events.enabled.help", type="boolean", default="true")]
+    locales = {"en": {"many_events.enabled": "Enabled", "many_events.enabled.help": "Enable"}, "de": {}}
+
+    async def collect(self, context):
+        return [
+            {"source": "test", "plugin": "many_events", "event_type": "access.allowed", "raw_data": f"line-{i}"}
+            for i in range(5)
+        ]
 
 
 class BacklogReportingPlugin(DatasourcePlugin):
@@ -126,3 +141,24 @@ def test_next_datasource_delay_is_short_while_backlog_pending():
     assert PluginManager._next_datasource_delay(10, True) < 1
     assert PluginManager._next_datasource_delay(10, False) == 10
     assert PluginManager._next_datasource_delay(0, False) == 1
+
+
+def test_run_datasource_tick_uses_a_shared_lock_instance():
+    manager = PluginManager(Path("/not-used"))
+    assert isinstance(manager._write_lock, type(threading.Lock()))
+
+
+def test_run_datasource_tick_commits_periodically_for_large_batches(db_session, monkeypatch):
+    # A real first-time import can be thousands of events in one tick; this
+    # locks in that all of them land even when committed in chunks rather
+    # than once at the very end (see EVENTS_COMMIT_EVERY).
+    monkeypatch.setattr(manager_module, "EVENTS_COMMIT_EVERY", 2)
+    manager = PluginManager(Path("/not-used"))
+    plugin = ManyEventsPlugin()
+    manager.plugins = {"many_events": plugin}
+    manager.seed_database(db_session)
+    db_session.commit()
+
+    manager._run_datasource_tick(db_session, plugin)
+
+    assert db_session.query(Event).filter_by(plugin="many_events").count() == 5

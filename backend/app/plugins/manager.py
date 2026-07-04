@@ -4,6 +4,7 @@ import asyncio
 import importlib.util
 import logging
 import json
+import threading
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -27,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 BACKLOG_CATCHUP_DELAY_SECONDS = 0.2
 GEOIP_BACKFILL_BATCH_SIZE = 50
+EVENTS_COMMIT_EVERY = 200
 
 _UNSET: Any = object()
 
@@ -43,6 +45,13 @@ class PluginManager:
         self.plugin_dir = plugin_dir
         self.plugins: dict[str, Plugin] = {}
         self.tasks: list[asyncio.Task] = []
+        # Datasource ticks and the GeoIP backfill each run in their own worker
+        # thread (so a large batch can't freeze the web server's event loop),
+        # but SQLite only ever allows one writer at a time. Without this,
+        # those threads genuinely race each other for the same file - unlike
+        # before they were threaded, when the single event loop serialized
+        # them for free - and lose under load with "database is locked".
+        self._write_lock = threading.Lock()
 
     def discover(self) -> None:
         # Discovery is file-system based to keep packaging simple for community
@@ -316,8 +325,10 @@ class PluginManager:
         while True:
             db = SessionLocal()
             try:
-                processed = enrich_pending_events(db, limit=GEOIP_BACKFILL_BATCH_SIZE)
-                db.commit()
+                # Runs in a thread: a slow/unreachable GeoIP provider can mean
+                # a real network wait per uncached IP, which must not block
+                # the event loop while it's happening.
+                processed = await asyncio.to_thread(enrich_pending_events, db, GEOIP_BACKFILL_BATCH_SIZE, self._write_lock)
                 # Keep draining quickly while a backlog exists (e.g. right
                 # after a large log import), back off once caught up.
                 await asyncio.sleep(1 if processed >= GEOIP_BACKFILL_BATCH_SIZE else 15)
@@ -411,58 +422,72 @@ class PluginManager:
         ctx = self.context(db, plugin)
         interval = int(ctx.get("poll_interval", "5") or "5")
         enabled = ctx.get("enabled", "false").lower() == "true"
-        self._update_datasource(
-            db,
-            plugin.metadata.id,
-            enabled,
-            "running" if enabled else "disabled",
-            None,
-            0,
-            backlog_pending=False if not enabled else _UNSET,
-            backlog_progress_percent=None if not enabled else _UNSET,
-        )
-        if not enabled:
-            # Without this commit, disabling a plugin never persists its
-            # "disabled" status/enabled flag - the row (and any stale
-            # backlog_pending flag) would silently keep showing whatever it
-            # last was, since the session closes uncommitted below.
-            db.commit()
-            return interval, False
+
+        # Only one of these threads (across all datasource plugins, plus the
+        # GeoIP backfill loop) may write at a time - see _write_lock. Reads
+        # above this point don't need it: SQLite in WAL mode lets readers run
+        # freely while a writer elsewhere holds the lock.
+        with self._write_lock:
+            self._update_datasource(
+                db,
+                plugin.metadata.id,
+                enabled,
+                "running" if enabled else "disabled",
+                None,
+                0,
+                backlog_pending=False if not enabled else _UNSET,
+                backlog_progress_percent=None if not enabled else _UNSET,
+            )
+            if not enabled:
+                # Without this commit, disabling a plugin never persists its
+                # "disabled" status/enabled flag - the row (and any stale
+                # backlog_pending flag) would silently keep showing whatever it
+                # last was, since the session closes uncommitted below.
+                db.commit()
+                return interval, False
 
         events = asyncio.run(plugin.collect(ctx))
         found = 0
         stored_count = 0
         duplicate_count = 0
         last_event_at = None
-        for event in events:
-            stored = ctx.emit_event(**event)
-            found += 1
-            if getattr(stored, "_opensecdash_created", False):
-                stored_count += 1
-            else:
-                duplicate_count += 1
-            last_event_at = stored.event_time
-        if found:
-            logger.debug(
-                "Datasource plugin %s processed events found=%d stored=%d duplicates=%d",
+        with self._write_lock:
+            for event in events:
+                stored = ctx.emit_event(**event)
+                found += 1
+                if getattr(stored, "_opensecdash_created", False):
+                    stored_count += 1
+                else:
+                    duplicate_count += 1
+                last_event_at = stored.event_time
+                # Commit periodically rather than once for the whole (up to
+                # MAX_LINES_PER_TICK) batch, so a single tick doesn't hold the
+                # SQLite write lock for its entire duration - other writers get
+                # a chance to interleave, and a mid-batch crash/restart loses
+                # at most one partial chunk instead of the whole tick.
+                if found % EVENTS_COMMIT_EVERY == 0:
+                    db.commit()
+            if found:
+                logger.debug(
+                    "Datasource plugin %s processed events found=%d stored=%d duplicates=%d",
+                    plugin.metadata.id,
+                    found,
+                    stored_count,
+                    duplicate_count,
+                )
+            db.commit()
+            self._update_datasource(
+                db,
                 plugin.metadata.id,
-                found,
+                True,
+                "healthy",
+                None,
                 stored_count,
-                duplicate_count,
+                last_event_at,
+                backlog_pending=ctx.backlog_pending,
+                backlog_progress_percent=ctx.backlog_progress_percent,
             )
-        db.commit()
-        self._update_datasource(
-            db,
-            plugin.metadata.id,
-            True,
-            "healthy",
-            None,
-            stored_count,
-            last_event_at,
-            backlog_pending=ctx.backlog_pending,
-            backlog_progress_percent=ctx.backlog_progress_percent,
-        )
-        db.commit()
+            db.commit()
         return interval, ctx.backlog_pending
 
     @staticmethod
