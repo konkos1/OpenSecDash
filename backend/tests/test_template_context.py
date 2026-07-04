@@ -1,3 +1,5 @@
+from typing import cast
+
 from app.core.template_context import build_template_context
 from app.models.core import Datasource
 
@@ -21,10 +23,11 @@ def test_build_template_context_lists_only_enabled_pending_datasources(db_sessio
     db_session.commit()
 
     context = build_template_context(db_session)
+    backlog_datasources = cast(list[Datasource], context["backlog_datasources"])
 
-    names = [datasource.plugin_id for datasource in context["backlog_datasources"]]
+    names = [datasource.plugin_id for datasource in backlog_datasources]
     assert names == ["catching_up"]
-    assert context["backlog_datasources"][0].backlog_progress_percent == 30
+    assert backlog_datasources[0].backlog_progress_percent == 30
 
 
 def test_build_template_context_backlog_list_is_empty_when_nothing_pending(db_session):

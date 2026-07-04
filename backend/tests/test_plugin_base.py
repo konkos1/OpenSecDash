@@ -1,4 +1,7 @@
 from pathlib import Path
+from typing import cast
+
+from sqlalchemy.orm import Session
 
 from app.plugins.base import PluginContext, tail_text_file
 
@@ -66,7 +69,7 @@ def test_tail_text_file_offset_alone_misses_copytruncate_after_regrowth(tmp_path
 
 
 def test_plugin_context_report_backlog_clears_percent_when_not_pending():
-    context = PluginContext(db=None, settings={})
+    context = PluginContext(db=cast(Session, None), settings={})
     assert context.backlog_pending is False
     assert context.backlog_progress_percent is None
 
