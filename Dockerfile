@@ -1,4 +1,4 @@
-FROM python:3.13-slim AS runtime
+FROM python:3.14-slim AS runtime
 
 ARG OPENSECDASH_VERSION=dev
 
