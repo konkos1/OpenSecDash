@@ -2,6 +2,11 @@ document.addEventListener("DOMContentLoaded", () => {
     localizeOpenSecDashDatetimes();
     localizeOpenSecDashCountries();
 
+    document.body.addEventListener("htmx:afterSwap", () => {
+        localizeOpenSecDashDatetimes();
+        localizeOpenSecDashCountries();
+    });
+
     document.querySelectorAll("[data-uppercase-value]")
         .forEach(input => {
             input.addEventListener("input", () => {
@@ -312,7 +317,7 @@ function localizeOpenSecDashDatetimes() {
         });
 }
 
-function openSecDashLiveMode(initialLive, messages = {}) {
+function openSecDashLiveMode(initialLive, messages = {}, resultsSelector = null) {
     return {
         live: Boolean(initialLive),
         liveIssue: "",
@@ -321,6 +326,10 @@ function openSecDashLiveMode(initialLive, messages = {}) {
         socket: null,
         reconnectTimer: null,
         storageKey: "opensecdash.events.mode",
+        resultsSelector,
+        refreshThrottleMs: 3000,
+        refreshTimer: null,
+        lastRefreshAt: 0,
         messages: {
             closed: messages.closed || "Live connection closed",
             unavailable: messages.unavailable || "Live currently unavailable",
@@ -387,7 +396,7 @@ function openSecDashLiveMode(initialLive, messages = {}) {
                 }
 
                 if (this.live && payload.type === "events_changed") {
-                    window.location.reload();
+                    this.scheduleRefresh();
                 }
             };
             this.socket.onerror = () => {
@@ -411,10 +420,55 @@ function openSecDashLiveMode(initialLive, messages = {}) {
                 window.clearTimeout(this.reconnectTimer);
                 this.reconnectTimer = null;
             }
+            if (this.refreshTimer) {
+                window.clearTimeout(this.refreshTimer);
+                this.refreshTimer = null;
+            }
             if (this.socket) {
                 this.socket.close();
                 this.socket = null;
             }
+        },
+
+        // New events arrive roughly once a second while live; throttling avoids
+        // replacing the table on every single tick, which felt jerky and closed
+        // any open overlay/dialog on every refresh when this used a full reload.
+        scheduleRefresh() {
+            if (this.refreshTimer) {
+                return;
+            }
+            const wait = Math.max(0, this.refreshThrottleMs - (Date.now() - this.lastRefreshAt));
+            this.refreshTimer = window.setTimeout(() => {
+                this.refreshTimer = null;
+                this.lastRefreshAt = Date.now();
+                this.refreshResults();
+            }, wait);
+        },
+
+        refreshResults() {
+            if (!this.resultsSelector || typeof htmx === "undefined") {
+                window.location.reload();
+                return;
+            }
+            // Swapping the results region replaces the scrollable table wrapper
+            // with a new DOM node, which would otherwise reset horizontal scroll
+            // (e.g. after enabling extra columns) back to the left on every
+            // refresh. Capture and reapply it across the swap.
+            const oldScrollable = document.querySelector(`${this.resultsSelector} .overflow-x-auto`);
+            const scrollLeft = oldScrollable ? oldScrollable.scrollLeft : null;
+            htmx.ajax("GET", window.location.href, {
+                target: this.resultsSelector,
+                select: this.resultsSelector,
+                swap: "outerHTML",
+            }).then(() => {
+                if (scrollLeft === null) {
+                    return;
+                }
+                const newScrollable = document.querySelector(`${this.resultsSelector} .overflow-x-auto`);
+                if (newScrollable) {
+                    newScrollable.scrollLeft = scrollLeft;
+                }
+            });
         },
 
         freezeSnapshot(existingCutoff = null) {

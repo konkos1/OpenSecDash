@@ -6,7 +6,7 @@
 
 {% block content %}
 
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5" x-data="openSecDashLiveMode({{ 'true' if live_default == 'true' else 'false' }}, {closed: '{{ t('events.live_closed') }}', unavailable: '{{ t('events.live_unavailable') }}', reconnecting: '{{ t('events.live_reconnecting') }}'})" x-init="init()">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5" x-data="openSecDashLiveMode({{ 'true' if live_default == 'true' else 'false' }}, {closed: '{{ t('events.live_closed') }}', unavailable: '{{ t('events.live_unavailable') }}', reconnecting: '{{ t('events.live_reconnecting') }}'}, '#access-results')" x-init="init()">
         <h2 class="text-2xl font-semibold">{{ t("access.title") }}</h2>
         <div class="flex flex-col sm:flex-row sm:items-center gap-2">
             <span class="badge badge-warning" x-show="live && liveIssue" x-cloak x-text="liveIssue"></span>
@@ -49,35 +49,37 @@
         </label>
         <button class="btn md:col-span-6 md:justify-self-end lg:col-span-1 lg:col-start-6">{{ t("common.search") }}</button>
     </form>
+    <dialog id="access-columns" class="columns-dialog">
+        <form method="post" action="{{ columns_setting_action }}" class="columns-dialog-panel">
+            <input type="hidden" name="snapshot_before" value="{{ snapshot_before or '' }}" data-snapshot-before>
+            <div class="columns-dialog-header">
+                <div>
+                    <strong>{{ t("table.columns") }}</strong>
+                    <p class="muted text-sm">{{ t("table.columns_help") }}</p>
+                </div>
+                <button type="button" class="text-overlay-close" data-columns-close="access-columns" aria-label="{{ t('common.close') }}">×</button>
+            </div>
+            <div class="columns-grid">
+                {% for column in column_options %}
+                    <label class="flex items-center gap-2 text-sm">
+                        <input type="checkbox" name="columns" value="{{ column.key }}" {% if column.active %}checked{% endif %}>
+                        <span>{{ t(column.label_key) }}</span>
+                    </label>
+                {% endfor %}
+            </div>
+            <div class="flex justify-end gap-2 mt-4">
+                <button class="btn-small btn-secondary" type="button" data-columns-close="access-columns">{{ t("common.close") }}</button>
+                <button class="btn-small" type="submit">{{ t("common.save_button") }}</button>
+            </div>
+        </form>
+    </dialog>
+
+    <div id="access-results">
     <div class="card overflow-x-auto responsive-table">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
             <p class="muted text-sm">{{ t("table.limit.access") }}</p>
             <button type="button" class="btn-small btn-icon" data-columns-open="access-columns" aria-label="{{ t('table.columns') }}" title="{{ t('table.columns') }}">⚙</button>
         </div>
-        <dialog id="access-columns" class="columns-dialog">
-            <form method="post" action="{{ columns_setting_action }}" class="columns-dialog-panel">
-                <input type="hidden" name="snapshot_before" value="{{ snapshot_before or '' }}" data-snapshot-before>
-                <div class="columns-dialog-header">
-                    <div>
-                        <strong>{{ t("table.columns") }}</strong>
-                        <p class="muted text-sm">{{ t("table.columns_help") }}</p>
-                    </div>
-                    <button type="button" class="text-overlay-close" data-columns-close="access-columns" aria-label="{{ t('common.close') }}">×</button>
-                </div>
-                <div class="columns-grid">
-                    {% for column in column_options %}
-                        <label class="flex items-center gap-2 text-sm">
-                            <input type="checkbox" name="columns" value="{{ column.key }}" {% if column.active %}checked{% endif %}>
-                            <span>{{ t(column.label_key) }}</span>
-                        </label>
-                    {% endfor %}
-                </div>
-                <div class="flex justify-end gap-2 mt-4">
-                    <button class="btn-small btn-secondary" type="button" data-columns-close="access-columns">{{ t("common.close") }}</button>
-                    <button class="btn-small" type="submit">{{ t("common.save_button") }}</button>
-                </div>
-            </form>
-        </dialog>
         <table class="w-full text-sm table-middle">
             <thead>
                 <tr>
@@ -126,6 +128,7 @@
                 {% endfor %}
             </tbody>
         </table>
+    </div>
     </div>
 
 {% endblock %}
