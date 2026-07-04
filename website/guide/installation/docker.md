@@ -126,7 +126,9 @@ volumes:
   - ./assets/assets.json:/asstes/assets.json:ro
 ```
 
-Then configure the same container paths on the Settings page.
+These container-side paths (`/logs/access.log`, `/logs/geoblock.log`, `/logs/crowdsec.log`) already match the Traefik, GeoBlock, and CrowdSec plugin defaults, so a fresh install works out of the box once the mounts above are in place. Only change the paths on the Settings page if you mount the logs somewhere else.
+
+The CrowdSec plugin additionally shells out to `cscli` for ban/unban actions and decision sync, which needs more than a log mount; see [CrowdSec plugin: cscli in Docker](../plugins/crowdsec.md#cscli-in-docker).
 
 ## Docker logging
 

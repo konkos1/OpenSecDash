@@ -23,7 +23,7 @@ class Plugin(DatasourcePlugin):
     )
     settings = [
         PluginSetting("enabled", "traefik_log.settings.enabled", "traefik_log.settings.enabled.help", "boolean", "false", [("false", "common.no"), ("true", "common.yes")]),
-        PluginSetting("log_path", "traefik_log.settings.log_path", "traefik_log.settings.log_path.help", "file", "/var/log/traefik/access.log"),
+        PluginSetting("log_path", "traefik_log.settings.log_path", "traefik_log.settings.log_path.help", "file", "/logs/access.log"),
         PluginSetting("poll_interval", "traefik_log.settings.poll_interval", "traefik_log.settings.poll_interval.help", "number", "2"),
         PluginSetting("hide_local_ips_default", "traefik_log.settings.hide_local_ips_default", "traefik_log.settings.hide_local_ips_default.help", "boolean", "false", [("false", "common.no"), ("true", "common.yes")]),
     ]

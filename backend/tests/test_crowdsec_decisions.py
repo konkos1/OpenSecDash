@@ -33,7 +33,7 @@ def test_sync_crowdsec_decisions_stores_active_bans(monkeypatch, db_session):
     ]
 
     def fake_run(cmd, capture_output, text, timeout):
-        assert cmd == ["cscli", "decisions", "list", "-o", "json"]
+        assert cmd == ["/usr/local/bin/cscli", "decisions", "list", "-o", "json"]
         return Completed(stdout=json.dumps(payload))
 
     monkeypatch.setattr("app.services.crowdsec_decisions.subprocess.run", fake_run)

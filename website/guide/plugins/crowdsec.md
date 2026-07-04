@@ -22,6 +22,30 @@ volumes:
   - /var/log/crowdsec.log:/logs/crowdsec.log:ro
 ```
 
+The plugin defaults already assume this layout: `CrowdSec log path` defaults to `/logs/crowdsec.log` and `cscli path` defaults to `/usr/local/bin/cscli`.
+
+## cscli in Docker
+
+Ban/unban actions and active decision sync run `cscli` as a real subprocess inside the OpenSecDash container, not through the CrowdSec API. If CrowdSec itself runs on the Docker host (or the LXC/VM hosting it) rather than in its own container, `cscli` and its credentials need to be made available to OpenSecDash's container:
+
+```yaml
+services:
+  opensecdash:
+    image: konkos1/opensecdash:latest
+    network_mode: "host"
+    volumes:
+      - opensecdash-data:/data
+      - /usr/bin/cscli:/usr/local/bin/cscli:ro
+      - /etc/crowdsec:/etc/crowdsec:ro
+      - /var/log/crowdsec/crowdsec.log:/logs/crowdsec.log:ro
+```
+
+- **`cscli` binary**: bind-mount the host's `cscli` binary read-only into the container at `/usr/local/bin/cscli` (the plugin's default `cscli path`). It is a statically linked binary, so mounting it into the Python-based image works without library compatibility issues.
+- **CrowdSec config**: bind-mount `/etc/crowdsec` read-only so `cscli` finds `local_api_credentials.yaml` and can authenticate against the CrowdSec Local API (LAPI). Make sure `local_api_credentials.yaml` is readable by the unprivileged `opensecdash` user the container runs as.
+- **Network reachability**: the LAPI listens on `127.0.0.1:8080` by default, which is not reachable from a normal Docker bridge network. `network_mode: host` is the simplest fix for same-host setups, since it lets the container reach the LAPI on `127.0.0.1` directly without exposing it further. If host networking is not an option, point the LAPI at a reachable address instead (for example the Docker bridge gateway) and restrict access with the host firewall.
+
+If CrowdSec instead runs in its own container with the LAPI exposed on the Docker network, point `cscli path` at a wrapper script or sidecar that runs `cscli` against that container's LAPI URL, since there is no `cscli` binary to bind-mount from the host in that case.
+
 ## Actions and dry run
 
 OpenSecDash has an action simulation mode. While dry run is enabled, ban/unban actions are recorded but not executed.

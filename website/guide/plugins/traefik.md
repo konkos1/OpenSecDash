@@ -13,6 +13,8 @@ volumes:
   - /var/log/traefik/access.log:/logs/access.log:ro
 ```
 
+The plugin's `Traefik access log path` already defaults to `/logs/access.log`, so no Settings change is needed if you mount it there.
+
 ## Settings
 
 | Setting | What it does |

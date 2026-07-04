@@ -38,7 +38,7 @@ volumes:
   - /var/log/traefik/geoblock.log:/logs/geoblock.log:ro
 ```
 
-Then configure the same path in OpenSecDash.
+The plugin's `GeoBlock log path` already defaults to `/logs/geoblock.log`, so no Settings change is needed if you mount it there.
 
 ## Diagnostics
 

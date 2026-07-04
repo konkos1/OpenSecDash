@@ -22,7 +22,7 @@ class Plugin(DatasourcePlugin):
     )
     settings = [
         PluginSetting("enabled", "geoblock_log.settings.enabled", "geoblock_log.settings.enabled.help", "boolean", "false", [("false", "common.no"), ("true", "common.yes")]),
-        PluginSetting("log_path", "geoblock_log.settings.log_path", "geoblock_log.settings.log_path.help", "file", "/var/log/traefik/geoblock.log"),
+        PluginSetting("log_path", "geoblock_log.settings.log_path", "geoblock_log.settings.log_path.help", "file", "/logs/geoblock.log"),
         PluginSetting("poll_interval", "geoblock_log.settings.poll_interval", "geoblock_log.settings.poll_interval.help", "number", "5"),
     ]
     locales = {

@@ -77,7 +77,7 @@ def sync_crowdsec_decisions(db: Session, *, force: bool = False) -> tuple[bool, 
     if not force and latest and (now - latest[0]).total_seconds() < DECISION_SYNC_INTERVAL_SECONDS:
         return True, "CrowdSec decisions are fresh."
 
-    cscli = get_setting_value(db, "plugin.crowdsec.cscli_path", "cscli")
+    cscli = get_setting_value(db, "plugin.crowdsec.cscli_path", "/usr/local/bin/cscli")
     try:
         completed = subprocess.run([cscli, "decisions", "list", "-o", "json"], capture_output=True, text=True, timeout=30)
     except FileNotFoundError:

@@ -25,8 +25,8 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
     )
     settings = [
         PluginSetting("enabled", "crowdsec.settings.enabled", "crowdsec.settings.enabled.help", "boolean", "false", [("false", "common.no"), ("true", "common.yes")]),
-        PluginSetting("log_path", "crowdsec.settings.log_path", "crowdsec.settings.log_path.help", "file", "/var/log/crowdsec/crowdsec.log"),
-        PluginSetting("cscli_path", "crowdsec.settings.cscli_path", "crowdsec.settings.cscli_path.help", "text", "cscli"),
+        PluginSetting("log_path", "crowdsec.settings.log_path", "crowdsec.settings.log_path.help", "file", "/logs/crowdsec.log"),
+        PluginSetting("cscli_path", "crowdsec.settings.cscli_path", "crowdsec.settings.cscli_path.help", "text", "/usr/local/bin/cscli"),
         PluginSetting("poll_interval", "crowdsec.settings.poll_interval", "crowdsec.settings.poll_interval.help", "number", "10"),
     ]
     locales = {
@@ -62,7 +62,7 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
         log_path = Path(context.get("log_path"))
         if not log_path.exists():
             return {"status": "error", "message": f"CrowdSec log not found: {log_path}"}
-        cscli = context.get("cscli_path", "cscli")
+        cscli = context.get("cscli_path", "/usr/local/bin/cscli")
         try:
             completed = subprocess.run([cscli, "version"], capture_output=True, text=True, timeout=10)
         except FileNotFoundError:
@@ -140,7 +140,7 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
     async def execute(self, context, action_type: str, target: str, parameters: dict[str, Any]) -> dict[str, Any] | None:
         if action_type not in {"security.ban", "security.unban", "crowdsec_ban", "crowdsec_unban"}:
             return None
-        cscli = context.get("cscli_path", "cscli")
+        cscli = context.get("cscli_path", "/usr/local/bin/cscli")
         if action_type in {"security.ban", "crowdsec_ban"}:
             duration = parameters.get("duration", "4h")
             cmd = [cscli, "decisions", "add", "--ip", target, "--duration", duration, "--reason", parameters.get("reason", "OpenSecDash manual ban")]
