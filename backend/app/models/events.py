@@ -2,7 +2,7 @@ from datetime import datetime
 
 from app.core.time import utc_now
 
-from sqlalchemy import DateTime, Index, JSON, String, Text
+from sqlalchemy import Boolean, DateTime, Index, JSON, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database.base import Base
@@ -44,3 +44,8 @@ class Event(Base):
     data_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     raw_data: Mapped[str | None] = mapped_column(Text, nullable=True)
     retention_class: Mapped[str | None] = mapped_column(String(20), nullable=True, default="raw")
+    # Set once a background pass has attempted GeoIP enrichment for this event
+    # (regardless of whether it found data), so ingestion never blocks on a
+    # network call and the backfill loop doesn't repeatedly revisit local IPs
+    # or already-failed lookups. See services/events.py:enrich_geoip_backlog.
+    geoip_checked: Mapped[bool] = mapped_column(Boolean, default=False)

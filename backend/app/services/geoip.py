@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.core.template_context import get_setting_value
 from app.core.time import utc_now
 from app.models.core import GeoIPCache
+from app.models.events import Event
 
 logger = logging.getLogger(__name__)
 
@@ -238,3 +239,39 @@ def cleanup_expired_cache(db: Session) -> int:
     now = utc_now().replace(tzinfo=None)
     deleted = db.query(GeoIPCache).filter(GeoIPCache.expires_at < now).delete()
     return int(deleted or 0)
+
+
+def enrich_pending_events(db: Session, limit: int = 50) -> int:
+    """Backfill GeoIP fields for recently stored events, a few at a time.
+
+    Ingestion (``store_event``) never enriches inline anymore - a fresh import
+    of a large log can mean thousands of uncached IPs, and doing that many
+    synchronous lookup requests during ingestion is what used to make the
+    whole app stall. This runs on its own paced background loop instead, so a
+    slow/unreachable GeoIP provider can only ever delay when country/city/ASN
+    show up, not block anything else.
+    """
+    if not geoip_enabled(db):
+        return 0
+    events = (
+        db.query(Event)
+        .filter(Event.geoip_checked == False, Event.ip.isnot(None), Event.ip != "")  # noqa: E712
+        .order_by(Event.id.desc())
+        .limit(limit)
+        .all()
+    )
+    for event in events:
+        values: dict[str, Any] = {
+            "ip": event.ip,
+            "country": event.country,
+            "city": event.city,
+            "asn": event.asn,
+            "isp": event.isp,
+        }
+        enrich_event_values(db, values)
+        event.country = values.get("country") or event.country
+        event.city = values.get("city") or event.city
+        event.asn = values.get("asn") or event.asn
+        event.isp = values.get("isp") or event.isp
+        event.geoip_checked = True
+    return len(events)

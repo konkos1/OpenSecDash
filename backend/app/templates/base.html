@@ -58,6 +58,18 @@
             </nav>
         </header>
 
+        {% if backlog_datasources %}
+            <div class="backlog-banner">
+                <div class="max-w-7xl mx-auto px-4 py-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+                    <span class="button-spinner" aria-hidden="true"></span>
+                    <strong>{{ t("common.backlog_banner_title") }}</strong>
+                    {% for datasource in backlog_datasources %}
+                        <span class="backlog-banner-item">{{ datasource.name }}{% if datasource.backlog_progress_percent is not none %} ({{ datasource.backlog_progress_percent }}%){% endif %}{{ "," if not loop.last }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
+
         <main class="max-w-7xl mx-auto px-4 py-6">
             {% if current_path not in top_level_paths %}
                 {% set back_href = '/events' if current_path.startswith('/ip') else '/assets' if current_path.startswith('/assets') else '/crowdsec' if current_path.startswith('/crowdsec') else '/' %}

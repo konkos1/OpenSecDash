@@ -38,6 +38,8 @@ tbody tr:hover { background: rgba(15, 23, 42, .65); }
 .badge-live { background: #064e3b; border-color: #047857; color: #d1fae5; }
 .badge-snapshot { background: #334155; border-color: #64748b; color: #e2e8f0; }
 .badge-warning { background: #451a03; border-color: #b45309; color: #fed7aa; }
+.backlog-banner { background: #451a03; border-bottom: 1px solid #b45309; color: #fed7aa; }
+.backlog-banner-item { white-space: nowrap; }
 .alert-error { background: #450a0a; border: 1px solid #dc2626; border-radius: .75rem; color: #fecaca; font-weight: 600; margin-top: .5rem; padding: .65rem .75rem; }
 .status-badge { border: 1px solid #64748b; border-radius: 999px; color: #e2e8f0; display: inline-flex; font-size: .8rem; font-weight: 700; line-height: 1; padding: .35rem .65rem; white-space: nowrap; }
 .status-healthy, .status-enabled, .status-completed { background: #064e3b; border-color: #047857; color: #d1fae5; }
@@ -208,6 +210,11 @@ body[data-theme="light"] .badge-warning {
   border-color: #fdba74;
   color: #9a3412;
 }
+body[data-theme="light"] .backlog-banner {
+  background: #ffedd5;
+  border-color: #fdba74;
+  color: #9a3412;
+}
 body[data-theme="light"] .alert-error {
   background: #fee2e2;
   border-color: #ef4444;
@@ -297,6 +304,7 @@ body[data-theme="light"] .world-map-image {
   body[data-theme="auto"] .badge-live { background: #dcfce7; border-color: #86efac; color: #166534; }
   body[data-theme="auto"] .badge-snapshot { background: #e2e8f0; border-color: #94a3b8; color: #334155; }
   body[data-theme="auto"] .badge-warning { background: #ffedd5; border-color: #fdba74; color: #9a3412; }
+  body[data-theme="auto"] .backlog-banner { background: #ffedd5; border-color: #fdba74; color: #9a3412; }
   body[data-theme="auto"] .alert-error { background: #fee2e2; border-color: #ef4444; color: #991b1b; }
   body[data-theme="auto"] .status-healthy, body[data-theme="auto"] .status-enabled, body[data-theme="auto"] .status-completed { background: #dcfce7; border-color: #86efac; color: #166534; }
   body[data-theme="auto"] .status-warning, body[data-theme="auto"] .status-pending { background: #ffedd5; border-color: #fdba74; color: #9a3412; }

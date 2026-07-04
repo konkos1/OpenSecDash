@@ -7,12 +7,17 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from app.plugins.base import ActionPlugin, DatasourcePlugin, PeriodicPlugin, PluginMetadata, PluginSetting
+from app.plugins.base import ActionPlugin, DatasourcePlugin, PeriodicPlugin, PluginMetadata, PluginSetting, tail_text_file
 from app.services.crowdsec_decisions import sync_crowdsec_decisions
 from app.services.events import normalize_event_time
 
 
 logger = logging.getLogger(__name__)
+
+# Cap per tick so a huge first-time backlog is drained over several ticks
+# instead of one long blocking read; the manager also runs collect() in a
+# worker thread, but a bounded batch keeps progress/commits incremental.
+MAX_LINES_PER_TICK = 2000
 
 
 class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
@@ -55,7 +60,7 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
     }
 
     def __init__(self) -> None:
-        self._offsets = {}; self._inodes = {}
+        self._offsets = {}; self._inodes = {}; self._sizes = {}
         self._decision_sync_counter = 0
 
     async def health(self, context) -> dict[str, str]:
@@ -86,21 +91,28 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
             raise RuntimeError(message)
 
     async def collect(self, context) -> list[dict[str, Any]]:
-        events = []
         path = Path(context.get("log_path"))
-        if path.exists():
-            stat = path.stat(); key = str(path); offset = self._offsets.get(key, 0)
-            if self._inodes.get(key) != stat.st_ino or stat.st_size < offset:
-                offset = 0; self._inodes[key] = stat.st_ino
-            with path.open("r", encoding="utf-8", errors="ignore") as handle:
-                handle.seek(offset)
-                for line in handle:
-                    parsed = self.parse_log_line(line)
-                    if parsed:
-                        events.append(parsed)
-                self._offsets[key] = handle.tell()
-        else:
+        if not path.exists():
             raise FileNotFoundError(path)
+        key = str(path)
+        result = tail_text_file(
+            path,
+            self._offsets.get(key, 0),
+            self._inodes.get(key),
+            max_lines=MAX_LINES_PER_TICK,
+            last_size=self._sizes.get(key),
+        )
+        self._offsets[key] = result.offset
+        self._inodes[key] = result.inode
+        self._sizes[key] = result.file_size
+        progress_percent = int(result.offset / result.file_size * 100) if result.file_size else 100
+        context.report_backlog(result.more_available, progress_percent)
+
+        events = []
+        for line in result.lines:
+            parsed = self.parse_log_line(line)
+            if parsed:
+                events.append(parsed)
         if events:
             logger.debug("Parsed %d CrowdSec ban log entries with events from %s", len(events), path)
         return events

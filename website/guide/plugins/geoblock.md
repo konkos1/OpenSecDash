@@ -40,6 +40,8 @@ volumes:
 
 The plugin's `GeoBlock log path` already defaults to `/logs/geoblock.log`, so no Settings change is needed if you mount it there.
 
+If the mounted file already has a lot of history, the first import can take a while; see [Troubleshooting: first import of a large existing log](../operations/troubleshooting.md#first-import-of-a-large-existing-log).
+
 ## Timestamps have no timezone offset
 
 GeoBlock's log lines (`GeoBlock: 2026/06/20 04:00:54 ...`) don't include a timezone offset - it's the log-writer's local wall-clock time. OpenSecDash converts it to UTC using the global `Log timestamp timezone` setting (see [Settings: Storage is always UTC](../configuration/settings.md#storage-is-always-utc)), which defaults to `UTC`. If the Traefik/GeoBlock host doesn't run its system clock in UTC, set that setting to its actual timezone so event times line up correctly.

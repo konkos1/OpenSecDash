@@ -6,6 +6,16 @@ from app.plugins.base import DatasourcePlugin, PluginMetadata, PluginSetting
 from app.plugins.manager import PluginManager
 
 
+class BacklogReportingPlugin(DatasourcePlugin):
+    metadata = PluginMetadata(id="backlog_test", name="Backlog Test", capabilities=["datasource"])
+    settings = [PluginSetting("enabled", "backlog_test.enabled", "backlog_test.enabled.help", type="boolean", default="true")]
+    locales = {"en": {"backlog_test.enabled": "Enabled", "backlog_test.enabled.help": "Enable"}, "de": {}}
+
+    async def collect(self, context):
+        context.report_backlog(True, 55)
+        return []
+
+
 class ExampleDatasourcePlugin(DatasourcePlugin):
     metadata = PluginMetadata(
         id="example",
@@ -66,3 +76,53 @@ def test_plugin_settings_are_localized_and_hidden_behind_enabled_toggle(db_sessi
     enabled_group = manager.plugin_settings(db_session, "en")[0]
     enabled_source = next(setting for setting in enabled_group["settings"] if setting["short_key"] == "source")
     assert enabled_source["error"] == "File not found: /missing/file.log"
+
+
+def test_run_datasource_tick_reports_backlog_pending_from_context(db_session):
+    manager = PluginManager(Path("/not-used"))
+    plugin = BacklogReportingPlugin()
+    manager.plugins = {"backlog_test": plugin}
+    manager.seed_database(db_session)
+    db_session.commit()
+
+    interval, backlog_pending = manager._run_datasource_tick(db_session, plugin)
+    db_session.commit()
+
+    assert backlog_pending is True
+    datasource = db_session.query(Datasource).filter_by(plugin_id="backlog_test").one()
+    assert datasource.backlog_pending is True
+    assert datasource.backlog_progress_percent == 55
+
+
+def test_disabling_datasource_persists_status_and_clears_backlog_without_extra_commit(db_session):
+    manager = PluginManager(Path("/not-used"))
+    plugin = BacklogReportingPlugin()
+    manager.plugins = {"backlog_test": plugin}
+    manager.seed_database(db_session)
+    db_session.commit()
+
+    manager._run_datasource_tick(db_session, plugin)
+    db_session.commit()
+
+    db_session.query(Setting).filter_by(key="plugin.backlog_test.enabled").one().value = "false"
+    db_session.commit()
+
+    manager._run_datasource_tick(db_session, plugin)
+    # No explicit commit here: this call must commit internally (mirrors the
+    # datasource loop, which closes the session right after this call with no
+    # commit of its own for the "disabled" branch), or the rollback below
+    # would silently discard the disabled status - as it used to before the
+    # tick started committing that branch itself.
+    db_session.rollback()
+
+    datasource = db_session.query(Datasource).filter_by(plugin_id="backlog_test").one()
+    assert datasource.enabled is False
+    assert datasource.status == "disabled"
+    assert datasource.backlog_pending is False
+    assert datasource.backlog_progress_percent is None
+
+
+def test_next_datasource_delay_is_short_while_backlog_pending():
+    assert PluginManager._next_datasource_delay(10, True) < 1
+    assert PluginManager._next_datasource_delay(10, False) == 10
+    assert PluginManager._next_datasource_delay(0, False) == 1

@@ -37,6 +37,8 @@ class Datasource(Base):
     last_run_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     events_processed: Mapped[int] = mapped_column(default=0)
+    backlog_pending: Mapped[bool] = mapped_column(Boolean, default=False)
+    backlog_progress_percent: Mapped[int | None] = mapped_column(nullable=True)
 
 
 class Insight(Base):

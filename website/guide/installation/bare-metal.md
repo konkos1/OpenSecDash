@@ -14,6 +14,18 @@ Minimum for a small homelab instance:
 
 OpenSecDash is lightweight, but storage usage depends on imported event volume, configured retention, and debug/log output.
 
+As a rough guide, measured on SQLite after `VACUUM` (events plus their indexes and rollups):
+
+| Events currently stored | Approximate database size |
+| --- | --- |
+| A few thousand (light homelab use) | A few MB |
+| 10,000 | ~10 MB |
+| 100,000 | ~100 MB |
+| 1,000,000 | ~1 GB |
+| 10,000,000 (very many) | ~10 GB |
+
+Rule of thumb: **~1 KB per stored event**. This is about how many events are currently kept (bounded by the `Retention days` setting), not how many were ever imported - daily/monthly rollups used for historical charts and dashboards stay tiny (a few KB per day) even after old raw events are cleaned up by retention. A busy, public-facing Traefik access log can easily produce tens of thousands of events a day, so size `Retention days` and storage accordingly.
+
 ## Placement
 
 OpenSecDash is easiest to operate when it can read relevant log files locally. For bare-metal installs, consider running it on the same guest/host as Traefik, GeoBlock, CrowdSec, and similar tools, or ensure their log files are available through shared storage or another log shipping approach.

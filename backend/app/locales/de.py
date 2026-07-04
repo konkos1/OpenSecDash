@@ -19,6 +19,7 @@ DE = {
     "common.cancel": "Abbrechen",
     "common.close": "Schließen",
     "common.processing": "Wird ausgeführt…",
+    "common.backlog_banner_title": "Log-Backlog wird noch aufgeholt:",
     "common.search": "Suchen",
     "common.clear": "Zurücksetzen",
     "common.filter": "Filtern",

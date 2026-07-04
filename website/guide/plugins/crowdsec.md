@@ -24,6 +24,8 @@ volumes:
 
 The plugin defaults already assume this layout: `CrowdSec log path` defaults to `/logs/crowdsec.log` and `cscli path` defaults to `/usr/local/bin/cscli`.
 
+If the mounted file already has a lot of history, the first import can take a while; see [Troubleshooting: first import of a large existing log](../operations/troubleshooting.md#first-import-of-a-large-existing-log).
+
 ## cscli in Docker
 
 Ban/unban actions and active decision sync run `cscli` as a real subprocess inside the OpenSecDash container, not through the CrowdSec API. If CrowdSec itself runs on the Docker host (or the LXC/VM hosting it) rather than in its own container, `cscli` and its credentials need to be made available to OpenSecDash's container:

@@ -19,6 +19,7 @@ EN = {
     "common.cancel": "Cancel",
     "common.close": "Close",
     "common.processing": "Processing…",
+    "common.backlog_banner_title": "Catching up on a log backlog:",
     "common.search": "Search",
     "common.clear": "Clear",
     "common.filter": "Filter",

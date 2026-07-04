@@ -5,12 +5,16 @@ import re
 from pathlib import Path
 
 from app.core.template_context import get_setting_value
-from app.models.events import Event
-from app.plugins.base import DatasourcePlugin, PluginMetadata, PluginSetting
+from app.plugins.base import DatasourcePlugin, PluginMetadata, PluginSetting, tail_text_file
 from app.services.events import normalize_event_time
 
 
 logger = logging.getLogger(__name__)
+
+# Cap per tick so a huge first-time backlog is drained over several ticks
+# instead of one long blocking read; the manager also runs collect() in a
+# worker thread, but a bounded batch keeps progress/commits incremental.
+MAX_LINES_PER_TICK = 2000
 
 
 class Plugin(DatasourcePlugin):
@@ -48,8 +52,9 @@ class Plugin(DatasourcePlugin):
     }
 
     def __init__(self) -> None:
-        self._seen_raw: set[str] = set()
-        self._seen_loaded = False
+        self._offsets: dict[str, int] = {}
+        self._inodes: dict[str, int] = {}
+        self._sizes: dict[str, int] = {}
 
     async def health(self, context) -> dict[str, str]:
         path = Path(context.get("log_path"))
@@ -61,34 +66,29 @@ class Plugin(DatasourcePlugin):
         path = Path(context.get("log_path"))
         if not path.exists():
             raise FileNotFoundError(path)
-        self._load_seen_events(context)
         assumed_tz = get_setting_value(context.db, "log_timestamp_timezone", "UTC")
+        key = str(path)
+        result = tail_text_file(
+            path,
+            self._offsets.get(key, 0),
+            self._inodes.get(key),
+            max_lines=MAX_LINES_PER_TICK,
+            last_size=self._sizes.get(key),
+        )
+        self._offsets[key] = result.offset
+        self._inodes[key] = result.inode
+        self._sizes[key] = result.file_size
+        progress_percent = int(result.offset / result.file_size * 100) if result.file_size else 100
+        context.report_backlog(result.more_available, progress_percent)
+
         events = []
-        with path.open("r", encoding="utf-8", errors="ignore") as handle:
-            for line in handle:
-                parsed = self.parse_line(line, assumed_tz)
-                if not parsed:
-                    continue
-                raw_data = parsed["raw_data"]
-                if raw_data in self._seen_raw:
-                    continue
-                self._seen_raw.add(raw_data)
+        for line in result.lines:
+            parsed = self.parse_line(line, assumed_tz)
+            if parsed:
                 events.append(parsed)
         if events:
             logger.debug("Parsed %d GeoBlock log entries with events from %s", len(events), path)
         return events
-
-    def _load_seen_events(self, context) -> None:
-        if self._seen_loaded:
-            return
-        rows = (
-            context.db.query(Event.raw_data)
-            .filter(Event.plugin == self.metadata.id, Event.raw_data.isnot(None))
-            .all()
-        )
-        self._seen_raw.update(raw_data for (raw_data,) in rows if raw_data)
-        self._seen_loaded = True
-        logger.debug("Loaded %d previously seen GeoBlock raw events", len(self._seen_raw))
 
     def parse_line(self, line: str, assumed_tz: str = "UTC"):
         if "request denied" not in line:
