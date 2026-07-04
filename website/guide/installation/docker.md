@@ -112,17 +112,18 @@ Logging settings are stored in the app database after initial setup. Changing `L
 
 OpenSecDash is easiest to operate when it can read the relevant log files locally. In many homelab setups that means running the OpenSecDash container on the same Docker host or guest as Traefik, GeoBlock, CrowdSec, and similar tools, then mounting their log files read-only into the container.
 
+For persistent data, both a named Docker volume and a host bind mount such as `./data:/data` are supported. On startup, the container fixes `/data` ownership and then runs the app as the unprivileged `opensecdash` user.
+
 If those tools run on a different host/VM, you need to make their logs available to OpenSecDash first, for example with bind mounts, shared storage, or another log shipping approach.
 
 Plugins that read local files need those files mounted into the container. Examples:
 
 ```yaml
 volumes:
-  - opensecdash-data:/data
   - /var/log/traefik/access.log:/logs/access.log:ro
   - /var/log/traefik/geoblock.log:/logs/geoblock.log:ro
-  - /var/log/crowdsec.log:/logs/crowdsec.log:ro
-  - ./assets.json:/data/assets.json:ro
+  - /var/log/crowdsec/crowdsec.log:/logs/crowdsec.log:ro
+  - ./assets/assets.json:/asstes/assets.json:ro
 ```
 
 Then configure the same container paths on the Settings page.

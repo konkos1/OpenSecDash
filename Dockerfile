@@ -21,11 +21,12 @@ RUN addgroup --system opensecdash \
 COPY --chown=opensecdash:opensecdash backend /app/backend
 COPY --chown=opensecdash:opensecdash plugins /app/plugins
 COPY --chown=opensecdash:opensecdash README.md LICENSE /app/
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
 RUN python -m pip install --no-cache-dir --upgrade pip \
-    && python -m pip install --no-cache-dir /app/backend
+    && python -m pip install --no-cache-dir /app/backend \
+    && chmod +x /usr/local/bin/docker-entrypoint.sh
 
-USER opensecdash
 WORKDIR /app/backend
 VOLUME ["/data"]
 EXPOSE 8000
@@ -33,4 +34,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD python -c "import os, urllib.request; urllib.request.urlopen(f'http://127.0.0.1:{os.getenv(\"OSD_PORT\", \"8000\")}/health', timeout=3).read()"
 
-CMD ["sh", "-c", "uvicorn app.main:app --host ${OSD_HOST} --port ${OSD_PORT}"]
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["uvicorn app.main:app --host ${OSD_HOST} --port ${OSD_PORT}"]
