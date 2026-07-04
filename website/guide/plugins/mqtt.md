@@ -52,6 +52,116 @@ The Asset Explorer shows MQTT controls when MQTT is enabled and assets have enou
 
 Home Assistant must have MQTT integration enabled and connected to the same broker. The discovery prefix in OpenSecDash must match Home Assistant's MQTT discovery prefix.
 
+Each published app becomes a standard Home Assistant `update.*` entity (`device_class: firmware`), grouped under a single **OpenSecDash Assets** device. Home Assistant's MQTT Update integration reads the JSON state payload directly, so these attributes are available on every entity without any extra Home Assistant-side configuration:
+
+| Attribute | Source |
+| --- | --- |
+| `installed_version` | The version OpenSecDash currently has on record for the app. |
+| `latest_version` | The latest version OpenSecDash found (for example via a GitHub release check). |
+| `release_url` | Link to the release notes/page. |
+| `title` | The app name. |
+
+## Automation: notify when an update is available
+
+A common use case is a typical homelab setup: apps run on Proxmox, [Proxmox Assets](proxmox-assets.md) or [JSON Assets](json-assets.md) keeps their installed/latest versions current in OpenSecDash, the MQTT plugin publishes them as `update.*` entities, and a Home Assistant automation notifies you when one of them has an update pending.
+
+The automation below reacts to two situations:
+
+- **Home Assistant restarts**: any `update.*` entity that is already showing a pending update (from a retained MQTT state) gets one notification per app, instead of staying silent until its state happens to change again.
+- **An update newly becomes available while Home Assistant is running**: a single `state_changed` event for that entity triggers one notification.
+
+A `timer` helper is used as a cooldown so a Home Assistant restart doesn't immediately fire a burst of near-duplicate notifications while every retained MQTT state arrives. Create it once under **Settings → Devices & services → Helpers → Create Helper → Timer**, for example named `opensecdash_update_notify_cooldown` with a duration of `00:05:00`.
+
+Since the trigger/condition logic only looks for entities whose ID starts with `update.`, this automation isn't limited to OpenSecDash - it also picks up update entities from any other integration (HACS, add-ons, ESPHome, ...). If you want notifications only for apps OpenSecDash publishes, add `and device_attr(repeat.item, 'name') == 'OpenSecDash Assets'` (or the equivalent for `trigger.event.data.entity_id` in the second branch) to the template conditions.
+
+The `notify.notify` action below is a placeholder for whichever notification target you actually use (a mobile app notify service, a Telegram bot, your own notify script, ...) - replace it with yours.
+
+<details>
+<summary>Home Assistant automation YAML</summary>
+
+```yaml
+alias: OpenSecDash update notifications
+description: Notify once per app when an update.* entity has a pending update.
+triggers:
+  - trigger: homeassistant
+    event: start
+    id: RESTART
+  - trigger: event
+    event_type: state_changed
+    id: STATE_CHANGE
+conditions:
+  - condition: or
+    conditions:
+      - condition: trigger
+        id:
+          - RESTART
+      - alias: A tracked update entity just switched from no update to update available
+        condition: template
+        value_template: >-
+          {% set eid = trigger.event.data.entity_id %}
+          {% set old_state = trigger.event.data.old_state %}
+          {% set new_state = trigger.event.data.new_state %}
+          {{ eid is defined
+             and eid.startswith('update.')
+             and old_state is not none
+             and new_state is not none
+             and old_state.state | lower == 'off'
+             and new_state.state | lower == 'on' }}
+  - condition: state
+    entity_id: timer.opensecdash_update_notify_cooldown
+    state: idle
+    alias: Skip while the post-restart cooldown timer is still running
+actions:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id:
+              - RESTART
+        sequence:
+          - action: timer.start
+            target:
+              entity_id: timer.opensecdash_update_notify_cooldown
+            data: {}
+          - alias: Notify once for every update entity that is already pending
+            repeat:
+              for_each: >-
+                {{ states.update
+                   | selectattr('state', 'eq', 'on')
+                   | rejectattr('attributes.installed_version', 'in', ['', 'unknown', 'unavailable', none])
+                   | rejectattr('attributes.latest_version', 'in', ['', 'unknown', 'unavailable', none])
+                   | map(attribute='entity_id')
+                   | list }}
+              sequence:
+                - action: notify.notify
+                  data:
+                    title: "🚀 Update available"
+                    message: >-
+                      {{ state_attr(repeat.item, 'friendly_name') or repeat.item }}:
+                      {{ state_attr(repeat.item, 'installed_version') | default('unknown') }}
+                      → {{ state_attr(repeat.item, 'latest_version') | default('unknown') }}
+                      {{ state_attr(repeat.item, 'release_url') | default('') }}
+        alias: Triggered by a Home Assistant restart
+      - conditions:
+          - condition: trigger
+            id:
+              - STATE_CHANGE
+        sequence:
+          - action: notify.notify
+            data:
+              title: "🆕 New update available"
+              message: >-
+                {% set eid = trigger.event.data.entity_id %}
+                {{ state_attr(eid, 'friendly_name') or eid }}:
+                {{ state_attr(eid, 'installed_version') | default('unknown') }}
+                → {{ state_attr(eid, 'latest_version') | default('unknown') }}
+                {{ state_attr(eid, 'release_url') | default('') }}
+        alias: Triggered by an entity state change
+mode: queued
+max: 10
+```
+
+</details>
+
 ## Diagnostics
 
 Diagnostics verifies whether the configured broker host/port is reachable. Publish failures are reported on the MQTT plugin diagnostic row.
