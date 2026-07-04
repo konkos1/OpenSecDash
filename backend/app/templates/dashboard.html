@@ -6,10 +6,11 @@
 
 {% block content %}
 
-  <div class="flex items-center justify-between gap-4 mb-6">
+  <div class="flex items-center justify-between gap-4 mb-6" x-data="openSecDashAutoRefresh('#dashboard-results', {{ 'true' if live_page_refresh else 'false' }})" x-init="init()">
     <h2 class="text-2xl font-semibold">{{ t("dashboard.ui_title") }}</h2>
   </div>
 
+  <div id="dashboard-results">
   {% if widgets %}
     <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
       {% for widget in widgets %}
@@ -116,6 +117,6 @@
       </div>
     </section>
   {% endif %}
-
+  </div>
 
 {% endblock %}

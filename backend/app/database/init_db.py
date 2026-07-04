@@ -18,6 +18,7 @@ DEFAULT_SETTINGS = {
     "theme": "auto",
     "timezone": "auto",
     "log_timestamp_timezone": "UTC",
+    "live_page_refresh": "true",
     "asset_source_type": "file",
     "asset_source": "/assets/assets.json",
     "asset_updates.github_token": "",

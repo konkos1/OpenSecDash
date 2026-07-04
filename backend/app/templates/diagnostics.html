@@ -15,6 +15,7 @@
             <button type="button" class="help" data-tooltip="{{ t('diagnostics.debug_report_help') }}">?</button>
         </div>
     </div>
+    <div id="diagnostics-results" hx-get="{{ request.url.path }}" hx-select="#diagnostics-results" hx-target="this" hx-swap="outerHTML" {% if live_page_refresh %}hx-trigger="every 15s"{% endif %}>
     <section class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
         <div class="card">
             <h3 class="font-semibold mb-1">{{ t("diagnostics.plugins") }}</h3>
@@ -82,5 +83,6 @@
             <p class="muted">{{ t("diagnostics.no_actions") }}</p>
         {% endfor %}
     </section>
+    </div>
 
 {% endblock %}

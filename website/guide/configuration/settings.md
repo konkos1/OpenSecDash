@@ -13,6 +13,7 @@ OpenSecDash settings are available from the Settings page. Dependent settings us
 | Theme | Dark, light, or automatic browser/system theme. |
 | Timezone | Display timestamps in `auto`, `UTC`, or an IANA timezone such as `Europe/Berlin`. |
 | Log timestamp timezone | Assumed timezone for log lines that don't include a timezone offset themselves. Defaults to `UTC`. See [Storage is always UTC](#storage-is-always-utc) below. |
+| Auto-refresh dashboard/CrowdSec/diagnostics/assets pages | Keeps those four pages updating in the background (scroll position is preserved) without a manual reload. Defaults to enabled. Disable it if OpenSecDash's own web UI is itself behind a reverse proxy whose access log OpenSecDash imports, since the periodic refresh requests would otherwise show up as `access.*` events about OpenSecDash itself. The Events/Access page has its own separate Live/Snapshot toggle and is unaffected by this setting. |
 
 ## Storage is always UTC
 

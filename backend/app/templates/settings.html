@@ -56,6 +56,13 @@
             <input class="input" name="log_timestamp_timezone" value="{{ log_timestamp_timezone }}" placeholder="UTC / Europe/Berlin">
         </label>
 
+        <label>{{ t("settings.live_page_refresh") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.live_page_refresh') }}">?</button>
+            <select class="input" name="live_page_refresh">
+                <option value="true" {% if live_page_refresh == 'true' %}selected{% endif %}>{{ t("common.yes") }}</option>
+                <option value="false" {% if live_page_refresh == 'false' %}selected{% endif %}>{{ t("common.no") }}</option>
+            </select>
+        </label>
+
         <label>{{ t("settings.action_simulation") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.action_simulation') }}">?</button>
             <select class="input" name="action_dry_run">
                 <option value="true" {% if action_dry_run == 'true' %}selected{% endif %}>{{ t("settings.dry_run") }}</option>
