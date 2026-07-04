@@ -45,7 +45,7 @@ class Plugin(PeriodicPlugin):
             "json_assets.settings.source",
             "json_assets.settings.source.help",
             "text",
-            "dev-data/assets.json",
+            "/assets/assets.json",
             visible_if=("enabled", "true"),
         ),
         PluginSetting(
@@ -109,7 +109,7 @@ class Plugin(PeriodicPlugin):
         self._last_inventory_import = 0.0
 
     async def health(self, context: PluginContext) -> dict[str, str]:
-        source = context.get("source", "dev-data/assets.json")
+        source = context.get("source", "/assets/assets.json")
         source_type = context.get("source_type", "file")
         if not source:
             return {"status": "error", "message": "assets.json source is not configured"}
@@ -142,7 +142,7 @@ class Plugin(PeriodicPlugin):
 
     def _import_inventory(self, context: PluginContext) -> dict[str, int]:
         source_type = context.get("source_type", "file")
-        source = context.get("source", "dev-data/assets.json")
+        source = context.get("source", "/assets/assets.json")
         if not source:
             return {"systems_created": 0, "assets_created": 0, "assets_updated": 0, "assets_inactive": 0}
         logger.debug("Loading JSON assets source_type=%s source=%s", source_type, redact_sensitive(source))

@@ -6,12 +6,11 @@ set -e
 # then drops privileges before running the app.
 mkdir -p /data
 
-# Some setups bind-mount individual read-only files into /data (e.g.
-# "./assets.json:/data/assets.json:ro", per the docs). A plain `chown -R`
-# aborts the whole entrypoint under `set -e` as soon as it hits one of those,
-# because it can't chown a read-only mount. Only /data ownership itself is
-# required for the app to run; failures on individual read-only paths
-# underneath are expected and non-fatal, so they're reported but ignored.
+# Some setups still bind-mount individual read-only files under /data. A plain
+# `chown -R` aborts the whole entrypoint under `set -e` as soon as it hits one
+# of those, because it can't chown a read-only mount. Only /data ownership
+# itself is required for the app to run; failures on individual read-only
+# paths underneath are expected and non-fatal, so they're reported but ignored.
 chown opensecdash:opensecdash /data
 if ! chown -R opensecdash:opensecdash /data 2>/tmp/opensecdash-chown.log; then
     echo "Warning: could not change ownership of some paths under /data (likely read-only mounts):" >&2

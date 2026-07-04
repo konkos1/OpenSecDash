@@ -16,9 +16,12 @@ OpenSecDash is lightweight, but storage usage depends on imported event volume, 
 
 ## Compose file
 
-docker-compose.yml example:
+Two `docker-compose.yml` examples: a minimal one that just gets the app running, and a full one with all plugin log mounts and `cscli` wired in for CrowdSec actions. Start minimal and add mounts as you enable plugins.
 
-```yml
+<details>
+<summary>Minimal example</summary>
+
+```yaml
 services:
   opensecdash:
     image: konkos1/opensecdash:latest
@@ -37,6 +40,42 @@ services:
 volumes:
   opensecdash-data:
 ```
+
+</details>
+
+<details>
+<summary>Full example (all plugin log mounts + cscli)</summary>
+
+```yaml
+services:
+  opensecdash:
+    image: konkos1/opensecdash:latest
+    container_name: opensecdash
+    # cscli needs to reach CrowdSec's Local API on the host; see "Plugin file mounts" below.
+    network_mode: "host"
+    volumes:
+      - opensecdash-data:/data
+      - /var/log/traefik/access.log:/logs/access.log:ro
+      - /var/log/traefik/geoblock.log:/logs/geoblock.log:ro
+      - /var/log/crowdsec/crowdsec.log:/logs/crowdsec.log:ro
+      - /usr/bin/cscli:/usr/local/bin/cscli:ro
+      - /etc/crowdsec:/etc/crowdsec:ro
+      - ./assets/assets.json:/assets/assets.json:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: unless-stopped
+
+volumes:
+  opensecdash-data:
+```
+
+With `network_mode: "host"` the container shares the host's network stack, so the `ports` mapping is dropped and the app is reachable directly on host port `8000` instead of `8765`.
+
+</details>
+
 Start the app:
 
 ```bash
@@ -116,17 +155,11 @@ For persistent data, both a named Docker volume and a host bind mount such as `.
 
 If those tools run on a different host/VM, you need to make their logs available to OpenSecDash first, for example with bind mounts, shared storage, or another log shipping approach.
 
-Plugins that read local files need those files mounted into the container. Examples:
-
-```yaml
-volumes:
-  - /var/log/traefik/access.log:/logs/access.log:ro
-  - /var/log/traefik/geoblock.log:/logs/geoblock.log:ro
-  - /var/log/crowdsec/crowdsec.log:/logs/crowdsec.log:ro
-  - ./assets/assets.json:/asstes/assets.json:ro
-```
+Plugins that read local files need those files mounted into the container; see the full Compose example above for the log and `assets.json` mounts.
 
 These container-side paths (`/logs/access.log`, `/logs/geoblock.log`, `/logs/crowdsec.log`) already match the Traefik, GeoBlock, and CrowdSec plugin defaults, so a fresh install works out of the box once the mounts above are in place. Only change the paths on the Settings page if you mount the logs somewhere else.
+
+`assets.json` is mounted under a dedicated `/assets` path rather than under `/data`: `/data` is owned and recursively chowned to the unprivileged `opensecdash` user on container startup, and a read-only file bind-mounted underneath it can't be chowned. Set the JSON Assets plugin's `Source` setting to `/assets/assets.json` to match this mount.
 
 The CrowdSec plugin additionally shells out to `cscli` for ban/unban actions and decision sync, which needs more than a log mount; see [CrowdSec plugin: cscli in Docker](../plugins/crowdsec.md#cscli-in-docker).
 

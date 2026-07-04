@@ -18,7 +18,7 @@ DEFAULT_SETTINGS = {
     "theme": "auto",
     "timezone": "auto",
     "asset_source_type": "file",
-    "asset_source": "dev-data/assets.json",
+    "asset_source": "/assets/assets.json",
     "asset_updates.github_token": "",
     "asset_updates.github_interval": "21600",
     "action_dry_run": "true",

@@ -1307,7 +1307,7 @@ def assets_import_source_page(db: Session = Depends(get_db)):
     source = get_setting_value(
         db,
         "plugin.json_assets.source",
-        get_setting_value(db, "plugin.assets.source", get_setting_value(db, "asset_source", "dev-data/assets.json")),
+        get_setting_value(db, "plugin.assets.source", get_setting_value(db, "asset_source", "/assets/assets.json")),
     )
     if source:
         try:
@@ -1520,7 +1520,7 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
         theme=get_setting_value(db, "theme", "auto"),
         timezone=get_setting_value(db, "timezone", "auto"),
         asset_source_type=get_setting_value(db, "asset_source_type", "file"),
-        asset_source=get_setting_value(db, "asset_source", "dev-data/assets.json"),
+        asset_source=get_setting_value(db, "asset_source", "/assets/assets.json"),
         action_dry_run=get_setting_value(db, "action_dry_run", "true"),
         log_file_enabled=get_setting_value(db, "log_file_enabled", "true"),
         log_file_path=get_setting_value(db, "log_file_path", "logs/opensecdash.log"),
