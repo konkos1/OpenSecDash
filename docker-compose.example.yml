@@ -6,6 +6,13 @@ services:
     container_name: opensecdash
     ports:
       - "8765:8000"
+    # Optional: sensitive settings (passwords, API tokens) are encrypted at
+    # rest automatically. By default the key is auto-generated inside /data;
+    # set it here instead to keep the key out of the data volume and its
+    # backups. Generate once with:
+    #   python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    # environment:
+    #   OSD_SECRET_KEY: "<your-generated-key>"
     # Optional: required for the CrowdSec plugin's cscli actions to reach
     # CrowdSec's Local API on 127.0.0.1 when CrowdSec runs on this same host.
     # Drops the ports mapping above; the app is then reachable on host port 8000.

@@ -24,7 +24,12 @@ def get_setting_value(
     if setting is None:
         return default
 
-    return setting.value
+    # Sensitive values are stored encrypted (see app.core.secrets); decrypting
+    # here means every consumer - plugins, pages, background loops - keeps
+    # reading plaintext without knowing about encryption at all.
+    from app.core.secrets import decrypt_setting_value
+
+    return decrypt_setting_value(key, setting.value)
 
 
 def get_setting_values(db: Session, defaults: dict[str, str]) -> dict[str, str]:
@@ -34,9 +39,11 @@ def get_setting_values(db: Session, defaults: dict[str, str]) -> dict[str, str]:
     auto-refresh poll - loading them one by one was a dozen query round trips
     per request. Per-key semantics match get_setting_value exactly.
     """
+    from app.core.secrets import decrypt_setting_value
+
     values = dict(defaults)
     for row in db.query(Setting).filter(Setting.key.in_(defaults)).all():
-        values[row.key] = row.value
+        values[row.key] = decrypt_setting_value(row.key, row.value)
     return values
 
 
