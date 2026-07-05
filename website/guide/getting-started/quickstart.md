@@ -29,13 +29,6 @@ Start the app:
 docker compose up -d
 ```
 
-Or:
-
-```bash
-cp docker-compose.example.yml docker-compose.yml
-docker compose up -d
-```
-
 Open the app:
 
 ```text
@@ -43,6 +36,8 @@ http://localhost:8765
 ```
 
 The container listens on port `8000` internally. The example compose file maps it to host port `8765` to avoid common homelab port-conflicts.
+
+This is the minimal setup. For plugin log mounts, host requirements, database sizing, and logging configuration, see the full [Docker installation guide](../installation/docker.md).
 
 ## First steps
 

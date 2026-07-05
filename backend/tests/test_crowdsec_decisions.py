@@ -24,7 +24,15 @@ class Completed:
         self.stderr = stderr
 
 
+def _use_cscli_mode(db_session):
+    # The connection mode defaults to the LAPI; these tests cover the cscli
+    # subprocess path explicitly.
+    db_session.add(Setting(key="plugin.crowdsec.connection_mode", value="cscli"))
+    db_session.commit()
+
+
 def test_sync_crowdsec_decisions_stores_active_bans(monkeypatch, db_session):
+    _use_cscli_mode(db_session)
     payload = [
         {
             "id": 42,
@@ -61,6 +69,8 @@ def test_sync_crowdsec_decisions_stores_active_bans(monkeypatch, db_session):
 
 
 def test_sync_crowdsec_decisions_records_cscli_error(monkeypatch, db_session):
+    _use_cscli_mode(db_session)
+
     def fake_run(cmd, capture_output, text, timeout):
         return Completed(returncode=1, stderr="cscli unavailable")
 

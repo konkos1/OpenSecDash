@@ -31,15 +31,36 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
     settings = [
         PluginSetting("enabled", "crowdsec.settings.enabled", "crowdsec.settings.enabled.help", "boolean", "false", [("false", "common.no"), ("true", "common.yes")]),
         PluginSetting("log_path", "crowdsec.settings.log_path", "crowdsec.settings.log_path.help", "file", "/logs/crowdsec.log"),
-        PluginSetting("cscli_path", "crowdsec.settings.cscli_path", "crowdsec.settings.cscli_path.help", "text", "/usr/local/bin/cscli"),
+        PluginSetting(
+            "connection_mode",
+            "crowdsec.settings.connection_mode",
+            "crowdsec.settings.connection_mode.help",
+            "select",
+            "lapi",
+            [("lapi", "crowdsec.settings.connection_mode.lapi"), ("cscli", "crowdsec.settings.connection_mode.cscli")],
+        ),
+        PluginSetting("lapi_url", "crowdsec.settings.lapi_url", "crowdsec.settings.lapi_url.help", "url", "http://127.0.0.1:8080", visible_if=("connection_mode", "lapi")),
+        PluginSetting("lapi_login", "crowdsec.settings.lapi_login", "crowdsec.settings.lapi_login.help", "text", "", visible_if=("connection_mode", "lapi")),
+        PluginSetting("lapi_password", "crowdsec.settings.lapi_password", "crowdsec.settings.lapi_password.help", "password", "", visible_if=("connection_mode", "lapi")),
+        PluginSetting("cscli_path", "crowdsec.settings.cscli_path", "crowdsec.settings.cscli_path.help", "text", "/usr/local/bin/cscli", visible_if=("connection_mode", "cscli")),
         PluginSetting("poll_interval", "crowdsec.settings.poll_interval", "crowdsec.settings.poll_interval.help", "number", "10"),
     ]
     locales = {
         "en": {
             "crowdsec.settings.enabled": "CrowdSec plugin enabled",
-            "crowdsec.settings.enabled.help": "Watches crowdsec.log for ban history and enables cscli actions for ban/unban.",
+            "crowdsec.settings.enabled.help": "Watches crowdsec.log for ban history and enables ban/unban actions and decision sync.",
             "crowdsec.settings.log_path": "CrowdSec log path",
             "crowdsec.settings.log_path.help": "Path to crowdsec.log. Ban history, scenarios and countries are derived from lines containing 'ban on Ip/Range' like security-report.sh.",
+            "crowdsec.settings.connection_mode": "Connection to CrowdSec",
+            "crowdsec.settings.connection_mode.help": "How decisions are synced and ban/unban actions are executed. Local API (recommended) talks to CrowdSec over HTTP with dedicated credentials and needs no cscli binary or config mounts. cscli runs the binary as a subprocess instead.",
+            "crowdsec.settings.connection_mode.lapi": "Local API (recommended)",
+            "crowdsec.settings.connection_mode.cscli": "cscli binary",
+            "crowdsec.settings.lapi_url": "LAPI URL",
+            "crowdsec.settings.lapi_url.help": "Base URL of the CrowdSec Local API, e.g. http://127.0.0.1:8080 with host networking.",
+            "crowdsec.settings.lapi_login": "LAPI login",
+            "crowdsec.settings.lapi_login.help": "Machine name registered for OpenSecDash. Create it on the CrowdSec host with: sudo cscli machines add opensecdash --auto -f /tmp/opensecdash-lapi.yaml",
+            "crowdsec.settings.lapi_password": "LAPI password",
+            "crowdsec.settings.lapi_password.help": "Password from the credentials file created by 'cscli machines add'. Stored encrypted.",
             "crowdsec.settings.cscli_path": "cscli path",
             "crowdsec.settings.cscli_path.help": "Command or absolute path used for active decisions and ban/unban actions.",
             "crowdsec.settings.poll_interval": "CrowdSec poll interval seconds",
@@ -48,9 +69,19 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
         },
         "de": {
             "crowdsec.settings.enabled": "CrowdSec Plugin aktiviert",
-            "crowdsec.settings.enabled.help": "Überwacht crowdsec.log für Ban-Historie und aktiviert cscli-Aktionen für Ban/Unban.",
+            "crowdsec.settings.enabled.help": "Überwacht crowdsec.log für Ban-Historie und aktiviert Ban/Unban-Aktionen und Decision-Sync.",
             "crowdsec.settings.log_path": "CrowdSec Log-Pfad",
             "crowdsec.settings.log_path.help": "Pfad zur crowdsec.log. Ban-Historie, Szenarien und Länder werden wie in security-report.sh aus Zeilen mit 'ban on Ip/Range' abgeleitet.",
+            "crowdsec.settings.connection_mode": "Verbindung zu CrowdSec",
+            "crowdsec.settings.connection_mode.help": "Wie Decisions synchronisiert und Ban/Unban-Aktionen ausgeführt werden. Local API (empfohlen) spricht per HTTP mit eigenen Zugangsdaten mit CrowdSec und braucht weder cscli-Binary noch Config-Mounts. cscli führt stattdessen das Binary als Subprozess aus.",
+            "crowdsec.settings.connection_mode.lapi": "Local API (empfohlen)",
+            "crowdsec.settings.connection_mode.cscli": "cscli-Binary",
+            "crowdsec.settings.lapi_url": "LAPI URL",
+            "crowdsec.settings.lapi_url.help": "Basis-URL der CrowdSec Local API, z. B. http://127.0.0.1:8080 bei Host-Networking.",
+            "crowdsec.settings.lapi_login": "LAPI Login",
+            "crowdsec.settings.lapi_login.help": "Für OpenSecDash registrierter Machine-Name. Auf dem CrowdSec-Host anlegen mit: sudo cscli machines add opensecdash --auto -f /tmp/opensecdash-lapi.yaml",
+            "crowdsec.settings.lapi_password": "LAPI Passwort",
+            "crowdsec.settings.lapi_password.help": "Passwort aus der von 'cscli machines add' erzeugten Credentials-Datei. Wird verschlüsselt gespeichert.",
             "crowdsec.settings.cscli_path": "cscli Pfad",
             "crowdsec.settings.cscli_path.help": "Kommando oder absoluter Pfad für aktive Decisions und Ban/Unban-Aktionen.",
             "crowdsec.settings.poll_interval": "CrowdSec Prüfintervall in Sekunden",
@@ -67,6 +98,16 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
         log_path = Path(context.get("log_path"))
         if not log_path.exists():
             return {"status": "error", "message": f"CrowdSec log not found: {log_path}"}
+        if context.get("connection_mode", "lapi") == "lapi":
+            from app.services.crowdsec_lapi import LapiError, lapi_login
+
+            url = context.get("lapi_url", "http://127.0.0.1:8080")
+            try:
+                lapi_login(url, context.get("lapi_login", ""), context.get("lapi_password", ""))
+            except LapiError as exc:
+                return {"status": "error", "message": str(exc)}
+            logger.debug("CrowdSec health OK: LAPI login at %s", url)
+            return {"status": "healthy", "message": f"CrowdSec LAPI reachable and credentials accepted: {url}"}
         cscli = context.get("cscli_path", "/usr/local/bin/cscli")
         try:
             completed = subprocess.run([cscli, "version"], capture_output=True, text=True, timeout=10)
@@ -152,14 +193,28 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
     async def execute(self, context, action_type: str, target: str, parameters: dict[str, Any]) -> dict[str, Any] | None:
         if action_type not in {"security.ban", "security.unban", "crowdsec_ban", "crowdsec_unban"}:
             return None
+        is_ban = action_type in {"security.ban", "crowdsec_ban"}
+        decision_id = str(parameters.get("decision_id") or "").strip()
+        if not is_ban and not decision_id:
+            raise RuntimeError("Missing active CrowdSec decision id for unban")
+
+        if context.get("connection_mode", "lapi") == "lapi":
+            from app.services.crowdsec_lapi import lapi_add_ban, lapi_delete_decision, lapi_login
+
+            url = context.get("lapi_url", "http://127.0.0.1:8080")
+            logger.info("Executing CrowdSec action via LAPI type=%s target=%s", action_type, target)
+            token = lapi_login(url, context.get("lapi_login", ""), context.get("lapi_password", ""))
+            if is_ban:
+                lapi_add_ban(url, token, target, parameters.get("duration", "4h"), parameters.get("reason", "OpenSecDash manual ban"))
+                return {"status": "completed", "result": f"LAPI ban created for {target}"}
+            lapi_delete_decision(url, token, decision_id)
+            return {"status": "completed", "result": f"LAPI decision {decision_id} deleted"}
+
         cscli = context.get("cscli_path", "/usr/local/bin/cscli")
-        if action_type in {"security.ban", "crowdsec_ban"}:
+        if is_ban:
             duration = parameters.get("duration", "4h")
             cmd = [cscli, "decisions", "add", "--ip", target, "--duration", duration, "--reason", parameters.get("reason", "OpenSecDash manual ban")]
         else:
-            decision_id = str(parameters.get("decision_id") or "").strip()
-            if not decision_id:
-                raise RuntimeError("Missing active CrowdSec decision id for unban")
             cmd = [cscli, "decisions", "delete", "--id", decision_id]
         logger.info("Executing CrowdSec action type=%s target=%s", action_type, target)
         completed = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
