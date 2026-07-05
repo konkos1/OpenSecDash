@@ -103,7 +103,12 @@ class Plugin(DatasourcePlugin):
         except json.JSONDecodeError:
             return None
         status = data.get("DownstreamStatus") or data.get("OriginStatus")
-        status_code = int(status) if status not in (None, "") else None
+        try:
+            status_code = int(status) if status not in (None, "") else None
+        except (TypeError, ValueError):
+            # A single log line with a non-numeric status must not abort the
+            # whole batch - the file offset has already moved past it.
+            status_code = None
         event_type, severity = classify_access_status(status_code)
         return {
             "event_time": normalize_event_time(data.get("StartUTC") or data.get("StartLocal") or data.get("time")),

@@ -479,8 +479,18 @@ class PluginManager:
         duplicate_count = 0
         last_event_at = None
         for event in events:
-            stored = ctx.emit_event(**event)
             found += 1
+            try:
+                # Savepoint per event: one malformed event must not abort the
+                # whole batch (the plugin's file offset has already advanced
+                # past these lines, so anything after an aborting event would
+                # be lost for good) - and rolling back only to the savepoint
+                # keeps the batch's already-staged good events intact.
+                with db.begin_nested():
+                    stored = ctx.emit_event(**event)
+            except Exception:
+                logger.exception("Datasource plugin %s failed to store one event; skipping it", plugin.metadata.id)
+                continue
             if getattr(stored, "_opensecdash_created", False):
                 stored_count += 1
             else:

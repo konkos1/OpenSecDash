@@ -1,11 +1,16 @@
 from datetime import datetime
 
+from app.core.net import is_local_ip_value
 from app.core.time import utc_now
 
 from sqlalchemy import Boolean, DateTime, Index, JSON, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database.base import Base
+
+
+def _derive_is_local_ip(context) -> bool:
+    return is_local_ip_value(context.get_current_parameters().get("ip"))
 
 
 class Event(Base):
@@ -54,3 +59,10 @@ class Event(Base):
     # network call and the backfill loop doesn't repeatedly revisit local IPs
     # or already-failed lookups. See services/events.py:enrich_geoip_backlog.
     geoip_checked: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Precomputed is_local_ip_value(ip), derived automatically at insert time
+    # (and set explicitly by store_event). The local/private classification
+    # needs Python's ipaddress module, so filtering on it used to require
+    # pulling every candidate row out of the database - this makes the
+    # dashboard's internal/external counters and the Access page's
+    # hide/show-local filters plain SQL conditions instead.
+    is_local_ip: Mapped[bool] = mapped_column(Boolean, default=_derive_is_local_ip)

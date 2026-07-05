@@ -136,6 +136,35 @@ def test_disabling_datasource_persists_status_and_clears_backlog_without_extra_c
     assert datasource.backlog_progress_percent is None
 
 
+class OneBadEventPlugin(DatasourcePlugin):
+    metadata = PluginMetadata(id="one_bad_event", name="One Bad Event", capabilities=["datasource"])
+    settings = [PluginSetting("enabled", "one_bad_event.enabled", "one_bad_event.enabled.help", type="boolean", default="true")]
+    locales = {"en": {"one_bad_event.enabled": "Enabled", "one_bad_event.enabled.help": "Enable"}, "de": {}}
+
+    async def collect(self, context):
+        return [
+            {"source": "test", "plugin": "one_bad_event", "event_type": "access.allowed", "raw_data": "good-1"},
+            {"source": "test", "plugin": "one_bad_event", "event_type": "access.allowed", "raw_data": "bad", "no_such_column": True},
+            {"source": "test", "plugin": "one_bad_event", "event_type": "access.allowed", "raw_data": "good-2"},
+        ]
+
+
+def test_run_datasource_tick_skips_malformed_events_instead_of_aborting_the_batch(db_session):
+    # The plugin's file offset has already advanced past these lines when
+    # storing happens, so an aborting event would lose everything after it
+    # in the batch for good.
+    manager = PluginManager(Path("/not-used"))
+    plugin = OneBadEventPlugin()
+    manager.plugins = {"one_bad_event": plugin}
+    manager.seed_database(db_session)
+    db_session.commit()
+
+    manager._run_datasource_tick(db_session, plugin)
+
+    stored = {event.raw_data for event in db_session.query(Event).filter_by(plugin="one_bad_event")}
+    assert stored == {"good-1", "good-2"}
+
+
 def test_next_datasource_delay_is_short_while_backlog_pending():
     assert PluginManager._next_datasource_delay(10, True) < 1
     assert PluginManager._next_datasource_delay(10, False) == 10
