@@ -48,3 +48,13 @@ jobs:
 
       - name: Run Pyright
         run: backend/.venv/bin/pyright backend/app backend/tests plugins
+
+      - name: Check pre-built Tailwind CSS is up to date
+        working-directory: backend
+        run: |
+          npx -y tailwindcss@3.4.17 -c tailwind.config.js -i tailwind.input.css -o app/static/css/tailwind.css --minify
+          if ! git diff --exit-code app/static/css/tailwind.css; then
+            echo "::error file=backend/app/static/css/tailwind.css::tailwind.css is out of date. Rebuild it locally and commit the result:"
+            echo "::error::cd backend && npx -y tailwindcss@3.4.17 -c tailwind.config.js -i tailwind.input.css -o app/static/css/tailwind.css --minify"
+            exit 1
+          fi

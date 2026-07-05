@@ -1,4 +1,3 @@
-import threading
 from datetime import timedelta
 
 from app.core.time import utc_now
@@ -114,37 +113,18 @@ def test_enrich_pending_events_respects_limit(db_session):
     assert enrich_pending_events(db_session, limit=2) == 2
 
 
-class _CountingLock:
-    """Wraps a real threading.Lock so the test can count with-block entries."""
-
-    def __init__(self):
-        self._lock = threading.Lock()
-        self.enter_count = 0
-
-    def __enter__(self):
-        self.enter_count += 1
-        return self._lock.__enter__()
-
-    def __exit__(self, *args):
-        return self._lock.__exit__(*args)
-
-    def locked(self):
-        return self._lock.locked()
-
-
-def test_enrich_pending_events_commits_per_event_under_write_lock(db_session):
-    # A write_lock is only ever held around each individual commit, never
-    # around the (potentially slow, network-bound) lookup itself - otherwise
-    # a slow/unreachable GeoIP provider would make other threads wait on the
-    # SQLite write lock for that long too.
+def test_enrich_pending_events_commits_after_each_event(db_session):
+    # Committing per-event (rather than once for the whole batch) means a
+    # slow/unreachable GeoIP provider only ever risks losing one event's
+    # progress, not the whole batch - and only ever holds the app-wide SQLite
+    # write lock (see app.database.session) for one event's commit at a time.
     _cached_geoip_setup(db_session)
     for _ in range(3):
         db_session.add(Event(source="test", plugin="traefik_log", event_type="access.allowed", ip="8.8.8.8", geoip_checked=False))
     db_session.commit()
 
-    lock = _CountingLock()
-    processed = enrich_pending_events(db_session, limit=10, write_lock=lock)
+    processed = enrich_pending_events(db_session, limit=10)
 
     assert processed == 3
-    assert lock.enter_count == 3
-    assert lock.locked() is False  # released again after the last commit
+    db_session.rollback()  # would discard the events if enrich_pending_events hadn't already committed them
+    assert db_session.query(Event).filter_by(geoip_checked=True).count() == 3

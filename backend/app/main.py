@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.middleware.gzip import GZipMiddleware
 
 from app.core.logging import configure_logging_from_db, setup_service_logging
 from app.core.version import get_app_version
@@ -68,6 +69,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(title="OpenSecDash", version=get_app_version(), lifespan=lifespan)
 
+# Pages with a few hundred table rows are several hundred KB of HTML; gzip
+# typically cuts that by ~90%, which is what page-switch speed feels like on
+# anything slower than a LAN.
+app.add_middleware(GZipMiddleware, minimum_size=1024)
+
 app.include_router(settings_router)
 app.include_router(events_router)
 app.include_router(actions_router)
@@ -75,6 +81,18 @@ app.include_router(assets_router)
 app.include_router(pages_router)
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
+
+@app.middleware("http")
+async def static_cache_headers(request: Request, call_next):
+    # Static assets otherwise get browser heuristic caching: sometimes stale
+    # after an update, sometimes re-requested on every page view. Explicit
+    # max-age plus the ?v=<app_version> query in base.html gives fast repeat
+    # loads and a reliable cache bust on every release.
+    response = await call_next(request)
+    if request.url.path.startswith("/static/") and response.status_code == 200:
+        response.headers.setdefault("Cache-Control", "public, max-age=86400")
+    return response
 
 
 def wants_json(request: Request) -> bool:
@@ -143,32 +161,32 @@ def ready() -> dict[str, str]:
     return {"status": "ready"}
 
 
-def live_events_enabled() -> bool:
+def _websocket_poll_state() -> tuple[bool, int]:
+    """One poll iteration's DB reads, sharing a single session.
+
+    Runs via ``asyncio.to_thread``: each connected client polls once per
+    second, and these blocking queries must not run on the event loop itself -
+    with a few open tabs that would otherwise add several loop-freezing DB
+    calls every second, exactly when the app is busiest.
+    """
     db = SessionLocal()
     try:
-        return any(
+        enabled = any(
             get_setting_value(db, f"plugin.{plugin_id}.enabled", "false") == "true"
             for plugin_id in ["crowdsec", "geoblock_log", "traefik_log"]
         )
-    finally:
-        db.close()
-
-
-def latest_event_id() -> int:
-    db = SessionLocal()
-    try:
-        return int(db.query(func.max(Event.id)).scalar() or 0)
+        return enabled, int(db.query(func.max(Event.id)).scalar() or 0)
     finally:
         db.close()
 
 
 @app.websocket("/ws/events")
 async def events_websocket(websocket: WebSocket) -> None:
-    if not live_events_enabled():
+    enabled, last_seen_id = await asyncio.to_thread(_websocket_poll_state)
+    if not enabled:
         await websocket.close(code=1008)
         return
     await websocket.accept()
-    last_seen_id = latest_event_id()
     await websocket.send_json({"type": "connected", "last_event_id": last_seen_id})
 
     try:
@@ -178,11 +196,11 @@ async def events_websocket(websocket: WebSocket) -> None:
             except TimeoutError:
                 pass
 
-            if not live_events_enabled():
+            enabled, current_id = await asyncio.to_thread(_websocket_poll_state)
+            if not enabled:
                 await websocket.close(code=1008)
                 return
 
-            current_id = latest_event_id()
             if current_id > last_seen_id:
                 last_seen_id = current_id
                 await websocket.send_json({"type": "events_changed", "last_event_id": current_id})

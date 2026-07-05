@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import ipaddress
 import logging
+import threading
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -9,6 +9,10 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from sqlalchemy import String, and_, cast, func, or_
 from sqlalchemy.orm import Session
 
+# Re-exported for existing importers; the implementation lives in core so the
+# events model can derive its is_local_ip column default from it without a
+# models -> services import cycle.
+from app.core.net import is_local_ip_value  # noqa: F401
 from app.core.time import utc_now
 from app.models.core import AggregationDaily, AggregationMonthly, Insight
 from app.models.events import Event
@@ -123,6 +127,9 @@ def store_event(db: Session, **values: Any) -> Event:
     values.setdefault("plugin_id", values.get("plugin"))
     values.setdefault("source_id", values.get("source"))
     values.setdefault("retention_class", "raw")
+    # Always derived from the IP, never caller-supplied: filters and the
+    # dashboard counters rely on this column matching is_local_ip_value().
+    values["is_local_ip"] = is_local_ip_value(values.get("ip"))
     if not values.get("asset_id"):
         matched_asset = find_asset_by_host(db, values.get("hostname"))
         if matched_asset is not None:
@@ -149,36 +156,57 @@ def store_event(db: Session, **values: Any) -> Event:
 
 
 def cleanup_duplicate_events(db: Session) -> int:
-    events = db.query(Event).order_by(Event.id.asc()).all()
+    # Runs on every startup: stream plain column tuples instead of building
+    # a full ORM object per event, so start time doesn't balloon with the
+    # size of the events table.
+    rows = (
+        db.query(
+            Event.id,
+            Event.plugin,
+            Event.event_type,
+            Event.raw_data,
+            Event.event_time,
+            Event.ip,
+            Event.country,
+            Event.hostname,
+            Event.method,
+            Event.path,
+            Event.status_code,
+            Event.asset_id,
+        )
+        .order_by(Event.id.asc())
+        .yield_per(1000)
+    )
     seen: set[tuple[Any, ...]] = set()
     duplicate_ids: list[int] = []
 
-    for event in events:
-        if event.raw_data:
-            key = ("raw", event.plugin, event.event_type, event.raw_data)
+    for row in rows:
+        if row.raw_data:
+            key = ("raw", row.plugin, row.event_type, row.raw_data)
         else:
             key = (
                 "composite",
-                event.plugin,
-                event.event_type,
-                event.event_time,
-                event.ip,
-                event.country,
-                event.hostname,
-                event.method,
-                event.path,
-                event.status_code,
-                event.asset_id,
+                row.plugin,
+                row.event_type,
+                row.event_time,
+                row.ip,
+                row.country,
+                row.hostname,
+                row.method,
+                row.path,
+                row.status_code,
+                row.asset_id,
             )
         if key in seen:
-            duplicate_ids.append(event.id)
+            duplicate_ids.append(row.id)
         else:
             seen.add(key)
 
     if not duplicate_ids:
         return 0
 
-    db.query(Event).filter(Event.id.in_(duplicate_ids)).delete(synchronize_session=False)
+    for start in range(0, len(duplicate_ids), 500):
+        db.query(Event).filter(Event.id.in_(duplicate_ids[start : start + 500])).delete(synchronize_session=False)
     db.query(AggregationDaily).delete(synchronize_session=False)
     db.query(AggregationMonthly).delete(synchronize_session=False)
     db.flush()
@@ -210,9 +238,15 @@ def rollup_metrics_for_event(event: Event) -> list[tuple[str, str]]:
 
 
 def update_rollups(db: Session, event: Event) -> None:
+    # Only the daily rollup is written here - monthly rollups are maintained
+    # exclusively by compact_completed_daily_rollups(), which adds each daily
+    # row's counts to the monthly rollup at the moment it deletes that row
+    # ("merge on delete"). Writing monthly here as well (as this used to do
+    # for events from past months) double-books such events, and compaction
+    # then either lost the daily-only counts or counted the direct-monthly
+    # ones twice - there is no split of responsibilities between the two
+    # writers that stays consistent for late-arriving events except this one.
     day = event.event_time.strftime("%Y-%m-%d")
-    event_month = event.event_time.strftime("%Y-%m")
-    current_month = utc_now().replace(tzinfo=None).strftime("%Y-%m")
     for metric, key in rollup_metrics_for_event(event):
         daily = (
             db.query(AggregationDaily)
@@ -229,24 +263,26 @@ def update_rollups(db: Session, event: Event) -> None:
         else:
             daily.value += 1
 
-        if event_month < current_month:
-            monthly = (
-                db.query(AggregationMonthly)
-                .filter(
-                    AggregationMonthly.month == event_month,
-                    AggregationMonthly.metric == metric,
-                    AggregationMonthly.key == key,
-                )
-                .first()
-            )
-            if monthly is None:
-                db.add(AggregationMonthly(month=event_month, metric=metric, key=key, value=1))
-                db.flush()
-            else:
-                monthly.value += 1
+
+# Serializes whole compaction passes against each other. The app-wide SQLite
+# write lock only serializes individual commits - two concurrent passes (the
+# hourly rollup loop and the hourly retention cleanup both compact) would each
+# read the same daily rows and each add them to the monthly rollup, doubling
+# the counts.
+_COMPACTION_LOCK = threading.Lock()
 
 
 def compact_completed_daily_rollups(db: Session, reference_time: datetime | None = None) -> int:
+    with _COMPACTION_LOCK:
+        compacted = _compact_completed_daily_rollups_locked(db, reference_time)
+        # Commit while still holding the lock: releasing first would let the
+        # next pass read the daily rows this one just merged but not yet
+        # committed - and merge them into the monthly rollup a second time.
+        db.commit()
+        return compacted
+
+
+def _compact_completed_daily_rollups_locked(db: Session, reference_time: datetime | None = None) -> int:
     now = reference_time or utc_now().replace(tzinfo=None)
     current_month = now.strftime("%Y-%m")
     yesterday = (now - timedelta(days=1)).strftime("%Y-%m-%d")
@@ -257,23 +293,40 @@ def compact_completed_daily_rollups(db: Session, reference_time: datetime | None
     ]
     compacted = 0
     for month in months:
-        monthly_exists = db.query(AggregationMonthly).filter(AggregationMonthly.month == month).first() is not None
-        if not monthly_exists:
-            rows = (
-                db.query(AggregationDaily.metric, AggregationDaily.key, func.sum(AggregationDaily.value))
-                .filter(AggregationDaily.date.like(f"{month}-%"))
-                .group_by(AggregationDaily.metric, AggregationDaily.key)
-                .all()
+        # "Merge on delete": exactly the daily rows deleted below are added to
+        # the monthly rollup - created or incremented per metric/key. That
+        # single invariant keeps monthly counts exact for every arrival order:
+        # a late event for a completed month simply creates a fresh daily row
+        # (update_rollups never writes monthly), which the next compaction
+        # pass merges and removes. The previous "skip the month if monthly
+        # rows already exist" logic silently threw away all daily counts of a
+        # month whenever even one monthly row had appeared early.
+        # Yesterday's daily row is exempt from deletion (the dashboard's
+        # yesterday comparison needs it), so it is also exempt from merging
+        # until a later pass deletes it.
+        rows = (
+            db.query(AggregationDaily.metric, AggregationDaily.key, func.sum(AggregationDaily.value))
+            .filter(AggregationDaily.date.like(f"{month}-%"), AggregationDaily.date != yesterday)
+            .group_by(AggregationDaily.metric, AggregationDaily.key)
+            .all()
+        )
+        for metric, key, value in rows:
+            monthly = (
+                db.query(AggregationMonthly)
+                .filter(AggregationMonthly.month == month, AggregationMonthly.metric == str(metric), AggregationMonthly.key == str(key))
+                .first()
             )
-            for metric, key, value in rows:
+            if monthly is None:
                 db.add(AggregationMonthly(month=month, metric=str(metric), key=str(key), value=int(value or 0)))
+            else:
+                monthly.value += int(value or 0)
 
         deleted = (
             db.query(AggregationDaily)
             .filter(AggregationDaily.date.like(f"{month}-%"), AggregationDaily.date != yesterday)
             .delete(synchronize_session=False)
         )
-        if deleted or not monthly_exists:
+        if deleted or rows:
             compacted += 1
     return compacted
 
@@ -386,26 +439,6 @@ def create_rule_based_insights(db: Session, event: Event) -> None:
     apply_declarative_insight_rules(db, event)
 
 
-def is_local_ip_value(value: str | None) -> bool:
-    """Return True for addresses/ranges that should be treated as local UI-only.
-
-    We do not rewrite stored country/IP fields. This helper is used by filters
-    and presentation so local/private labels remain reversible.
-    """
-    if not value:
-        return False
-    try:
-        network = ipaddress.ip_network(str(value), strict=False)
-    except ValueError:
-        return False
-    return (
-        network.is_private
-        or network.is_loopback
-        or network.is_link_local
-        or network.is_multicast
-        or network.is_reserved
-        or network.is_unspecified
-    )
 
 
 def searchable_event_fields():
@@ -562,11 +595,9 @@ def apply_event_filters(query, filters: dict[str, Any]):
     if filters.get("event_time_to"):
         query = query.filter(Event.event_time < filters["event_time_to"])
     if filters.get("show_local_ips"):
-        ids = [event_id for event_id, ip in query.with_entities(Event.id, Event.ip).all() if is_local_ip_value(ip)]
-        query = query.filter(Event.id.in_(ids)) if ids else query.filter(False)
+        query = query.filter(Event.is_local_ip == True)  # noqa: E712
     elif filters.get("hide_local_ips"):
-        ids = [event_id for event_id, ip in query.with_entities(Event.id, Event.ip).all() if not is_local_ip_value(ip)]
-        query = query.filter(Event.id.in_(ids)) if ids else query.filter(False)
+        query = query.filter(Event.is_local_ip == False)  # noqa: E712
 
     if filters.get("q"):
         q_text = str(filters["q"]).strip()

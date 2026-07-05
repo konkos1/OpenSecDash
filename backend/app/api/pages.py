@@ -1,3 +1,4 @@
+import asyncio
 from collections import Counter
 from datetime import datetime, timedelta
 from http import HTTPStatus
@@ -41,8 +42,8 @@ from app.services.asset_actions import (
 )
 from app.services.actions import ActionAlreadyRunning, create_action
 from app.services.crowdsec_decisions import active_decision_for_ip, crowdsec_cscli_status, sync_crowdsec_decisions
-from app.services.asset_hosts import event_matches_asset_host, find_asset_by_host, normalize_asset_host, sync_asset_host_events
-from app.services.events import apply_event_filters, compact_completed_daily_rollups, is_local_ip_value, store_event, tokenize_search_expression
+from app.services.asset_hosts import event_matches_asset_host, find_asset_by_host, matching_event_hostnames, normalize_asset_host, sync_asset_host_events
+from app.services.events import apply_event_filters, is_local_ip_value, store_event, tokenize_search_expression
 from app.services.proxmox_assets import sync_proxmox_assets
 
 router = APIRouter(tags=["pages"])
@@ -325,25 +326,30 @@ def require_assets_feature_enabled(db: Session) -> None:
 
 def rollup_rows(db: Session, period: str, value: str, metric: str, limit: int | None = None) -> list[dict[str, str | int]]:
     if period == "month":
-        monthly_rows = (
+        # Month view = compacted monthly rows PLUS any daily rows of that
+        # month that compaction hasn't merged yet (it merges a daily row's
+        # counts into monthly only when deleting it, and exempts yesterday's
+        # row for the dashboard delta). Summing the leftovers in at read time
+        # keeps the month exact at every moment - right after a month change
+        # and for late-arriving events - instead of briefly missing them.
+        combined: dict[str, int] = {}
+        for key, row_value in (
             db.query(AggregationMonthly.key, AggregationMonthly.value)
             .filter(AggregationMonthly.month == value, AggregationMonthly.metric == metric)
-            .order_by(AggregationMonthly.value.desc(), AggregationMonthly.key.asc())
-        )
-        if limit is not None:
-            monthly_rows = monthly_rows.limit(limit)
-        rows = monthly_rows.all()
-        if rows:
-            return [{"key": str(key), "value": int(row_value or 0)} for key, row_value in rows]
-        daily_query = (
+            .all()
+        ):
+            combined[str(key)] = combined.get(str(key), 0) + int(row_value or 0)
+        for key, row_value in (
             db.query(AggregationDaily.key, func.sum(AggregationDaily.value))
             .filter(AggregationDaily.date.like(f"{value}-%"), AggregationDaily.metric == metric)
             .group_by(AggregationDaily.key)
-            .order_by(func.sum(AggregationDaily.value).desc(), AggregationDaily.key.asc())
-        )
+            .all()
+        ):
+            combined[str(key)] = combined.get(str(key), 0) + int(row_value or 0)
+        rows = sorted(combined.items(), key=lambda item: (-item[1], item[0]))
         if limit is not None:
-            daily_query = daily_query.limit(limit)
-        return [{"key": str(key), "value": int(row_value or 0)} for key, row_value in daily_query.all()]
+            rows = rows[:limit]
+        return [{"key": key, "value": row_value} for key, row_value in rows]
 
     query = (
         db.query(AggregationDaily.key, AggregationDaily.value)
@@ -425,19 +431,22 @@ def dashboard_metric_counts(
     access_external_events = 0
     access_internal_events = 0
     if enabled_plugins["traefik_log"]:
-        access_ips = in_range(
-            db.query(Event.ip).filter(
-                Event.event_type.startswith("access."),
-                Event.plugin == "traefik_log",
-                Event.ip.isnot(None),
-                Event.ip != "",
-            )
-        ).all()
-        for (ip,) in access_ips:
-            if is_local_ip_value(ip):
-                access_internal_events += 1
-            else:
-                access_external_events += 1
+        # Plain SQL counts on the precomputed is_local_ip column - this runs
+        # on every dashboard render/auto-refresh and used to pull every
+        # matching IP into Python just to classify it.
+        def access_count(is_local: bool) -> int:
+            return in_range(
+                db.query(Event).filter(
+                    Event.event_type.startswith("access."),
+                    Event.plugin == "traefik_log",
+                    Event.ip.isnot(None),
+                    Event.ip != "",
+                    Event.is_local_ip == is_local,
+                )
+            ).count()
+
+        access_internal_events = access_count(True)
+        access_external_events = access_count(False)
     return {
         "bans": bans,
         "geoblocks": geoblocks,
@@ -551,17 +560,26 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
     def top_hours_for_plugins(plugin_ids: list[str], event_type: str) -> list[dict[str, object]]:
         if not plugin_ids:
             return []
+        # Group by UTC minute bucket in SQL and convert only the buckets (at
+        # most 1440 for a day) to the display timezone, instead of streaming
+        # every single event_time through Python on each dashboard render.
+        # Minute granularity keeps this exact for half-hour/quarter-hour
+        # timezone offsets, and converting per bucket stays DST-correct
+        # because each bucket is a concrete UTC timestamp, not just an
+        # hour-of-day number.
         hour_counts: Counter[int] = Counter()
-        for (event_time,) in (
-            db.query(Event.event_time)
-            .filter(Event.event_time >= since, Event.plugin.in_(plugin_ids))
+        bucket = func.strftime("%Y-%m-%d %H:%M", Event.event_time)
+        for bucket_text, count in (
+            db.query(bucket, func.count(Event.id))
+            .filter(Event.event_time >= since, Event.plugin.in_(plugin_ids), Event.event_time.isnot(None))
+            .group_by(bucket)
             .all()
         ):
-            if event_time is None:
+            try:
+                bucket_start = datetime.strptime(str(bucket_text), "%Y-%m-%d %H:%M").replace(tzinfo=ZoneInfo("UTC"))
+            except (TypeError, ValueError):
                 continue
-            if event_time.tzinfo is None:
-                event_time = event_time.replace(tzinfo=ZoneInfo("UTC"))
-            hour_counts[event_time.astimezone(dashboard_timezone).hour] += 1
+            hour_counts[bucket_start.astimezone(dashboard_timezone).hour] += int(count or 0)
         return [
             {"hour": hour, "count": count, "href": f"/events?event_type={event_type}&today=true&hour={hour:02d}"}
             for hour, count in hour_counts.most_common(5)
@@ -620,7 +638,9 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
 @router.get("/rollups")
 def rollups_page(request: Request, db: Session = Depends(get_db)):
     require_events_feature_enabled(db)
-    compact_completed_daily_rollups(db)
+    # No compaction here: a GET must not have write side effects, the hourly
+    # background loop compacts anyway, and the month view merges leftover
+    # daily rows at read time - so the numbers are exact without it.
     days, months = available_rollup_periods(db)
     requested_period = request.query_params.get("period") or "month"
     period = requested_period if requested_period in {"day", "month"} else "month"
@@ -673,9 +693,14 @@ def column_redirect_url(request: Request, fallback: str, snapshot_before: str | 
 
 
 def asset_links_for_events(db: Session, events: list[Event]) -> dict[int, str]:
+    # One batched asset lookup for the whole page instead of up to two
+    # queries per rendered event row; the host fallback goes through
+    # find_asset_by_host's session-level host map cache.
+    asset_ids = {event.asset_id for event in events if event.asset_id}
+    assets_by_id = {asset.id: asset for asset in db.query(Asset).filter(Asset.id.in_(asset_ids)).all()} if asset_ids else {}
     links = {}
     for event in events:
-        asset = db.query(Asset).filter(Asset.id == event.asset_id).first() if event.asset_id else None
+        asset = assets_by_id.get(event.asset_id) if event.asset_id else None
         if asset is not None and not event_matches_asset_host(event, asset):
             asset = None
         if asset is None:
@@ -833,10 +858,17 @@ def events_page(
 
 @router.post("/events/columns")
 async def save_events_columns(request: Request, db: Session = Depends(get_db)):
-    require_events_feature_enabled(db)
     form = await request.form()
-    save_table_columns(db, "ui.events.visible_columns", [str(value) for value in form.getlist("columns")], DEFAULT_EVENTS_COLUMNS)
-    db.commit()
+
+    # In a thread: this route must stay async for request.form(), but its DB
+    # write would otherwise run on the event loop - and freeze every page for
+    # everyone whenever a background writer happens to hold the write lock.
+    def _save() -> None:
+        require_events_feature_enabled(db)
+        save_table_columns(db, "ui.events.visible_columns", [str(value) for value in form.getlist("columns")], DEFAULT_EVENTS_COLUMNS)
+        db.commit()
+
+    await asyncio.to_thread(_save)
     return RedirectResponse(url=column_redirect_url(request, "/events", str(form.get("snapshot_before") or "")), status_code=303)
 
 
@@ -895,10 +927,15 @@ def access_page(
 
 @router.post("/access/columns")
 async def save_access_columns(request: Request, db: Session = Depends(get_db)):
-    require_plugin_enabled(db, "traefik_log")
     form = await request.form()
-    save_table_columns(db, "ui.access.visible_columns", [str(value) for value in form.getlist("columns")], DEFAULT_ACCESS_COLUMNS)
-    db.commit()
+
+    # In a thread for the same reason as save_events_columns.
+    def _save() -> None:
+        require_plugin_enabled(db, "traefik_log")
+        save_table_columns(db, "ui.access.visible_columns", [str(value) for value in form.getlist("columns")], DEFAULT_ACCESS_COLUMNS)
+        db.commit()
+
+    await asyncio.to_thread(_save)
     return RedirectResponse(url=column_redirect_url(request, "/access", str(form.get("snapshot_before") or "")), status_code=303)
 
 
@@ -907,14 +944,19 @@ def crowdsec_page(request: Request, db: Session = Depends(get_db)):
     require_plugin_enabled(db, "crowdsec")
     bans = db.query(Event).filter(Event.event_type.startswith("security.ban")).order_by(Event.event_time.desc()).limit(100).all()
     active_decisions = {decision.ip: decision for decision in db.query(CrowdSecDecision).filter(CrowdSecDecision.decision_type == "ban").all()}
-    scenario_counts: Counter[str] = Counter()
-    scenario_rows = db.query(Event.data_json).filter(Event.event_type.startswith("security.ban")).all()
-    for (data_json,) in scenario_rows:
-        scenario = (data_json or {}).get("scenario") or ""
-        scenario_counts[str(scenario or "")] += 1
+    # Count scenarios in SQL instead of deserializing every ban event's JSON
+    # payload in Python on each page view - this table grows without bound.
+    scenario_expr = func.coalesce(func.json_extract(Event.data_json, "$.scenario"), "")
     scenarios = [
-        (scenario or None, count)
-        for scenario, count in scenario_counts.most_common(10)
+        (str(scenario) or None, int(count))
+        for scenario, count in (
+            db.query(scenario_expr, func.count(Event.id))
+            .filter(Event.event_type.startswith("security.ban"))
+            .group_by(scenario_expr)
+            .order_by(func.count(Event.id).desc())
+            .limit(10)
+            .all()
+        )
     ]
     countries = (
         db.query(Event.country, func.count(Event.id))
@@ -1239,17 +1281,20 @@ def asset_page(system_id: int, request: Request, show_inactive: bool = False, as
         host_apps.setdefault(normalized_host, []).append(app)
         host_labels.setdefault(normalized_host, app.host_url or normalized_host)
     host_event_sections = []
-    event_ids_by_host: dict[str, list[int]] = {}
-    for event_id, hostname in db.query(Event.id, Event.hostname).filter(Event.hostname.isnot(None)).all():
+    # Match on DISTINCT hostnames (one per vhost) instead of scanning every
+    # event row: normalization needs Python, but the resulting hostname list
+    # lets SQL do the actual filtering regardless of table size.
+    hostnames_by_host: dict[str, list[str]] = {}
+    for (hostname,) in db.query(Event.hostname).filter(Event.hostname.isnot(None)).distinct().all():
         normalized_event_host = normalize_asset_host(hostname)
         if normalized_event_host in host_apps:
-            event_ids_by_host.setdefault(normalized_event_host, []).append(event_id)
+            hostnames_by_host.setdefault(normalized_event_host, []).append(hostname)
     for host, host_app_list in sorted(host_apps.items(), key=lambda item: item[0]):
         host_app_ids = [app.id for app in host_app_list]
-        host_matched_ids = event_ids_by_host.get(host, [])
+        host_matched_hostnames = hostnames_by_host.get(host, [])
         host_events_query = db.query(Event).filter(Event.asset_id.in_(host_app_ids))
-        if host_matched_ids:
-            host_events_query = db.query(Event).filter(or_(Event.asset_id.in_(host_app_ids), Event.id.in_(host_matched_ids)))
+        if host_matched_hostnames:
+            host_events_query = db.query(Event).filter(or_(Event.asset_id.in_(host_app_ids), Event.hostname.in_(host_matched_hostnames)))
         host_insights = (
             db.query(Insight)
             .filter(Insight.asset_id.in_(host_app_ids))
@@ -1270,9 +1315,9 @@ def asset_page(system_id: int, request: Request, show_inactive: bool = False, as
         focused_host = normalize_asset_host(focused_asset.host_url)
         events_query = db.query(Event).filter(Event.asset_id == focused_asset.id)
         if focused_host:
-            host_matched_ids = [event.id for event in db.query(Event).all() if normalize_asset_host(event.hostname) == focused_host]
-            if host_matched_ids:
-                events_query = db.query(Event).filter(or_(Event.asset_id == focused_asset.id, Event.id.in_(host_matched_ids)))
+            focused_hostnames = matching_event_hostnames(db, focused_host)
+            if focused_hostnames:
+                events_query = db.query(Event).filter(or_(Event.asset_id == focused_asset.id, Event.hostname.in_(focused_hostnames)))
         events = events_query.order_by(Event.event_time.desc()).limit(100).all()
     else:
         events = (
@@ -1348,6 +1393,7 @@ def update_asset_metadata(
 
 @router.post("/assets/{asset_id}/mqtt")
 def toggle_asset_mqtt(asset_id: int, enabled: str = Form("false"), db: Session = Depends(get_db)):
+    require_assets_feature_enabled(db)
     asset = db.query(Asset).filter(Asset.id == asset_id).first()
     if asset is None:
         raise HTTPException(status_code=404, detail="Asset not found")
@@ -1628,49 +1674,59 @@ async def save_settings(
     asset_updates_github_interval: str = Form("21600"),
     db: Session = Depends(get_db),
 ):
-    if language not in {"de", "en"}:
-        language = "en"
-    domain = clean_url_value(domain)
-    if asset_source_type == "url":
-        asset_source = clean_url_value(asset_source)
-    for key, value in {
-        "domain": domain,
-        "language": language,
-        "retention_days": retention_days,
-        "live_default": live_default,
-        "theme": theme,
-        "timezone": timezone,
-        "log_timestamp_timezone": log_timestamp_timezone,
-        "live_page_refresh": live_page_refresh,
-        "asset_source_type": asset_source_type,
-        "asset_source": asset_source,
-        "action_dry_run": action_dry_run,
-        "log_file_enabled": log_file_enabled,
-        "log_file_path": log_file_path,
-        "log_level": log_level if log_level in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"} else "INFO",
-        "asset_updates.github_token": asset_updates_github_token,
-        "asset_updates.github_interval": asset_updates_github_interval,
-    }.items():
-        save_setting(db, key, value)
-
     form = await request.form()
-    plugin_setting_types = {
-        setting["key"]: setting["type"]
-        for group in get_plugin_manager().plugin_settings(db, get_setting_value(db, "language", "en"))
-        for setting in group["settings"]
-    }
-    plugin_source_types = {
-        key: str(value)
-        for key, value in form.items()
-        if key.startswith("plugin.") and key.endswith(".source_type")
-    }
-    for key, value in form.items():
-        if key.startswith("plugin."):
-            text_value = str(value)
-            source_type_key = key.removesuffix(".source") + ".source_type"
-            if plugin_setting_types.get(key) == "url" or (key.endswith(".source") and plugin_source_types.get(source_type_key) == "url"):
-                text_value = clean_url_value(text_value)
-            save_setting(db, key, text_value)
-    db.commit()
-    configure_logging_from_db(db)
+
+    # In a thread: saving settings is the single most write-heavy request in
+    # the app (dozens of setting rows plus a commit). It must stay async for
+    # request.form(), but running the writes on the event loop would freeze
+    # every page for everyone whenever a background writer holds the write
+    # lock - which is exactly when users go to Settings to disable a plugin.
+    def _save() -> None:
+        nonlocal language, domain, asset_source
+        if language not in {"de", "en"}:
+            language = "en"
+        domain = clean_url_value(domain)
+        if asset_source_type == "url":
+            asset_source = clean_url_value(asset_source)
+        for key, value in {
+            "domain": domain,
+            "language": language,
+            "retention_days": retention_days,
+            "live_default": live_default,
+            "theme": theme,
+            "timezone": timezone,
+            "log_timestamp_timezone": log_timestamp_timezone,
+            "live_page_refresh": live_page_refresh,
+            "asset_source_type": asset_source_type,
+            "asset_source": asset_source,
+            "action_dry_run": action_dry_run,
+            "log_file_enabled": log_file_enabled,
+            "log_file_path": log_file_path,
+            "log_level": log_level if log_level in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"} else "INFO",
+            "asset_updates.github_token": asset_updates_github_token,
+            "asset_updates.github_interval": asset_updates_github_interval,
+        }.items():
+            save_setting(db, key, value)
+
+        plugin_setting_types = {
+            setting["key"]: setting["type"]
+            for group in get_plugin_manager().plugin_settings(db, get_setting_value(db, "language", "en"))
+            for setting in group["settings"]
+        }
+        plugin_source_types = {
+            key: str(value)
+            for key, value in form.items()
+            if key.startswith("plugin.") and key.endswith(".source_type")
+        }
+        for key, value in form.items():
+            if key.startswith("plugin."):
+                text_value = str(value)
+                source_type_key = key.removesuffix(".source") + ".source_type"
+                if plugin_setting_types.get(key) == "url" or (key.endswith(".source") and plugin_source_types.get(source_type_key) == "url"):
+                    text_value = clean_url_value(text_value)
+                save_setting(db, key, text_value)
+        db.commit()
+        configure_logging_from_db(db)
+
+    await asyncio.to_thread(_save)
     return RedirectResponse(url="/settings", status_code=303)

@@ -1,17 +1,34 @@
 from datetime import datetime
 
+from app.core.net import is_local_ip_value
 from app.core.time import utc_now
 
-from sqlalchemy import Boolean, DateTime, Index, JSON, String, Text
+from sqlalchemy import Boolean, DateTime, Index, JSON, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database.base import Base
+
+
+def _derive_is_local_ip(context) -> bool:
+    return is_local_ip_value(context.get_current_parameters().get("ip"))
 
 
 class Event(Base):
     __tablename__ = "events"
     __table_args__ = (
         Index("ix_events_event_type_time", "event_type", "event_time"),
+        # Partial index for the GeoIP backfill loop, which polls for
+        # unchecked events every few seconds forever. Without it that poll is
+        # a full table scan once the table has grown; with it the index only
+        # ever contains the (usually near-zero) pending rows.
+        Index("ix_events_geoip_pending", "geoip_checked", sqlite_where=text("geoip_checked = 0")),
+        # Dedupe lookup (find_duplicate_event) runs once per stored event and
+        # matches on raw_data. Without this index it degrades to scanning
+        # every existing event of the same type per insert - quadratic import
+        # time on a log where all lines share one event type (the norm). The
+        # index carries full raw_data text, trading disk space for O(log n)
+        # ingestion.
+        Index("ix_events_dedupe_raw", "plugin", "event_type", "raw_data"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -49,3 +66,10 @@ class Event(Base):
     # network call and the backfill loop doesn't repeatedly revisit local IPs
     # or already-failed lookups. See services/events.py:enrich_geoip_backlog.
     geoip_checked: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Precomputed is_local_ip_value(ip), derived automatically at insert time
+    # (and set explicitly by store_event). The local/private classification
+    # needs Python's ipaddress module, so filtering on it used to require
+    # pulling every candidate row out of the database - this makes the
+    # dashboard's internal/external counters and the Access page's
+    # hide/show-local filters plain SQL conditions instead.
+    is_local_ip: Mapped[bool] = mapped_column(Boolean, default=_derive_is_local_ip)

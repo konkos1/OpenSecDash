@@ -24,6 +24,11 @@ document.addEventListener("DOMContentLoaded", () => {
         };
     });
 
+    // A failed/cancelled swap must drop the captured position, or it would be
+    // (wrongly) applied to the next unrelated swap and jump the page around.
+    document.body.addEventListener("htmx:swapError", () => { pendingScrollRestore = null; });
+    document.body.addEventListener("htmx:responseError", () => { pendingScrollRestore = null; });
+
     document.body.addEventListener("htmx:afterSwap", () => {
         localizeOpenSecDashDatetimes();
         localizeOpenSecDashCountries();
@@ -244,13 +249,23 @@ function localizeOpenSecDashCountries() {
 
     const language = document.documentElement.lang || navigator.language || "en";
     const displayNames = new Intl.DisplayNames([language], {type: "region"});
+    // .of() throws RangeError for malformed codes; events created via the API
+    // can carry arbitrary country values, and one bad code must not abort
+    // localization (and everything after it in the htmx:afterSwap handler).
+    const regionLabel = code => {
+        try {
+            return displayNames.of(code) || code;
+        } catch (_error) {
+            return code;
+        }
+    };
     document.querySelectorAll(".osd-country[data-country-code]")
         .forEach(element => {
             const code = element.dataset.countryCode;
             if (!code) {
                 return;
             }
-            element.textContent = displayNames.of(code) || code;
+            element.textContent = regionLabel(code);
         });
     document.querySelectorAll("[data-country-title]")
         .forEach(element => {
@@ -258,7 +273,7 @@ function localizeOpenSecDashCountries() {
             if (!code) {
                 return;
             }
-            const label = displayNames.of(code) || code;
+            const label = regionLabel(code);
             const count = element.dataset.countryCount;
             element.setAttribute("title", count ? `${label} · ${count}` : label);
         });

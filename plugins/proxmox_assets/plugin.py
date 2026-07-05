@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import logging
+
 from app.models.assets import Asset
 from app.plugins.base import PeriodicPlugin, PluginContext, PluginMetadata, PluginSetting
 from app.services.proxmox_assets import ProxmoxClient, inspect_proxmox_guest_visibility, proxmox_visibility_message, sync_proxmox_assets
+
+logger = logging.getLogger(__name__)
 
 
 class Plugin(PeriodicPlugin):
@@ -70,13 +74,26 @@ class Plugin(PeriodicPlugin):
             return {"status": "error", "message": str(exc)}
 
     async def tick(self, context: PluginContext) -> None:
-        sync_proxmox_assets(
-            context.db,
-            api_url=context.get("api_url"),
-            token_id=context.get("token_id"),
-            token_secret=context.get("token_secret"),
-            verify_tls=context.get("verify_tls", "true") == "true",
-        )
+        # Take the same lock as the manual "Proxmox sync" button so the
+        # periodic sync can never interleave with a user-triggered one - both
+        # write the same system/asset rows. If an asset action is busy right
+        # now, skip; the next tick retries.
+        from app.services.asset_actions import AssetActionAlreadyRunning, run_asset_action
+
+        try:
+            run_asset_action(
+                "proxmox_sync",
+                lambda: sync_proxmox_assets(
+                    context.db,
+                    api_url=context.get("api_url"),
+                    token_id=context.get("token_id"),
+                    token_secret=context.get("token_secret"),
+                    verify_tls=context.get("verify_tls", "true") == "true",
+                ),
+            )
+        except AssetActionAlreadyRunning:
+            logger.debug("Skipping periodic Proxmox sync: an asset action is already running")
+            return
         await self._export_assets(context)
 
     async def _export_assets(self, context: PluginContext) -> None:

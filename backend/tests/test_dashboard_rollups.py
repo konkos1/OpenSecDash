@@ -1,3 +1,4 @@
+import threading
 from datetime import UTC, datetime
 
 from app.api.pages import (
@@ -66,7 +67,10 @@ def test_compact_completed_daily_rollups_creates_monthly_and_removes_daily(db_se
     assert rollup_rows(db_session, "month", "2026-07", "summary") == [{"key": "total_events", "value": 2}]
 
 
-def test_compact_completed_daily_rollups_does_not_overwrite_existing_monthly_rows(db_session):
+def test_compact_completed_daily_rollups_merges_dailies_into_existing_monthly_rows(db_session):
+    # Existing monthly rows must be merged into, never skipped: skipping used
+    # to throw the daily counts away forever as soon as even one monthly row
+    # for that month appeared early (e.g. from a partial earlier pass).
     db_session.add(AggregationMonthly(month="2026-06", metric="summary", key="total_events", value=99))
     db_session.add(AggregationDaily(date="2026-06-29", metric="summary", key="total_events", value=4))
     db_session.add(AggregationDaily(date="2026-06-30", metric="summary", key="total_events", value=6))
@@ -76,7 +80,41 @@ def test_compact_completed_daily_rollups_does_not_overwrite_existing_monthly_row
     db_session.commit()
 
     assert db_session.query(AggregationDaily).filter(AggregationDaily.date.like("2026-06-%")).count() == 0
-    assert rollup_rows(db_session, "month", "2026-06", "summary") == [{"key": "total_events", "value": 99}]
+    assert rollup_rows(db_session, "month", "2026-06", "summary") == [{"key": "total_events", "value": 109}]
+
+
+def test_late_events_after_compaction_are_merged_exactly_once(db_session, monkeypatch):
+    # Full month-change sequence: events during June -> compaction in July ->
+    # a late June event arrives (backlog import) -> next compaction pass.
+    # The month view must show the exact total at EVERY point in between -
+    # no lost counts (the old "skip if monthly exists" bug) and no double
+    # counting (the old direct-to-monthly write in update_rollups).
+    monkeypatch.setattr(events_service, "utc_now", lambda: datetime(2026, 6, 15, 12))
+    for i in range(10):
+        update_rollups(db_session, Event(event_time=datetime(2026, 6, 15, 12, 0, i), event_type="security.geoblock", plugin="geoblock_log"))
+    db_session.commit()
+
+    monkeypatch.setattr(events_service, "utc_now", lambda: datetime(2026, 7, 5, 10))
+    compact_completed_daily_rollups(db_session, datetime(2026, 7, 5, 10))
+    db_session.commit()
+    assert rollup_rows(db_session, "month", "2026-06", "summary") == [
+        {"key": "geoblocks", "value": 10},
+        {"key": "security_events", "value": 10},
+        {"key": "total_events", "value": 10},
+    ]
+
+    update_rollups(db_session, Event(event_time=datetime(2026, 6, 20, 8), event_type="security.geoblock", plugin="geoblock_log"))
+    db_session.commit()
+    # Visible immediately via the read-time merge of leftover daily rows...
+    summary = {row["key"]: row["value"] for row in rollup_rows(db_session, "month", "2026-06", "summary")}
+    assert summary["total_events"] == 11
+
+    compact_completed_daily_rollups(db_session, datetime(2026, 7, 5, 11))
+    db_session.commit()
+    # ...and still exactly once after the next compaction pass merged it.
+    assert db_session.query(AggregationDaily).filter(AggregationDaily.date.like("2026-06-%")).count() == 0
+    summary = {row["key"]: row["value"] for row in rollup_rows(db_session, "month", "2026-06", "summary")}
+    assert summary["total_events"] == 11
 
 
 def test_compact_completed_daily_rollups_keeps_yesterday_for_dashboard_delta(db_session):
@@ -100,6 +138,57 @@ def test_compact_completed_daily_rollups_keeps_yesterday_for_dashboard_delta(db_
 
     assert db_session.query(AggregationDaily).filter_by(date="2026-07-31").count() == 0
     assert rollup_rows(db_session, "month", "2026-07", "summary") == [{"key": "total_events", "value": 10}]
+
+
+def test_concurrent_compaction_passes_do_not_double_count(tmp_path):
+    # The hourly rollup loop and the hourly retention cleanup both compact,
+    # from real threads. Without serialization both passes read the same
+    # daily rows and both add them to the monthly rollup - the sum came out
+    # doubled and the monthly rows duplicated.
+    from sqlalchemy import create_engine, event as sa_event
+    from sqlalchemy.orm import sessionmaker
+
+    from app.database.base import Base
+    from app.database.session import configure_sqlite_pragmas
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'compaction.db'}", connect_args={"check_same_thread": False, "timeout": 10})
+    sa_event.listens_for(engine, "connect")(configure_sqlite_pragmas)
+    Base.metadata.create_all(bind=engine)
+    LocalSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+    db = LocalSession()
+    db.add(AggregationDaily(date="2026-06-15", metric="summary", key="total_events", value=10))
+    db.commit()
+    db.close()
+
+    barrier = threading.Barrier(2)
+    errors: list[BaseException] = []
+
+    def compact() -> None:
+        session = LocalSession()
+        try:
+            barrier.wait(timeout=5)
+            compact_completed_daily_rollups(session, datetime(2026, 7, 5, 10))
+        except BaseException as exc:  # noqa: BLE001 - surfaced via assert below
+            errors.append(exc)
+            session.rollback()
+        finally:
+            session.close()
+
+    threads = [threading.Thread(target=compact) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=10)
+
+    db = LocalSession()
+    rows = db.query(AggregationMonthly).filter_by(month="2026-06").all()
+    db.close()
+    engine.dispose()
+
+    assert not errors
+    assert len(rows) == 1
+    assert rows[0].value == 10
 
 
 def test_dashboard_yesterday_rollup_key_uses_configured_timezone(monkeypatch):

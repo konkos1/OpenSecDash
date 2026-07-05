@@ -171,6 +171,7 @@ def import_ruleset(db: Session, data: dict[str, Any], *, source: str) -> dict[st
         existing.updated_at = now
         existing.last_seen_at = now
     db.flush()
+    db.info.pop(_ACTIVE_RULES_CACHE_KEY, None)
     return {"version": data.get("ruleset_version"), "count": len(rules), "imported": imported, "updated": updated}
 
 
@@ -178,12 +179,22 @@ def import_bundled_rules(db: Session) -> dict[str, Any]:
     return import_ruleset(db, _load_default_ruleset(), source="bundled")
 
 
+_ACTIVE_RULES_CACHE_KEY = "_opensecdash_active_insight_rules"
+
+
 def active_rules(db: Session) -> list[InsightRule]:
+    # Cached per session: this runs once per stored event (the ingestion hot
+    # path), and the rule set only changes via the daily refresh loop or a
+    # bundled-rules import - never mid-batch. Sessions are short-lived (one
+    # request / one datasource tick), which bounds any staleness to a batch.
+    cached = db.info.get(_ACTIVE_RULES_CACHE_KEY)
+    if cached is not None:
+        return cached
     if db.query(InsightRuleModel).filter(InsightRuleModel.is_active == True).count() == 0:
         import_bundled_rules(db)
         db.flush()
     rows = db.query(InsightRuleModel).filter(InsightRuleModel.is_active == True).order_by(InsightRuleModel.rule_id).all()
-    return [
+    rules = [
         InsightRule(
             id=row.rule_id,
             title=row.title,
@@ -201,9 +212,12 @@ def active_rules(db: Session) -> list[InsightRule]:
         )
         for row in rows
     ]
+    db.info[_ACTIVE_RULES_CACHE_KEY] = rules
+    return rules
 
 
 def refresh_insight_rules(db: Session, *, force: bool = False) -> dict[str, Any]:
+    db.info.pop(_ACTIVE_RULES_CACHE_KEY, None)
     _delete_setting(db, "insight_rules.cache_json")
     bundled = import_bundled_rules(db)
     fetched_at_text = _setting(db, RULE_FETCHED_AT_KEY, "")
