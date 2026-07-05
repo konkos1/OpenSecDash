@@ -13,13 +13,23 @@
             {% endblock %}
         </title>
 
-        <script src="https://unpkg.com/htmx.org@1.9.12"></script>
-        <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
-        <script src="https://cdn.tailwindcss.com"></script>
+        {# All UI assets are served locally: no external CDN round trips, no
+           flash of unstyled content from the Tailwind Play CDN's in-browser
+           JIT (tailwind.css is pre-built, see tailwind.config.js), and the
+           dashboard keeps working on hosts without internet access. #}
+        {# ?v= busts the Cache-Control max-age (see main.py) on app updates. #}
+        <script src="/static/vendor/htmx.min.js?v={{ app_version }}"></script>
+        <script defer src="/static/vendor/alpinejs.min.js?v={{ app_version }}"></script>
         <link rel="icon" href="/static/img/opensecdash-icon.svg" type="image/svg+xml">
         <link rel="apple-touch-icon" href="/static/img/opensecdash-icon.svg">
         <link rel="manifest" href="/static/manifest.webmanifest">
-        <link rel="stylesheet" href="/static/css/app.css">
+        <link rel="stylesheet" href="/static/css/app.css?v={{ app_version }}">
+        {# tailwind.css must come AFTER app.css: the Play CDN used to inject
+           its styles at runtime (i.e. last), so utilities like .grid always
+           won equal-specificity fights against app.css rules - e.g. the
+           mobile nav relies on .grid beating .nav-links-mobile's
+           display:none, with x-show's inline style doing the hiding. #}
+        <link rel="stylesheet" href="/static/css/tailwind.css?v={{ app_version }}">
     </head>
 
     <body class="bg-slate-950 text-slate-100 min-h-screen" data-ui-timezone="{{ timezone }}" data-theme="{{ theme }}">
@@ -46,7 +56,9 @@
                 </nav>
             </div>
 
-            <nav class="nav-links-mobile px-4 pb-4 grid gap-2" x-show="menu">
+            {# x-cloak: without it the mobile menu is visible for a moment on
+               every page load until Alpine initializes and x-show hides it. #}
+            <nav class="nav-links-mobile px-4 pb-4 grid gap-2" x-show="menu" x-cloak>
                 <a class="nav {{ 'nav-active' if current_path == '/' else '' }}" href="/">{{ t("nav.dashboard") }}</a>
                 {% if enabled_plugins.crowdsec %}<a class="nav {{ 'nav-active' if current_path.startswith('/crowdsec') else '' }}" href="/crowdsec">{{ t("nav.crowdsec") }}</a>{% endif %}
                 {% if enabled_plugins.traefik_log %}<a class="nav {{ 'nav-active' if current_path.startswith('/access') else '' }}" href="/access">{{ t("nav.access") }}</a>{% endif %}
@@ -76,6 +88,6 @@
             <a class="hover:text-slate-300 underline underline-offset-2" href="https://opensecdash.app" target="_blank" rel="noopener noreferrer">{{ t("footer.documentation") }}</a>
         </footer>
         
-        <script src="/static/js/app.js"></script>
+        <script src="/static/js/app.js?v={{ app_version }}"></script>
     </body>
 </html>

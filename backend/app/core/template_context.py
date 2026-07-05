@@ -3,10 +3,11 @@ from collections.abc import Callable
 from sqlalchemy.orm import Session
 
 from app.core.i18n import translate
-from app.core.language import get_language
 from app.core.version import get_app_version
 from app.models.core import Datasource
 from app.models.settings import Setting
+
+PLUGIN_IDS = ["json_assets", "proxmox_assets", "crowdsec", "geoblock_log", "traefik_log", "mqtt", "mqtt-hass", "geoip"]
 
 
 def get_setting_value(
@@ -26,20 +27,42 @@ def get_setting_value(
     return setting.value
 
 
+def get_setting_values(db: Session, defaults: dict[str, str]) -> dict[str, str]:
+    """Fetch many settings in one query; missing keys keep their default.
+
+    The template context needs a dozen settings for every page, fragment and
+    auto-refresh poll - loading them one by one was a dozen query round trips
+    per request. Per-key semantics match get_setting_value exactly.
+    """
+    values = dict(defaults)
+    for row in db.query(Setting).filter(Setting.key.in_(defaults)).all():
+        values[row.key] = row.value
+    return values
+
+
 def enabled_plugin_map(db: Session) -> dict[str, bool]:
-    return {
-        plugin_id: get_setting_value(db, f"plugin.{plugin_id}.enabled", "false") == "true"
-        for plugin_id in ["json_assets", "proxmox_assets", "crowdsec", "geoblock_log", "traefik_log", "mqtt", "mqtt-hass", "geoip"]
-    }
+    values = get_setting_values(db, {f"plugin.{plugin_id}.enabled": "false" for plugin_id in PLUGIN_IDS})
+    return {plugin_id: values[f"plugin.{plugin_id}.enabled"] == "true" for plugin_id in PLUGIN_IDS}
 
 
 def build_template_context(db: Session) -> dict[str, object | Callable[[str], str]]:
-    language = get_language(db)
-    domain = get_setting_value(db, "domain", "")
-    timezone = get_setting_value(db, "timezone", "auto")
-    theme = get_setting_value(db, "theme", "auto")
-    live_page_refresh = get_setting_value(db, "live_page_refresh", "true") == "true"
-    enabled_plugins = enabled_plugin_map(db)
+    values = get_setting_values(
+        db,
+        {
+            "language": "en",
+            "domain": "",
+            "timezone": "auto",
+            "theme": "auto",
+            "live_page_refresh": "true",
+            **{f"plugin.{plugin_id}.enabled": "false" for plugin_id in PLUGIN_IDS},
+        },
+    )
+    language = values["language"]
+    domain = values["domain"]
+    timezone = values["timezone"]
+    theme = values["theme"]
+    live_page_refresh = values["live_page_refresh"] == "true"
+    enabled_plugins = {plugin_id: values[f"plugin.{plugin_id}.enabled"] == "true" for plugin_id in PLUGIN_IDS}
     event_plugins_enabled = any(
         enabled_plugins[plugin_id]
         for plugin_id in ["crowdsec", "geoblock_log", "traefik_log"]

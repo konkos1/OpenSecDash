@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.middleware.gzip import GZipMiddleware
 
 from app.core.logging import configure_logging_from_db, setup_service_logging
 from app.core.version import get_app_version
@@ -68,6 +69,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(title="OpenSecDash", version=get_app_version(), lifespan=lifespan)
 
+# Pages with a few hundred table rows are several hundred KB of HTML; gzip
+# typically cuts that by ~90%, which is what page-switch speed feels like on
+# anything slower than a LAN.
+app.add_middleware(GZipMiddleware, minimum_size=1024)
+
 app.include_router(settings_router)
 app.include_router(events_router)
 app.include_router(actions_router)
@@ -75,6 +81,18 @@ app.include_router(assets_router)
 app.include_router(pages_router)
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
+
+@app.middleware("http")
+async def static_cache_headers(request: Request, call_next):
+    # Static assets otherwise get browser heuristic caching: sometimes stale
+    # after an update, sometimes re-requested on every page view. Explicit
+    # max-age plus the ?v=<app_version> query in base.html gives fast repeat
+    # loads and a reliable cache bust on every release.
+    response = await call_next(request)
+    if request.url.path.startswith("/static/") and response.status_code == 200:
+        response.headers.setdefault("Cache-Control", "public, max-age=86400")
+    return response
 
 
 def wants_json(request: Request) -> bool:
