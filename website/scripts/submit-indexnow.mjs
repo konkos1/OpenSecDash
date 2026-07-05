@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 const key = (process.env.INDEXNOW_KEY || '').trim()
 const host = process.env.INDEXNOW_HOST || 'opensecdash.app'
 const sitemapPath = process.env.INDEXNOW_SITEMAP || '.vitepress/dist/sitemap.xml'
-const endpoint = process.env.INDEXNOW_ENDPOINT || 'https://www.bing.com/indexnow'
+const endpoint = process.env.INDEXNOW_ENDPOINT || 'https://api.indexnow.org/indexnow'
 const keyLocation = `https://${host}/${key}.txt`
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))

@@ -16,6 +16,10 @@ export default defineConfig({
   description: 'A security dashboard for homelabs',
   cleanUrls: true,
   lastUpdated: true,
+  // Repo-internal docs living inside website/ that must not become site
+  // pages (DEPLOYMENT.md used to leak into the build and the sitemap as
+  // https://opensecdash.app/DEPLOYMENT).
+  srcExclude: ['DEPLOYMENT.md'],
   sitemap: {
     hostname
   },

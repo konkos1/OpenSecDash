@@ -19,4 +19,4 @@ npx --yes wrangler@latest deploy
 npm run indexnow:submit
 ```
 
-IndexNow submission uses `https://www.bing.com/indexnow` by default. If the provider rejects a submission with `403` even though the key file is reachable, the script logs the rejection and does not fail the deployment.
+IndexNow submission uses `https://api.indexnow.org/indexnow` by default - the spec's generic endpoint, which forwards submissions to Bing and all other IndexNow partners. If the provider rejects a submission with `403` even though the key file is reachable, the script logs the rejection and does not fail the deployment.

@@ -54,5 +54,10 @@ jobs:
         env:
           INDEXNOW_KEY: ${{ secrets.INDEXNOW_KEY }}
           INDEXNOW_HOST: opensecdash.app
-          INDEXNOW_ENDPOINT: https://www.bing.com/indexnow
+          # api.indexnow.org (the spec's generic endpoint) instead of Bing's
+          # direct one: bing.com/indexnow is known to answer 403
+          # "UserForbiddedToAccessSite" for submissions the generic endpoint
+          # accepts - and the generic endpoint forwards to Bing and every
+          # other IndexNow partner anyway.
+          INDEXNOW_ENDPOINT: https://api.indexnow.org/indexnow
         run: npm run indexnow:submit

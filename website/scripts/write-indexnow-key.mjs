@@ -8,8 +8,12 @@ if (!key) {
   process.exit(0)
 }
 
-if (!/^[A-Za-z0-9_-]{8,128}$/.test(key)) {
-  throw new Error('INDEXNOW_KEY must be 8-128 characters and contain only letters, numbers, underscore, or hyphen.')
+// The IndexNow spec allows a-z, A-Z, 0-9 and dash only - notably NO
+// underscore. A key outside this set gets rejected by the search engines
+// with a misleading "UserForbiddedToAccessSite", so fail loudly here
+// instead.
+if (!/^[A-Za-z0-9-]{8,128}$/.test(key)) {
+  throw new Error('INDEXNOW_KEY must be 8-128 characters and contain only letters, numbers, or hyphen (the IndexNow spec does not allow underscores).')
 }
 
 const publicDir = join(process.cwd(), 'public')
