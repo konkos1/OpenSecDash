@@ -13,8 +13,8 @@
 
 ## Checklist
 
-- [ ] I have read and agree to the [OpenSecDash CLA](../docs/CLA.md).
-- [ ] I have read the [contribution guidelines](../CONTRIBUTING.md).
+- [ ] I have read and agree to the [OpenSecDash CLA](https://github.com/konkos1/OpenSecDash/blob/main/docs/CLA.md).
+- [ ] I have read the [contribution guidelines](https://github.com/konkos1/OpenSecDash/blob/main/CONTRIBUTING.md).
 - [ ] I added or updated tests where appropriate.
 - [ ] I updated documentation where appropriate.
 - [ ] I did not include secrets, tokens, private logs, or sensitive homelab details.
