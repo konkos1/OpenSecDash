@@ -455,6 +455,10 @@ def dashboard_metric_counts(
     }
 
 
+def _plugin_has_data_before(db: Session, plugin: str, cutoff: datetime) -> bool:
+    return db.query(Event.id).filter(Event.plugin == plugin, Event.event_time < cutoff).first() is not None
+
+
 def dashboard_yesterday_summary(
     db: Session,
     timezone_name: str | None,
@@ -479,8 +483,32 @@ def dashboard_yesterday_summary(
         retention_days = 30
     retention_cutoff = utc_now().replace(tzinfo=None) - timedelta(days=retention_days)
     if retention_days <= 0 or yesterday_start >= retention_cutoff:
-        return dashboard_metric_counts(db, enabled_plugins, yesterday_start, yesterday_end)
+        counts = dashboard_metric_counts(db, enabled_plugins, yesterday_start, yesterday_end)
+
+        # Drop metrics whose plugin has no event older than yesterday - a
+        # fresh install, a plugin enabled today, or a log rotated at local
+        # midnight all mean "yesterday" only ever saw a partial day (or a few
+        # leftover lines), not a real comparison baseline. dashboard_delta
+        # already treats a missing value the same as "no prior data" and
+        # shows "new" instead of computing a percentage against a near-zero,
+        # unrepresentative number. Only applies to this raw-events branch:
+        # reaching the rollup branch below already implies the app has been
+        # running for at least retention_days, so that scenario can't happen
+        # there - and rollups are built incrementally as events are first
+        # ingested, so they don't have a "partial recent tail" to begin with.
+        if not enabled_plugins.get("crowdsec") or not _plugin_has_data_before(db, "crowdsec", yesterday_start):
+            counts.pop("bans", None)
+        if not enabled_plugins.get("geoblock_log") or not _plugin_has_data_before(db, "geoblock_log", yesterday_start):
+            counts.pop("geoblocks", None)
+        if not enabled_plugins.get("traefik_log") or not _plugin_has_data_before(db, "traefik_log", yesterday_start):
+            counts.pop("access_external_events", None)
+            counts.pop("access_internal_events", None)
+        return counts
+
     return rollup_summary(db, "day", dashboard_yesterday_rollup_key(timezone_name)) or {}
+
+
+DASHBOARD_DELTA_PERCENT_CAP = 999
 
 
 def dashboard_delta(current: int, previous: int | None) -> dict[str, str]:
@@ -490,6 +518,15 @@ def dashboard_delta(current: int, previous: int | None) -> dict[str, str]:
             return {"label": "±0%", "class": "dashboard-delta-same"}
         return {"label_key": "dashboard.delta_new", "class": "dashboard-delta-up"}
     percent = round(((current - previous) / previous) * 100)
+    # A tiny (but non-zero) previous value - a handful of leftover events from
+    # a freshly rotated log, for example - can blow this up to five-digit
+    # percentages that are technically correct but meaningless as a display.
+    # Capping is a second line of defense; dashboard_yesterday_summary is the
+    # primary fix, dropping such a value entirely so it never reaches here.
+    # Only an upper cap is needed: counts can't go negative, so a decrease is
+    # always bounded at -100%.
+    if percent > DASHBOARD_DELTA_PERCENT_CAP:
+        return {"label": f">+{DASHBOARD_DELTA_PERCENT_CAP}%", "class": "dashboard-delta-up"}
     if percent > 0:
         return {"label": f"+{percent}%", "class": "dashboard-delta-up"}
     if percent < 0:
