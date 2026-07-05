@@ -23,7 +23,15 @@ OpenSecDash collects security events, access logs, asset information, and update
 - Which apps are installed, and which need updates?
 - Are my plugins and datasources healthy?
 
-![OpenSecDash dashboard overview](website/public/assets/readme/dashboard-overview.svg)
+![OpenSecDash dashboard](website/public/assets/screenshots/dashboard.png)
+
+<table>
+  <tr>
+    <td width="33%"><a href="website/public/assets/screenshots/events.png"><img src="website/public/assets/screenshots/events.png" alt="Events with filters"></a><p align="center">Security events with filters</p></td>
+    <td width="33%"><a href="website/public/assets/screenshots/ip-explorer.png"><img src="website/public/assets/screenshots/ip-explorer.png" alt="IP Explorer"></a><p align="center">IP Explorer with actions and insights</p></td>
+    <td width="33%"><a href="website/public/assets/screenshots/assets.png"><img src="website/public/assets/screenshots/assets.png" alt="Asset Explorer"></a><p align="center">Asset inventory and update checks</p></td>
+  </tr>
+</table>
 
 ## Documentation
 
