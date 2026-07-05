@@ -1,5 +1,5 @@
 import threading
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from app.api.pages import (
     available_rollup_periods,
@@ -210,6 +210,12 @@ def test_dashboard_yesterday_summary_uses_exact_local_day_when_within_retention(
     # local time it's 2026-07-02 01:30 - i.e. Berlin-"yesterday". The UTC-bucketed
     # rollup can't see it under the "2026-07-02" key; the exact raw-event query must.
     db_session.add(Event(event_time=datetime(2026, 7, 1, 23, 30), event_type="security.ban", plugin="crowdsec"))
+    # An older anchor event establishes that crowdsec has been collecting
+    # since before "yesterday" started - without it, dashboard_yesterday_summary
+    # would (correctly, per test_..._omits_metrics_without_full_yesterday_coverage
+    # below) treat this as a partial/incomplete yesterday and drop "bans"
+    # entirely rather than report a real count.
+    db_session.add(Event(event_time=datetime(2026, 6, 20, 12, 0), event_type="security.ban", plugin="crowdsec"))
     db_session.commit()
 
     berlin_midnight_utc = datetime(2026, 7, 2, 22, 0)  # 2026-07-03 00:00 Europe/Berlin, as naive UTC
@@ -249,6 +255,66 @@ def test_dashboard_delta_formats_direction_and_missing_previous():
     assert dashboard_delta(10, 10) == {"label": "±0%", "class": "dashboard-delta-same"}
     assert dashboard_delta(123, 100) == {"label": "+23%", "class": "dashboard-delta-up"}
     assert dashboard_delta(77, 100) == {"label": "-23%", "class": "dashboard-delta-down"}
+
+
+def test_dashboard_delta_caps_extreme_percentages_against_a_tiny_baseline():
+    # A handful of leftover events from a freshly rotated log must not render
+    # as a five-digit percentage - technically correct, useless as a display.
+    assert dashboard_delta(4000, 3) == {"label": ">+999%", "class": "dashboard-delta-up"}
+    # A decrease can't exceed -100% (counts never go negative), so only an
+    # upper cap is needed; confirm a large decrease still formats normally.
+    assert dashboard_delta(1, 4000) == {"label": "-100%", "class": "dashboard-delta-down"}
+
+
+def test_dashboard_yesterday_summary_omits_metrics_without_full_yesterday_coverage(db_session, monkeypatch):
+    import app.api.pages as pages
+
+    # Reproduces the reported bug: a fresh install (or a plugin enabled
+    # today, or a log rotated at local midnight) means the traefik_log
+    # plugin's earliest-ever stored event falls inside "today", not before
+    # "yesterday" started. A first-time import can still produce a handful
+    # of leftover "yesterday" events (e.g. lines written just before a
+    # midnight log rotation) alongside hundreds of "today" events - which
+    # used to render as a five-digit percentage instead of "new".
+    monkeypatch.setattr(pages, "utc_now", lambda: datetime(2026, 7, 5, 16, 0, tzinfo=UTC))
+    since = datetime(2026, 7, 5, 0, 0)
+    yesterday_start = since - timedelta(days=1)
+
+    db_session.add(Event(event_time=yesterday_start + timedelta(hours=1), event_type="access.allowed", plugin="traefik_log", ip="192.168.1.5"))
+    for i in range(50):
+        db_session.add(Event(event_time=since + timedelta(hours=i % 16, minutes=i), event_type="access.allowed", plugin="traefik_log", ip="192.168.1.5"))
+    db_session.commit()
+
+    summary = pages.dashboard_yesterday_summary(
+        db_session,
+        "UTC",
+        since,
+        {"crowdsec": False, "geoblock_log": False, "traefik_log": True},
+    )
+
+    assert "access_internal_events" not in summary
+    assert "access_external_events" not in summary
+
+
+def test_dashboard_yesterday_summary_keeps_coverage_once_plugin_predates_yesterday(db_session, monkeypatch):
+    import app.api.pages as pages
+
+    monkeypatch.setattr(pages, "utc_now", lambda: datetime(2026, 7, 5, 16, 0, tzinfo=UTC))
+    since = datetime(2026, 7, 5, 0, 0)
+    yesterday_start = since - timedelta(days=1)
+
+    db_session.add(Event(event_time=yesterday_start - timedelta(days=10), event_type="access.allowed", plugin="traefik_log", ip="192.168.1.5"))
+    db_session.add(Event(event_time=yesterday_start + timedelta(hours=1), event_type="access.allowed", plugin="traefik_log", ip="192.168.1.5"))
+    db_session.commit()
+
+    summary = pages.dashboard_yesterday_summary(
+        db_session,
+        "UTC",
+        since,
+        {"crowdsec": False, "geoblock_log": False, "traefik_log": True},
+    )
+
+    assert summary["access_internal_events"] == 1
 
 
 def test_summary_from_event_type_rows_supports_legacy_rollups_without_summary_metrics():
