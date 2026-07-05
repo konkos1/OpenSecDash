@@ -51,7 +51,17 @@ features:
 
 OpenSecDash is not a Grafana replacement. It focuses on security-oriented context: IP-centric investigations, event taxonomy, access-log correlation, the Insights engine, asset inventory, update signals, plugin health, and controlled actions such as CrowdSec ban/unban.
 
-![OpenSecDash dashboard overview](/assets/readme/dashboard-overview.svg)
+![OpenSecDash dashboard](/assets/screenshots/dashboard.png)
+
+## A closer look
+
+Filter security events, investigate a single IP with one click, and keep an eye on your apps and their updates:
+
+![Security events with filters](/assets/screenshots/events.png)
+
+![IP Explorer with actions and insights](/assets/screenshots/ip-explorer.png)
+
+![Asset inventory and update checks](/assets/screenshots/assets.png)
 
 ## Docker is recommended
 
