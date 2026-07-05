@@ -1,3 +1,4 @@
+import threading
 from datetime import UTC, datetime
 
 from app.api.pages import (
@@ -137,6 +138,57 @@ def test_compact_completed_daily_rollups_keeps_yesterday_for_dashboard_delta(db_
 
     assert db_session.query(AggregationDaily).filter_by(date="2026-07-31").count() == 0
     assert rollup_rows(db_session, "month", "2026-07", "summary") == [{"key": "total_events", "value": 10}]
+
+
+def test_concurrent_compaction_passes_do_not_double_count(tmp_path):
+    # The hourly rollup loop and the hourly retention cleanup both compact,
+    # from real threads. Without serialization both passes read the same
+    # daily rows and both add them to the monthly rollup - the sum came out
+    # doubled and the monthly rows duplicated.
+    from sqlalchemy import create_engine, event as sa_event
+    from sqlalchemy.orm import sessionmaker
+
+    from app.database.base import Base
+    from app.database.session import configure_sqlite_pragmas
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'compaction.db'}", connect_args={"check_same_thread": False, "timeout": 10})
+    sa_event.listens_for(engine, "connect")(configure_sqlite_pragmas)
+    Base.metadata.create_all(bind=engine)
+    LocalSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+    db = LocalSession()
+    db.add(AggregationDaily(date="2026-06-15", metric="summary", key="total_events", value=10))
+    db.commit()
+    db.close()
+
+    barrier = threading.Barrier(2)
+    errors: list[BaseException] = []
+
+    def compact() -> None:
+        session = LocalSession()
+        try:
+            barrier.wait(timeout=5)
+            compact_completed_daily_rollups(session, datetime(2026, 7, 5, 10))
+        except BaseException as exc:  # noqa: BLE001 - surfaced via assert below
+            errors.append(exc)
+            session.rollback()
+        finally:
+            session.close()
+
+    threads = [threading.Thread(target=compact) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=10)
+
+    db = LocalSession()
+    rows = db.query(AggregationMonthly).filter_by(month="2026-06").all()
+    db.close()
+    engine.dispose()
+
+    assert not errors
+    assert len(rows) == 1
+    assert rows[0].value == 10
 
 
 def test_dashboard_yesterday_rollup_key_uses_configured_timezone(monkeypatch):

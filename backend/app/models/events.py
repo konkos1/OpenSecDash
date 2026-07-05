@@ -22,6 +22,13 @@ class Event(Base):
         # a full table scan once the table has grown; with it the index only
         # ever contains the (usually near-zero) pending rows.
         Index("ix_events_geoip_pending", "geoip_checked", sqlite_where=text("geoip_checked = 0")),
+        # Dedupe lookup (find_duplicate_event) runs once per stored event and
+        # matches on raw_data. Without this index it degrades to scanning
+        # every existing event of the same type per insert - quadratic import
+        # time on a log where all lines share one event type (the norm). The
+        # index carries full raw_data text, trading disk space for O(log n)
+        # ingestion.
+        Index("ix_events_dedupe_raw", "plugin", "event_type", "raw_data"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)

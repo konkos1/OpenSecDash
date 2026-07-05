@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -263,7 +264,25 @@ def update_rollups(db: Session, event: Event) -> None:
             daily.value += 1
 
 
+# Serializes whole compaction passes against each other. The app-wide SQLite
+# write lock only serializes individual commits - two concurrent passes (the
+# hourly rollup loop and the hourly retention cleanup both compact) would each
+# read the same daily rows and each add them to the monthly rollup, doubling
+# the counts.
+_COMPACTION_LOCK = threading.Lock()
+
+
 def compact_completed_daily_rollups(db: Session, reference_time: datetime | None = None) -> int:
+    with _COMPACTION_LOCK:
+        compacted = _compact_completed_daily_rollups_locked(db, reference_time)
+        # Commit while still holding the lock: releasing first would let the
+        # next pass read the daily rows this one just merged but not yet
+        # committed - and merge them into the monthly rollup a second time.
+        db.commit()
+        return compacted
+
+
+def _compact_completed_daily_rollups_locked(db: Session, reference_time: datetime | None = None) -> int:
     now = reference_time or utc_now().replace(tzinfo=None)
     current_month = now.strftime("%Y-%m")
     yesterday = (now - timedelta(days=1)).strftime("%Y-%m-%d")

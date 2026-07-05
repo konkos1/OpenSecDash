@@ -43,7 +43,7 @@ from app.services.asset_actions import (
 from app.services.actions import ActionAlreadyRunning, create_action
 from app.services.crowdsec_decisions import active_decision_for_ip, crowdsec_cscli_status, sync_crowdsec_decisions
 from app.services.asset_hosts import event_matches_asset_host, find_asset_by_host, matching_event_hostnames, normalize_asset_host, sync_asset_host_events
-from app.services.events import apply_event_filters, compact_completed_daily_rollups, is_local_ip_value, store_event, tokenize_search_expression
+from app.services.events import apply_event_filters, is_local_ip_value, store_event, tokenize_search_expression
 from app.services.proxmox_assets import sync_proxmox_assets
 
 router = APIRouter(tags=["pages"])
@@ -638,7 +638,9 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
 @router.get("/rollups")
 def rollups_page(request: Request, db: Session = Depends(get_db)):
     require_events_feature_enabled(db)
-    compact_completed_daily_rollups(db)
+    # No compaction here: a GET must not have write side effects, the hourly
+    # background loop compacts anyway, and the month view merges leftover
+    # daily rows at read time - so the numbers are exact without it.
     days, months = available_rollup_periods(db)
     requested_period = request.query_params.get("period") or "month"
     period = requested_period if requested_period in {"day", "month"} else "month"

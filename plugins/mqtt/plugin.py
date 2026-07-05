@@ -18,6 +18,9 @@ class _PublishModule(Protocol):
     def single(self, *args: Any, **kwargs: Any) -> Any:
         ...
 
+    def multiple(self, *args: Any, **kwargs: Any) -> Any:
+        ...
+
 
 class Plugin(ExportPlugin, PeriodicPlugin):
     def __init__(self) -> None:
@@ -172,8 +175,16 @@ class Plugin(ExportPlugin, PeriodicPlugin):
         }
 
         try:
-            self.publish(context, discovery_topic, discovery_payload, retain=True)
-            self.publish(context, state_topic, state_payload, retain=True)
+            # One broker connection for both messages (discovery + state)
+            # instead of one connection per message - with many publishable
+            # assets the per-message connect/disconnect dominated the export.
+            self.publish_many(
+                context,
+                [
+                    (discovery_topic, discovery_payload, True),
+                    (state_topic, state_payload, True),
+                ],
+            )
         except Exception as exc:
             self._last_publish_error = str(exc)
             raise
@@ -187,6 +198,9 @@ class Plugin(ExportPlugin, PeriodicPlugin):
         return slug[:60]
 
     def publish(self, context, topic: str, payload: dict[str, Any] | str, retain: bool = True) -> None:
+        self.publish_many(context, [(topic, payload, retain)])
+
+    def publish_many(self, context, messages: list[tuple[str, dict[str, Any] | str, bool]]) -> None:
         host = context.get("host")
         if not host:
             raise ValueError("MQTT host is required")
@@ -197,12 +211,18 @@ class Plugin(ExportPlugin, PeriodicPlugin):
         auth = None
         if context.get("username") or context.get("password"):
             auth = {"username": context.get("username"), "password": context.get("password")}
-        logger.debug("Publishing MQTT topic=%s retain=%s", topic, retain)
-        publish.single(
-            topic,
-            json.dumps(payload, ensure_ascii=False) if isinstance(payload, dict) else payload,
+        payloads = [
+            {
+                "topic": topic,
+                "payload": json.dumps(payload, ensure_ascii=False) if isinstance(payload, dict) else payload,
+                "retain": retain,
+            }
+            for topic, payload, retain in messages
+        ]
+        logger.debug("Publishing %d MQTT message(s): %s", len(payloads), ", ".join(item["topic"] for item in payloads))
+        publish.multiple(
+            payloads,
             hostname=host,
             port=int(context.get("port", "1883")),
             auth=auth,
-            retain=retain,
         )
