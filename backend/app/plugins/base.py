@@ -13,6 +13,11 @@ from app.services.events import store_event
 # Keep this module intentionally dependency-light: external plugins import it as
 # their public API surface. Changes here should be backwards compatible or paired
 # with an ADR/plugin API version bump.
+#
+# Note on the "page" capability: it is currently declarative only - plugin
+# pages and their integration services are still wired up in core
+# (app/api/pages.py, app/services/). See ADR-044 for the interim convention
+# and the goal of plugins owning their services and registering pages here.
 PluginCapability = Literal["datasource", "enrichment", "action", "export", "page", "widget", "insight"]
 SettingType = Literal["text", "password", "number", "boolean", "select", "file", "url"]
 

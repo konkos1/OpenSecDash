@@ -1,3 +1,4 @@
+import logging
 import os
 
 from sqlalchemy import inspect, text
@@ -8,6 +9,8 @@ from app.database.session import engine
 from app.models import *  # noqa: F401,F403 - import models for metadata registration
 from app.models.core import Diagnostic, PluginRecord
 from app.models.settings import Setting
+
+logger = logging.getLogger(__name__)
 
 
 DEFAULT_SETTINGS = {
@@ -125,6 +128,48 @@ def _migrate_asset_update_settings(db: Session) -> None:
         db.query(Setting).filter(Setting.key == old_key).delete()
 
 
+def encrypt_legacy_plaintext_secrets(db: Session) -> None:
+    """Startup pass: encrypt plaintext secrets and rotate old-key ciphertexts.
+
+    Two upgrades in one sweep. Plaintext values written by versions before
+    encryption existed get encrypted once. Values encrypted under a previous
+    key (the auto-generated key file, after OSD_SECRET_KEY was introduced)
+    get re-encrypted under the current primary key. Runs on every startup
+    and is a no-op once everything is current.
+    """
+    from app.core.secrets import ENCRYPTED_PREFIX, encrypt_setting_value, is_sensitive_setting_key
+
+    from app.core.secrets import rotate_encrypted_value
+
+    encrypted = 0
+    rotated = 0
+    for setting in db.query(Setting).all():
+        if not setting.value:
+            continue
+        if is_sensitive_setting_key(setting.key) and not setting.value.startswith(ENCRYPTED_PREFIX):
+            setting.value = encrypt_setting_value(setting.key, setting.value)
+            encrypted += 1
+            continue
+        # Seamless key rotation: values encrypted under the auto-generated
+        # key file keep decrypting after OSD_SECRET_KEY is introduced (the
+        # file key acts as fallback) and are re-encrypted under the new
+        # primary key here - switching to the env variable, or rotating it,
+        # never requires re-entering secrets as long as the old key file is
+        # still present.
+        rotated_value = rotate_encrypted_value(setting.value)
+        if rotated_value is not None:
+            setting.value = rotated_value
+            rotated += 1
+    if encrypted:
+        logger.info("Encrypted %d previously plaintext sensitive setting(s) at rest", encrypted)
+    if rotated:
+        logger.info(
+            "Re-encrypted %d setting(s) under the current primary secret key; "
+            "the old key file is no longer needed for them and may be deleted",
+            rotated,
+        )
+
+
 def seed_defaults(db: Session) -> None:
     # ASN enrichment is implemented by the bundled GeoIP plugin. Remove the old
     # placeholder core record if an earlier development database contains it.
@@ -169,6 +214,8 @@ def init_db() -> None:
     db = SessionLocal()
     try:
         seed_defaults(db)
+        encrypt_legacy_plaintext_secrets(db)
+        db.commit()
         from app.services.events import cleanup_duplicate_events
 
         deleted = cleanup_duplicate_events(db)

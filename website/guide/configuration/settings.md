@@ -23,6 +23,29 @@ Most log formats OpenSecDash reads already state their own timezone explicitly (
 
 Some log formats don't include a timezone offset at all - for example the GeoBlock Traefik plugin logs plain timestamps like `2026/06/20 04:00:54` with no offset, which is really the log-writer's local wall-clock time. For those, OpenSecDash needs to be told which timezone that naive timestamp is actually in before it can convert it to UTC - that's what `Log timestamp timezone` is for. It defaults to `UTC`, which is correct if the host/container producing that log already runs its system clock in UTC (the common case for Docker deployments). Set it to the actual local timezone of that log source (for example `Europe/Berlin`) if it doesn't.
 
+## Secrets are encrypted at rest
+
+Sensitive settings values - anything whose key marks it as a password, token, secret, API key, or credential (for example the GitHub API token, the Proxmox token secret, or the MQTT password) - are stored encrypted in the database, not in plaintext. This happens automatically; there is nothing to configure. Existing plaintext values from older versions are encrypted once on the next start.
+
+By default the encryption key is generated on first use and stored as `opensecdash.secret` next to the database file (in Docker: inside the `/data` volume, file mode `600`). That protects a leaked or carelessly shared *database file* - but not a backup of the whole `/data` volume, since the key sits next to the data it protects.
+
+For stricter setups, provide the key yourself via the `OSD_SECRET_KEY` environment variable so it never touches the data volume or its backups:
+
+```yaml
+services:
+  opensecdash:
+    environment:
+      # generate once with:  python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+      OSD_SECRET_KEY: "<your-generated-key>"
+```
+
+Switching from the auto-generated key file to `OSD_SECRET_KEY` later is seamless: as long as the old `opensecdash.secret` file is still present, it keeps working as a decrypt-only fallback, and on the next start every stored secret is automatically re-encrypted under the new key (the log confirms it). After that start, the old key file can be deleted. The same mechanism covers deliberate key rotation - set the new key in `OSD_SECRET_KEY` and provide the previous one as `opensecdash.secret` next to the database for one start.
+
+Two honest limitations to be aware of:
+
+- Encryption at rest does not protect against an attacker who can already run code in the container or on the host - they can read the key the same way OpenSecDash does.
+- If a key is lost entirely (file deleted and no fallback available), the stored secrets cannot be recovered. OpenSecDash keeps working; the affected values simply read as unset and need to be re-entered in Settings, which re-encrypts them under the current key.
+
 ## Actions
 
 | Setting | What it does |

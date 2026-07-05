@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.core.secrets import decrypt_setting_value, encrypt_setting_value
 from app.database.dependencies import get_db
 from app.models.settings import Setting
 
@@ -17,7 +18,7 @@ def list_settings(db: Session = Depends(get_db)):
     return [
         {
             "key": setting.key,
-            "value": setting.value,
+            "value": decrypt_setting_value(setting.key, setting.value),
         }
         for setting in settings
     ]
@@ -35,7 +36,7 @@ def get_setting(key: str, db: Session = Depends(get_db)):
 
     return {
         "key": setting.key,
-        "value": setting.value,
+        "value": decrypt_setting_value(setting.key, setting.value),
     }
 
 
@@ -50,15 +51,15 @@ def set_setting(
     if setting is None:
         setting = Setting(
             key=key,
-            value=value,
+            value=encrypt_setting_value(key, value),
         )
         db.add(setting)
     else:
-        setting.value = value
+        setting.value = encrypt_setting_value(key, value)
 
     db.commit()
 
     return {
         "key": setting.key,
-        "value": setting.value,
+        "value": value,
     }

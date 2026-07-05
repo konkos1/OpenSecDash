@@ -19,6 +19,7 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.core.logging import configure_logging_from_db, redact_sensitive
+from app.core.secrets import decrypt_setting_value, encrypt_setting_value
 from app.core.template_context import build_template_context, get_setting_value
 from app.core.time import datetime_iso_utc, format_datetime_for_timezone, local_day_start_as_utc, resolve_timezone, utc_now
 from app.core.version import get_app_version
@@ -193,13 +194,18 @@ DEFAULT_ACCESS_COLUMNS = "time,ip,host,method,status,path"
 
 
 def save_setting(db: Session, key: str, value: str) -> None:
+    # Sensitive values (passwords, tokens, ...) are encrypted at rest; the
+    # comparison below runs on the decrypted value so re-saving an unchanged
+    # secret doesn't produce a new ciphertext (Fernet output is randomized)
+    # and a misleading "Setting changed" log line on every settings save.
+    stored_value = encrypt_setting_value(key, value)
     setting = db.query(Setting).filter(Setting.key == key).first()
     if setting is None:
-        db.add(Setting(key=key, value=value))
+        db.add(Setting(key=key, value=stored_value))
         logger.info("Setting created key=%s value=%s", key, _redacted_setting_value(key, value))
-    elif setting.value != value:
-        old_value = setting.value
-        setting.value = value
+    elif decrypt_setting_value(key, setting.value) != value:
+        old_value = decrypt_setting_value(key, setting.value)
+        setting.value = stored_value
         logger.info(
             "Setting changed key=%s old=%s new=%s",
             key,

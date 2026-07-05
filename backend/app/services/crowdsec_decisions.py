@@ -71,37 +71,58 @@ def active_decision_for_ip(db: Session, ip: str) -> CrowdSecDecision | None:
     )
 
 
+def crowdsec_connection_mode(db: Session) -> str:
+    return get_setting_value(db, "plugin.crowdsec.connection_mode", "lapi")
+
+
+def _fetch_decisions_via_cscli(db: Session) -> tuple[bool, str, list[Any]]:
+    cscli = get_setting_value(db, "plugin.crowdsec.cscli_path", "/usr/local/bin/cscli")
+    try:
+        completed = subprocess.run([cscli, "decisions", "list", "-o", "json"], capture_output=True, text=True, timeout=30)
+    except FileNotFoundError:
+        return False, f"cscli not found: {cscli}", []
+    except Exception as exc:
+        return False, f"cscli decisions list failed: {exc}", []
+
+    if completed.returncode != 0:
+        return False, (completed.stderr or completed.stdout or "cscli decisions list failed").strip(), []
+
+    try:
+        payload = json.loads(completed.stdout or "[]")
+    except json.JSONDecodeError as exc:
+        return False, f"cscli returned invalid JSON: {exc}", []
+
+    items = payload if isinstance(payload, list) else payload.get("decisions", []) if isinstance(payload, dict) else []
+    return True, "", items
+
+
+def _fetch_decisions_via_lapi(db: Session) -> tuple[bool, str, list[Any]]:
+    from app.services.crowdsec_lapi import LapiError, lapi_active_ban_decisions, lapi_login
+
+    url = get_setting_value(db, "plugin.crowdsec.lapi_url", "http://127.0.0.1:8080")
+    login = get_setting_value(db, "plugin.crowdsec.lapi_login", "")
+    password = get_setting_value(db, "plugin.crowdsec.lapi_password", "")
+    try:
+        token = lapi_login(url, login, password)
+        return True, "", lapi_active_ban_decisions(url, token)
+    except LapiError as exc:
+        return False, str(exc), []
+
+
 def sync_crowdsec_decisions(db: Session, *, force: bool = False) -> tuple[bool, str]:
     latest = db.query(CrowdSecDecision.synced_at).order_by(CrowdSecDecision.synced_at.desc()).first()
     now = utc_now().replace(tzinfo=None)
     if not force and latest and (now - latest[0]).total_seconds() < DECISION_SYNC_INTERVAL_SECONDS:
         return True, "CrowdSec decisions are fresh."
 
-    cscli = get_setting_value(db, "plugin.crowdsec.cscli_path", "/usr/local/bin/cscli")
-    try:
-        completed = subprocess.run([cscli, "decisions", "list", "-o", "json"], capture_output=True, text=True, timeout=30)
-    except FileNotFoundError:
-        message = f"cscli not found: {cscli}"
-        _update_cscli_diagnostic(db, "error", message)
-        return False, message
-    except Exception as exc:
-        message = f"cscli decisions list failed: {exc}"
+    if crowdsec_connection_mode(db) == "cscli":
+        ok, message, items = _fetch_decisions_via_cscli(db)
+    else:
+        ok, message, items = _fetch_decisions_via_lapi(db)
+    if not ok:
         _update_cscli_diagnostic(db, "error", message)
         return False, message
 
-    if completed.returncode != 0:
-        message = (completed.stderr or completed.stdout or "cscli decisions list failed").strip()
-        _update_cscli_diagnostic(db, "error", message)
-        return False, message
-
-    try:
-        payload = json.loads(completed.stdout or "[]")
-    except json.JSONDecodeError as exc:
-        message = f"cscli returned invalid JSON: {exc}"
-        _update_cscli_diagnostic(db, "error", message)
-        return False, message
-
-    items = payload if isinstance(payload, list) else payload.get("decisions", []) if isinstance(payload, dict) else []
     db.query(CrowdSecDecision).delete()
     count = 0
     for item in items:
@@ -123,7 +144,7 @@ def sync_crowdsec_decisions(db: Session, *, force: bool = False) -> tuple[bool, 
                 reason=str(item.get("reason") or item.get("Reason") or "") or None,
                 duration=str(item.get("duration") or item.get("Duration") or "") or None,
                 until=_parse_datetime(item.get("until") or item.get("Until")),
-                raw_json=item,
+                raw_json=item.get("raw", item),
                 synced_at=now,
             )
         )

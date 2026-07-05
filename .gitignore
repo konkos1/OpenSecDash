@@ -228,6 +228,7 @@ backend/opensecdash.db
 backend/opensecdash.db-wal
 backend/opensecdash.db-shm
 backend/opensecdash.db-journal
+backend/opensecdash.secret
 
 # VS Code workspace
 *.code-workspace

@@ -39,6 +39,15 @@ class PluginManager:
     External plugins live outside ``app/`` by design. The manager owns lifecycle,
     settings lookup, diagnostics, and cross-plugin calls so plugins can stay
     small and ADR-compliant.
+
+    Deliberate interim convention (see ADR-044): integration-specific domain
+    services that core pages also consume (e.g. ``app/services/crowdsec_*``,
+    ``proxmox_assets``, ``json_assets_*``) live in ``app/services/`` rather
+    than in the plugin directory. Core code must not import from ``plugins/``
+    (inverted dependency, and plugins are loaded per-file - they are not an
+    importable package in the deployed layout). The long-term goal is for
+    plugins to own their services and register their pages through the plugin
+    API, at which point those modules move into their plugins.
     """
 
     def __init__(self, plugin_dir: Path) -> None:

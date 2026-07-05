@@ -28,7 +28,7 @@ Rule of thumb: **~1 KB per stored event**. This is about how many events are cur
 
 ## Compose file
 
-Two `docker-compose.yml` examples: a minimal one that just gets the app running, and a full one with all plugin log mounts and `cscli` wired in for CrowdSec actions. Start minimal and add mounts as you enable plugins.
+Two `docker-compose.yml` examples: a minimal one that just gets the app running, and a full one with all plugin log mounts. Start minimal and add mounts as you enable plugins.
 
 <details>
 <summary>Minimal example</summary>
@@ -56,22 +56,21 @@ volumes:
 </details>
 
 <details>
-<summary>Full example (all plugin log mounts + cscli)</summary>
+<summary>Full example (all plugin log mounts)</summary>
 
 ```yaml
 services:
   opensecdash:
     image: konkos1/opensecdash:latest
     container_name: opensecdash
-    # cscli needs to reach CrowdSec's Local API on the host; see "Plugin file mounts" below.
+    # Lets the CrowdSec plugin reach CrowdSec's Local API on 127.0.0.1 when
+    # CrowdSec runs on this same host; see "Plugin file mounts" below.
     network_mode: "host"
     volumes:
       - opensecdash-data:/data
       - /var/log/traefik/access.log:/logs/access.log:ro
       - /var/log/traefik/geoblock.log:/logs/geoblock.log:ro
       - /var/log/crowdsec/crowdsec.log:/logs/crowdsec.log:ro
-      - /usr/bin/cscli:/usr/local/bin/cscli:ro
-      - /etc/crowdsec:/etc/crowdsec:ro
       - ./assets/assets.json:/assets/assets.json:ro
     logging:
       driver: json-file
@@ -91,13 +90,6 @@ With `network_mode: "host"` the container shares the host's network stack, so th
 Start the app:
 
 ```bash
-docker compose up -d
-```
-
-Or:
-
-```bash
-cp docker-compose.example.yml docker-compose.yml
 docker compose up -d
 ```
 
@@ -173,7 +165,7 @@ These container-side paths (`/logs/access.log`, `/logs/geoblock.log`, `/logs/cro
 
 `assets.json` is mounted under a dedicated `/assets` path rather than under `/data`: `/data` is owned and recursively chowned to the unprivileged `opensecdash` user on container startup, and a read-only file bind-mounted underneath it can't be chowned. Set the JSON Assets plugin's `Source` setting to `/assets/assets.json` to match this mount.
 
-The CrowdSec plugin additionally shells out to `cscli` for ban/unban actions and decision sync, which needs more than a log mount; see [CrowdSec plugin: cscli in Docker](../plugins/crowdsec.md#cscli-in-docker).
+For CrowdSec ban/unban actions and decision sync, the recommended way is the Local API connection - it needs no extra mounts, just dedicated credentials entered in Settings (plus `network_mode: "host"` when CrowdSec runs on the same host); see [CrowdSec plugin: Connecting via the Local API](../plugins/crowdsec.md#connecting-via-the-local-api-recommended). Running the `cscli` binary inside the container instead is documented as an [alternative](../plugins/crowdsec.md#alternative-cscli-binary-in-docker).
 
 ## Docker logging
 
