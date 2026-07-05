@@ -56,6 +56,29 @@ def test_write_lock_is_released_when_session_closes_without_commit(db_session):
     assert write_lock.locked() is False
 
 
+def test_write_lock_covers_bulk_query_delete_and_update(db_session):
+    # query(...).delete() / .update() write via Session.execute() without a
+    # flush, so they'd bypass a flush-only hook entirely - this bit the GeoIP
+    # cache cleanup in production ("database is locked" during an import).
+    db_session.add(Setting(key="bulk", value="1"))
+    db_session.commit()
+
+    db_session.query(Setting).filter(Setting.key == "bulk").update({"value": "2"})
+    assert write_lock.locked() is True
+    db_session.commit()
+    assert write_lock.locked() is False
+
+    db_session.query(Setting).filter(Setting.key == "bulk").delete()
+    assert write_lock.locked() is True
+    db_session.commit()
+    assert write_lock.locked() is False
+
+
+def test_plain_select_does_not_touch_the_write_lock(db_session):
+    db_session.query(Setting).all()
+    assert write_lock.locked() is False
+
+
 def test_write_lock_is_not_reacquired_across_multiple_flushes_in_one_transaction(db_session):
     # A single write transaction (e.g. import_json_assets, which flushes
     # mid-loop to get a new row's id before the final commit) must only

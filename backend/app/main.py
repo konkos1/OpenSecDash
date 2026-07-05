@@ -143,32 +143,32 @@ def ready() -> dict[str, str]:
     return {"status": "ready"}
 
 
-def live_events_enabled() -> bool:
+def _websocket_poll_state() -> tuple[bool, int]:
+    """One poll iteration's DB reads, sharing a single session.
+
+    Runs via ``asyncio.to_thread``: each connected client polls once per
+    second, and these blocking queries must not run on the event loop itself -
+    with a few open tabs that would otherwise add several loop-freezing DB
+    calls every second, exactly when the app is busiest.
+    """
     db = SessionLocal()
     try:
-        return any(
+        enabled = any(
             get_setting_value(db, f"plugin.{plugin_id}.enabled", "false") == "true"
             for plugin_id in ["crowdsec", "geoblock_log", "traefik_log"]
         )
-    finally:
-        db.close()
-
-
-def latest_event_id() -> int:
-    db = SessionLocal()
-    try:
-        return int(db.query(func.max(Event.id)).scalar() or 0)
+        return enabled, int(db.query(func.max(Event.id)).scalar() or 0)
     finally:
         db.close()
 
 
 @app.websocket("/ws/events")
 async def events_websocket(websocket: WebSocket) -> None:
-    if not live_events_enabled():
+    enabled, last_seen_id = await asyncio.to_thread(_websocket_poll_state)
+    if not enabled:
         await websocket.close(code=1008)
         return
     await websocket.accept()
-    last_seen_id = latest_event_id()
     await websocket.send_json({"type": "connected", "last_event_id": last_seen_id})
 
     try:
@@ -178,11 +178,11 @@ async def events_websocket(websocket: WebSocket) -> None:
             except TimeoutError:
                 pass
 
-            if not live_events_enabled():
+            enabled, current_id = await asyncio.to_thread(_websocket_poll_state)
+            if not enabled:
                 await websocket.close(code=1008)
                 return
 
-            current_id = latest_event_id()
             if current_id > last_seen_id:
                 last_seen_id = current_id
                 await websocket.send_json({"type": "events_changed", "last_event_id": current_id})

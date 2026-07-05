@@ -4,6 +4,7 @@ import asyncio
 import importlib.util
 import logging
 import json
+import time
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -200,35 +201,14 @@ class PluginManager:
                 self.tasks.append(asyncio.create_task(self._periodic_loop(plugin), name=f"plugin-periodic-{plugin.metadata.id}"))
 
     async def _asset_update_loop(self) -> None:
+        # Runs in a thread: the update check makes one GitHub API request per
+        # unique repo, which on a slow connection would otherwise freeze the
+        # event loop (and with it every page view) for the whole check.
         last_run = 0.0
         while True:
             db = SessionLocal()
             try:
-                asset_sources_enabled = any(
-                    get_setting_value(db, f"plugin.{plugin_id}.enabled", "false") == "true"
-                    for plugin_id in ["json_assets", "proxmox_assets"]
-                )
-                interval = self._setting_interval(get_setting_value(db, "asset_updates.github_interval", "21600"))
-                if not asset_sources_enabled:
-                    self._update_diagnostic(db, "asset_updates", "disabled", "No asset source plugin is enabled.")
-                    db.commit()
-                elif interval <= 0:
-                    self._update_diagnostic(db, "asset_updates", "disabled", "Automatic asset update checks are disabled.")
-                    db.commit()
-                else:
-                    now = asyncio.get_running_loop().time()
-                    if last_run == 0 or now - last_run >= interval:
-                        result = refresh_asset_updates(db)
-                        logger.debug("Asset update checks completed: %s", result)
-                        self._update_diagnostic(
-                            db,
-                            "asset_updates",
-                            "healthy",
-                            f"Last check: checked={result['checked']}, updated={result['updated']}, failed={result['failed']}",
-                        )
-                        db.commit()
-                        last_run = now
-                        await self._export_publishable_assets(db)
+                last_run = await asyncio.to_thread(self._run_asset_update_tick, db, last_run)
                 await asyncio.sleep(60)
             except asyncio.CancelledError:
                 db.close()
@@ -238,6 +218,35 @@ class PluginManager:
                 await asyncio.sleep(60)
             finally:
                 db.close()
+
+    def _run_asset_update_tick(self, db: Session, last_run: float) -> float:
+        """Runs one asset-update check synchronously. Called via ``asyncio.to_thread``."""
+        asset_sources_enabled = any(
+            get_setting_value(db, f"plugin.{plugin_id}.enabled", "false") == "true"
+            for plugin_id in ["json_assets", "proxmox_assets"]
+        )
+        interval = self._setting_interval(get_setting_value(db, "asset_updates.github_interval", "21600"))
+        if not asset_sources_enabled:
+            self._update_diagnostic(db, "asset_updates", "disabled", "No asset source plugin is enabled.")
+            db.commit()
+        elif interval <= 0:
+            self._update_diagnostic(db, "asset_updates", "disabled", "Automatic asset update checks are disabled.")
+            db.commit()
+        else:
+            now = time.monotonic()
+            if last_run == 0 or now - last_run >= interval:
+                result = refresh_asset_updates(db)
+                logger.debug("Asset update checks completed: %s", result)
+                self._update_diagnostic(
+                    db,
+                    "asset_updates",
+                    "healthy",
+                    f"Last check: checked={result['checked']}, updated={result['updated']}, failed={result['failed']}",
+                )
+                db.commit()
+                last_run = now
+                asyncio.run(self._export_publishable_assets(db))
+        return last_run
 
     @staticmethod
     def _setting_interval(value: str) -> int:
@@ -264,7 +273,7 @@ class PluginManager:
         while True:
             db = SessionLocal()
             try:
-                result = refresh_insight_rules(db)
+                result = await asyncio.to_thread(refresh_insight_rules, db)
                 logger.debug("Insights engine rules refresh result: %s", result)
                 await asyncio.sleep(24 * 60 * 60)
             except asyncio.CancelledError:
@@ -280,10 +289,9 @@ class PluginManager:
         while True:
             db = SessionLocal()
             try:
-                compacted = compact_completed_daily_rollups(db)
+                compacted = await asyncio.to_thread(self._run_rollup_compaction, db)
                 if compacted:
                     logger.info("Compacted %d completed rollup month(s)", compacted)
-                db.commit()
                 await asyncio.sleep(60 * 60)
             except asyncio.CancelledError:
                 db.close()
@@ -294,15 +302,23 @@ class PluginManager:
             finally:
                 db.close()
 
+    @staticmethod
+    def _run_rollup_compaction(db: Session) -> int:
+        """Runs one compaction pass synchronously. Called via ``asyncio.to_thread``."""
+        compacted = compact_completed_daily_rollups(db)
+        db.commit()
+        return compacted
+
     async def _retention_cleanup_loop(self) -> None:
+        # Runs in a thread: on a busy instance the retention DELETE can touch
+        # tens of thousands of rows in one transaction, which must not stall
+        # the event loop while SQLite works through it.
         while True:
             db = SessionLocal()
             try:
-                retention_days = self._setting_interval(get_setting_value(db, "retention_days", "30"))
-                deleted = cleanup_events_by_retention(db, retention_days)
+                deleted = await asyncio.to_thread(self._run_retention_cleanup, db)
                 if deleted:
                     logger.info("Retention cleanup removed %d raw event(s)", deleted)
-                db.commit()
                 await asyncio.sleep(60 * 60)
             except asyncio.CancelledError:
                 db.close()
@@ -312,6 +328,13 @@ class PluginManager:
                 await asyncio.sleep(60 * 60)
             finally:
                 db.close()
+
+    def _run_retention_cleanup(self, db: Session) -> int:
+        """Runs one retention cleanup synchronously. Called via ``asyncio.to_thread``."""
+        retention_days = self._setting_interval(get_setting_value(db, "retention_days", "30"))
+        deleted = cleanup_events_by_retention(db, retention_days)
+        db.commit()
+        return deleted
 
     async def _geoip_backfill_loop(self) -> None:
         while True:
@@ -355,34 +378,54 @@ class PluginManager:
     async def _health_loop(self, plugin: Plugin) -> None:
         # Health checks are separate from datasource/periodic work on purpose:
         # diagnostics should still update when a collector is idle or disabled.
+        # Runs in a thread: health checks block on real I/O (cscli subprocess
+        # up to 10s, Proxmox API requests, MQTT socket connects up to 5s) and
+        # must not freeze the event loop for that long.
         while True:
             db = SessionLocal()
             try:
-                ctx = self.context(db, plugin)
-                enabled = ctx.get("enabled", "false").lower() == "true"
-                if not enabled:
-                    self._update_diagnostic(db, plugin.metadata.id, "disabled", "Plugin is disabled and not running.")
-                else:
-                    result = await plugin.health(ctx)
-                    logger.debug("Plugin %s health: %s", plugin.metadata.id, result)
-                    self._update_diagnostic(
-                        db,
-                        plugin.metadata.id,
-                        result.get("status", "healthy"),
-                        result.get("message") or result.get("error"),
-                    )
-                db.commit()
+                await asyncio.to_thread(self._run_health_tick, db, plugin)
                 await asyncio.sleep(60)
             except asyncio.CancelledError:
                 db.close()
                 raise
             except Exception as exc:
                 logger.exception("Plugin %s health check failed", plugin.metadata.id)
-                self._update_diagnostic(db, plugin.metadata.id, "error", str(exc))
-                db.commit()
+                await asyncio.to_thread(self._record_loop_error, db, plugin.metadata.id, str(exc))
                 await asyncio.sleep(60)
             finally:
                 db.close()
+
+    def _record_loop_error(self, db: Session, plugin_id: str, message: str, update_datasource: bool = False) -> None:
+        """Persists a loop failure synchronously. Called via ``asyncio.to_thread``.
+
+        Error commits must go through a thread like every other write: they
+        wait on the app-wide write lock, and the event loop waiting on a lock
+        held by a busy import thread would freeze request dispatching for
+        every client - the loop must never block on the write lock itself.
+        """
+        db.rollback()
+        self._update_diagnostic(db, plugin_id, "error", message)
+        if update_datasource:
+            self._update_datasource(db, plugin_id, True, "error", message, 0)
+        db.commit()
+
+    def _run_health_tick(self, db: Session, plugin: Plugin) -> None:
+        """Runs one health check synchronously. Called via ``asyncio.to_thread``."""
+        ctx = self.context(db, plugin)
+        enabled = ctx.get("enabled", "false").lower() == "true"
+        if not enabled:
+            self._update_diagnostic(db, plugin.metadata.id, "disabled", "Plugin is disabled and not running.")
+        else:
+            result = asyncio.run(plugin.health(ctx))
+            logger.debug("Plugin %s health: %s", plugin.metadata.id, result)
+            self._update_diagnostic(
+                db,
+                plugin.metadata.id,
+                result.get("status", "healthy"),
+                result.get("message") or result.get("error"),
+            )
+        db.commit()
 
     async def _datasource_loop(self, plugin: DatasourcePlugin) -> None:
         while True:
@@ -401,10 +444,7 @@ class PluginManager:
                 raise
             except Exception as exc:
                 logger.exception("Datasource plugin %s failed", plugin.metadata.id)
-                db.rollback()
-                self._update_diagnostic(db, plugin.metadata.id, "error", str(exc))
-                self._update_datasource(db, plugin.metadata.id, True, "error", str(exc), 0)
-                db.commit()
+                await asyncio.to_thread(self._record_loop_error, db, plugin.metadata.id, str(exc), True)
                 await asyncio.sleep(10)
             finally:
                 db.close()
@@ -453,6 +493,12 @@ class PluginManager:
             # at most one partial chunk instead of the whole tick.
             if found % EVENTS_COMMIT_EVERY == 0:
                 db.commit()
+                # Lock releases don't hand off fairly: without this pause the
+                # import thread re-acquires the write lock microseconds after
+                # releasing it and starves every other writer (settings
+                # saves, error diagnostics) for the whole backlog import.
+                # Bulk work queues behind interactive writes, not vice versa.
+                time.sleep(0.02)
         if found:
             logger.debug(
                 "Datasource plugin %s processed events found=%d stored=%d duplicates=%d",
@@ -486,33 +532,40 @@ class PluginManager:
         return max(interval, 1)
 
     async def _periodic_loop(self, plugin: PeriodicPlugin) -> None:
+        # Runs in a thread: periodic ticks block on real I/O (cscli subprocess
+        # up to 30s for decision sync, Proxmox API requests, MQTT publishes,
+        # JSON source fetches) and must not freeze the event loop for that
+        # long - a slow tick used to make every page view hang with it.
         while True:
             db = SessionLocal()
             try:
-                ctx = self.context(db, plugin)
-                enabled = ctx.get("enabled", "false").lower() == "true"
-                if enabled:
-                    await plugin.tick(ctx)
-                    db.commit()
-                sleep_for = 60
-                publish_interval = ctx.get("publish_interval", "")
-                poll_interval = ctx.get("poll_interval", "")
-                if publish_interval.isdigit() and int(publish_interval) > 0:
-                    sleep_for = max(int(publish_interval), 1)
-                elif poll_interval.isdigit() and int(poll_interval) > 0:
-                    sleep_for = max(int(poll_interval), 1)
+                sleep_for = await asyncio.to_thread(self._run_periodic_tick, db, plugin)
                 await asyncio.sleep(sleep_for)
             except asyncio.CancelledError:
                 db.close()
                 raise
             except Exception as exc:
                 logger.exception("Periodic plugin %s failed", plugin.metadata.id)
-                db.rollback()
-                self._update_diagnostic(db, plugin.metadata.id, "error", str(exc))
-                db.commit()
+                await asyncio.to_thread(self._record_loop_error, db, plugin.metadata.id, str(exc))
                 await asyncio.sleep(60)
             finally:
                 db.close()
+
+    def _run_periodic_tick(self, db: Session, plugin: PeriodicPlugin) -> int:
+        """Runs one periodic tick synchronously. Called via ``asyncio.to_thread``."""
+        ctx = self.context(db, plugin)
+        enabled = ctx.get("enabled", "false").lower() == "true"
+        if enabled:
+            asyncio.run(plugin.tick(ctx))
+            db.commit()
+        sleep_for = 60
+        publish_interval = ctx.get("publish_interval", "")
+        poll_interval = ctx.get("poll_interval", "")
+        if publish_interval.isdigit() and int(publish_interval) > 0:
+            sleep_for = max(int(publish_interval), 1)
+        elif poll_interval.isdigit() and int(poll_interval) > 0:
+            sleep_for = max(int(poll_interval), 1)
+        return sleep_for
 
     def _update_datasource(
         self,

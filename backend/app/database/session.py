@@ -58,13 +58,26 @@ write_lock = threading.Lock()
 _WRITE_LOCK_HELD_KEY = "_opensecdash_write_lock_held"
 
 
-def _acquire_write_lock_before_flush(session, flush_context, instances) -> None:
-    if not settings.database_url.startswith("sqlite"):
-        return
+def _acquire_write_lock(session) -> None:
     if session.info.get(_WRITE_LOCK_HELD_KEY):
         return  # already held for this transaction (e.g. an earlier explicit flush)
     write_lock.acquire()
     session.info[_WRITE_LOCK_HELD_KEY] = True
+
+
+def _acquire_write_lock_before_flush(session, flush_context, instances) -> None:
+    _acquire_write_lock(session)
+
+
+def _acquire_write_lock_before_dml(orm_execute_state) -> None:
+    # Bulk statements issued through Session.execute() - most importantly
+    # query(...).delete() / query(...).update() - write without ever going
+    # through a flush, so before_flush alone would let them race every other
+    # writer unlocked (this bit the GeoIP cache cleanup in practice).
+    if orm_execute_state.is_select:
+        return
+    if orm_execute_state.is_update or orm_execute_state.is_delete or orm_execute_state.is_insert:
+        _acquire_write_lock(orm_execute_state.session)
 
 
 def _release_write_lock_after_transaction_end(session, transaction) -> None:
@@ -81,4 +94,5 @@ def _release_write_lock_after_transaction_end(session, transaction) -> None:
 
 if settings.database_url.startswith("sqlite"):
     event.listens_for(Session, "before_flush")(_acquire_write_lock_before_flush)
+    event.listens_for(Session, "do_orm_execute")(_acquire_write_lock_before_dml)
     event.listens_for(Session, "after_transaction_end")(_release_write_lock_after_transaction_end)

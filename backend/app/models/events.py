@@ -2,7 +2,7 @@ from datetime import datetime
 
 from app.core.time import utc_now
 
-from sqlalchemy import Boolean, DateTime, Index, JSON, String, Text
+from sqlalchemy import Boolean, DateTime, Index, JSON, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database.base import Base
@@ -12,6 +12,11 @@ class Event(Base):
     __tablename__ = "events"
     __table_args__ = (
         Index("ix_events_event_type_time", "event_type", "event_time"),
+        # Partial index for the GeoIP backfill loop, which polls for
+        # unchecked events every few seconds forever. Without it that poll is
+        # a full table scan once the table has grown; with it the index only
+        # ever contains the (usually near-zero) pending rows.
+        Index("ix_events_geoip_pending", "geoip_checked", sqlite_where=text("geoip_checked = 0")),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)

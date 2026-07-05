@@ -1,3 +1,4 @@
+import asyncio
 from collections import Counter
 from datetime import datetime, timedelta
 from http import HTTPStatus
@@ -833,10 +834,17 @@ def events_page(
 
 @router.post("/events/columns")
 async def save_events_columns(request: Request, db: Session = Depends(get_db)):
-    require_events_feature_enabled(db)
     form = await request.form()
-    save_table_columns(db, "ui.events.visible_columns", [str(value) for value in form.getlist("columns")], DEFAULT_EVENTS_COLUMNS)
-    db.commit()
+
+    # In a thread: this route must stay async for request.form(), but its DB
+    # write would otherwise run on the event loop - and freeze every page for
+    # everyone whenever a background writer happens to hold the write lock.
+    def _save() -> None:
+        require_events_feature_enabled(db)
+        save_table_columns(db, "ui.events.visible_columns", [str(value) for value in form.getlist("columns")], DEFAULT_EVENTS_COLUMNS)
+        db.commit()
+
+    await asyncio.to_thread(_save)
     return RedirectResponse(url=column_redirect_url(request, "/events", str(form.get("snapshot_before") or "")), status_code=303)
 
 
@@ -895,10 +903,15 @@ def access_page(
 
 @router.post("/access/columns")
 async def save_access_columns(request: Request, db: Session = Depends(get_db)):
-    require_plugin_enabled(db, "traefik_log")
     form = await request.form()
-    save_table_columns(db, "ui.access.visible_columns", [str(value) for value in form.getlist("columns")], DEFAULT_ACCESS_COLUMNS)
-    db.commit()
+
+    # In a thread for the same reason as save_events_columns.
+    def _save() -> None:
+        require_plugin_enabled(db, "traefik_log")
+        save_table_columns(db, "ui.access.visible_columns", [str(value) for value in form.getlist("columns")], DEFAULT_ACCESS_COLUMNS)
+        db.commit()
+
+    await asyncio.to_thread(_save)
     return RedirectResponse(url=column_redirect_url(request, "/access", str(form.get("snapshot_before") or "")), status_code=303)
 
 
@@ -1628,49 +1641,59 @@ async def save_settings(
     asset_updates_github_interval: str = Form("21600"),
     db: Session = Depends(get_db),
 ):
-    if language not in {"de", "en"}:
-        language = "en"
-    domain = clean_url_value(domain)
-    if asset_source_type == "url":
-        asset_source = clean_url_value(asset_source)
-    for key, value in {
-        "domain": domain,
-        "language": language,
-        "retention_days": retention_days,
-        "live_default": live_default,
-        "theme": theme,
-        "timezone": timezone,
-        "log_timestamp_timezone": log_timestamp_timezone,
-        "live_page_refresh": live_page_refresh,
-        "asset_source_type": asset_source_type,
-        "asset_source": asset_source,
-        "action_dry_run": action_dry_run,
-        "log_file_enabled": log_file_enabled,
-        "log_file_path": log_file_path,
-        "log_level": log_level if log_level in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"} else "INFO",
-        "asset_updates.github_token": asset_updates_github_token,
-        "asset_updates.github_interval": asset_updates_github_interval,
-    }.items():
-        save_setting(db, key, value)
-
     form = await request.form()
-    plugin_setting_types = {
-        setting["key"]: setting["type"]
-        for group in get_plugin_manager().plugin_settings(db, get_setting_value(db, "language", "en"))
-        for setting in group["settings"]
-    }
-    plugin_source_types = {
-        key: str(value)
-        for key, value in form.items()
-        if key.startswith("plugin.") and key.endswith(".source_type")
-    }
-    for key, value in form.items():
-        if key.startswith("plugin."):
-            text_value = str(value)
-            source_type_key = key.removesuffix(".source") + ".source_type"
-            if plugin_setting_types.get(key) == "url" or (key.endswith(".source") and plugin_source_types.get(source_type_key) == "url"):
-                text_value = clean_url_value(text_value)
-            save_setting(db, key, text_value)
-    db.commit()
-    configure_logging_from_db(db)
+
+    # In a thread: saving settings is the single most write-heavy request in
+    # the app (dozens of setting rows plus a commit). It must stay async for
+    # request.form(), but running the writes on the event loop would freeze
+    # every page for everyone whenever a background writer holds the write
+    # lock - which is exactly when users go to Settings to disable a plugin.
+    def _save() -> None:
+        nonlocal language, domain, asset_source
+        if language not in {"de", "en"}:
+            language = "en"
+        domain = clean_url_value(domain)
+        if asset_source_type == "url":
+            asset_source = clean_url_value(asset_source)
+        for key, value in {
+            "domain": domain,
+            "language": language,
+            "retention_days": retention_days,
+            "live_default": live_default,
+            "theme": theme,
+            "timezone": timezone,
+            "log_timestamp_timezone": log_timestamp_timezone,
+            "live_page_refresh": live_page_refresh,
+            "asset_source_type": asset_source_type,
+            "asset_source": asset_source,
+            "action_dry_run": action_dry_run,
+            "log_file_enabled": log_file_enabled,
+            "log_file_path": log_file_path,
+            "log_level": log_level if log_level in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"} else "INFO",
+            "asset_updates.github_token": asset_updates_github_token,
+            "asset_updates.github_interval": asset_updates_github_interval,
+        }.items():
+            save_setting(db, key, value)
+
+        plugin_setting_types = {
+            setting["key"]: setting["type"]
+            for group in get_plugin_manager().plugin_settings(db, get_setting_value(db, "language", "en"))
+            for setting in group["settings"]
+        }
+        plugin_source_types = {
+            key: str(value)
+            for key, value in form.items()
+            if key.startswith("plugin.") and key.endswith(".source_type")
+        }
+        for key, value in form.items():
+            if key.startswith("plugin."):
+                text_value = str(value)
+                source_type_key = key.removesuffix(".source") + ".source_type"
+                if plugin_setting_types.get(key) == "url" or (key.endswith(".source") and plugin_source_types.get(source_type_key) == "url"):
+                    text_value = clean_url_value(text_value)
+                save_setting(db, key, text_value)
+        db.commit()
+        configure_logging_from_db(db)
+
+    await asyncio.to_thread(_save)
     return RedirectResponse(url="/settings", status_code=303)
