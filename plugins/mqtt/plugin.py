@@ -153,7 +153,13 @@ class Plugin(ExportPlugin, PeriodicPlugin):
 
         slug = self.make_slug(str(asset.name))
         state_topic = f"{context.get('topic_prefix', 'opensecdash').strip('/')}/apps/{slug}/state"
-        discovery_topic = f"{context.get('discovery_prefix', 'homeassistant').strip('/')}/update/{slug}/config"
+        # The discovery object_id is namespaced to match the unique_id: the
+        # discovery topic is the entity's identity for Home Assistant, and a
+        # bare app slug ("nextcloud") is far too likely to collide with other
+        # update publishers on the same broker. A colliding retained config
+        # with a different unique_id can never create an entity - HA refuses
+        # to change the unique_id of an existing discovery topic.
+        discovery_topic = f"{context.get('discovery_prefix', 'homeassistant').strip('/')}/update/opensecdash_{slug}/config"
 
         discovery_payload = {
             "name": asset.name,

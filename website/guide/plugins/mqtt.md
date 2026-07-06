@@ -52,6 +52,12 @@ The Asset Explorer shows MQTT controls when MQTT is enabled and assets have enou
 
 Home Assistant must have MQTT integration enabled and connected to the same broker. The discovery prefix in OpenSecDash must match Home Assistant's MQTT discovery prefix.
 
+Topics are namespaced per app: discovery configs are published to `<discovery prefix>/update/opensecdash_<app-slug>/config` and states to `<state topic prefix>/apps/<app-slug>/state`. The `opensecdash_` namespace in the discovery topic matters: for Home Assistant the discovery topic is the entity's identity, and a bare app slug like `nextcloud` would collide with any other update publisher on the same broker - a colliding retained config with a different `unique_id` can never create an entity, so the apps silently never appear.
+
+::: tip Upgrading from versions before this namespace
+Older versions (< v0.2.0) published discovery configs to `<discovery prefix>/update/<app-slug>/config` (without the `opensecdash_` namespace). Those retained configs stay on the broker until cleared. If leftover duplicate entities bother you, clear each old topic once with an empty retained payload, e.g. `mosquitto_pub -h <broker> -u <user> -P <pass> -t 'homeassistant/update/nextcloud/config' -r -n` - Home Assistant then removes the old entity.
+:::
+
 Each published app becomes a standard Home Assistant `update.*` entity (`device_class: firmware`), grouped under a single **OpenSecDash Assets** device. Home Assistant's MQTT Update integration reads the JSON state payload directly, so these attributes are available on every entity without any extra Home Assistant-side configuration:
 
 | Attribute | Source |
