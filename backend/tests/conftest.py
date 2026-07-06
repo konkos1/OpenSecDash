@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 from cryptography.fernet import Fernet
 from sqlalchemy import create_engine
@@ -6,6 +8,19 @@ from sqlalchemy.orm import sessionmaker
 from app.core import secrets as secrets_module
 from app.database.base import Base
 from app.models import *  # noqa: F403 - import models so SQLAlchemy registers all tables
+
+PLUGINS_DIR = Path(__file__).resolve().parents[2] / "plugins"
+
+
+def import_plugin_module(plugin_dirname: str, submodule: str):
+    """Import a plugin submodule the same way the plugin manager loads it.
+
+    Tests for plugin-owned services (see docs/internal/plugin-rework/) use this
+    instead of sys.path tricks, so test imports match the deployed layout.
+    """
+    from app.plugins.loader import import_plugin_module as _import
+
+    return _import(PLUGINS_DIR / plugin_dirname, submodule)
 
 
 @pytest.fixture(autouse=True)

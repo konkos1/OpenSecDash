@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 import asyncio
-import importlib.util
 import logging
 import json
 import time
 from pathlib import Path
-from types import ModuleType
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -17,6 +15,7 @@ from app.models.assets import Asset
 from app.models.core import Datasource, Diagnostic, PluginRecord
 from app.models.settings import Setting
 from app.plugins.base import ActionPlugin, DatasourcePlugin, ExportPlugin, PeriodicPlugin, Plugin, PluginContext, PluginSetting
+from app.plugins.loader import import_plugin_module
 from app.core.time import utc_now
 from app.services.events import cleanup_events_by_retention, compact_completed_daily_rollups
 from app.services.geoip import enrich_pending_events
@@ -58,29 +57,34 @@ class PluginManager:
 
     def discover(self) -> None:
         # Discovery is file-system based to keep packaging simple for community
-        # plugins: each plugin is a directory with a ``plugin.py`` exposing
-        # ``Plugin``. Avoid importing arbitrary helper files here.
+        # plugins: each plugin is a package directory (``__init__.py``) with a
+        # ``plugin.py`` exposing ``Plugin``. Loaded via the osd_plugins
+        # namespace (see app.plugins.loader) so plugins can ship their own
+        # submodules and import them relatively.
         self.plugins.clear()
         if not self.plugin_dir.exists():
             logger.warning("Plugin directory does not exist: %s", self.plugin_dir)
             return
         for plugin_py in sorted(self.plugin_dir.glob("*/plugin.py")):
-            module = self._load_module(plugin_py)
+            plugin_dir = plugin_py.parent
+            if not (plugin_dir / "__init__.py").exists():
+                logger.warning(
+                    "Skipping plugin directory without __init__.py (packages are required since plugin API 2): %s",
+                    plugin_dir,
+                )
+                continue
+            # One broken plugin must not take down discovery of the others.
+            try:
+                module = import_plugin_module(plugin_dir, "plugin")
+            except Exception:
+                logger.exception("Failed to load plugin from %s; skipping it", plugin_dir)
+                continue
             plugin_class = getattr(module, "Plugin", None)
             if plugin_class is None:
                 continue
             plugin: Plugin = plugin_class()
             self.plugins[plugin.metadata.id] = plugin
             logger.debug("Discovered plugin %s from %s", plugin.metadata.id, plugin_py)
-
-    def _load_module(self, path: Path) -> ModuleType:
-        module_name = f"opensecdash_external_plugin_{path.parent.name}"
-        spec = importlib.util.spec_from_file_location(module_name, path)
-        if spec is None or spec.loader is None:
-            raise ImportError(f"Cannot load plugin from {path}")
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        return module
 
     def seed_database(self, db: Session) -> None:
         # Persist plugin metadata and default settings so the UI can render
