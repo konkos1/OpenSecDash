@@ -63,3 +63,56 @@ jobs:
           else
             gh release create "${TAG}" --title "${TAG}" --notes-file release-notes.md --verify-tag
           fi
+
+  website:
+    # The website follows releases: merges to main only deploy immediately
+    # when the PR carries the `website-deploy` label (see website.yml). Every
+    # release publishes the site so feature docs go live together with the
+    # version they describe.
+    name: Deploy website
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      # Shared with the Website workflow so two deploys never run wrangler
+      # against Cloudflare at the same time.
+      group: website-deploy
+      cancel-in-progress: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Install dependencies
+        working-directory: website
+        run: npm ci --no-audit
+
+      - name: Build website
+        working-directory: website
+        env:
+          INDEXNOW_KEY: ${{ secrets.INDEXNOW_KEY }}
+        run: npm run docs:build
+
+      - name: Deploy to Cloudflare Workers
+        working-directory: website
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx --yes wrangler@latest deploy
+
+      - name: Wait for Cloudflare deployment propagation
+        run: sleep 60
+
+      - name: Submit URLs to IndexNow
+        continue-on-error: true
+        working-directory: website
+        env:
+          INDEXNOW_KEY: ${{ secrets.INDEXNOW_KEY }}
+          INDEXNOW_HOST: opensecdash.app
+          INDEXNOW_ENDPOINT: https://api.indexnow.org/indexnow
+        run: npm run indexnow:submit

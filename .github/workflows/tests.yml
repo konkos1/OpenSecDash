@@ -1,15 +1,15 @@
 name: Tests
 
+# No `paths:` filter on purpose: "Backend tests" is a required status check,
+# and a workflow that never triggers leaves the check in "Expected" forever,
+# blocking the merge. Instead the workflow always runs, a cheap first job
+# detects whether anything test-relevant changed, and the heavy job is
+# skipped otherwise - skipped jobs satisfy required checks.
+
 on:
   pull_request:
-    paths:
-      - "backend/**"
-      - ".github/workflows/tests.yml"
   push:
     branches: [main]
-    paths:
-      - "backend/**"
-      - ".github/workflows/tests.yml"
 
 permissions:
   contents: read
@@ -19,10 +19,54 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Detect relevant changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Check for test-relevant changes
+        id: filter
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          if [[ "${EVENT_NAME}" != "pull_request" && ( -z "${BASE_SHA}" || "${BASE_SHA}" == "0000000000000000000000000000000000000000" ) ]]; then
+            echo "No usable base commit (new branch/force push) - running tests to be safe."
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [[ "${EVENT_NAME}" == "pull_request" ]]; then
+            # Three-dot diff = changes on the PR side only, even when main moved on.
+            changed="$(git diff --name-only "${BASE_SHA}...HEAD")"
+          else
+            changed="$(git diff --name-only "${BASE_SHA}..${GITHUB_SHA}")"
+          fi
+          echo "Changed files:"
+          echo "${changed}"
+          # Markdown-only changes (READMEs, docs) don't need the test suite;
+          # anything else under backend/, plugins/, or the workflows does.
+          if echo "${changed}" | grep -vE '\.md$' | grep -qE '^(backend/|plugins/|\.github/workflows/)'; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Only documentation/unrelated files changed - skipping tests."
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
+
   backend:
     name: Backend tests
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
 
     steps:
       - name: Checkout
