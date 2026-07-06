@@ -1042,8 +1042,14 @@ def action_ip_page(
     confirmed: bool = Form(False),
     db: Session = Depends(get_db),
 ):
+    # Told to CrowdSec itself (as the LAPI/cscli decision reason) and stored
+    # on the resulting event, so both CrowdSec's own tooling and the CrowdSec
+    # page clearly show this was a manual OpenSecDash action instead of a
+    # generic, unidentifiable "Manual action".
+    is_ban = action_type in {"security.ban", "crowdsec_ban"}
+    reason = "Manual ban via OpenSecDash" if is_ban else "Manual unban via OpenSecDash"
     try:
-        create_action(db, action_type, ip, "ip", {"duration": duration, "reason": "Manual action", "decision_id": decision_id}, confirmed)
+        create_action(db, action_type, ip, "ip", {"duration": duration, "reason": reason, "decision_id": decision_id}, confirmed)
     except ActionAlreadyRunning as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ValueError as exc:
@@ -1053,7 +1059,7 @@ def action_ip_page(
             plugin_id="crowdsec" if action_type.startswith("security.") or action_type.startswith("crowdsec_") else "core",
             target_type="ip",
             target=ip,
-            parameters={"duration": duration, "reason": "Manual action", "decision_id": decision_id},
+            parameters={"duration": duration, "reason": reason, "decision_id": decision_id},
             status="failed",
             result=str(exc),
             requires_confirmation=action_type in {"security.ban", "security.unban", "crowdsec_ban", "crowdsec_unban"},
