@@ -256,9 +256,25 @@ def refresh_insight_rules(db: Session, *, force: bool = False) -> dict[str, Any]
         return {"status": "updated", "source": "remote", "version": remote.get("version"), "count": active_count}
     except Exception as exc:
         active_count = len(active_rules(db))
-        _update_diagnostic(db, "warning", f"Could not fetch remote insight rules; using database/bundled rules: {exc}")
+        last_known_version = _setting(db, RULE_VERSION_KEY, "")
+        last_fetched_at = _setting(db, RULE_FETCHED_AT_KEY, "")
+        # RULE_FETCHED_AT_KEY/RULE_VERSION_KEY are only ever written on a
+        # successful fetch (including a 304) - never here - so their presence
+        # is exactly "has a remote fetch ever succeeded", and their value is
+        # exactly the last known-good remote state. That makes the fallback
+        # message precise about what's actually active instead of the vague
+        # "database/bundled rules" it used to say, which could mean either
+        # bundled-only or bundled-plus-previously-fetched-remote.
+        if last_known_version and last_fetched_at:
+            message = (
+                f"Remote insight rules fetch failed ({exc}). "
+                f"Using last known-good remote rules: v{last_known_version} (fetched {last_fetched_at}), plus pre-shipped rules."
+            )
+        else:
+            message = f"Remote insight rules unreachable ({exc}). Using pre-shipped rules only (v{bundled['version']})."
+        _update_diagnostic(db, "warning", message)
         db.commit()
-        return {"status": "failed", "source": "database", "version": _setting(db, RULE_VERSION_KEY, str(bundled["version"])), "count": active_count, "error": str(exc)}
+        return {"status": "failed", "source": "database", "version": last_known_version or str(bundled["version"]), "count": active_count, "error": str(exc)}
 
 
 def _insight_exists(db: Session, insight_type: str, event_ids: list[int]) -> bool:
