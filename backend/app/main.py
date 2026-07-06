@@ -3,11 +3,10 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import func
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.gzip import GZipMiddleware
@@ -27,8 +26,9 @@ from app.core.template_context import get_setting_value
 from app.models.events import Event
 from app.plugins.manager import get_plugin_manager
 from app.services.insight_rules import refresh_insight_rules
+from app.web.guards import plugin_enabled_guard
+from app.web.templates import register_plugin_template_dirs, templates
 
-templates = Jinja2Templates(directory="app/templates")
 logger = logging.getLogger(__name__)
 
 
@@ -40,9 +40,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         configure_logging_from_db(db)
         logger.info("OpenSecDash %s starting...", get_app_version())
-        # Discover plugins only after logging is configured, so plugin
-        # discovery diagnostics (e.g. "disabled via OSD_PLUGIN_*_DISABLED")
-        # actually reach the service log. The manager isn't needed earlier.
+        # Already discovered at import time (routes are mounted then); this
+        # returns the cached singleton.
         manager = get_plugin_manager()
         if migration_result.get("applied"):
             logger.info(
@@ -83,6 +82,26 @@ app.include_router(events_router)
 app.include_router(actions_router)
 app.include_router(assets_router)
 app.include_router(pages_router)
+
+# Plugin-provided routes and template dirs. Mounted after the core routers so
+# core routes always win on any path overlap. A gated router 404s while its
+# plugin is disabled (plugin_enabled_guard); an ungated router does its own
+# gating. get_plugin_manager() triggers discovery here at import time (only
+# module imports, no DB access), which is fine and also surfaces the plugin
+# discovery log lines. No plugin registers a web surface yet (phase 6+).
+_plugin_manager = get_plugin_manager()
+for _plugin_id, _registration in _plugin_manager.web_registrations():
+    if _registration.router is not None:
+        app.include_router(_registration.router, dependencies=[Depends(plugin_enabled_guard(_plugin_id))])
+    if _registration.ungated_router is not None:
+        app.include_router(_registration.ungated_router)
+register_plugin_template_dirs(
+    {
+        _pid: str(_reg.templates_dir)
+        for _pid, _reg in _plugin_manager.web_registrations()
+        if _reg.templates_dir is not None
+    }
+)
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 

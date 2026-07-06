@@ -1,7 +1,6 @@
 import asyncio
 from collections import Counter
 from datetime import datetime, timedelta
-from http import HTTPStatus
 import io
 import logging
 from pathlib import Path
@@ -12,17 +11,14 @@ from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse, Response
-from fastapi.templating import Jinja2Templates
-from jinja2 import pass_context
-from markupsafe import Markup, escape
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.core import plugin_registry
 from app.core.logging import configure_logging_from_db, redact_sensitive
 from app.core.secrets import decrypt_setting_value, encrypt_setting_value
-from app.core.template_context import build_template_context, get_setting_value
-from app.core.time import datetime_iso_utc, format_datetime_for_timezone, local_day_start_as_utc, resolve_timezone, utc_now
+from app.core.template_context import get_setting_value
+from app.core.time import local_day_start_as_utc, resolve_timezone, utc_now
 from app.core.version import get_app_version
 from app.database.dependencies import get_db
 from app.models.assets import Asset
@@ -47,117 +43,18 @@ from app.services.crowdsec_decisions import active_decision_for_ip, crowdsec_csc
 from app.services.asset_hosts import event_matches_asset_host, find_asset_by_host, matching_event_hostnames, normalize_asset_host, sync_asset_host_events
 from app.services.events import apply_event_filters, is_local_ip_value, store_event, tokenize_search_expression
 from app.services.proxmox_assets import sync_proxmox_assets
+from app.web.guards import (
+    assets_feature_enabled,
+    events_feature_enabled,
+    is_plugin_enabled,
+    require_assets_feature_enabled,
+    require_events_feature_enabled,
+    require_plugin_enabled,
+)
+from app.web.render import render
 
 router = APIRouter(tags=["pages"])
-templates = Jinja2Templates(directory="app/templates")
 logger = logging.getLogger(__name__)
-
-
-@pass_context
-def format_duration(context, value: str | None) -> str:
-    if not value:
-        return "-"
-    match = __import__("re").match(r"^(\d+)([smhdw])$", str(value).strip().lower())
-    if not match:
-        return str(value)
-    amount = int(match.group(1))
-    unit = match.group(2)
-    language = str(context.get("language", "en"))
-    labels = {
-        "de": {"s": ("Sekunde", "Sekunden"), "m": ("Minute", "Minuten"), "h": ("Stunde", "Stunden"), "d": ("Tag", "Tage"), "w": ("Woche", "Wochen")},
-        "en": {"s": ("second", "seconds"), "m": ("minute", "minutes"), "h": ("hour", "hours"), "d": ("day", "days"), "w": ("week", "weeks")},
-    }
-    singular, plural = labels.get(language, labels["en"])[unit]
-    return f"{amount} {singular if amount == 1 else plural}"
-
-
-@pass_context
-def format_country_name(context, value: str | None) -> Markup | str:
-    if not value:
-        return "-"
-    code = str(value).upper()
-    return Markup('<span class="osd-country" data-country-code="{}">{}</span>'.format(escape(code), escape(code)))
-
-
-@pass_context
-def format_country_or_local(context, value: str | None, ip: str | None = None) -> Markup | str:
-    if is_local_ip_value(ip):
-        translator = context.get("t")
-        return str(translator("common.local")) if callable(translator) else "local"
-    return format_country_name(context, value)
-
-
-@pass_context
-def format_datetime(context, value: datetime | None) -> Markup | str:
-    if value is None:
-        return "-"
-    timezone = str(context.get("timezone", "auto"))
-    text = format_datetime_for_timezone(value, timezone)
-    iso_utc = datetime_iso_utc(value)
-    return Markup(
-        '<span class="osd-datetime" data-datetime-utc="{}" data-timezone="{}">{}</span>'.format(
-            escape(iso_utc),
-            escape(timezone),
-            escape(text),
-        )
-    )
-
-
-def url_path_quote(value: str | None) -> str:
-    return quote(str(value or ""), safe="")
-
-
-def http_status_label(value: int | None) -> str:
-    if value is None:
-        return ""
-    try:
-        status = HTTPStatus(int(value))
-        return f"{status.value} {status.phrase}"
-    except ValueError:
-        return str(value)
-
-
-def event_url(event: Event) -> str:
-    path = event.path or ""
-    if not path:
-        return ""
-    if path.startswith(("http://", "https://")):
-        return path
-
-    data = event.data_json or {}
-    for key in ("url", "full_url", "request_url", "absolute_url"):
-        value = data.get(key)
-        if isinstance(value, str) and value.startswith(("http://", "https://")):
-            return value
-
-    host = event.hostname or data.get("host") or data.get("request_host")
-    if not host:
-        return path
-
-    scheme = data.get("scheme") or data.get("request_scheme") or data.get("RequestScheme") or data.get("proto") or data.get("protocol")
-    if not scheme:
-        router = str(data.get("router_name") or "").lower()
-        if "https" in router or "websecure" in router:
-            scheme = "https"
-        elif "http" in router or "web" in router:
-            scheme = "http"
-    if not scheme:
-        return f"{host}{path if path.startswith('/') else '/' + path}"
-
-    scheme = str(scheme).replace("://", "").lower()
-    if scheme not in {"http", "https"}:
-        scheme = "https" if scheme.startswith("https") else "http"
-    display_path = path if path.startswith("/") else f"/{path}"
-    return f"{scheme}://{host}{display_path}"
-
-
-templates.env.filters["datetime"] = format_datetime
-templates.env.filters["duration"] = format_duration
-templates.env.filters["country_name"] = format_country_name
-templates.env.filters["country_or_local"] = format_country_or_local
-templates.env.filters["url_path_quote"] = url_path_quote
-templates.env.filters["event_url"] = event_url
-templates.env.filters["http_status_label"] = http_status_label
 
 
 def _redacted_setting_value(key: str, value: str | None) -> str:
@@ -245,22 +142,6 @@ def parse_snapshot_before(value: str | None) -> datetime | None:
     return parsed.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
 
 
-def render(request: Request, db: Session, template: str, **context):
-    # All page routes go through this helper so global template context (i18n,
-    # feature flags, settings) stays consistent and easy to exercise in tests.
-    return templates.TemplateResponse(request=request, name=template, context={**build_template_context(db), "event_data_value": event_data_value, **context})
-
-
-def is_plugin_enabled(db: Session, plugin_id: str) -> bool:
-    # A plugin turned off via OSD_PLUGIN_*_DISABLED is not loaded, so it is
-    # never "enabled" - even if its plugin.<id>.enabled setting still says true
-    # from before it was disabled. This keeps nav, feature flags and per-page
-    # enabled maps (dashboard, IP explorer) consistent with discovery.
-    if not plugin_registry.is_registered(plugin_id):
-        return False
-    return get_setting_value(db, f"plugin.{plugin_id}.enabled", "false") == "true"
-
-
 COUNTRY_COORDINATES = {
     "AD": (42.5, 1.5), "AE": (24.0, 54.0), "AF": (33.0, 65.0), "AL": (41.0, 20.0), "AM": (40.0, 45.0),
     "AR": (-34.0, -64.0), "AT": (47.3, 13.3), "AU": (-25.0, 133.0), "AZ": (40.5, 47.5), "BA": (44.0, 18.0),
@@ -294,14 +175,6 @@ def country_map_point(country: str, count: int, max_count: int) -> dict[str, obj
     }
 
 
-def events_feature_enabled(db: Session) -> bool:
-    return any(is_plugin_enabled(db, plugin_id) for plugin_id in plugin_registry.ids_with_capability("datasource"))
-
-
-def assets_feature_enabled(db: Session) -> bool:
-    return any(is_plugin_enabled(db, plugin_id) for plugin_id in plugin_registry.ids_with_capability("asset_source"))
-
-
 def diagnostic_plugin_enabled(db: Session, plugin_id: str) -> bool:
     if plugin_id == "asset_updates":
         return assets_feature_enabled(db)
@@ -320,21 +193,6 @@ def diagnostic_disabled_message(db: Session, plugin_id: str) -> str:
     if plugin_id == "insight_rules" and not events_feature_enabled(db):
         return "No event datasource plugin is enabled."
     return "Plugin is disabled and not running."
-
-
-def require_plugin_enabled(db: Session, plugin_id: str) -> None:
-    if not is_plugin_enabled(db, plugin_id):
-        raise HTTPException(status_code=404, detail="Feature is disabled")
-
-
-def require_events_feature_enabled(db: Session) -> None:
-    if not events_feature_enabled(db):
-        raise HTTPException(status_code=404, detail="Feature is disabled")
-
-
-def require_assets_feature_enabled(db: Session) -> None:
-    if not assets_feature_enabled(db):
-        raise HTTPException(status_code=404, detail="Feature is disabled")
 
 
 def rollup_rows(db: Session, period: str, value: str, metric: str, limit: int | None = None) -> list[dict[str, str | int]]:
@@ -758,15 +616,6 @@ def asset_links_for_events(db: Session, events: list[Event]) -> dict[int, str]:
         if asset is not None:
             links[event.id] = f"/assets/app/{asset.id}"
     return links
-
-
-def event_data_value(event: Event, *keys: str) -> str | None:
-    data = event.data_json or {}
-    for key in keys:
-        value = data.get(key)
-        if value not in (None, ""):
-            return str(value)
-    return None
 
 
 def clean_filter_value(value: str | None) -> str | None:

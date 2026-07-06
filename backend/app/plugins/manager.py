@@ -5,9 +5,12 @@ import logging
 import json
 import time
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.orm import Session
+
+if TYPE_CHECKING:
+    from app.plugins.web import PluginWebRegistration
 
 from app.core import plugin_registry
 from app.core.i18n import register_extra_locales
@@ -106,9 +109,29 @@ class PluginManager:
         # nav, websocket gating) can answer "which plugins / capabilities exist"
         # without importing the manager.
         plugin_registry.register_plugins(
-            plugin_registry.RegisteredPlugin(id=p.metadata.id, name=p.metadata.name, capabilities=tuple(p.metadata.capabilities))
+            plugin_registry.RegisteredPlugin(
+                id=p.metadata.id,
+                name=p.metadata.name,
+                capabilities=tuple(p.metadata.capabilities),
+                nav_items=self._nav_items_for(p),
+            )
             for p in self.plugins.values()
         )
+
+    @staticmethod
+    def _nav_items_for(plugin: Plugin) -> tuple[plugin_registry.NavItem, ...]:
+        registration = plugin.web()
+        if registration is None:
+            return ()
+        return tuple((item.label_key, item.href, item.active_prefix, item.order) for item in registration.nav_items)
+
+    def web_registrations(self) -> list[tuple[str, "PluginWebRegistration"]]:
+        result: list[tuple[str, PluginWebRegistration]] = []
+        for plugin in self.plugins.values():
+            registration = plugin.web()
+            if registration is not None:
+                result.append((plugin.metadata.id, registration))
+        return result
 
     def seed_database(self, db: Session) -> None:
         # Persist plugin metadata and default settings so the UI can render

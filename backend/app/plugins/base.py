@@ -3,12 +3,17 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from sqlalchemy.orm import Session
 
 from app.models.events import Event
 from app.services.events import store_event
+
+if TYPE_CHECKING:
+    # Type-only import keeps base.py free of FastAPI/Jinja at runtime while the
+    # web() hook can still annotate its return type. See app.plugins.web.
+    from app.plugins.web import PluginWebRegistration
 
 # Keep this module intentionally dependency-light: external plugins import it as
 # their public API surface. Changes here should be backwards compatible or paired
@@ -175,6 +180,10 @@ class Plugin:
 
     async def health(self, context: PluginContext) -> dict[str, str]:
         return {"status": "healthy"}
+
+    def web(self) -> "PluginWebRegistration | None":  # noqa: F821 - see app.plugins.web
+        """Optional web surface (router, templates, nav). See app.plugins.web."""
+        return None
 
 
 class DatasourcePlugin(Plugin):

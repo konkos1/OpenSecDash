@@ -46,6 +46,7 @@
 
                 <nav class="nav-links-desktop gap-2 text-sm">
                     <a class="nav {{ 'nav-active' if current_path == '/' else '' }}" href="/">{{ t("nav.dashboard") }}</a>
+                    {% for item in plugin_nav_items %}<a class="nav {{ 'nav-active' if current_path.startswith(item.active_prefix) else '' }}" href="{{ item.href }}">{{ item.label }}</a>{% endfor %}
                     {% if enabled_plugins.crowdsec %}<a class="nav {{ 'nav-active' if current_path.startswith('/crowdsec') else '' }}" href="/crowdsec">{{ t("nav.crowdsec") }}</a>{% endif %}
                     {% if enabled_plugins.traefik_log %}<a class="nav {{ 'nav-active' if current_path.startswith('/access') else '' }}" href="/access">{{ t("nav.access") }}</a>{% endif %}
                     {% if asset_plugins_enabled %}<a class="nav {{ 'nav-active' if current_path.startswith('/assets') else '' }}" href="/assets">{{ t("nav.assets") }}</a>{% endif %}
@@ -60,6 +61,7 @@
                every page load until Alpine initializes and x-show hides it. #}
             <nav class="nav-links-mobile px-4 pb-4 grid gap-2" x-show="menu" x-cloak>
                 <a class="nav {{ 'nav-active' if current_path == '/' else '' }}" href="/">{{ t("nav.dashboard") }}</a>
+                {% for item in plugin_nav_items %}<a class="nav {{ 'nav-active' if current_path.startswith(item.active_prefix) else '' }}" href="{{ item.href }}">{{ item.label }}</a>{% endfor %}
                 {% if enabled_plugins.crowdsec %}<a class="nav {{ 'nav-active' if current_path.startswith('/crowdsec') else '' }}" href="/crowdsec">{{ t("nav.crowdsec") }}</a>{% endif %}
                 {% if enabled_plugins.traefik_log %}<a class="nav {{ 'nav-active' if current_path.startswith('/access') else '' }}" href="/access">{{ t("nav.access") }}</a>{% endif %}
                 {% if asset_plugins_enabled %}<a class="nav {{ 'nav-active' if current_path.startswith('/assets') else '' }}" href="/assets">{{ t("nav.assets") }}</a>{% endif %}

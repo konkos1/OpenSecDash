@@ -80,6 +80,15 @@ def build_template_context(db: Session) -> dict[str, object | Callable[[str], st
         enabled_plugins.get(plugin_id)
         for plugin_id in plugin_registry.ids_with_capability("asset_source")
     )
+    # Nav entries contributed by plugins that register a web surface (phase 6+);
+    # only shown for enabled plugins. Empty until a plugin provides nav items.
+    plugin_nav_items = [
+        {"href": href, "label": translate(label_key, language), "active_prefix": active_prefix, "order": order}
+        for plugin_id, items in plugin_registry.nav_items_by_plugin().items()
+        if enabled_plugins.get(plugin_id)
+        for (label_key, href, active_prefix, order) in items
+    ]
+    plugin_nav_items.sort(key=lambda item: (item["order"], item["href"]))
     backlog_datasources = (
         db.query(Datasource)
         .filter(Datasource.enabled == True, Datasource.backlog_pending == True)  # noqa: E712
@@ -106,6 +115,7 @@ def build_template_context(db: Session) -> dict[str, object | Callable[[str], st
         "enabled_plugins": enabled_plugins,
         "event_plugins_enabled": event_plugins_enabled,
         "asset_plugins_enabled": asset_plugins_enabled,
+        "plugin_nav_items": plugin_nav_items,
         "backlog_datasources": backlog_datasources,
         "app_version": app_version,
         "update_available_version": update_available_version,
