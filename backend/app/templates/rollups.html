@@ -44,7 +44,7 @@
     <section class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-5">
       {% for key in ["access_external_events", "access_internal_events", "security_events", "bans", "geoblocks", "total_events"] %}
         <div class="card flex flex-col items-center text-center">
-          <span class="muted text-sm">{{ t("rollups." ~ key) }}</span>
+          <span class="muted text-sm">{{ t("rollups." ~ key) }} <button type="button" class="help" data-tooltip="{{ t('rollups.' ~ key ~ '_help') }}">?</button></span>
           <strong class="text-3xl">{{ summary.get(key, 0) }}</strong>
         </div>
       {% endfor %}
@@ -52,7 +52,7 @@
 
     <section class="grid grid-cols-1 lg:grid-cols-3 gap-4">
       <div class="card overflow-x-auto responsive-table">
-        <h3 class="font-semibold mb-3">{{ t("rollups.by_event_type") }}</h3>
+        <h3 class="font-semibold mb-3">{{ t("rollups.by_event_type") }} <button type="button" class="help" data-tooltip="{{ t('rollups.by_event_type_help') }}">?</button></h3>
         <table class="w-full text-sm table-middle">
           <tbody>
             {% for row in event_type_rows %}
@@ -64,7 +64,7 @@
         </table>
       </div>
       <div class="card overflow-x-auto responsive-table">
-        <h3 class="font-semibold mb-3">{{ t("rollups.by_scenario") }}</h3>
+        <h3 class="font-semibold mb-3">{{ t("rollups.by_scenario") }} <button type="button" class="help" data-tooltip="{{ t('rollups.by_scenario_help') }}">?</button></h3>
         <table class="w-full text-sm table-middle">
           <tbody>
             {% for row in scenario_rows %}
@@ -76,7 +76,7 @@
         </table>
       </div>
       <div class="card overflow-x-auto responsive-table">
-        <h3 class="font-semibold mb-3">{{ t("rollups.by_country") }}</h3>
+        <h3 class="font-semibold mb-3">{{ t("rollups.by_country") }} <button type="button" class="help" data-tooltip="{{ t('rollups.by_country_help') }}">?</button></h3>
         <table class="w-full text-sm table-middle">
           <tbody>
             {% for row in country_rows %}
