@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import threading
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -71,12 +72,111 @@ def classify_access_status(status_code: int | None) -> tuple[str, str]:
     return "access.allowed", "info"
 
 
+# A manual ban/unban action is recorded immediately by the Action framework;
+# if CrowdSec's own log later records that same decision, the crowdsec_log
+# datasource plugin would otherwise re-import it as a second, separate event
+# for the same IP at essentially the same time - visible as an apparent
+# duplicate with different (and each incomplete) data.
+CROWDSEC_BAN_EVENT_TYPES = ("security.ban", "security.ban.manual")
+
+# The Action framework embeds its own action id into the ban reason it hands
+# to CrowdSec (e.g. "Manual ban via OpenSecDash (action #42)", see
+# actions.create_action), and CrowdSec echoes that text verbatim into its own
+# log line for API/cscli-created decisions - confirmed against a real
+# CrowdSec instance:
+#   msg="(<machine>/cscli) Manual ban via OpenSecDash (action #42) by ip X : 1m ban on Ip X"
+# Matching on this id is exact regardless of timing, unlike a time-window
+# heuristic: a ban, followed by an unban, followed by a fresh re-ban of the
+# same IP within seconds would otherwise risk merging the re-ban's log line
+# into the stale first ban instead of the second one.
+CROWDSEC_MANUAL_ACTION_ID_PATTERN = re.compile(r"OpenSecDash.*?\(action\s*#(\d+)\)", re.IGNORECASE)
+
+# Fallback only: used when a crowdsec ban log line can't be correlated by
+# action id (defensive - e.g. an unexpected CrowdSec log format change). 10s
+# is the default poll interval; 30s comfortably covers that plus manager
+# scheduling slack without risking a merge across an unrelated later ban.
+CROWDSEC_BAN_DEDUPE_WINDOW = timedelta(seconds=30)
+
+
+def _find_crowdsec_action_duplicate_by_id(db: Session, values: dict[str, Any]) -> Event | None:
+    raw_data = values.get("raw_data")
+    if values.get("plugin") != "crowdsec" or not raw_data:
+        return None
+    match = CROWDSEC_MANUAL_ACTION_ID_PATTERN.search(raw_data)
+    if not match:
+        return None
+    action_id = int(match.group(1))
+    return (
+        db.query(Event)
+        .filter(Event.plugin == "crowdsec", func.json_extract(Event.data_json, "$.action_id") == action_id)
+        .order_by(Event.id.asc())
+        .first()
+    )
+
+
+def _find_recent_crowdsec_ban_duplicate(db: Session, values: dict[str, Any]) -> Event | None:
+    # Only applies to incoming log-tailed re-imports ("security.ban"), never
+    # to a freshly created "security.ban.manual" event: manual bans already
+    # carry their own unique action id and must never be time-window-merged
+    # into an earlier, unrelated manual ban just because they land close
+    # together (e.g. ban -> unban -> re-ban within the fallback window).
+    if values.get("plugin") != "crowdsec" or values.get("event_type") != "security.ban":
+        return None
+    ip = values.get("ip")
+    event_time = values.get("event_time")
+    if not ip or event_time is None:
+        return None
+    return (
+        db.query(Event)
+        .filter(
+            Event.plugin == "crowdsec",
+            Event.event_type.in_(CROWDSEC_BAN_EVENT_TYPES),
+            Event.ip == ip,
+            Event.event_time >= event_time - CROWDSEC_BAN_DEDUPE_WINDOW,
+            Event.event_time <= event_time + CROWDSEC_BAN_DEDUPE_WINDOW,
+        )
+        .order_by(Event.id.asc())
+        .first()
+    )
+
+
+def _merge_missing_fields_into_duplicate(duplicate: Event, values: dict[str, Any]) -> None:
+    """Backfill fields a retained duplicate event is missing from the new values.
+
+    Whichever of the two crowdsec ban sources (manual action vs. log-tail) is
+    missing scenario/duration/country picks it up from the other, without
+    ever overwriting data the retained event already has. A no-op for
+    ordinary exact-match duplicates, since their fields already agree.
+    """
+    if not duplicate.country and values.get("country"):
+        duplicate.country = values["country"]
+    new_data = values.get("data_json") or {}
+    if not new_data:
+        return
+    merged = dict(duplicate.data_json or {})
+    changed = False
+    for key in ("scenario", "duration"):
+        if not merged.get(key) and new_data.get(key):
+            merged[key] = new_data[key]
+            changed = True
+    if changed:
+        duplicate.data_json = merged
+
+
 def find_duplicate_event(db: Session, values: dict[str, Any]) -> Event | None:
     """Best-effort dedupe for log importers.
 
     Log plugins may re-read overlapping file windows after restarts. Prefer
     ``raw_data`` when available; otherwise compare the stable event fields.
     """
+    action_duplicate = _find_crowdsec_action_duplicate_by_id(db, values)
+    if action_duplicate is not None:
+        return action_duplicate
+
+    crowdsec_duplicate = _find_recent_crowdsec_ban_duplicate(db, values)
+    if crowdsec_duplicate is not None:
+        return crowdsec_duplicate
+
     raw_data = values.get("raw_data")
     plugin = values.get("plugin", "core")
     event_type = values.get("event_type")
@@ -141,6 +241,7 @@ def store_event(db: Session, **values: Any) -> Event:
 
     duplicate = find_duplicate_event(db, values)
     if duplicate is not None:
+        _merge_missing_fields_into_duplicate(duplicate, values)
         setattr(duplicate, "_opensecdash_created", False)
         logger.debug("Skipped duplicate event plugin=%s type=%s ip=%s", values.get("plugin"), values.get("event_type"), values.get("ip"))
         return duplicate

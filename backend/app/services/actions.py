@@ -4,6 +4,7 @@ import asyncio
 import ipaddress
 import logging
 from threading import Lock
+from typing import Any
 
 from sqlalchemy.orm import Session
 
@@ -92,6 +93,14 @@ def create_action(
         db.add(action)
         db.flush()
         logger.info("Created action id=%s type=%s target_type=%s target=%s", action.id, action.action_type, action.target_type, action.target)
+        if action.action_type in {"security.ban", "crowdsec_ban"} and action.parameters and action.parameters.get("reason"):
+            # action.id only exists after flush, so the id-tagged reason is
+            # assembled here, then actually sent to CrowdSec as the ban
+            # reason (see crowdsec plugin execute()) - this lets a later
+            # log-tailed re-import of CrowdSec's own log line about this
+            # decision be correlated back to exactly this action instead of
+            # guessing from timing (see events.find_duplicate_event).
+            action.parameters = {**action.parameters, "reason": f"{action.parameters['reason']} (action #{action.id})"}
         execute_action(db, action)
         db.commit()
         return action
@@ -133,6 +142,24 @@ def execute_action(db: Session, action: Action) -> None:
         event_type = "security.unban.manual" if action.status == "completed" else "action.failed"
     else:
         event_type = "action.executed" if action.status == "completed" else "action.failed"
+    parameters = action.parameters or {}
+    data_json: dict[str, Any] = {
+        "action_id": action.id,
+        "action_type": action.action_type,
+        "target_type": action.target_type,
+        "target": action.target,
+        "status": action.status,
+        "result": action.result,
+        "manual": True,
+        "trigger": "manual",
+    }
+    if action.action_type in {"security.ban", "crowdsec_ban"}:
+        # The CrowdSec page reads data_json.scenario/duration for every ban
+        # row (manual or log-imported); without these a manual ban showed up
+        # with neither, since "reason" is what's actually told to CrowdSec
+        # (see action_ip_page) - not stored as scenario/duration before.
+        data_json["scenario"] = parameters.get("reason") or "Manual ban via OpenSecDash"
+        data_json["duration"] = parameters.get("duration")
     store_event(
         db,
         source="Action Framework",
@@ -142,14 +169,5 @@ def execute_action(db: Session, action: Action) -> None:
         event_type=event_type,
         severity="info" if action.status == "completed" else "error",
         ip=action.target if action.target_type == "ip" else None,
-        data_json={
-            "action_id": action.id,
-            "action_type": action.action_type,
-            "target_type": action.target_type,
-            "target": action.target,
-            "status": action.status,
-            "result": action.result,
-            "manual": True,
-            "trigger": "manual",
-        },
+        data_json=data_json,
     )
