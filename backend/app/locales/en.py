@@ -290,6 +290,7 @@ EN = {
     "action.type.crowdsec_unban": "Manual CrowdSec unban",
     "diagnostics.no_actions": "No actions triggered",
 
+    "footer.update_available": "Update {version} available",
     "footer.documentation": "Documentation",
 
     "settings.title": "Settings",
@@ -309,6 +310,7 @@ EN = {
     "settings.timezone": "Timezone",
     "settings.log_timestamp_timezone": "Log timestamp timezone",
     "settings.live_page_refresh": "Auto-refresh dashboard/CrowdSec/diagnostics/assets pages",
+    "settings.update_check_enabled": "Check for OpenSecDash updates",
     "settings.action_simulation": "Action simulation",
     "settings.logging": "Logging",
     "settings.plugin_block_help": "Plugin settings: These options belong to this individual plugin and only apply when the plugin is enabled.",
@@ -330,6 +332,7 @@ EN = {
     "settings.help.timezone": "Controls how timestamps are displayed. Use auto for browser timezone or an IANA name such as Europe/Berlin.",
     "settings.help.log_timestamp_timezone": "Assumed timezone for log lines that don't state a timezone offset themselves (e.g. GeoBlock). Has no effect on log formats that already include an explicit offset, like Traefik or CrowdSec logs.",
     "settings.help.live_page_refresh": "Keeps the Dashboard, CrowdSec, Diagnostics, and Assets pages updating in the background (scroll position is preserved). The Events/Access Live toggle is unaffected. Disable this if OpenSecDash's own web UI is itself behind a reverse proxy whose access log OpenSecDash imports - the periodic refresh requests would otherwise show up as access.* events about OpenSecDash itself.",
+    "settings.help.update_check_enabled": "Periodically asks GitHub for the latest OpenSecDash release (one small API request every few hours, no data about your instance is sent). When a newer version exists, a hint is shown in the footer.",
     "settings.help.action_simulation": "Dry run records actions without executing them. Disable only when action plugins are configured and trusted.",
     "settings.help.log_file_enabled": "Writes an additional log file. Service/journal logging always remains active.",
     "settings.help.log_file_path": "Path to the optional log file. Relative paths are resolved against the backend working directory.",

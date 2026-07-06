@@ -290,6 +290,7 @@ DE = {
     "action.type.crowdsec_unban": "Manueller CrowdSec-Unban",
     "diagnostics.no_actions": "Keine Aktionen ausgelöst",
 
+    "footer.update_available": "Update {version} verfügbar",
     "footer.documentation": "Dokumentation",
 
     "settings.title": "Einstellungen",
@@ -309,6 +310,7 @@ DE = {
     "settings.timezone": "Zeitzone",
     "settings.log_timestamp_timezone": "Zeitzone für Log-Zeitstempel",
     "settings.live_page_refresh": "Dashboard/CrowdSec/Diagnose/Assets automatisch aktualisieren",
+    "settings.update_check_enabled": "Auf OpenSecDash-Updates prüfen",
     "settings.action_simulation": "Action-Simulation",
     "settings.logging": "Logging",
     "settings.plugin_block_help": "Plugin-Einstellungen: Diese Optionen gehören zu diesem einzelnen Plugin und wirken nur, wenn das Plugin aktiviert ist.",
@@ -330,6 +332,7 @@ DE = {
     "settings.help.timezone": "Steuert die Anzeige von Zeitstempeln. Auto nutzt die Browser-Zeitzone, alternativ z.B. Europe/Berlin.",
     "settings.help.log_timestamp_timezone": "Angenommene Zeitzone für Log-Zeilen ohne eigenen Zeitzonen-Offset (z. B. GeoBlock). Hat keine Auswirkung auf Log-Formate, die bereits einen expliziten Offset liefern, wie Traefik- oder CrowdSec-Logs.",
     "settings.help.live_page_refresh": "Hält Dashboard, CrowdSec, Diagnose und Assets im Hintergrund aktuell (Scroll-Position bleibt erhalten). Der Live-Umschalter bei Events/Access ist davon unabhängig. Deaktivieren, falls OpenSecDashs eigene Weboberfläche selbst hinter einem Reverse Proxy liegt, dessen Access-Log OpenSecDash importiert - sonst tauchen die periodischen Refresh-Requests als access.*-Events über OpenSecDash selbst auf.",
+    "settings.help.update_check_enabled": "Fragt periodisch bei GitHub das neueste OpenSecDash-Release ab (eine kleine API-Anfrage alle paar Stunden, es werden keine Daten über deine Instanz gesendet). Gibt es eine neuere Version, erscheint ein Hinweis im Footer.",
     "settings.help.action_simulation": "Simulation protokolliert Aktionen, ohne sie auszuführen. Nur deaktivieren, wenn Action-Plugins eingerichtet und vertrauenswürdig sind.",
     "settings.help.log_file_enabled": "Schreibt zusätzlich zum Service-/Journal-Log eine Datei. Service-Logging bleibt immer aktiv.",
     "settings.help.log_file_path": "Pfad zur optionalen Logdatei. Relative Pfade beziehen sich auf das Backend-Arbeitsverzeichnis.",

@@ -22,6 +22,7 @@ from app.services.events import cleanup_events_by_retention, compact_completed_d
 from app.services.geoip import enrich_pending_events
 from app.services.insight_rules import refresh_insight_rules
 from app.services.json_assets_updates import refresh_asset_updates
+from app.services.self_update import run_self_update_check
 
 
 logger = logging.getLogger(__name__)
@@ -202,6 +203,7 @@ class PluginManager:
         self.tasks.append(asyncio.create_task(self._rollup_compaction_loop(), name="core-rollup-compaction"))
         self.tasks.append(asyncio.create_task(self._retention_cleanup_loop(), name="core-retention-cleanup"))
         self.tasks.append(asyncio.create_task(self._geoip_backfill_loop(), name="core-geoip-backfill"))
+        self.tasks.append(asyncio.create_task(self._self_update_check_loop(), name="core-self-update-check"))
         for plugin in self.plugins.values():
             self.tasks.append(asyncio.create_task(self._health_loop(plugin), name=f"plugin-health-{plugin.metadata.id}"))
             if isinstance(plugin, DatasourcePlugin):
@@ -363,6 +365,25 @@ class PluginManager:
                 logger.exception("GeoIP backfill failed")
                 db.rollback()
                 await asyncio.sleep(30)
+            finally:
+                db.close()
+
+    async def _self_update_check_loop(self) -> None:
+        # Runs in a thread: one GitHub API request, which must not block the
+        # event loop on a slow connection. Every 6 hours keeps well within
+        # GitHub's unauthenticated rate limits and is timely enough for a
+        # "new version available" footer hint.
+        while True:
+            db = SessionLocal()
+            try:
+                await asyncio.to_thread(run_self_update_check, db)
+                await asyncio.sleep(6 * 60 * 60)
+            except asyncio.CancelledError:
+                db.close()
+                raise
+            except Exception:
+                logger.exception("OpenSecDash update check failed")
+                await asyncio.sleep(60 * 60)
             finally:
                 db.close()
 
