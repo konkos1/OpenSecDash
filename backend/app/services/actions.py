@@ -11,13 +11,11 @@ from sqlalchemy.orm import Session
 from app.core.template_context import get_setting_value
 from app.core.time import utc_now
 from app.models.core import Action
-from app.services.crowdsec_decisions import active_decision_for_ip, sync_crowdsec_decisions
 from app.plugins.manager import get_plugin_manager
 from app.services.events import store_event
 
 logger = logging.getLogger(__name__)
 
-CRITICAL_ACTIONS = {"security.ban", "security.unban", "crowdsec_ban", "crowdsec_unban"}
 _ACTION_LOCK = Lock()
 _RUNNING_ACTION_KEYS: set[tuple[str, str, str]] = set()
 
@@ -62,28 +60,26 @@ def create_action(
     parameters: dict | None = None,
     confirmed: bool = False,
 ) -> Action:
-    requires_confirmation = action_type in CRITICAL_ACTIONS
+    manager = get_plugin_manager()
+    action_plugin = manager.action_plugin_for(action_type)
+    critical = manager.critical_action_types()
+    requires_confirmation = action_type in critical
     if requires_confirmation and not confirmed:
         raise ValueError("Action requires confirmation")
-    if target_type == "ip" and action_type in CRITICAL_ACTIONS:
+    if target_type == "ip" and action_type in critical:
         validate_ip_target(target)
     dry_run = get_setting_value(db, "action_dry_run", "true").lower() == "true"
-    if target_type == "ip" and action_type in {"security.unban", "crowdsec_unban"} and not dry_run:
-        decision = active_decision_for_ip(db, target)
-        decision_id = str((parameters or {}).get("decision_id") or "").strip()
-        if decision is None:
-            raise ValueError("No active CrowdSec ban decision found for this IP")
-        if not decision_id:
-            parameters = {**(parameters or {}), "decision_id": decision.decision_id}
-        elif decision_id != decision.decision_id:
-            raise ValueError("CrowdSec decision id does not match the active ban for this IP")
+    # Plugin-specific validation/normalization (e.g. CrowdSec checks an unban
+    # against an active decision and fills in its id). May raise ValueError.
+    if action_plugin is not None:
+        parameters = action_plugin.validate_action(db, action_type, target, parameters or {}, dry_run)
 
     action_key = _acquire_action(action_type, target_type, target)
     try:
         action = Action(
             timestamp=utc_now().replace(tzinfo=None),
             action_type=action_type,
-            plugin_id="crowdsec" if action_type.startswith("security.") or action_type.startswith("crowdsec_") else "core",
+            plugin_id=manager.plugin_id_for_action(action_type),
             target_type=target_type,
             target=target,
             parameters=parameters or {},
@@ -93,14 +89,13 @@ def create_action(
         db.add(action)
         db.flush()
         logger.info("Created action id=%s type=%s target_type=%s target=%s", action.id, action.action_type, action.target_type, action.target)
-        if action.action_type in {"security.ban", "crowdsec_ban"} and action.parameters and action.parameters.get("reason"):
-            # action.id only exists after flush, so the id-tagged reason is
-            # assembled here, then actually sent to CrowdSec as the ban
-            # reason (see crowdsec plugin execute()) - this lets a later
-            # log-tailed re-import of CrowdSec's own log line about this
-            # decision be correlated back to exactly this action instead of
-            # guessing from timing (see events.find_duplicate_event).
-            action.parameters = {**action.parameters, "reason": f"{action.parameters['reason']} (action #{action.id})"}
+        # The id only exists after flush; a plugin may fold it into the params
+        # actually sent out (e.g. CrowdSec embeds it into the ban reason so a
+        # later log re-import can be correlated back to this exact action).
+        if action_plugin is not None:
+            new_parameters = action_plugin.prepare_parameters(db, action)
+            if new_parameters is not None:
+                action.parameters = new_parameters  # reassignment: plain JSON column, no MutableDict
         execute_action(db, action)
         db.commit()
         return action
@@ -109,6 +104,8 @@ def create_action(
 
 
 def execute_action(db: Session, action: Action) -> None:
+    manager = get_plugin_manager()
+    action_plugin = manager.action_plugin_for(action.action_type)
     dry_run = get_setting_value(db, "action_dry_run", "true").lower() == "true"
     action.status = "running"
 
@@ -119,7 +116,7 @@ def execute_action(db: Session, action: Action) -> None:
     else:
         try:
             result = asyncio.run(
-                get_plugin_manager().execute_action(
+                manager.execute_action(
                     db,
                     action.action_type,
                     action.target,
@@ -129,20 +126,16 @@ def execute_action(db: Session, action: Action) -> None:
             action.status = (result or {}).get("status", "completed")
             action.result = (result or {}).get("result", "action plugin execution completed")
             logger.info("Action id=%s finished with status=%s", action.id, action.status)
-            if action.plugin_id == "crowdsec" and action.action_type in {"security.ban", "security.unban", "crowdsec_ban", "crowdsec_unban"}:
-                sync_crowdsec_decisions(db, force=True)
+            # e.g. CrowdSec re-syncs its active decisions after a real ban/unban.
+            if action.status == "completed" and action_plugin is not None:
+                action_plugin.after_execute(db, action)
         except Exception as exc:
             logger.exception("Action id=%s failed", action.id)
             action.status = "failed"
             action.result = str(exc)
 
-    if action.action_type in {"security.ban", "crowdsec_ban"}:
-        event_type = "security.ban.manual" if action.status == "completed" else "action.failed"
-    elif action.action_type in {"security.unban", "crowdsec_unban"}:
-        event_type = "security.unban.manual" if action.status == "completed" else "action.failed"
-    else:
-        event_type = "action.executed" if action.status == "completed" else "action.failed"
-    parameters = action.parameters or {}
+    success_event = action_plugin.success_event_type(action.action_type) if action_plugin is not None else None
+    event_type = (success_event or "action.executed") if action.status == "completed" else "action.failed"
     data_json: dict[str, Any] = {
         "action_id": action.id,
         "action_type": action.action_type,
@@ -153,19 +146,16 @@ def execute_action(db: Session, action: Action) -> None:
         "manual": True,
         "trigger": "manual",
     }
-    if action.action_type in {"security.ban", "crowdsec_ban"}:
-        # The CrowdSec page reads data_json.scenario/duration for every ban
-        # row (manual or log-imported); without these a manual ban showed up
-        # with neither, since "reason" is what's actually told to CrowdSec
-        # (see action_ip_page) - not stored as scenario/duration before.
-        data_json["scenario"] = parameters.get("reason") or "Manual ban via OpenSecDash"
-        data_json["duration"] = parameters.get("duration")
+    # e.g. CrowdSec adds scenario/duration for ban rows so its page can show them.
+    if action_plugin is not None:
+        data_json.update(action_plugin.action_event_data(action))
+    plugin_id = manager.plugin_id_for_action(action.action_type)
     store_event(
         db,
         source="Action Framework",
         source_id="actions",
-        plugin="crowdsec" if action.action_type.startswith("security.") or action.action_type.startswith("crowdsec_") else "core",
-        plugin_id="crowdsec" if action.action_type.startswith("security.") or action.action_type.startswith("crowdsec_") else "core",
+        plugin=plugin_id,
+        plugin_id=plugin_id,
         event_type=event_type,
         severity="info" if action.status == "completed" else "error",
         ip=action.target if action.target_type == "ip" else None,

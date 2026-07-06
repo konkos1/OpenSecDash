@@ -7,8 +7,10 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy.orm import Session
+
 from app.plugins.base import ActionPlugin, DatasourcePlugin, PeriodicPlugin, PluginMetadata, PluginSetting, tail_text_file
-from app.services.crowdsec_decisions import sync_crowdsec_decisions
+from app.services.crowdsec_decisions import active_decision_for_ip, sync_crowdsec_decisions
 from app.services.events import normalize_event_time
 
 
@@ -19,13 +21,18 @@ logger = logging.getLogger(__name__)
 # worker thread, but a bounded batch keeps progress/commits incremental.
 MAX_LINES_PER_TICK = 2000
 
+BAN_ACTION_TYPES = frozenset({"security.ban", "crowdsec_ban"})
+UNBAN_ACTION_TYPES = frozenset({"security.unban", "crowdsec_unban"})
+
 
 class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
+    action_types = BAN_ACTION_TYPES | UNBAN_ACTION_TYPES
+    critical_action_types = BAN_ACTION_TYPES | UNBAN_ACTION_TYPES
     metadata = PluginMetadata(
-        id="crowdsec", 
-        name="CrowdSec", 
-        version="1.0.0", 
-        capabilities=["datasource", "action", "page", "widget"], 
+        id="crowdsec",
+        name="CrowdSec",
+        version="1.0.0",
+        capabilities=["datasource", "action", "page", "widget"],
         description="CrowdSec log datasource and cscli ban/unban actions."
     )
     settings = [
@@ -222,3 +229,49 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
             raise RuntimeError(completed.stderr or completed.stdout or "cscli failed")
         logger.info("CrowdSec action completed type=%s target=%s", action_type, target)
         return {"status": "completed", "result": completed.stdout.strip() or "cscli action completed"}
+
+    # --- Action framework hooks (see app.plugins.base.ActionPlugin) ---
+
+    def validate_action(self, db: Session, action_type: str, target: str, parameters: dict[str, Any], dry_run: bool) -> dict[str, Any]:
+        # A real unban must target an actually-active decision, so its id can be
+        # sent to CrowdSec. Skipped in dry-run (nothing is really executed).
+        if action_type not in UNBAN_ACTION_TYPES or dry_run:
+            return parameters
+        decision = active_decision_for_ip(db, target)
+        decision_id = str((parameters or {}).get("decision_id") or "").strip()
+        if decision is None:
+            raise ValueError("No active CrowdSec ban decision found for this IP")
+        if not decision_id:
+            return {**(parameters or {}), "decision_id": decision.decision_id}
+        if decision_id != decision.decision_id:
+            raise ValueError("CrowdSec decision id does not match the active ban for this IP")
+        return parameters
+
+    def prepare_parameters(self, db: Session, action: Any) -> dict[str, Any] | None:
+        if action.action_type not in BAN_ACTION_TYPES or not action.parameters or not action.parameters.get("reason"):
+            return None
+        # action.id only exists after flush, so the id-tagged reason is
+        # assembled here, then actually sent to CrowdSec as the ban reason (see
+        # execute()) - this lets a later log-tailed re-import of CrowdSec's own
+        # log line about this decision be correlated back to exactly this action
+        # instead of guessing from timing (see events.find_duplicate_event).
+        return {**action.parameters, "reason": f"{action.parameters['reason']} (action #{action.id})"}
+
+    def success_event_type(self, action_type: str) -> str | None:
+        if action_type in BAN_ACTION_TYPES:
+            return "security.ban.manual"
+        if action_type in UNBAN_ACTION_TYPES:
+            return "security.unban.manual"
+        return None
+
+    def action_event_data(self, action: Any) -> dict[str, Any]:
+        if action.action_type not in BAN_ACTION_TYPES:
+            return {}
+        # The CrowdSec page reads data_json.scenario/duration for every ban row
+        # (manual or log-imported); without these a manual ban showed up with
+        # neither, since "reason" is what's actually told to CrowdSec.
+        parameters = action.parameters or {}
+        return {"scenario": parameters.get("reason") or "Manual ban via OpenSecDash", "duration": parameters.get("duration")}
+
+    def after_execute(self, db: Session, action: Any) -> None:
+        sync_crowdsec_decisions(db, force=True)

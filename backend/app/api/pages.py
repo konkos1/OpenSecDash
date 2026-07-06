@@ -909,16 +909,17 @@ def action_ip_page(
     except ActionAlreadyRunning as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ValueError as exc:
+        manager = get_plugin_manager()
         action = Action(
             timestamp=utc_now().replace(tzinfo=None),
             action_type=action_type,
-            plugin_id="crowdsec" if action_type.startswith("security.") or action_type.startswith("crowdsec_") else "core",
+            plugin_id=manager.plugin_id_for_action(action_type),
             target_type="ip",
             target=ip,
             parameters={"duration": duration, "reason": reason, "decision_id": decision_id},
             status="failed",
             result=str(exc),
-            requires_confirmation=action_type in {"security.ban", "security.unban", "crowdsec_ban", "crowdsec_unban"},
+            requires_confirmation=action_type in manager.critical_action_types(),
         )
         db.add(action)
         db.flush()

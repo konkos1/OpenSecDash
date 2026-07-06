@@ -197,6 +197,11 @@ class PeriodicPlugin(Plugin):
 
 
 class ActionPlugin(Plugin):
+    # Action types this plugin handles; used for routing, plugin_id attribution
+    # and (via critical_action_types) the confirmation/IP-validation gate.
+    action_types: frozenset[str] = frozenset()
+    critical_action_types: frozenset[str] = frozenset()
+
     async def execute(
         self,
         context: PluginContext,
@@ -205,6 +210,36 @@ class ActionPlugin(Plugin):
         parameters: dict[str, Any],
     ) -> dict[str, Any] | None:
         raise NotImplementedError
+
+    def validate_action(
+        self, db: Session, action_type: str, target: str, parameters: dict[str, Any], dry_run: bool
+    ) -> dict[str, Any]:
+        """Validate/normalize parameters before the Action row is created.
+
+        Raise ValueError to reject (message is shown to the user / stored on
+        the failed action). Returns the (possibly updated) parameters.
+        """
+        return parameters
+
+    def prepare_parameters(self, db: Session, action: Any) -> dict[str, Any] | None:
+        """Called after the Action row got its id (db.flush), before execution.
+
+        Return a NEW parameters dict to replace action.parameters, or None to
+        keep them. Runs in dry-run too - must be side-effect-free.
+        """
+        return None
+
+    def success_event_type(self, action_type: str) -> str | None:
+        """Event type stored for a completed action (None -> "action.executed")."""
+        return None
+
+    def action_event_data(self, action: Any) -> dict[str, Any]:
+        """Extra data_json fields for the action's event. Runs in dry-run too."""
+        return {}
+
+    def after_execute(self, db: Session, action: Any) -> None:
+        """Called after successful non-dry-run execution (e.g. state re-sync)."""
+        return None
 
 
 class ExportPlugin(Plugin):

@@ -704,14 +704,29 @@ class PluginManager:
         diagnostic.last_error = error
         diagnostic.last_run = utc_now().replace(tzinfo=None)
 
-    async def execute_action(self, db: Session, action_type: str, target: str, parameters: dict[str, Any]) -> dict[str, Any] | None:
+    def action_plugin_for(self, action_type: str) -> ActionPlugin | None:
+        for plugin in self.plugins.values():
+            if isinstance(plugin, ActionPlugin) and action_type in plugin.action_types:
+                return plugin
+        return None
+
+    def critical_action_types(self) -> frozenset[str]:
+        result: frozenset[str] = frozenset()
         for plugin in self.plugins.values():
             if isinstance(plugin, ActionPlugin):
-                ctx = self.context(db, plugin)
-                result = await plugin.execute(ctx, action_type, target, parameters)
-                if result is not None:
-                    return result
-        return None
+                result |= plugin.critical_action_types
+        return result
+
+    def plugin_id_for_action(self, action_type: str) -> str:
+        plugin = self.action_plugin_for(action_type)
+        return plugin.metadata.id if plugin else "core"
+
+    async def execute_action(self, db: Session, action_type: str, target: str, parameters: dict[str, Any]) -> dict[str, Any] | None:
+        plugin = self.action_plugin_for(action_type)
+        if plugin is None:
+            return None
+        ctx = self.context(db, plugin)
+        return await plugin.execute(ctx, action_type, target, parameters)
 
     async def export_asset_update(self, db: Session, asset: Any, manual: bool = False) -> None:
         # Cross-plugin calls must attribute failures to the callee. For example,
