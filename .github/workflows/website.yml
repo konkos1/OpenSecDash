@@ -1,5 +1,12 @@
 name: Website
 
+# Deploy policy: the website follows releases by default. A push to main only
+# deploys when the merged PR carries the `website-deploy` label (for typo
+# fixes, SEO changes, and other pages that shouldn't wait) or when it was a
+# direct push / manual dispatch by a maintainer. The Release workflow always
+# deploys the website when a version is tagged, so docs for new features go
+# live together with the release they describe.
+
 on:
   push:
     branches: [main]
@@ -10,13 +17,57 @@ on:
     paths:
       - "website/**"
       - ".github/workflows/website.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      # Deploy runs share one group with the Release workflow's website job
+      # so two deploys never run wrangler against Cloudflare at the same
+      # time; PR validation builds get their own per-ref group instead of
+      # queueing behind deploys.
+      group: ${{ github.event_name == 'pull_request' && format('website-pr-{0}', github.ref) || 'website-deploy' }}
+      cancel-in-progress: false
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      - name: Decide whether this run deploys
+        id: gate
+        if: github.event_name != 'pull_request'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
+            echo "Manual dispatch - deploying."
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # For a merge commit, /commits/{sha}/pulls returns exactly the PR
+          # that produced it. No PR at all = a deliberate direct push by a
+          # maintainer - deploy in that case too.
+          labels="$(gh api "/repos/${REPO}/commits/${GITHUB_SHA}/pulls" --jq '[.[].labels[].name] | join(",")' || echo "")"
+          pr_count="$(gh api "/repos/${REPO}/commits/${GITHUB_SHA}/pulls" --jq 'length' || echo "0")"
+          if [[ "${pr_count}" == "0" ]]; then
+            echo "Direct push without PR - deploying."
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          elif [[ ",${labels}," == *",website-deploy,"* ]]; then
+            echo "PR carries the website-deploy label - deploying."
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No website-deploy label - the site will go live with the next release." | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -36,7 +87,7 @@ jobs:
         run: npm run docs:build
 
       - name: Deploy to Cloudflare Workers
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name != 'pull_request' && steps.gate.outputs.deploy == 'true'
         working-directory: website
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -44,11 +95,11 @@ jobs:
         run: npx --yes wrangler@latest deploy
 
       - name: Wait for Cloudflare deployment propagation
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name != 'pull_request' && steps.gate.outputs.deploy == 'true'
         run: sleep 60
 
       - name: Submit URLs to IndexNow
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name != 'pull_request' && steps.gate.outputs.deploy == 'true'
         continue-on-error: true
         working-directory: website
         env:

@@ -1,6 +1,24 @@
 # Website deployment
 
-The website is built and deployed by the GitHub Actions `Website` workflow.
+The website is built and deployed by the GitHub Actions `Website` and `Release` workflows.
+
+## When the site goes live
+
+The website follows releases by default:
+
+| Trigger | Deploys? |
+| --- | --- |
+| PR merged to main with the `website-deploy` label | Yes, immediately (for typo fixes, SEO, general pages). |
+| PR merged to main without the label | No - the changes go live with the next release. |
+| Version tag pushed (`v*.*.*`) | Yes, always (the `Release` workflow deploys the site so feature docs ship with the release they describe). |
+| Direct push to main touching `website/**` | Yes (deliberate maintainer action). |
+| Manual `workflow_dispatch` of the `Website` workflow | Yes. |
+
+Note that main has no partial states: any deploy publishes the full current site, including doc changes from earlier unlabeled merges that were still waiting.
+
+Pull requests always get a validation build (no deploy).
+
+## Secrets
 
 Required GitHub repository secrets:
 
