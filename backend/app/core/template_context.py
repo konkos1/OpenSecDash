@@ -2,12 +2,11 @@ from collections.abc import Callable
 
 from sqlalchemy.orm import Session
 
+from app.core import plugin_registry
 from app.core.i18n import translate
 from app.core.version import get_app_version, is_newer_version
 from app.models.core import Datasource
 from app.models.settings import Setting
-
-PLUGIN_IDS = ["json_assets", "proxmox_assets", "crowdsec", "geoblock_log", "traefik_log", "mqtt", "mqtt-hass", "geoip"]
 
 
 def get_setting_value(
@@ -48,8 +47,9 @@ def get_setting_values(db: Session, defaults: dict[str, str]) -> dict[str, str]:
 
 
 def enabled_plugin_map(db: Session) -> dict[str, bool]:
-    values = get_setting_values(db, {f"plugin.{plugin_id}.enabled": "false" for plugin_id in PLUGIN_IDS})
-    return {plugin_id: values[f"plugin.{plugin_id}.enabled"] == "true" for plugin_id in PLUGIN_IDS}
+    plugin_ids = plugin_registry.plugin_ids()
+    values = get_setting_values(db, {f"plugin.{plugin_id}.enabled": "false" for plugin_id in plugin_ids})
+    return {plugin_id: values[f"plugin.{plugin_id}.enabled"] == "true" for plugin_id in plugin_ids}
 
 
 def build_template_context(db: Session) -> dict[str, object | Callable[[str], str]]:
@@ -63,7 +63,7 @@ def build_template_context(db: Session) -> dict[str, object | Callable[[str], st
             "live_page_refresh": "true",
             "update_check_enabled": "true",
             "update_check.latest_version": "",
-            **{f"plugin.{plugin_id}.enabled": "false" for plugin_id in PLUGIN_IDS},
+            **{f"plugin.{plugin_id}.enabled": "false" for plugin_id in plugin_registry.plugin_ids()},
         },
     )
     language = values["language"]
@@ -71,14 +71,14 @@ def build_template_context(db: Session) -> dict[str, object | Callable[[str], st
     timezone = values["timezone"]
     theme = values["theme"]
     live_page_refresh = values["live_page_refresh"] == "true"
-    enabled_plugins = {plugin_id: values[f"plugin.{plugin_id}.enabled"] == "true" for plugin_id in PLUGIN_IDS}
+    enabled_plugins = {plugin_id: values[f"plugin.{plugin_id}.enabled"] == "true" for plugin_id in plugin_registry.plugin_ids()}
     event_plugins_enabled = any(
-        enabled_plugins[plugin_id]
-        for plugin_id in ["crowdsec", "geoblock_log", "traefik_log"]
+        enabled_plugins.get(plugin_id)
+        for plugin_id in plugin_registry.ids_with_capability("datasource")
     )
     asset_plugins_enabled = any(
-        enabled_plugins[plugin_id]
-        for plugin_id in ["json_assets", "proxmox_assets"]
+        enabled_plugins.get(plugin_id)
+        for plugin_id in plugin_registry.ids_with_capability("asset_source")
     )
     backlog_datasources = (
         db.query(Datasource)

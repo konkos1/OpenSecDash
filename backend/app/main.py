@@ -12,6 +12,7 @@ from sqlalchemy import func
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.gzip import GZipMiddleware
 
+from app.core import plugin_registry
 from app.core.logging import configure_logging_from_db, setup_service_logging
 from app.core.version import get_app_version
 
@@ -173,7 +174,7 @@ def _websocket_poll_state() -> tuple[bool, int]:
     try:
         enabled = any(
             get_setting_value(db, f"plugin.{plugin_id}.enabled", "false") == "true"
-            for plugin_id in ["crowdsec", "geoblock_log", "traefik_log"]
+            for plugin_id in plugin_registry.ids_with_capability("datasource")
         )
         return enabled, int(db.query(func.max(Event.id)).scalar() or 0)
     finally:

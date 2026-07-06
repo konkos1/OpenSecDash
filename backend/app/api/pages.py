@@ -18,6 +18,7 @@ from markupsafe import Markup, escape
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
+from app.core import plugin_registry
 from app.core.logging import configure_logging_from_db, redact_sensitive
 from app.core.secrets import decrypt_setting_value, encrypt_setting_value
 from app.core.template_context import build_template_context, get_setting_value
@@ -288,11 +289,11 @@ def country_map_point(country: str, count: int, max_count: int) -> dict[str, obj
 
 
 def events_feature_enabled(db: Session) -> bool:
-    return any(is_plugin_enabled(db, plugin_id) for plugin_id in ["crowdsec", "geoblock_log", "traefik_log"])
+    return any(is_plugin_enabled(db, plugin_id) for plugin_id in plugin_registry.ids_with_capability("datasource"))
 
 
 def assets_feature_enabled(db: Session) -> bool:
-    return any(is_plugin_enabled(db, plugin_id) for plugin_id in ["json_assets", "proxmox_assets"])
+    return any(is_plugin_enabled(db, plugin_id) for plugin_id in plugin_registry.ids_with_capability("asset_source"))
 
 
 def diagnostic_plugin_enabled(db: Session, plugin_id: str) -> bool:
@@ -564,8 +565,8 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
     yesterday_summary = dashboard_yesterday_summary(db, timezone_name, since, enabled_plugins)
     country_data_plugins = [
         plugin_id
-        for plugin_id in ["crowdsec", "geoblock_log", "traefik_log"]
-        if enabled_plugins[plugin_id]
+        for plugin_id in plugin_registry.ids_with_capability("datasource")
+        if is_plugin_enabled(db, plugin_id)
     ]
 
     event_count = db.query(Event).filter(Event.event_time >= since, Event.plugin.in_(country_data_plugins)).count() if country_data_plugins else 0
@@ -844,7 +845,7 @@ def events_page(
     timezone_name = get_setting_value(db, "timezone", "auto")
     enabled_event_plugins = [
         plugin_id
-        for plugin_id in ["crowdsec", "geoblock_log", "traefik_log"]
+        for plugin_id in plugin_registry.ids_with_capability("datasource")
         if is_plugin_enabled(db, plugin_id)
     ]
     q_tokens = [token for token in tokenize_search_expression(q_value or "") if token not in {"&&", "||", "(", ")"}]

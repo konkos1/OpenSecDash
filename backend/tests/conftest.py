@@ -23,6 +23,16 @@ def import_plugin_module(plugin_dirname: str, submodule: str):
     return _import(PLUGINS_DIR / plugin_dirname, submodule)
 
 
+@pytest.fixture(autouse=True, scope="session")
+def _plugin_registry():
+    # Discovery imports the real plugin modules once so the plugin registry and
+    # locales are populated - feature flags, nav and i18n now read from there
+    # (see app.core.plugin_registry / app.core.i18n).
+    from app.plugins.manager import get_plugin_manager
+
+    get_plugin_manager()
+
+
 @pytest.fixture(autouse=True)
 def _test_secret_key(monkeypatch):
     # Every test runs with a fixed in-memory encryption key so no test can

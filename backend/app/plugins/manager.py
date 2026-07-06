@@ -9,6 +9,8 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from app.core import plugin_registry
+from app.core.i18n import register_extra_locales
 from app.core.template_context import get_setting_value
 from app.database.session import SessionLocal
 from app.models.assets import Asset
@@ -84,7 +86,18 @@ class PluginManager:
                 continue
             plugin: Plugin = plugin_class()
             self.plugins[plugin.metadata.id] = plugin
+            # Plugin translations become globally resolvable via t()/translate()
+            # (core strings still win on key collision, see app.core.i18n).
+            register_extra_locales(plugin.locales)
             logger.debug("Discovered plugin %s from %s", plugin.metadata.id, plugin_py)
+
+        # Publish the discovered set so dependency-free core code (feature flags,
+        # nav, websocket gating) can answer "which plugins / capabilities exist"
+        # without importing the manager.
+        plugin_registry.register_plugins(
+            plugin_registry.RegisteredPlugin(id=p.metadata.id, name=p.metadata.name, capabilities=tuple(p.metadata.capabilities))
+            for p in self.plugins.values()
+        )
 
     def seed_database(self, db: Session) -> None:
         # Persist plugin metadata and default settings so the UI can render
@@ -238,7 +251,7 @@ class PluginManager:
         """Runs one asset-update check synchronously. Called via ``asyncio.to_thread``."""
         asset_sources_enabled = any(
             get_setting_value(db, f"plugin.{plugin_id}.enabled", "false") == "true"
-            for plugin_id in ["json_assets", "proxmox_assets"]
+            for plugin_id in plugin_registry.ids_with_capability("asset_source")
         )
         interval = self._setting_interval(get_setting_value(db, "asset_updates.github_interval", "21600"))
         if not asset_sources_enabled:

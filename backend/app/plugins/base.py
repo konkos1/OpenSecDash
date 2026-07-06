@@ -18,7 +18,7 @@ from app.services.events import store_event
 # pages and their integration services are still wired up in core
 # (app/api/pages.py, app/services/). See ADR-044 for the interim convention
 # and the goal of plugins owning their services and registering pages here.
-PluginCapability = Literal["datasource", "enrichment", "action", "export", "page", "widget", "insight"]
+PluginCapability = Literal["datasource", "asset_source", "enrichment", "action", "export", "page", "widget", "insight"]
 SettingType = Literal["text", "password", "number", "boolean", "select", "file", "url"]
 
 

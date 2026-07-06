@@ -19,7 +19,7 @@ class Plugin(PeriodicPlugin):
         id="json_assets",
         name="JSON Assets",
         version="1.0.0",
-        capabilities=["datasource", "page", "widget"],
+        capabilities=["asset_source", "widget"],
         description="Imports assets from the assets.json inventory format.",
     )
     settings = [
