@@ -3,7 +3,7 @@ from collections.abc import Callable
 from sqlalchemy.orm import Session
 
 from app.core.i18n import translate
-from app.core.version import get_app_version
+from app.core.version import get_app_version, is_newer_version
 from app.models.core import Datasource
 from app.models.settings import Setting
 
@@ -61,6 +61,8 @@ def build_template_context(db: Session) -> dict[str, object | Callable[[str], st
             "timezone": "auto",
             "theme": "auto",
             "live_page_refresh": "true",
+            "update_check_enabled": "true",
+            "update_check.latest_version": "",
             **{f"plugin.{plugin_id}.enabled": "false" for plugin_id in PLUGIN_IDS},
         },
     )
@@ -84,6 +86,16 @@ def build_template_context(db: Session) -> dict[str, object | Callable[[str], st
         .order_by(Datasource.name)
         .all()
     )
+    app_version = get_app_version()
+    # The background self-update check stores the latest GitHub release in
+    # settings; rendering only ever compares strings - no network calls in
+    # the request path. Respect the toggle even when a cached value exists.
+    latest_known_version = values["update_check.latest_version"]
+    update_available_version = (
+        latest_known_version
+        if values["update_check_enabled"] == "true" and is_newer_version(latest_known_version, app_version)
+        else None
+    )
 
     return {
         "language": language,
@@ -95,6 +107,7 @@ def build_template_context(db: Session) -> dict[str, object | Callable[[str], st
         "event_plugins_enabled": event_plugins_enabled,
         "asset_plugins_enabled": asset_plugins_enabled,
         "backlog_datasources": backlog_datasources,
-        "app_version": get_app_version(),
+        "app_version": app_version,
+        "update_available_version": update_available_version,
         "t": lambda key: translate(key, language),
     }

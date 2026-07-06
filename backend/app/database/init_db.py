@@ -22,6 +22,7 @@ DEFAULT_SETTINGS = {
     "timezone": "auto",
     "log_timestamp_timezone": "UTC",
     "live_page_refresh": "true",
+    "update_check_enabled": "true",
     "asset_source_type": "file",
     "asset_source": "/assets/assets.json",
     "asset_updates.github_token": "",

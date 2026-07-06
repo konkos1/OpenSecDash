@@ -51,6 +51,8 @@ tbody tr:hover { background: rgba(15, 23, 42, .65); }
 .badge-warning { background: #451a03; border-color: #b45309; color: #fed7aa; }
 .backlog-banner { background: #451a03; border-bottom: 1px solid #b45309; color: #fed7aa; }
 .backlog-banner-item { white-space: nowrap; }
+.footer-update { background: #064e3b; border: 1px solid #047857; border-radius: 999px; color: #d1fae5; display: inline-block; font-weight: 700; margin-left: .5rem; padding: .3rem .7rem; text-decoration: none; white-space: nowrap; }
+.footer-update:hover { background: #065f46; }
 .alert-error { background: #450a0a; border: 1px solid #dc2626; border-radius: .75rem; color: #fecaca; font-weight: 600; margin-top: .5rem; padding: .65rem .75rem; }
 .status-badge { border: 1px solid #64748b; border-radius: 999px; color: #e2e8f0; display: inline-flex; font-size: .8rem; font-weight: 700; line-height: 1; padding: .35rem .65rem; white-space: nowrap; }
 .status-healthy, .status-enabled, .status-completed { background: #064e3b; border-color: #047857; color: #d1fae5; }
@@ -226,6 +228,11 @@ body[data-theme="light"] .backlog-banner {
   border-color: #fdba74;
   color: #9a3412;
 }
+body[data-theme="light"] .footer-update {
+  background: #d1fae5;
+  border-color: #34d399;
+  color: #065f46;
+}
 body[data-theme="light"] .alert-error {
   background: #fee2e2;
   border-color: #ef4444;
@@ -316,6 +323,7 @@ body[data-theme="light"] .world-map-image {
   body[data-theme="auto"] .badge-snapshot { background: #e2e8f0; border-color: #94a3b8; color: #334155; }
   body[data-theme="auto"] .badge-warning { background: #ffedd5; border-color: #fdba74; color: #9a3412; }
   body[data-theme="auto"] .backlog-banner { background: #ffedd5; border-color: #fdba74; color: #9a3412; }
+  body[data-theme="auto"] .footer-update { background: #d1fae5; border-color: #34d399; color: #065f46; }
   body[data-theme="auto"] .alert-error { background: #fee2e2; border-color: #ef4444; color: #991b1b; }
   body[data-theme="auto"] .status-healthy, body[data-theme="auto"] .status-enabled, body[data-theme="auto"] .status-completed { background: #dcfce7; border-color: #86efac; color: #166534; }
   body[data-theme="auto"] .status-warning, body[data-theme="auto"] .status-pending { background: #ffedd5; border-color: #fdba74; color: #9a3412; }

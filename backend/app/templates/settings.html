@@ -63,6 +63,13 @@
             </select>
         </label>
 
+        <label>{{ t("settings.update_check_enabled") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.update_check_enabled') }}">?</button>
+            <select class="input" name="update_check_enabled">
+                <option value="true" {% if update_check_enabled == 'true' %}selected{% endif %}>{{ t("common.yes") }}</option>
+                <option value="false" {% if update_check_enabled == 'false' %}selected{% endif %}>{{ t("common.no") }}</option>
+            </select>
+        </label>
+
         <label>{{ t("settings.action_simulation") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.action_simulation') }}">?</button>
             <select class="input" name="action_dry_run">
                 <option value="true" {% if action_dry_run == 'true' %}selected{% endif %}>{{ t("settings.dry_run") }}</option>
