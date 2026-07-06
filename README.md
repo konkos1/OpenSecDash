@@ -64,6 +64,25 @@ OpenSecDash includes plugins for CrowdSec, Traefik access logs, GeoBlock logs, G
 
 See the [plugin documentation](https://opensecdash.app/guide/plugins/) for setup details.
 
+### Disabling plugins
+
+Any plugin can be completely disabled with an environment variable
+`OSD_PLUGIN_<PLUGIN>_DISABLED=true` (value `1`/`true`/`yes`/`on`). A disabled plugin is
+hidden everywhere — settings, diagnostics, navigation — and runs no background tasks. Its
+saved settings are kept and return when the variable is removed.
+
+`<PLUGIN>` is the plugin's directory name or id, uppercased, with `-` replaced by `_`:
+
+| Plugin | Variable |
+|---|---|
+| CrowdSec | `OSD_PLUGIN_CROWDSEC_DISABLED` |
+| Traefik Access Log | `OSD_PLUGIN_TRAEFIK_LOG_DISABLED` |
+| GeoBlock Log | `OSD_PLUGIN_GEOBLOCK_LOG_DISABLED` |
+| GeoIP enrichment | `OSD_PLUGIN_GEOIP_DISABLED` |
+| JSON Assets | `OSD_PLUGIN_JSON_ASSETS_DISABLED` |
+| Proxmox Assets | `OSD_PLUGIN_PROXMOX_ASSETS_DISABLED` |
+| MQTT export | `OSD_PLUGIN_MQTT_DISABLED` (or `OSD_PLUGIN_MQTT_HASS_DISABLED`) |
+
 ## Security note
 
 OpenSecDash currently does **not** include built-in user management or authentication.

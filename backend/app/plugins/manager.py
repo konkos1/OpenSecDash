@@ -17,7 +17,7 @@ from app.models.assets import Asset
 from app.models.core import Datasource, Diagnostic, PluginRecord
 from app.models.settings import Setting
 from app.plugins.base import ActionPlugin, DatasourcePlugin, ExportPlugin, PeriodicPlugin, Plugin, PluginContext, PluginSetting
-from app.plugins.loader import import_plugin_module
+from app.plugins.loader import env_disable_var, import_plugin_module, is_plugin_env_disabled
 from app.core.time import utc_now
 from app.services.events import cleanup_events_by_retention, compact_completed_daily_rollups
 from app.services.geoip import enrich_pending_events
@@ -75,6 +75,12 @@ class PluginManager:
                     plugin_dir,
                 )
                 continue
+            # Env-disabled plugins are not even imported, so they are absent
+            # everywhere downstream (settings, seeding, loops, nav, feature
+            # flags). Checked by directory name first to skip the import.
+            if is_plugin_env_disabled(plugin_dir.name):
+                logger.info("Plugin %s is disabled via %s and will not be loaded", plugin_dir.name, env_disable_var(plugin_dir.name))
+                continue
             # One broken plugin must not take down discovery of the others.
             try:
                 module = import_plugin_module(plugin_dir, "plugin")
@@ -85,6 +91,11 @@ class PluginManager:
             if plugin_class is None:
                 continue
             plugin: Plugin = plugin_class()
+            # Second check: the id can differ from the directory name (e.g. dir
+            # "mqtt" but id "mqtt-hass"), so both spellings can disable it.
+            if is_plugin_env_disabled(plugin.metadata.id):
+                logger.info("Plugin %s is disabled via %s and will not be loaded", plugin.metadata.id, env_disable_var(plugin.metadata.id))
+                continue
             self.plugins[plugin.metadata.id] = plugin
             # Plugin translations become globally resolvable via t()/translate()
             # (core strings still win on key collision, see app.core.i18n).

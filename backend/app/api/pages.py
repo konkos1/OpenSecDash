@@ -252,6 +252,12 @@ def render(request: Request, db: Session, template: str, **context):
 
 
 def is_plugin_enabled(db: Session, plugin_id: str) -> bool:
+    # A plugin turned off via OSD_PLUGIN_*_DISABLED is not loaded, so it is
+    # never "enabled" - even if its plugin.<id>.enabled setting still says true
+    # from before it was disabled. This keeps nav, feature flags and per-page
+    # enabled maps (dashboard, IP explorer) consistent with discovery.
+    if not plugin_registry.is_registered(plugin_id):
+        return False
     return get_setting_value(db, f"plugin.{plugin_id}.enabled", "false") == "true"
 
 
@@ -1638,6 +1644,16 @@ def diagnostics_debug_report(db: Session = Depends(get_db)):
 
 @router.get("/diagnostics")
 def diagnostics_page(request: Request, db: Session = Depends(get_db)):
+    # A plugin disabled via OSD_PLUGIN_*_DISABLED is not loaded, so its stale
+    # PluginRecord/Datasource/Diagnostic rows from an earlier run must not show
+    # up here (its settings stay in the DB, only the UI hides it). Core
+    # diagnostic components have no plugin behind them and are always shown.
+    loaded_plugin_ids = set(get_plugin_manager().plugins)
+    core_diagnostic_ids = {"system", "asset_updates", "insight_rules"}
+
+    def is_visible(plugin_id: str) -> bool:
+        return plugin_id in loaded_plugin_ids or plugin_id in core_diagnostic_ids
+
     plugins = db.query(PluginRecord).order_by(PluginRecord.id).all()
     plugin_rows = [
         {
@@ -1645,9 +1661,12 @@ def diagnostics_page(request: Request, db: Session = Depends(get_db)):
             "configuration_status": "enabled" if diagnostic_plugin_enabled(db, plugin.id) else "disabled",
         }
         for plugin in plugins
+        if plugin.id in loaded_plugin_ids
     ]
     diagnostic_rows = []
     for item in db.query(Diagnostic).order_by(Diagnostic.plugin).all():
+        if not is_visible(item.plugin):
+            continue
         if item.plugin == "system":
             diagnostic_rows.append({"item": item, "effective_status": item.status, "message": item.last_error or ""})
             continue
@@ -1659,12 +1678,13 @@ def diagnostics_page(request: Request, db: Session = Depends(get_db)):
                 "message": item.last_error if enabled else diagnostic_disabled_message(db, item.plugin),
             }
         )
+    datasources = [ds for ds in db.query(Datasource).order_by(Datasource.name).all() if ds.plugin_id in loaded_plugin_ids]
     return render(
         request,
         db,
         "diagnostics.html",
         plugin_rows=plugin_rows,
-        datasources=db.query(Datasource).order_by(Datasource.name).all(),
+        datasources=datasources,
         diagnostic_rows=diagnostic_rows,
         actions=db.query(Action).order_by(Action.timestamp.desc()).limit(20).all(),
     )

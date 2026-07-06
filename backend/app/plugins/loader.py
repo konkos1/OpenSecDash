@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import importlib.util
+import os
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -11,6 +12,29 @@ from types import ModuleType
 # checkout, the Docker layout (/app/plugins) and tests. Plugin-internal
 # imports must be relative (e.g. "from .services import decisions").
 PLUGIN_NAMESPACE = "osd_plugins"
+
+_ENV_DISABLE_TRUTHY = {"1", "true", "yes", "on"}
+
+
+def _env_disable_var(name: str) -> str:
+    return f"OSD_PLUGIN_{name.upper().replace('-', '_')}_DISABLED"
+
+
+def is_plugin_env_disabled(*names: str) -> bool:
+    """True if any of the given names is disabled via OSD_PLUGIN_<NAME>_DISABLED.
+
+    Pass both the directory name and the plugin id: the mqtt plugin lives in
+    plugins/mqtt/ but has id "mqtt-hass", so either OSD_PLUGIN_MQTT_DISABLED or
+    OSD_PLUGIN_MQTT_HASS_DISABLED must switch it off. A disabled plugin is never
+    loaded, so it is absent everywhere (settings, diagnostics, nav, loops,
+    feature flags); saved plugin.<id>.* settings are kept for later.
+    """
+    return any(os.getenv(_env_disable_var(name), "").strip().lower() in _ENV_DISABLE_TRUTHY for name in names)
+
+
+def env_disable_var(name: str) -> str:
+    """Public form of the env var name, for log messages."""
+    return _env_disable_var(name)
 
 
 def _ensure_namespace() -> None:

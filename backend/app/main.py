@@ -36,11 +36,14 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     migration_result = run_auto_migrations_if_enabled()
     init_db()
-    manager = get_plugin_manager()
     db = SessionLocal()
     try:
         configure_logging_from_db(db)
         logger.info("OpenSecDash %s starting...", get_app_version())
+        # Discover plugins only after logging is configured, so plugin
+        # discovery diagnostics (e.g. "disabled via OSD_PLUGIN_*_DISABLED")
+        # actually reach the service log. The manager isn't needed earlier.
+        manager = get_plugin_manager()
         if migration_result.get("applied"):
             logger.info(
                 "Database migration: schema upgraded from %s to %s",

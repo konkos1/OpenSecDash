@@ -15,6 +15,15 @@ services:
       # - /var/log/geoblock.log:/logs/geoblock.log:ro
       # - /var/log/crowdsec.log:/logs/crowdsec.log:ro
       # - ./assets/assets.json:/assets/assets.json:ro
+    # Optional: completely disable individual plugins. A disabled plugin is
+    # hidden everywhere (settings, diagnostics, navigation) and runs no
+    # background tasks. Saved plugin settings are kept and come back when the
+    # variable is removed. Variable name: OSD_PLUGIN_<PLUGIN>_DISABLED (plugin
+    # dir name or id, uppercased, "-" -> "_"), value 1/true/yes/on.
+    # environment:
+    #   - OSD_PLUGIN_MQTT_DISABLED=true
+    #   - OSD_PLUGIN_PROXMOX_ASSETS_DISABLED=true
+    #   - OSD_PLUGIN_CROWDSEC_DISABLED=true
     # Optional but recommended: keep Docker's json-file logs bounded.
     logging:
       driver: json-file
