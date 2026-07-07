@@ -43,10 +43,11 @@ def render_dashboard(*, event_plugins_enabled: bool) -> str:
     )
 
 
-def test_dashboard_title_shows_local_date():
+def test_dashboard_title_separates_local_date_with_middle_dot():
     html = render_dashboard(event_plugins_enabled=True)
 
-    assert "dashboard.ui_title (2026-07-29)" in html
+    assert "dashboard.ui_title · 2026-07-29" in html
+    assert "dashboard.ui_title (2026-07-29)" not in html
 
 
 def test_dashboard_does_not_show_historical_rollup_widgets():
