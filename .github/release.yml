@@ -4,8 +4,9 @@
 changelog:
   exclude:
     authors:
-      - dependabot
       - github-actions
+    labels:
+      - no-release-note
   categories:
     - title: "⚠️ Breaking changes"
       labels:
