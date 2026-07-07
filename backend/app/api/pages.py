@@ -26,27 +26,22 @@ from app.models.events import Event
 from app.models.settings import Setting
 from app.models.systems import System
 from app.services.insight_rules import debug_summary as insight_rules_debug_summary
-from app.services.json_assets_updates import refresh_asset_update
+from app.services.asset_updates import refresh_asset_update
 from app.plugins.manager import get_plugin_manager
 from app.services.asset_actions import (
     AssetActionAlreadyRunning,
     asset_action_running,
-    export_publishable_asset_updates,
-    import_assets_source_action,
-    publish_asset_updates_action,
     refresh_asset_updates_action,
     run_asset_metadata_action,
 )
 from app.services.asset_hosts import matching_event_hostnames, normalize_asset_host, sync_asset_host_events
 from app.services.events import apply_event_filters, is_local_ip_value, tokenize_search_expression
-from app.services.proxmox_assets import sync_proxmox_assets
 from app.web.guards import (
     assets_feature_enabled,
     events_feature_enabled,
     is_plugin_enabled,
     require_assets_feature_enabled,
     require_events_feature_enabled,
-    require_plugin_enabled,
 )
 from app.web.render import render
 from app.web.tables import (
@@ -769,53 +764,6 @@ def assets_page(request: Request, show_inactive: bool = False, updates: bool = F
     )
 
 
-@router.post("/assets/proxmox-sync")
-def assets_proxmox_sync_page(db: Session = Depends(get_db)):
-    require_plugin_enabled(db, "proxmox_assets")
-    try:
-        from app.services.asset_actions import run_asset_action
-
-        run_asset_action(
-            "proxmox_sync",
-            lambda: (
-                sync_proxmox_assets(
-                    db,
-                    api_url=get_setting_value(db, "plugin.proxmox_assets.api_url", ""),
-                    token_id=get_setting_value(db, "plugin.proxmox_assets.token_id", ""),
-                    token_secret=get_setting_value(db, "plugin.proxmox_assets.token_secret", ""),
-                    verify_tls=get_setting_value(db, "plugin.proxmox_assets.verify_tls", "true") == "true",
-                ),
-                export_publishable_asset_updates(db),
-            )[0],
-        )
-    except AssetActionAlreadyRunning as exc:
-        raise HTTPException(status_code=409, detail=f"Asset action is already running: {exc.action}") from exc
-    except Exception as exc:
-        message = str(exc)
-        diagnostic = db.query(Diagnostic).filter(Diagnostic.plugin == "proxmox_assets", Diagnostic.component == "plugin").first()
-        if diagnostic is None:
-            diagnostic = Diagnostic(plugin="proxmox_assets", component="plugin")
-            db.add(diagnostic)
-        diagnostic.status = "error"
-        diagnostic.last_run = utc_now().replace(tzinfo=None)
-        diagnostic.last_error = message
-        db.commit()
-        return RedirectResponse(url=f"/assets?{urlencode({'proxmox_error': message[:500]})}", status_code=303)
-    return RedirectResponse(url="/assets", status_code=303)
-
-
-@router.post("/assets/mqtt-publish")
-def assets_mqtt_publish_page(db: Session = Depends(get_db)):
-    require_assets_feature_enabled(db)
-    if get_setting_value(db, "plugin.mqtt-hass.enabled", get_setting_value(db, "plugin.mqtt.enabled", "false")) != "true":
-        raise HTTPException(status_code=404, detail="Feature is disabled")
-    try:
-        publish_asset_updates_action(db, manual=True)
-    except AssetActionAlreadyRunning as exc:
-        raise HTTPException(status_code=409, detail=f"Asset action is already running: {exc.action}") from exc
-    return RedirectResponse(url="/assets", status_code=303)
-
-
 @router.get("/assets/system/{system_id}")
 def asset_page(system_id: int, request: Request, show_inactive: bool = False, asset_id: int | None = None, db: Session = Depends(get_db)):
     require_assets_feature_enabled(db)
@@ -969,27 +917,6 @@ def app_asset_page(asset_id: int, request: Request, db: Session = Depends(get_db
     if asset is None:
         raise HTTPException(status_code=404, detail="Asset not found")
     return RedirectResponse(url=f"/assets/system/{asset.system_id}#asset-events", status_code=303)
-
-
-@router.post("/assets/import-source")
-def assets_import_source_page(db: Session = Depends(get_db)):
-    require_plugin_enabled(db, "json_assets")
-    source_type = get_setting_value(
-        db,
-        "plugin.json_assets.source_type",
-        get_setting_value(db, "plugin.assets.source_type", get_setting_value(db, "asset_source_type", "file")),
-    )
-    source = get_setting_value(
-        db,
-        "plugin.json_assets.source",
-        get_setting_value(db, "plugin.assets.source", get_setting_value(db, "asset_source", "/assets/assets.json")),
-    )
-    if source:
-        try:
-            import_assets_source_action(db=db, source_type=source_type, source=source)
-        except AssetActionAlreadyRunning as exc:
-            raise HTTPException(status_code=409, detail=f"Asset action is already running: {exc.action}") from exc
-    return RedirectResponse(url="/assets", status_code=303)
 
 
 @router.post("/assets/refresh-updates")

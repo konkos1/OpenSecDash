@@ -25,7 +25,7 @@ from app.core.time import utc_now
 from app.services.events import cleanup_events_by_retention, compact_completed_daily_rollups, register_duplicate_rules
 from app.services.geoip import enrich_pending_events
 from app.services.insight_rules import refresh_insight_rules
-from app.services.json_assets_updates import refresh_asset_updates
+from app.services.asset_updates import refresh_asset_updates
 from app.services.self_update import run_self_update_check
 
 
@@ -45,14 +45,9 @@ class PluginManager:
     settings lookup, diagnostics, and cross-plugin calls so plugins can stay
     small and ADR-compliant.
 
-    Deliberate interim convention (see ADR-044): integration-specific domain
-    services that core pages also consume (e.g. ``app/services/crowdsec_*``,
-    ``proxmox_assets``, ``json_assets_*``) live in ``app/services/`` rather
-    than in the plugin directory. Core code must not import from ``plugins/``
-    (inverted dependency, and plugins are loaded per-file - they are not an
-    importable package in the deployed layout). The long-term goal is for
-    plugins to own their services and register their pages through the plugin
-    API, at which point those modules move into their plugins.
+    Integration-specific domain services live in their plugin packages. Core
+    code must not import from ``plugins/``; cross-plugin behavior goes through
+    this manager, registries, and plugin hooks.
     """
 
     def __init__(self, plugin_dir: Path) -> None:

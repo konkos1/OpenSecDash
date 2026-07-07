@@ -7,8 +7,9 @@ from typing import Any
 from app.models.assets import Asset
 from app.core.logging import redact_sensitive
 from app.plugins.base import PeriodicPlugin, PluginContext, PluginMetadata, PluginSetting
-from app.services.json_assets_import import import_json_assets
-from app.services.json_assets_source import load_asset_source
+
+from .services.importer import import_json_assets
+from .services.source import load_asset_source
 
 
 logger = logging.getLogger(__name__)
@@ -159,6 +160,13 @@ class Plugin(PeriodicPlugin):
         logger.debug("Loading JSON assets source_type=%s source=%s", source_type, redact_sensitive(source))
         inventory: dict[str, Any] = load_asset_source(source_type=source_type, source=source)
         return import_json_assets(db=context.db, inventory=inventory)
+
+    def web(self):
+        from app.plugins.web import PluginWebRegistration
+
+        from .routes import router
+
+        return PluginWebRegistration(router=router)
 
     async def _export_assets(self, context: PluginContext) -> None:
         publishable_assets = (

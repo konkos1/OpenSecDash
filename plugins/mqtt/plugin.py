@@ -84,6 +84,13 @@ class Plugin(ExportPlugin, PeriodicPlugin):
         },
     }
 
+    def web(self):
+        from app.plugins.web import PluginWebRegistration
+
+        from .routes import ungated_router
+
+        return PluginWebRegistration(ungated_router=ungated_router)
+
     async def health(self, context) -> dict[str, str]:
         host = context.get("host")
         if not host:
