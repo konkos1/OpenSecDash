@@ -179,6 +179,24 @@ def import_bundled_rules(db: Session) -> dict[str, Any]:
     return import_ruleset(db, _load_default_ruleset(), source="bundled")
 
 
+def _ruleset_state_message(db: Session) -> str:
+    rows = db.query(InsightRuleModel).filter(InsightRuleModel.is_active == True).all()
+    bundled_rows = [row for row in rows if row.source == "bundled"]
+    remote_rows = [row for row in rows if row.source == "remote"]
+    bundled_versions = sorted({row.ruleset_version for row in bundled_rows if row.ruleset_version})
+    remote_versions = sorted({row.ruleset_version for row in remote_rows if row.ruleset_version})
+    sources = "+".join(source for source, source_rows in (("bundled", bundled_rows), ("remote", remote_rows)) if source_rows) or "none"
+    parts = [f"source={sources}"]
+    if bundled_rows:
+        parts.append(f"bundled_version={','.join(bundled_versions) or 'unknown'}")
+        parts.append(f"bundled={len(bundled_rows)}")
+    if remote_rows:
+        parts.append(f"remote_version={','.join(remote_versions) or 'unknown'}")
+        parts.append(f"remote={len(remote_rows)}")
+    parts.append(f"active={len(rows)}")
+    return "; ".join(parts)
+
+
 _ACTIVE_RULES_CACHE_KEY = "_opensecdash_active_insight_rules"
 
 
@@ -225,7 +243,7 @@ def refresh_insight_rules(db: Session, *, force: bool = False) -> dict[str, Any]
         try:
             fetched_at = datetime.fromisoformat(fetched_at_text)
             if utc_now().replace(tzinfo=None) - fetched_at < RULE_REFRESH_INTERVAL:
-                _update_diagnostic(db, "healthy", f"Insights engine rules loaded from database: bundled={bundled['count']}; active={len(active_rules(db))}")
+                _update_diagnostic(db, "healthy", f"Insights engine rules loaded from database: {_ruleset_state_message(db)}")
                 db.commit()
                 return {"status": "skipped", "source": "database", "version": _setting(db, RULE_VERSION_KEY, str(bundled["version"])), "count": len(active_rules(db))}
         except ValueError:
@@ -240,7 +258,7 @@ def refresh_insight_rules(db: Session, *, force: bool = False) -> dict[str, Any]
         response = requests.get(RULE_SOURCE_URL, timeout=RULE_TIMEOUT_SECONDS, headers=headers)
         if response.status_code == 304:
             _save_setting(db, RULE_FETCHED_AT_KEY, utc_now().replace(tzinfo=None).isoformat())
-            _update_diagnostic(db, "healthy", f"Insights engine rules unchanged: active={len(active_rules(db))}")
+            _update_diagnostic(db, "healthy", f"Insights engine rules unchanged: {_ruleset_state_message(db)}")
             db.commit()
             return {"status": "unchanged", "source": "database", "version": _setting(db, RULE_VERSION_KEY, str(bundled["version"])), "count": len(active_rules(db))}
         response.raise_for_status()
@@ -251,7 +269,7 @@ def refresh_insight_rules(db: Session, *, force: bool = False) -> dict[str, Any]
         if response.headers.get("ETag"):
             _save_setting(db, RULE_ETAG_KEY, str(response.headers["ETag"]))
         active_count = len(active_rules(db))
-        _update_diagnostic(db, "healthy", f"Insights engine rules loaded: version={remote.get('version')}; source=remote; remote={remote['count']}; active={active_count}")
+        _update_diagnostic(db, "healthy", f"Insights engine rules loaded: {_ruleset_state_message(db)}")
         db.commit()
         return {"status": "updated", "source": "remote", "version": remote.get("version"), "count": active_count}
     except Exception as exc:
