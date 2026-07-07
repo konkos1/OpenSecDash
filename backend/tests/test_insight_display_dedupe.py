@@ -86,10 +86,32 @@ def test_ip_explorer_cidr_range_shows_ipv6_events_and_insights_for_range(monkeyp
 
     monkeypatch.setattr(pages, "render", fake_render)
 
-    pages.ip_explorer_page("2001:db8::/32", cast(Any, _request("/ip/2001:db8::/32")), db=db_session)
+    pages.ip_explorer_page("2001:db8::%2F32", cast(Any, _request("/ip/2001:db8::%2F32")), db=db_session)
 
     assert [event.ip for event in captured["events"]] == ["2001:db8::20", "2001:db8::10"]
     assert [(insight.ip, insight.title) for insight in captured["insights"]] == [("2001:db8::30", "IPv6 in range")]
+
+
+def test_ip_explorer_cidr_range_includes_overlapping_cidr_events(monkeypatch, db_session):
+    db_session.add(Setting(key="plugin.traefik_log.enabled", value="true"))
+    db_session.add_all(
+        [
+            Event(event_time=datetime(2026, 1, 1, 12, 0), source="test", plugin="crowdsec", event_type="security.ban", severity="critical", ip="2001:db8::/64"),
+            Event(event_time=datetime(2026, 1, 1, 12, 1), source="test", plugin="crowdsec", event_type="security.ban", severity="critical", ip="2001:db9::/64"),
+        ]
+    )
+    db_session.commit()
+    captured = {}
+
+    def fake_render(request, db, template, **context):
+        captured.update(context)
+        return context
+
+    monkeypatch.setattr(pages, "render", fake_render)
+
+    pages.ip_explorer_page("2001:db8::%2F32", cast(Any, _request("/ip/2001:db8::%2F32")), db=db_session)
+
+    assert [event.ip for event in captured["events"]] == ["2001:db8::/64"]
 
 
 def test_asset_page_dedupes_system_and_host_insights_by_type_and_ip(monkeypatch, db_session):

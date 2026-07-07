@@ -8,7 +8,7 @@ from pathlib import Path
 import platform
 import zipfile
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-from urllib.parse import urlencode
+from urllib.parse import unquote, urlencode
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse, Response
@@ -612,28 +612,37 @@ async def save_events_columns(request: Request, db: Session = Depends(get_db)):
     return RedirectResponse(url=column_redirect_url(request, "/events", str(form.get("snapshot_before") or "")), status_code=303)
 
 
+def _clean_ip_target(value: str | None) -> str:
+    return unquote(str(value or "").strip())
+
+
 def _ip_network_target(value: str) -> ipaddress.IPv4Network | ipaddress.IPv6Network | None:
-    if "/" not in value:
+    clean_value = _clean_ip_target(value)
+    if "/" not in clean_value:
         return None
     try:
-        return ipaddress.ip_network(value.strip(), strict=False)
+        return ipaddress.ip_network(clean_value, strict=False)
     except ValueError:
         return None
 
 
 def _ip_in_network(value: str | None, network: ipaddress.IPv4Network | ipaddress.IPv6Network | None) -> bool:
-    if not value or network is None:
+    clean_value = _clean_ip_target(value)
+    if not clean_value or network is None:
         return False
     try:
-        return ipaddress.ip_address(value) in network
+        return ipaddress.ip_address(clean_value) in network
     except ValueError:
-        return False
+        try:
+            return ipaddress.ip_network(clean_value, strict=False).overlaps(network)
+        except ValueError:
+            return False
 
 
 def _events_for_ip_target(db: Session, ip: str, limit: int) -> list[Event]:
     network = _ip_network_target(ip)
     if network is None:
-        return db.query(Event).filter(Event.ip == ip).order_by(Event.event_time.desc()).limit(limit).all()
+        return db.query(Event).filter(Event.ip == _clean_ip_target(ip)).order_by(Event.event_time.desc()).limit(limit).all()
     events: list[Event] = []
     for event in db.query(Event).filter(Event.ip.isnot(None), Event.ip != "").order_by(Event.event_time.desc()).all():
         if _ip_in_network(event.ip, network):
@@ -646,7 +655,7 @@ def _events_for_ip_target(db: Session, ip: str, limit: int) -> list[Event]:
 def _insights_for_ip_target(db: Session, ip: str, limit: int) -> list[Insight]:
     network = _ip_network_target(ip)
     if network is None:
-        return db.query(Insight).filter(Insight.ip == ip).order_by(Insight.timestamp.desc()).limit(limit).all()
+        return db.query(Insight).filter(Insight.ip == _clean_ip_target(ip)).order_by(Insight.timestamp.desc()).limit(limit).all()
     insights: list[Insight] = []
     for insight in db.query(Insight).filter(Insight.ip.isnot(None), Insight.ip != "").order_by(Insight.timestamp.desc()).all():
         if _ip_in_network(insight.ip, network):
