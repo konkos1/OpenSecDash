@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from typing import cast
 
@@ -38,7 +39,14 @@ def render_dashboard(*, event_plugins_enabled: bool) -> str:
         today_events_href="/events?today=true",
         country_data_plugins=["crowdsec"] if event_plugins_enabled else [],
         latest_security_events=[],
+        dashboard_local_date="2026-07-29",
     )
+
+
+def test_dashboard_title_shows_local_date():
+    html = render_dashboard(event_plugins_enabled=True)
+
+    assert "dashboard.ui_title (2026-07-29)" in html
 
 
 def test_dashboard_does_not_show_historical_rollup_widgets():
@@ -47,6 +55,23 @@ def test_dashboard_does_not_show_historical_rollup_widgets():
     assert "dashboard.rollups_historical" not in html
     assert "dashboard.rollup_event_types" not in html
     assert "dashboard.rollup_scenarios" not in html
+
+
+def test_dashboard_local_date_uses_configured_timezone(db_session, monkeypatch):
+    db_session.add(Setting(key="timezone", value="Pacific/Kiritimati"))
+    db_session.commit()
+    captured = {}
+
+    def fake_render(request, db, template, **context):
+        captured.update(context)
+        return context
+
+    monkeypatch.setattr(pages, "render", fake_render)
+    monkeypatch.setattr(pages, "utc_now", lambda: datetime(2026, 7, 28, 23, 30, tzinfo=timezone.utc))
+
+    pages.dashboard_page(cast(Request, SimpleNamespace()), db_session)
+
+    assert captured["dashboard_local_date"] == "2026-07-29"
 
 
 def test_dashboard_asset_widgets_show_for_proxmox_assets(db_session, monkeypatch):
