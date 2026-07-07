@@ -30,6 +30,7 @@ class Plugin(ExportPlugin, PeriodicPlugin):
         id="mqtt-hass", 
         name="MQTT to Home Assistant", 
         version="1.0.0", 
+        api_version="2",
         capabilities=["export"], 
         description="Publishes OpenSecDash assets as update.* -Entity to Home Assistant via MQTT."
     )

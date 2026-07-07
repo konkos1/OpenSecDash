@@ -26,6 +26,7 @@ class Plugin(DatasourcePlugin):
         id="geoblock_log", 
         name="GeoBlock Log", 
         version="1.0.0", 
+        api_version="2",
         capabilities=["datasource", "widget"], 
         description="Reads GeoBlock Traefik plugin (github.com/PascalMinder/geoblock) logs."
     )

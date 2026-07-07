@@ -19,7 +19,7 @@ from app.database.session import SessionLocal
 from app.models.assets import Asset
 from app.models.core import Datasource, Diagnostic, PluginRecord
 from app.models.settings import Setting
-from app.plugins.base import ActionPlugin, DatasourcePlugin, ExportPlugin, PeriodicPlugin, Plugin, PluginContext, PluginSetting
+from app.plugins.base import CURRENT_PLUGIN_API_VERSION, ActionPlugin, DatasourcePlugin, ExportPlugin, PeriodicPlugin, Plugin, PluginContext, PluginSetting
 from app.plugins.loader import env_disable_var, import_plugin_module, is_plugin_env_disabled
 from app.core.time import utc_now
 from app.services.events import cleanup_events_by_retention, compact_completed_daily_rollups, register_duplicate_rules
@@ -89,6 +89,13 @@ class PluginManager:
             if plugin_class is None:
                 continue
             plugin: Plugin = plugin_class()
+            if plugin.metadata.api_version != CURRENT_PLUGIN_API_VERSION:
+                logger.warning(
+                    "Plugin %s declares API version %s, current API version is %s; loading anyway for compatibility",
+                    plugin.metadata.id,
+                    plugin.metadata.api_version,
+                    CURRENT_PLUGIN_API_VERSION,
+                )
             # Second check: the id can differ from the directory name (e.g. dir
             # "mqtt" but id "mqtt-hass"), so both spellings can disable it.
             if is_plugin_env_disabled(plugin.metadata.id):

@@ -36,6 +36,7 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
         id="crowdsec",
         name="CrowdSec",
         version="1.0.0",
+        api_version="2",
         capabilities=["datasource", "action", "page", "widget"],
         description="CrowdSec log datasource and cscli ban/unban actions."
     )

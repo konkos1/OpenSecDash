@@ -13,6 +13,7 @@ class Plugin(PeriodicPlugin):
         id="geoip",
         name="GeoIP / ASN / ISP / City Enrichment",
         version="1.0.0",
+        api_version="2",
         capabilities=["enrichment"],
         description="Adds country codes, cities, ASNs and ISPs to public IP events using a cached provider lookup.",
     )

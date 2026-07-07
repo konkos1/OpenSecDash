@@ -29,6 +29,7 @@ class Plugin(DatasourcePlugin):
         id="traefik_log",
         name="Traefik Access Log",
         version="1.0.0",
+        api_version="2",
         capabilities=["datasource", "page", "widget"],
         description="Reads Traefik JSON access logs and emits access.* events.",
     )

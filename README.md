@@ -95,7 +95,7 @@ If OpenSecDash helps your homelab, you can [buy me a coffee](https://www.buymeac
 
 ## Development
 
-See the [development guide](https://opensecdash.app/guide/contributing/development) for local setup, backend checks, and website development.
+See the [development guide](https://opensecdash.app/guide/contributing/development) for local setup, backend checks, and website development. Community plugins use API version `2`: each plugin is a package with `__init__.py` + `plugin.py`, relative imports, and optional `routes.py`/`templates/`.
 
 ## Contributing
 

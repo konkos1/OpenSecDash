@@ -19,10 +19,11 @@ if TYPE_CHECKING:
 # their public API surface. Changes here should be backwards compatible or paired
 # with an ADR/plugin API version bump.
 #
-# Note on the "page" capability: it is currently declarative only - plugin
-# pages and their integration services are still wired up in core
-# (app/api/pages.py, app/services/). See ADR-044 for the interim convention
-# and the goal of plugins owning their services and registering pages here.
+# Plugins can register web surfaces through ``Plugin.web()`` (routers,
+# namespaced template directories, nav items, IP panels) while keeping FastAPI
+# and Jinja imports out of this base module at runtime.
+CURRENT_PLUGIN_API_VERSION = "2"
+
 PluginCapability = Literal["datasource", "asset_source", "enrichment", "action", "export", "page", "widget", "insight"]
 SettingType = Literal["text", "password", "number", "boolean", "select", "file", "url"]
 
@@ -115,7 +116,10 @@ class PluginMetadata:
     version: str = "1.0.0"
     description: str = ""
     author: str = ""
-    api_version: str = "1"
+    # "2" means package layout with mandatory __init__.py, relative plugin
+    # imports, optional web()/ip_page_context()/duplicate_rules() hooks, the
+    # action hook family, and the asset_source capability.
+    api_version: str = CURRENT_PLUGIN_API_VERSION
     capabilities: list[PluginCapability] = field(default_factory=list)
 
 
