@@ -2,7 +2,6 @@ EN = {
     "app.name": "OpenSecDash",
 
     "nav.dashboard": "Dashboard",
-    "nav.access": "Access",
     "nav.events": "Events",
     "nav.assets": "Assets",
     "nav.rollups": "Rollups",
@@ -97,7 +96,6 @@ EN = {
     "rollups.no_periods": "No rollup data is available yet.",
 
     "table.limit.events": "Shows the newest 200 matching events.",
-    "table.limit.access": "Shows the newest 200 matching access events.",
     "table.limit.ip_insights": "Shows up to 50 latest insight types for this IP.",
     "table.limit.ip_events": "Shows the newest 200 events for this IP.",
     "table.limit.diagnostics_actions": "Shows the newest 20 manual actions.",
@@ -139,12 +137,8 @@ EN = {
     "events.live_unavailable": "Live currently unavailable",
     "events.live_reconnecting": "reconnecting",
 
-    "access.title": "Access",
-    "access.search_placeholder": "Search access",
-    "access.search_help": "Searches access fields such as time, IP, host, method, HTTP status, path, and JSON/raw data. Supports &&, || and parentheses, e.g. 2026-06-20 && /.env or (api && 404).",
     "access.host": "Host",
     "access.method": "Method",
-    "access.no_events": "No access events",
 
 
     "assets.title": "Assets",
