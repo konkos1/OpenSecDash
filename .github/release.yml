@@ -4,16 +4,19 @@
 changelog:
   exclude:
     authors:
-      - dependabot
       - github-actions
+    labels:
+      - no-release-note
   categories:
     - title: "⚠️ Breaking changes"
       labels:
         - breaking-change
     - title: "🚀 Features"
       labels:
-        - enhancement
         - feature
+    - title: "✨ Enhancements"
+      labels:
+        - enhancement
     - title: "🐛 Fixes"
       labels:
         - bug
