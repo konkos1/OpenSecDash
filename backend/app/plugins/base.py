@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from sqlalchemy.orm import Session
 
 from app.models.events import Event
-from app.services.events import store_event
+from app.services.events import DuplicateRule, store_event
 
 if TYPE_CHECKING:
     # Type-only import keeps base.py free of FastAPI/Jinja at runtime while the
@@ -184,6 +184,22 @@ class Plugin:
     def web(self) -> "PluginWebRegistration | None":  # noqa: F821 - see app.plugins.web
         """Optional web surface (router, templates, nav). See app.plugins.web."""
         return None
+
+    def duplicate_rules(self) -> tuple[DuplicateRule, ...]:
+        """Plugin-provided event dedupe rules (see app.services.events)."""
+        return ()
+
+    def ip_page_context(self, db: Session, ip: str) -> dict[str, Any]:
+        """Extra template context for the IP explorer page (side-effect-free)."""
+        return {}
+
+    def ip_page_count_widgets(self, db: Session, ip: str) -> list[dict[str, Any]]:
+        """Count cards this plugin contributes to the IP explorer (side-effect-free).
+
+        Each dict has ``key`` (i18n suffix under "ip.count."), ``value`` and
+        ``href``. Only shown while the plugin is enabled - the plugin decides.
+        """
+        return []
 
 
 class DatasourcePlugin(Plugin):

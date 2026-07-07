@@ -7,7 +7,7 @@ from pathlib import Path
 import platform
 import zipfile
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse, Response
@@ -22,7 +22,7 @@ from app.core.time import local_day_start_as_utc, resolve_timezone, utc_now
 from app.core.version import get_app_version
 from app.database.dependencies import get_db
 from app.models.assets import Asset
-from app.models.core import Action, AggregationDaily, AggregationMonthly, CrowdSecDecision, Datasource, Diagnostic, Insight, PluginRecord
+from app.models.core import Action, AggregationDaily, AggregationMonthly, Datasource, Diagnostic, Insight, PluginRecord
 from app.models.events import Event
 from app.models.settings import Setting
 from app.models.systems import System
@@ -38,10 +38,8 @@ from app.services.asset_actions import (
     refresh_asset_updates_action,
     run_asset_metadata_action,
 )
-from app.services.actions import ActionAlreadyRunning, create_action
-from app.services.crowdsec_decisions import active_decision_for_ip, crowdsec_cscli_status, sync_crowdsec_decisions
 from app.services.asset_hosts import event_matches_asset_host, find_asset_by_host, matching_event_hostnames, normalize_asset_host, sync_asset_host_events
-from app.services.events import apply_event_filters, is_local_ip_value, store_event, tokenize_search_expression
+from app.services.events import apply_event_filters, is_local_ip_value, tokenize_search_expression
 from app.services.proxmox_assets import sync_proxmox_assets
 from app.web.guards import (
     assets_feature_enabled,
@@ -838,106 +836,6 @@ async def save_access_columns(request: Request, db: Session = Depends(get_db)):
     return RedirectResponse(url=column_redirect_url(request, "/access", str(form.get("snapshot_before") or "")), status_code=303)
 
 
-@router.get("/crowdsec")
-def crowdsec_page(request: Request, db: Session = Depends(get_db)):
-    require_plugin_enabled(db, "crowdsec")
-    bans = db.query(Event).filter(Event.event_type.startswith("security.ban")).order_by(Event.event_time.desc()).limit(100).all()
-    active_decisions = {decision.ip: decision for decision in db.query(CrowdSecDecision).filter(CrowdSecDecision.decision_type == "ban").all()}
-    # Count scenarios in SQL instead of deserializing every ban event's JSON
-    # payload in Python on each page view - this table grows without bound.
-    scenario_expr = func.coalesce(func.json_extract(Event.data_json, "$.scenario"), "")
-    scenarios = [
-        (str(scenario) or None, int(count))
-        for scenario, count in (
-            db.query(scenario_expr, func.count(Event.id))
-            .filter(Event.event_type.startswith("security.ban"))
-            .group_by(scenario_expr)
-            .order_by(func.count(Event.id).desc())
-            .limit(10)
-            .all()
-        )
-    ]
-    countries = (
-        db.query(Event.country, func.count(Event.id))
-        .filter(Event.event_type.startswith("security.ban"), Event.country.isnot(None))
-        .group_by(Event.country)
-        .order_by(func.count(Event.id).desc())
-        .limit(10)
-        .all()
-    )
-    return render(
-        request,
-        db,
-        "crowdsec.html",
-        bans=bans,
-        scenarios=scenarios,
-        countries=countries,
-        active_decisions=active_decisions,
-        cscli_status=crowdsec_cscli_status(db),
-        action_dry_run=get_setting_value(db, "action_dry_run", "true").lower() == "true",
-    )
-
-
-@router.post("/crowdsec/decisions/refresh")
-def crowdsec_decisions_refresh(request: Request, db: Session = Depends(get_db)):
-    require_plugin_enabled(db, "crowdsec")
-    sync_crowdsec_decisions(db, force=True)
-    db.commit()
-    next_url = str(request.query_params.get("next") or "/crowdsec")
-    if not next_url.startswith("/"):
-        next_url = "/crowdsec"
-    return RedirectResponse(url=next_url, status_code=303)
-
-
-@router.post("/actions/ip")
-def action_ip_page(
-    action_type: str = Form(...),
-    ip: str = Form(...),
-    duration: str = Form("4h"),
-    decision_id: str = Form(""),
-    confirmed: bool = Form(False),
-    db: Session = Depends(get_db),
-):
-    # Told to CrowdSec itself (as the LAPI/cscli decision reason) and stored
-    # on the resulting event, so both CrowdSec's own tooling and the CrowdSec
-    # page clearly show this was a manual OpenSecDash action instead of a
-    # generic, unidentifiable "Manual action".
-    is_ban = action_type in {"security.ban", "crowdsec_ban"}
-    reason = "Manual ban via OpenSecDash" if is_ban else "Manual unban via OpenSecDash"
-    try:
-        create_action(db, action_type, ip, "ip", {"duration": duration, "reason": reason, "decision_id": decision_id}, confirmed)
-    except ActionAlreadyRunning as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-    except ValueError as exc:
-        manager = get_plugin_manager()
-        action = Action(
-            timestamp=utc_now().replace(tzinfo=None),
-            action_type=action_type,
-            plugin_id=manager.plugin_id_for_action(action_type),
-            target_type="ip",
-            target=ip,
-            parameters={"duration": duration, "reason": reason, "decision_id": decision_id},
-            status="failed",
-            result=str(exc),
-            requires_confirmation=action_type in manager.critical_action_types(),
-        )
-        db.add(action)
-        db.flush()
-        store_event(
-            db,
-            source="Action Framework",
-            source_id="actions",
-            plugin=action.plugin_id,
-            plugin_id=action.plugin_id,
-            event_type="action.failed",
-            severity="error",
-            ip=ip,
-            data_json={"action_id": action.id, "action_type": action_type, "target": ip, "status": "failed", "result": str(exc), "manual": True, "trigger": "manual"},
-        )
-        db.commit()
-    return RedirectResponse(url=f"/ip/{quote(ip, safe='')}", status_code=303)
-
-
 @router.get("/ip/{ip:path}")
 def ip_explorer_page(ip: str, request: Request, db: Session = Depends(get_db)):
     require_events_feature_enabled(db)
@@ -952,37 +850,17 @@ def ip_explorer_page(ip: str, request: Request, db: Session = Depends(get_db)):
         insights.append(insight)
         if len(insights) >= 50:
             break
-    enabled_plugins = {
-        "crowdsec": is_plugin_enabled(db, "crowdsec"),
-        "geoblock_log": is_plugin_enabled(db, "geoblock_log"),
-        "traefik_log": is_plugin_enabled(db, "traefik_log"),
-    }
-    count_widgets = []
-    if enabled_plugins["crowdsec"]:
-        count_widgets.append(
-            {
-                "key": "bans",
-                "value": db.query(Event).filter(Event.ip == ip, Event.event_type.startswith("security.ban")).count(),
-                "href": f"/events?ip={ip}&event_type=security.ban",
-            }
-        )
-    if enabled_plugins["geoblock_log"]:
-        count_widgets.append(
-            {
-                "key": "geoblocks",
-                "value": db.query(Event).filter(Event.ip == ip, Event.event_type == "security.geoblock").count(),
-                "href": f"/events?ip={ip}&event_type=security.geoblock",
-            }
-        )
-    if enabled_plugins["traefik_log"]:
-        count_widgets.append(
-            {
-                "key": "access",
-                "value": db.query(Event).filter(Event.ip == ip, Event.event_type.startswith("access.")).count(),
-                "href": f"/events?ip={ip}&event_type=access.*",
-            }
-        )
-    active_decision = active_decision_for_ip(db, ip) if enabled_plugins["crowdsec"] else None
+    # Count cards, extra context and panels are all contributed by plugins, so
+    # the IP explorer stays free of any per-plugin knowledge.
+    manager = get_plugin_manager()
+    count_widgets: list[dict[str, object]] = []
+    extra_context: dict[str, object] = {}
+    for plugin in manager.plugins.values():
+        count_widgets.extend(plugin.ip_page_count_widgets(db, ip))
+        extra_context.update(plugin.ip_page_context(db, ip))
+    plugin_ip_panels: list[str] = []
+    for _plugin_id, registration in manager.web_registrations():
+        plugin_ip_panels.extend(registration.ip_page_panels)
     action_dry_run = get_setting_value(db, "action_dry_run", "true").lower() == "true"
     return render(
         request,
@@ -992,11 +870,10 @@ def ip_explorer_page(ip: str, request: Request, db: Session = Depends(get_db)):
         events=events,
         insights=insights,
         count_widgets=count_widgets,
-        crowdsec_enabled=enabled_plugins["crowdsec"],
         local_ip_target=is_local_ip_value(ip),
-        active_decision=active_decision,
         action_dry_run=action_dry_run,
-        cscli_status=crowdsec_cscli_status(db) if enabled_plugins["crowdsec"] else None,
+        plugin_ip_panels=plugin_ip_panels,
+        **extra_context,
     )
 
 

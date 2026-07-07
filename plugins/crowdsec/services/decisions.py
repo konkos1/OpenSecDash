@@ -97,7 +97,7 @@ def _fetch_decisions_via_cscli(db: Session) -> tuple[bool, str, list[Any]]:
 
 
 def _fetch_decisions_via_lapi(db: Session) -> tuple[bool, str, list[Any]]:
-    from app.services.crowdsec_lapi import LapiError, lapi_active_ban_decisions, lapi_login
+    from .lapi import LapiError, lapi_active_ban_decisions, lapi_login
 
     url = get_setting_value(db, "plugin.crowdsec.lapi_url", "http://127.0.0.1:8080")
     login = get_setting_value(db, "plugin.crowdsec.lapi_login", "")

@@ -19,62 +19,8 @@
         </section>
     {% endif %}
 
-    {% if crowdsec_enabled or action_dry_run %}
-        <div class="card mb-5">
-            <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
-                <div>
-                    <h3 class="font-semibold">{{ t("ip.actions") }}</h3>
-                    {% if action_dry_run %}
-                        <p class="muted text-sm">{{ t("ip.actions_dry_run") }}</p>
-                        {% if cscli_status and cscli_status.status != 'healthy' %}
-                            <p class="muted text-sm">{{ t("crowdsec.cscli_ignored_dry_run") }}</p>
-                        {% endif %}
-                    {% elif cscli_status and cscli_status.status == 'healthy' %}
-                        <p class="muted text-sm">{{ t("crowdsec.cscli_ok") }}{% if cscli_status.last_error %}: {{ cscli_status.last_error }}{% endif %}</p>
-                    {% elif cscli_status %}
-                        <p class="alert-error text-sm">{{ t("crowdsec.cscli_error") }}: {{ cscli_status.last_error or '-' }}</p>
-                    {% elif crowdsec_enabled %}
-                        <p class="muted text-sm">{{ t("crowdsec.cscli_unknown") }}</p>
-                    {% endif %}
-                </div>
-                {% if crowdsec_enabled %}
-                    <form method="post" action="/crowdsec/decisions/refresh?next=/ip/{{ ip|url_path_quote }}" data-submit-busy>
-                        <button class="btn-small" data-busy-label="{{ t('common.processing') }}">{{ t("crowdsec.refresh_decisions") }}</button>
-                    </form>
-                {% endif %}
-            </div>
-            {% if active_decision %}
-                <p class="muted text-sm mb-3">{{ t("ip.active_ban") }}{% if active_decision.until %} · {{ active_decision.until|datetime }}{% endif %}</p>
-            {% endif %}
-            {% if local_ip_target %}
-                <p class="muted text-sm">{{ t("ip.local_ban_disabled") }}</p>
-            {% else %}
-                <div class="flex flex-col gap-3">
-                    <form class="flex flex-col sm:flex-row sm:items-end gap-2" method="post" action="/actions/ip" data-confirm="{{ t('ip.ban_confirm') }} {{ ip }}?" data-submit-busy>
-                        <input type="hidden" name="action_type" value="security.ban">
-                        <input type="hidden" name="ip" value="{{ ip }}">
-                        <input type="hidden" name="confirmed" value="true">
-                        <select class="input sm:w-48" name="duration">
-                            <option>4h</option>
-                            <option>24h</option>
-                            <option>7d</option>
-                        </select>
-                        <button class="btn sm:w-auto sm:self-end" data-busy-label="{{ t('common.processing') }}">{{ t("ip.crowdsec_ban") }}</button>
-                    </form>
-                    {% if active_decision or action_dry_run %}
-                        <form method="post" action="/actions/ip" data-confirm="{{ t('crowdsec.confirm_unban') }} {{ ip }}?" data-submit-busy>
-                            <input type="hidden" name="action_type" value="security.unban">
-                            <input type="hidden" name="ip" value="{{ ip }}">
-                            <input type="hidden" name="decision_id" value="{{ active_decision.decision_id if active_decision else '' }}">
-                            <input type="hidden" name="confirmed" value="true">
-                            <button class="btn-small" data-busy-label="{{ t('common.processing') }}">{{ t("crowdsec.unban") }}</button>
-                        </form>
-                    {% endif %}
-                </div>
-            {% endif %}
-        </div>
-    {% endif %}
-    
+    {% for panel in plugin_ip_panels %}{% include panel %}{% endfor %}
+
     <div class="card mb-5">
         <h3 class="font-semibold mb-1">{{ t("ip.insights") }} <button type="button" class="help" data-tooltip="{{ t('ip.insights_help') }}">?</button></h3>
         <p class="muted text-sm mb-3">{{ t("table.limit.ip_insights") }}</p>

@@ -22,7 +22,7 @@ from app.models.settings import Setting
 from app.plugins.base import ActionPlugin, DatasourcePlugin, ExportPlugin, PeriodicPlugin, Plugin, PluginContext, PluginSetting
 from app.plugins.loader import env_disable_var, import_plugin_module, is_plugin_env_disabled
 from app.core.time import utc_now
-from app.services.events import cleanup_events_by_retention, compact_completed_daily_rollups
+from app.services.events import cleanup_events_by_retention, compact_completed_daily_rollups, register_duplicate_rules
 from app.services.geoip import enrich_pending_events
 from app.services.insight_rules import refresh_insight_rules
 from app.services.json_assets_updates import refresh_asset_updates
@@ -103,6 +103,8 @@ class PluginManager:
             # Plugin translations become globally resolvable via t()/translate()
             # (core strings still win on key collision, see app.core.i18n).
             register_extra_locales(plugin.locales)
+            # Plugin-provided event dedupe rules (e.g. CrowdSec ban correlation).
+            register_duplicate_rules(plugin.metadata.id, plugin.duplicate_rules())
             logger.debug("Discovered plugin %s from %s", plugin.metadata.id, plugin_py)
 
         # Publish the discovered set so dependency-free core code (feature flags,

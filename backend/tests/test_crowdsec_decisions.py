@@ -1,13 +1,22 @@
 import json
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import pytest
 
 from app.core.time import utc_now
 from app.models.core import CrowdSecDecision
 from app.models.settings import Setting
+from app.plugins.loader import import_plugin_module
 from app.services.actions import create_action
-from app.services.crowdsec_decisions import _parse_datetime, active_decision_for_ip, crowdsec_cscli_status, sync_crowdsec_decisions
+
+# The CrowdSec decision service now lives in the plugin; load it the same way
+# the plugin manager does (see docs/internal/plugin-rework/).
+decisions = import_plugin_module(Path(__file__).resolve().parents[2] / "plugins" / "crowdsec", "services.decisions")
+_parse_datetime = decisions._parse_datetime
+active_decision_for_ip = decisions.active_decision_for_ip
+crowdsec_cscli_status = decisions.crowdsec_cscli_status
+sync_crowdsec_decisions = decisions.sync_crowdsec_decisions
 
 
 def test_parse_datetime_converts_to_utc_regardless_of_offset():
@@ -51,7 +60,7 @@ def test_sync_crowdsec_decisions_stores_active_bans(monkeypatch, db_session):
         assert cmd == ["/usr/local/bin/cscli", "decisions", "list", "-o", "json"]
         return Completed(stdout=json.dumps(payload))
 
-    monkeypatch.setattr("app.services.crowdsec_decisions.subprocess.run", fake_run)
+    monkeypatch.setattr(decisions.subprocess, "run", fake_run)
 
     ok, message = sync_crowdsec_decisions(db_session, force=True)
     db_session.commit()
@@ -74,7 +83,7 @@ def test_sync_crowdsec_decisions_records_cscli_error(monkeypatch, db_session):
     def fake_run(cmd, capture_output, text, timeout):
         return Completed(returncode=1, stderr="cscli unavailable")
 
-    monkeypatch.setattr("app.services.crowdsec_decisions.subprocess.run", fake_run)
+    monkeypatch.setattr(decisions.subprocess, "run", fake_run)
 
     ok, message = sync_crowdsec_decisions(db_session, force=True)
     db_session.commit()
