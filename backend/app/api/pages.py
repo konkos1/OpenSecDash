@@ -127,6 +127,13 @@ def diagnostic_disabled_message(db: Session, plugin_id: str) -> str:
     return "Plugin is disabled and not running."
 
 
+def diagnostic_component_visible(db: Session, item: Diagnostic) -> bool:
+    if item.plugin == "crowdsec" and item.component in {"cscli", "lapi"}:
+        connection_mode = get_setting_value(db, "plugin.crowdsec.connection_mode", "lapi")
+        return item.component == connection_mode
+    return True
+
+
 def rollup_rows(db: Session, period: str, value: str, metric: str, limit: int | None = None) -> list[dict[str, str | int]]:
     if period == "month":
         # Month view = compacted monthly rows PLUS any daily rows of that
@@ -1100,12 +1107,21 @@ def diagnostics_page(request: Request, db: Session = Depends(get_db)):
     ]
     diagnostic_rows = []
     for item in db.query(Diagnostic).order_by(Diagnostic.plugin).all():
-        if not is_visible(item.plugin):
+        if not is_visible(item.plugin) or not diagnostic_component_visible(db, item):
             continue
         if item.plugin == "system":
             diagnostic_rows.append({"item": item, "effective_status": item.status, "message": item.last_error or ""})
             continue
         enabled = diagnostic_plugin_enabled(db, item.plugin)
+        if enabled and item.component == "plugin" and item.status == "disabled":
+            diagnostic_rows.append(
+                {
+                    "item": item,
+                    "effective_status": "warning",
+                    "message": "Plugin was re-enabled; waiting for the next health check.",
+                }
+            )
+            continue
         diagnostic_rows.append(
             {
                 "item": item,
@@ -1234,6 +1250,7 @@ async def save_settings(
                     text_value = clean_url_value(text_value)
                 save_setting(db, key, text_value)
         db.commit()
+        get_plugin_manager().refresh_health_diagnostics(db)
         configure_logging_from_db(db)
 
     await asyncio.to_thread(_save)

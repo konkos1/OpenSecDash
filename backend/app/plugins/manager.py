@@ -506,7 +506,23 @@ class PluginManager:
             self._update_datasource(db, plugin_id, True, "error", message, 0)
         db.commit()
 
-    def _run_health_tick(self, db: Session, plugin: Plugin) -> None:
+    def refresh_health_diagnostics(self, db: Session) -> None:
+        """Refresh plugin health rows after settings changed.
+
+        This keeps Diagnostics in sync immediately when a plugin is toggled or
+        a connection mode/path changes, instead of showing a stale background
+        health result until the next scheduled health loop.
+        """
+        for plugin in self.plugins.values():
+            try:
+                self._run_health_tick(db, plugin, commit=False)
+            except Exception as exc:
+                logger.exception("Plugin %s health check failed after settings save", plugin.metadata.id)
+                db.rollback()
+                self._update_diagnostic(db, plugin.metadata.id, "error", str(exc))
+        db.commit()
+
+    def _run_health_tick(self, db: Session, plugin: Plugin, *, commit: bool = True) -> None:
         """Runs one health check synchronously. Called via ``asyncio.to_thread``."""
         ctx = self.context(db, plugin)
         enabled = ctx.get("enabled", "false").lower() == "true"
@@ -521,7 +537,8 @@ class PluginManager:
                 result.get("status", "healthy"),
                 result.get("message") or result.get("error"),
             )
-        db.commit()
+        if commit:
+            db.commit()
 
     async def _datasource_loop(self, plugin: DatasourcePlugin) -> None:
         while True:
