@@ -604,20 +604,26 @@ async def save_events_columns(request: Request, db: Session = Depends(get_db)):
     return RedirectResponse(url=column_redirect_url(request, "/events", str(form.get("snapshot_before") or "")), status_code=303)
 
 
+def dedupe_insights_for_display(raw_insights: list[Insight], limit: int, *, include_ip: bool = False) -> list[Insight]:
+    insights = []
+    seen_insight_keys = set()
+    for insight in raw_insights:
+        insight_key = (insight.type, insight.ip) if include_ip else insight.type
+        if insight_key in seen_insight_keys:
+            continue
+        seen_insight_keys.add(insight_key)
+        insights.append(insight)
+        if len(insights) >= limit:
+            break
+    return insights
+
+
 @router.get("/ip/{ip:path}")
 def ip_explorer_page(ip: str, request: Request, db: Session = Depends(get_db)):
     require_events_feature_enabled(db)
     events = db.query(Event).filter(Event.ip == ip).order_by(Event.event_time.desc()).limit(200).all()
     raw_insights = db.query(Insight).filter(Insight.ip == ip).order_by(Insight.timestamp.desc()).limit(100).all()
-    insights = []
-    seen_insight_types = set()
-    for insight in raw_insights:
-        if insight.type in seen_insight_types:
-            continue
-        seen_insight_types.add(insight.type)
-        insights.append(insight)
-        if len(insights) >= 50:
-            break
+    insights = dedupe_insights_for_display(raw_insights, 50)
     # Count cards, extra context and panels are all contributed by plugins, so
     # the IP explorer stays free of any per-plugin knowledge.
     manager = get_plugin_manager()
@@ -799,13 +805,14 @@ def asset_page(system_id: int, request: Request, show_inactive: bool = False, as
         host_events_query = db.query(Event).filter(Event.asset_id.in_(host_app_ids))
         if host_matched_hostnames:
             host_events_query = db.query(Event).filter(or_(Event.asset_id.in_(host_app_ids), Event.hostname.in_(host_matched_hostnames)))
-        host_insights = (
+        raw_host_insights = (
             db.query(Insight)
             .filter(Insight.asset_id.in_(host_app_ids))
             .order_by(Insight.timestamp.desc())
-            .limit(25)
+            .limit(100)
             .all()
         )
+        host_insights = dedupe_insights_for_display(raw_host_insights, 25, include_ip=True)
         host_event_sections.append(
             {
                 "host": host,
@@ -833,15 +840,16 @@ def asset_page(system_id: int, request: Request, show_inactive: bool = False, as
             if app_ids
             else []
         )
-    insights = (
+    raw_insights = (
         db.query(Insight)
         .filter(Insight.asset_id.in_(app_ids))
         .order_by(Insight.timestamp.desc())
-        .limit(50)
+        .limit(100)
         .all()
         if app_ids
         else []
     )
+    insights = dedupe_insights_for_display(raw_insights, 50, include_ip=True)
     mqtt_plugin_enabled = (
         get_setting_value(db, "plugin.mqtt.enabled", get_setting_value(db, "plugin.mqtt-hass.enabled", "false")) == "true"
     )
