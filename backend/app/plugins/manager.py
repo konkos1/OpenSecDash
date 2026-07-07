@@ -1,27 +1,31 @@
 from __future__ import annotations
 
 import asyncio
-import importlib.util
 import logging
 import json
 import time
 from pathlib import Path
-from types import ModuleType
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.orm import Session
 
+if TYPE_CHECKING:
+    from app.plugins.web import PluginWebRegistration
+
+from app.core import plugin_registry
+from app.core.i18n import register_extra_locales
 from app.core.template_context import get_setting_value
 from app.database.session import SessionLocal
 from app.models.assets import Asset
 from app.models.core import Datasource, Diagnostic, PluginRecord
 from app.models.settings import Setting
-from app.plugins.base import ActionPlugin, DatasourcePlugin, ExportPlugin, PeriodicPlugin, Plugin, PluginContext, PluginSetting
+from app.plugins.base import CURRENT_PLUGIN_API_VERSION, ActionPlugin, DatasourcePlugin, ExportPlugin, PeriodicPlugin, Plugin, PluginContext, PluginSetting
+from app.plugins.loader import env_disable_var, import_plugin_module, is_plugin_env_disabled
 from app.core.time import utc_now
-from app.services.events import cleanup_events_by_retention, compact_completed_daily_rollups
+from app.services.events import cleanup_events_by_retention, compact_completed_daily_rollups, register_duplicate_rules
 from app.services.geoip import enrich_pending_events
 from app.services.insight_rules import refresh_insight_rules
-from app.services.json_assets_updates import refresh_asset_updates
+from app.services.asset_updates import refresh_asset_updates
 from app.services.self_update import run_self_update_check
 
 
@@ -41,14 +45,9 @@ class PluginManager:
     settings lookup, diagnostics, and cross-plugin calls so plugins can stay
     small and ADR-compliant.
 
-    Deliberate interim convention (see ADR-044): integration-specific domain
-    services that core pages also consume (e.g. ``app/services/crowdsec_*``,
-    ``proxmox_assets``, ``json_assets_*``) live in ``app/services/`` rather
-    than in the plugin directory. Core code must not import from ``plugins/``
-    (inverted dependency, and plugins are loaded per-file - they are not an
-    importable package in the deployed layout). The long-term goal is for
-    plugins to own their services and register their pages through the plugin
-    API, at which point those modules move into their plugins.
+    Integration-specific domain services live in their plugin packages. Core
+    code must not import from ``plugins/``; cross-plugin behavior goes through
+    this manager, registries, and plugin hooks.
     """
 
     def __init__(self, plugin_dir: Path) -> None:
@@ -58,29 +57,85 @@ class PluginManager:
 
     def discover(self) -> None:
         # Discovery is file-system based to keep packaging simple for community
-        # plugins: each plugin is a directory with a ``plugin.py`` exposing
-        # ``Plugin``. Avoid importing arbitrary helper files here.
+        # plugins: each plugin is a package directory (``__init__.py``) with a
+        # ``plugin.py`` exposing ``Plugin``. Loaded via the osd_plugins
+        # namespace (see app.plugins.loader) so plugins can ship their own
+        # submodules and import them relatively.
         self.plugins.clear()
         if not self.plugin_dir.exists():
             logger.warning("Plugin directory does not exist: %s", self.plugin_dir)
             return
         for plugin_py in sorted(self.plugin_dir.glob("*/plugin.py")):
-            module = self._load_module(plugin_py)
+            plugin_dir = plugin_py.parent
+            if not (plugin_dir / "__init__.py").exists():
+                logger.warning(
+                    "Skipping plugin directory without __init__.py (packages are required since plugin API 2): %s",
+                    plugin_dir,
+                )
+                continue
+            # Env-disabled plugins are not even imported, so they are absent
+            # everywhere downstream (settings, seeding, loops, nav, feature
+            # flags). Checked by directory name first to skip the import.
+            if is_plugin_env_disabled(plugin_dir.name):
+                logger.info("Plugin %s is disabled via %s and will not be loaded", plugin_dir.name, env_disable_var(plugin_dir.name))
+                continue
+            # One broken plugin must not take down discovery of the others.
+            try:
+                module = import_plugin_module(plugin_dir, "plugin")
+            except Exception:
+                logger.exception("Failed to load plugin from %s; skipping it", plugin_dir)
+                continue
             plugin_class = getattr(module, "Plugin", None)
             if plugin_class is None:
                 continue
             plugin: Plugin = plugin_class()
+            if plugin.metadata.api_version != CURRENT_PLUGIN_API_VERSION:
+                logger.warning(
+                    "Plugin %s declares API version %s, current API version is %s; loading anyway for compatibility",
+                    plugin.metadata.id,
+                    plugin.metadata.api_version,
+                    CURRENT_PLUGIN_API_VERSION,
+                )
+            # Second check: the id can differ from the directory name (e.g. dir
+            # "mqtt" but id "mqtt-hass"), so both spellings can disable it.
+            if is_plugin_env_disabled(plugin.metadata.id):
+                logger.info("Plugin %s is disabled via %s and will not be loaded", plugin.metadata.id, env_disable_var(plugin.metadata.id))
+                continue
             self.plugins[plugin.metadata.id] = plugin
+            # Plugin translations become globally resolvable via t()/translate()
+            # (core strings still win on key collision, see app.core.i18n).
+            register_extra_locales(plugin.locales)
+            # Plugin-provided event dedupe rules (e.g. CrowdSec ban correlation).
+            register_duplicate_rules(plugin.metadata.id, plugin.duplicate_rules())
             logger.debug("Discovered plugin %s from %s", plugin.metadata.id, plugin_py)
 
-    def _load_module(self, path: Path) -> ModuleType:
-        module_name = f"opensecdash_external_plugin_{path.parent.name}"
-        spec = importlib.util.spec_from_file_location(module_name, path)
-        if spec is None or spec.loader is None:
-            raise ImportError(f"Cannot load plugin from {path}")
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        return module
+        # Publish the discovered set so dependency-free core code (feature flags,
+        # nav, websocket gating) can answer "which plugins / capabilities exist"
+        # without importing the manager.
+        plugin_registry.register_plugins(
+            plugin_registry.RegisteredPlugin(
+                id=p.metadata.id,
+                name=p.metadata.name,
+                capabilities=tuple(p.metadata.capabilities),
+                nav_items=self._nav_items_for(p),
+            )
+            for p in self.plugins.values()
+        )
+
+    @staticmethod
+    def _nav_items_for(plugin: Plugin) -> tuple[plugin_registry.NavItem, ...]:
+        registration = plugin.web()
+        if registration is None:
+            return ()
+        return tuple((item.label_key, item.href, item.active_prefix, item.order) for item in registration.nav_items)
+
+    def web_registrations(self) -> list[tuple[str, "PluginWebRegistration"]]:
+        result: list[tuple[str, PluginWebRegistration]] = []
+        for plugin in self.plugins.values():
+            registration = plugin.web()
+            if registration is not None:
+                result.append((plugin.metadata.id, registration))
+        return result
 
     def seed_database(self, db: Session) -> None:
         # Persist plugin metadata and default settings so the UI can render
@@ -234,7 +289,7 @@ class PluginManager:
         """Runs one asset-update check synchronously. Called via ``asyncio.to_thread``."""
         asset_sources_enabled = any(
             get_setting_value(db, f"plugin.{plugin_id}.enabled", "false") == "true"
-            for plugin_id in ["json_assets", "proxmox_assets"]
+            for plugin_id in plugin_registry.ids_with_capability("asset_source")
         )
         interval = self._setting_interval(get_setting_value(db, "asset_updates.github_interval", "21600"))
         if not asset_sources_enabled:
@@ -248,11 +303,22 @@ class PluginManager:
             if last_run == 0 or now - last_run >= interval:
                 result = refresh_asset_updates(db)
                 logger.debug("Asset update checks completed: %s", result)
+                failed_assets = result.get("failed_assets") or []
+                failed_reasons = result.get("failed_reasons") or []
+                reasons_text = "; ".join(failed_reasons) or "unknown error"
+                rate_limited = "rate limit" in reasons_text.lower()
+                if failed_assets and result["failed"] == result["checked"] and rate_limited:
+                    failed_suffix = f"; all checks failed: {reasons_text}"
+                elif failed_assets and result["failed"] == result["checked"]:
+                    failed_suffix = f"; all checks failed: {reasons_text}; affected assets: {', '.join(failed_assets)}"
+                else:
+                    failed_suffix = f"; failed assets: {', '.join(failed_assets)}" if failed_assets else ""
+                status = "warning" if result["failed"] else "healthy"
                 self._update_diagnostic(
                     db,
                     "asset_updates",
-                    "healthy",
-                    f"Last check: checked={result['checked']}, updated={result['updated']}, failed={result['failed']}",
+                    status,
+                    f"Last check: checked={result['checked']}, updated={result['updated']}, failed={result['failed']}{failed_suffix}",
                 )
                 db.commit()
                 last_run = now
@@ -440,7 +506,23 @@ class PluginManager:
             self._update_datasource(db, plugin_id, True, "error", message, 0)
         db.commit()
 
-    def _run_health_tick(self, db: Session, plugin: Plugin) -> None:
+    def refresh_health_diagnostics(self, db: Session) -> None:
+        """Refresh plugin health rows after settings changed.
+
+        This keeps Diagnostics in sync immediately when a plugin is toggled or
+        a connection mode/path changes, instead of showing a stale background
+        health result until the next scheduled health loop.
+        """
+        for plugin in self.plugins.values():
+            try:
+                self._run_health_tick(db, plugin, commit=False)
+            except Exception as exc:
+                logger.exception("Plugin %s health check failed after settings save", plugin.metadata.id)
+                db.rollback()
+                self._update_diagnostic(db, plugin.metadata.id, "error", str(exc))
+        db.commit()
+
+    def _run_health_tick(self, db: Session, plugin: Plugin, *, commit: bool = True) -> None:
         """Runs one health check synchronously. Called via ``asyncio.to_thread``."""
         ctx = self.context(db, plugin)
         enabled = ctx.get("enabled", "false").lower() == "true"
@@ -455,7 +537,8 @@ class PluginManager:
                 result.get("status", "healthy"),
                 result.get("message") or result.get("error"),
             )
-        db.commit()
+        if commit:
+            db.commit()
 
     async def _datasource_loop(self, plugin: DatasourcePlugin) -> None:
         while True:
@@ -653,14 +736,29 @@ class PluginManager:
         diagnostic.last_error = error
         diagnostic.last_run = utc_now().replace(tzinfo=None)
 
-    async def execute_action(self, db: Session, action_type: str, target: str, parameters: dict[str, Any]) -> dict[str, Any] | None:
+    def action_plugin_for(self, action_type: str) -> ActionPlugin | None:
+        for plugin in self.plugins.values():
+            if isinstance(plugin, ActionPlugin) and action_type in plugin.action_types:
+                return plugin
+        return None
+
+    def critical_action_types(self) -> frozenset[str]:
+        result: frozenset[str] = frozenset()
         for plugin in self.plugins.values():
             if isinstance(plugin, ActionPlugin):
-                ctx = self.context(db, plugin)
-                result = await plugin.execute(ctx, action_type, target, parameters)
-                if result is not None:
-                    return result
-        return None
+                result |= plugin.critical_action_types
+        return result
+
+    def plugin_id_for_action(self, action_type: str) -> str:
+        plugin = self.action_plugin_for(action_type)
+        return plugin.metadata.id if plugin else "core"
+
+    async def execute_action(self, db: Session, action_type: str, target: str, parameters: dict[str, Any]) -> dict[str, Any] | None:
+        plugin = self.action_plugin_for(action_type)
+        if plugin is None:
+            return None
+        ctx = self.context(db, plugin)
+        return await plugin.execute(ctx, action_type, target, parameters)
 
     async def export_asset_update(self, db: Session, asset: Any, manual: bool = False) -> None:
         # Cross-plugin calls must attribute failures to the callee. For example,

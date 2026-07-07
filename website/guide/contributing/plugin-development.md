@@ -9,14 +9,21 @@ This is how OpenSecDash can grow beyond the built-in Traefik, CrowdSec, GeoBlock
 External plugins live in the repository-level `plugins/` directory:
 
 ```text
-plugins/<plugin_id>/plugin.py
+plugins/<plugin_id>/
+  __init__.py
+  plugin.py
+  routes.py          # optional web/API routes
+  templates/         # optional namespaced Jinja templates
+  locales.py         # optional translation module
+  services/          # optional integration-specific logic
 ```
 
-A plugin directory must contain a `plugin.py` file exposing a class named `Plugin`.
+A plugin directory must contain `__init__.py` and a `plugin.py` file exposing a class named `Plugin`. Plugin-internal imports should be relative, for example `from .services.parser import parse_line`, because plugins are loaded under OpenSecDash's synthetic plugin namespace rather than installed as normal Python packages.
 
 Example:
 
 ```text
+plugins/my_firewall/__init__.py
 plugins/my_firewall/plugin.py
 ```
 
@@ -35,6 +42,7 @@ class Plugin(DatasourcePlugin):
         id="my_firewall",
         name="My Firewall",
         version="1.0.0",
+        api_version="2",
         capabilities=["datasource"],
         description="Imports firewall events from a log file.",
     )
@@ -88,7 +96,7 @@ class Plugin(DatasourcePlugin):
 | `version` | Plugin version. |
 | `description` | Short description shown in diagnostics/debug output. |
 | `author` | Optional author name. |
-| `api_version` | Plugin API version. Currently `1`. |
+| `api_version` | Plugin API version. Use `"2"` for package-layout plugins with `__init__.py`, relative imports, optional route/template hooks, action hooks, and `asset_source` support. |
 | `capabilities` | List of plugin capabilities. |
 
 Current capability values:
@@ -96,6 +104,7 @@ Current capability values:
 | Capability | Use for |
 | --- | --- |
 | `datasource` | Imports events from logs/APIs. |
+| `asset_source` | Imports or synchronizes assets/systems into the central asset model. |
 | `enrichment` | Enriches existing data. |
 | `action` | Executes actions such as bans/unbans. |
 | `export` | Exports data to another system, such as MQTT. |
@@ -326,8 +335,8 @@ Useful built-in examples:
 
 | Plugin | What to learn from it |
 | --- | --- |
-| `plugins/traefik_log/plugin.py` | JSON log parsing and access event creation. |
+| `plugins/traefik_log/plugin.py` + `routes.py` + `templates/` | JSON log parsing, page registration, and access event UI. |
 | `plugins/geoblock_log/plugin.py` | Simple line-based log parser. |
-| `plugins/crowdsec/plugin.py` | Log import plus action execution via `cscli`. |
-| `plugins/proxmox_assets/plugin.py` | API-based periodic sync. |
-| `plugins/mqtt/plugin.py` | Export plugin behavior. |
+| `plugins/crowdsec/plugin.py` + `services/` + `routes.py` | Log import, action execution via `cscli`, and plugin-owned UI/services. |
+| `plugins/proxmox_assets/plugin.py` + `services/sync.py` | API-based periodic sync and plugin-owned service module. |
+| `plugins/mqtt/plugin.py` + `routes.py` | Export plugin behavior and an ungated route with legacy setting fallback. |

@@ -3,8 +3,12 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
+from typing import Any
+
+from sqlalchemy.orm import Session
 
 from app.core.template_context import get_setting_value
+from app.models.events import Event
 from app.plugins.base import DatasourcePlugin, PluginMetadata, PluginSetting, tail_text_file
 from app.services.events import normalize_event_time
 
@@ -22,6 +26,7 @@ class Plugin(DatasourcePlugin):
         id="geoblock_log", 
         name="GeoBlock Log", 
         version="1.0.0", 
+        api_version="2",
         capabilities=["datasource", "widget"], 
         description="Reads GeoBlock Traefik plugin (github.com/PascalMinder/geoblock) logs."
     )
@@ -119,3 +124,14 @@ class Plugin(DatasourcePlugin):
             "data_json": {"message": raw_data},
             "raw_data": raw_data,
         }
+
+    def ip_page_count_widgets(self, db: Session, ip: str) -> list[dict[str, Any]]:
+        if get_setting_value(db, "plugin.geoblock_log.enabled", "false") != "true":
+            return []
+        return [
+            {
+                "key": "geoblocks",
+                "value": db.query(Event).filter(Event.ip == ip, Event.event_type == "security.geoblock").count(),
+                "href": f"/events?ip={ip}&event_type=security.geoblock",
+            }
+        ]

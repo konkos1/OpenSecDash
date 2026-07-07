@@ -7,9 +7,15 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy.orm import Session
+
+from app.core.template_context import get_setting_value
+from app.models.events import Event
 from app.plugins.base import ActionPlugin, DatasourcePlugin, PeriodicPlugin, PluginMetadata, PluginSetting, tail_text_file
-from app.services.crowdsec_decisions import sync_crowdsec_decisions
 from app.services.events import normalize_event_time
+
+from .locales import LOCALES
+from .services.decisions import active_decision_for_ip, crowdsec_cscli_status, sync_crowdsec_decisions
 
 
 logger = logging.getLogger(__name__)
@@ -19,13 +25,19 @@ logger = logging.getLogger(__name__)
 # worker thread, but a bounded batch keeps progress/commits incremental.
 MAX_LINES_PER_TICK = 2000
 
+BAN_ACTION_TYPES = frozenset({"security.ban", "crowdsec_ban"})
+UNBAN_ACTION_TYPES = frozenset({"security.unban", "crowdsec_unban"})
+
 
 class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
+    action_types = BAN_ACTION_TYPES | UNBAN_ACTION_TYPES
+    critical_action_types = BAN_ACTION_TYPES | UNBAN_ACTION_TYPES
     metadata = PluginMetadata(
-        id="crowdsec", 
-        name="CrowdSec", 
-        version="1.0.0", 
-        capabilities=["datasource", "action", "page", "widget"], 
+        id="crowdsec",
+        name="CrowdSec",
+        version="1.0.0",
+        api_version="2",
+        capabilities=["datasource", "action", "page", "widget"],
         description="CrowdSec log datasource and cscli ban/unban actions."
     )
     settings = [
@@ -45,50 +57,7 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
         PluginSetting("cscli_path", "crowdsec.settings.cscli_path", "crowdsec.settings.cscli_path.help", "text", "/usr/local/bin/cscli", visible_if=("connection_mode", "cscli")),
         PluginSetting("poll_interval", "crowdsec.settings.poll_interval", "crowdsec.settings.poll_interval.help", "number", "10"),
     ]
-    locales = {
-        "en": {
-            "crowdsec.settings.enabled": "CrowdSec plugin enabled",
-            "crowdsec.settings.enabled.help": "Watches crowdsec.log for ban history and enables ban/unban actions and decision sync.",
-            "crowdsec.settings.log_path": "CrowdSec log path",
-            "crowdsec.settings.log_path.help": "Path to crowdsec.log. Ban history, scenarios and countries are derived from lines containing 'ban on Ip/Range' like security-report.sh.",
-            "crowdsec.settings.connection_mode": "Connection to CrowdSec",
-            "crowdsec.settings.connection_mode.help": "How decisions are synced and ban/unban actions are executed. Local API (recommended) talks to CrowdSec over HTTP with dedicated credentials and needs no cscli binary or config mounts. cscli runs the binary as a subprocess instead.",
-            "crowdsec.settings.connection_mode.lapi": "Local API (recommended)",
-            "crowdsec.settings.connection_mode.cscli": "cscli binary",
-            "crowdsec.settings.lapi_url": "LAPI URL",
-            "crowdsec.settings.lapi_url.help": "Base URL of the CrowdSec Local API, e.g. http://127.0.0.1:8080 with host networking.",
-            "crowdsec.settings.lapi_login": "LAPI login",
-            "crowdsec.settings.lapi_login.help": "Machine name registered for OpenSecDash. Create it on the CrowdSec host with: sudo cscli machines add opensecdash --auto -f /tmp/opensecdash-lapi.yaml",
-            "crowdsec.settings.lapi_password": "LAPI password",
-            "crowdsec.settings.lapi_password.help": "Password from the credentials file created by 'cscli machines add'. Stored encrypted.",
-            "crowdsec.settings.cscli_path": "cscli path",
-            "crowdsec.settings.cscli_path.help": "Command or absolute path used for active decisions and ban/unban actions.",
-            "crowdsec.settings.poll_interval": "CrowdSec poll interval seconds",
-            "crowdsec.settings.poll_interval.help": "How often crowdsec.log is checked for appended ban history entries.",
-            "common.yes": "Yes", "common.no": "No",
-        },
-        "de": {
-            "crowdsec.settings.enabled": "CrowdSec Plugin aktiviert",
-            "crowdsec.settings.enabled.help": "Überwacht crowdsec.log für Ban-Historie und aktiviert Ban/Unban-Aktionen und Decision-Sync.",
-            "crowdsec.settings.log_path": "CrowdSec Log-Pfad",
-            "crowdsec.settings.log_path.help": "Pfad zur crowdsec.log. Ban-Historie, Szenarien und Länder werden wie in security-report.sh aus Zeilen mit 'ban on Ip/Range' abgeleitet.",
-            "crowdsec.settings.connection_mode": "Verbindung zu CrowdSec",
-            "crowdsec.settings.connection_mode.help": "Wie Decisions synchronisiert und Ban/Unban-Aktionen ausgeführt werden. Local API (empfohlen) spricht per HTTP mit eigenen Zugangsdaten mit CrowdSec und braucht weder cscli-Binary noch Config-Mounts. cscli führt stattdessen das Binary als Subprozess aus.",
-            "crowdsec.settings.connection_mode.lapi": "Local API (empfohlen)",
-            "crowdsec.settings.connection_mode.cscli": "cscli-Binary",
-            "crowdsec.settings.lapi_url": "LAPI URL",
-            "crowdsec.settings.lapi_url.help": "Basis-URL der CrowdSec Local API, z. B. http://127.0.0.1:8080 bei Host-Networking.",
-            "crowdsec.settings.lapi_login": "LAPI Login",
-            "crowdsec.settings.lapi_login.help": "Für OpenSecDash registrierter Machine-Name. Auf dem CrowdSec-Host anlegen mit: sudo cscli machines add opensecdash --auto -f /tmp/opensecdash-lapi.yaml",
-            "crowdsec.settings.lapi_password": "LAPI Passwort",
-            "crowdsec.settings.lapi_password.help": "Passwort aus der von 'cscli machines add' erzeugten Credentials-Datei. Wird verschlüsselt gespeichert.",
-            "crowdsec.settings.cscli_path": "cscli Pfad",
-            "crowdsec.settings.cscli_path.help": "Kommando oder absoluter Pfad für aktive Decisions und Ban/Unban-Aktionen.",
-            "crowdsec.settings.poll_interval": "CrowdSec Prüfintervall in Sekunden",
-            "crowdsec.settings.poll_interval.help": "Wie oft crowdsec.log auf neue Ban-Historien-Einträge geprüft wird.",
-            "common.yes": "Ja", "common.no": "Nein",
-        },
-    }
+    locales = LOCALES
 
     def __init__(self) -> None:
         self._offsets = {}; self._inodes = {}; self._sizes = {}
@@ -99,7 +68,7 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
         if not log_path.exists():
             return {"status": "error", "message": f"CrowdSec log not found: {log_path}"}
         if context.get("connection_mode", "lapi") == "lapi":
-            from app.services.crowdsec_lapi import LapiError, lapi_login
+            from .services.lapi import LapiError, lapi_login
 
             url = context.get("lapi_url", "http://127.0.0.1:8080")
             try:
@@ -199,7 +168,7 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
             raise RuntimeError("Missing active CrowdSec decision id for unban")
 
         if context.get("connection_mode", "lapi") == "lapi":
-            from app.services.crowdsec_lapi import lapi_add_ban, lapi_delete_decision, lapi_login
+            from .services.lapi import lapi_add_ban, lapi_delete_decision, lapi_login
 
             url = context.get("lapi_url", "http://127.0.0.1:8080")
             logger.info("Executing CrowdSec action via LAPI type=%s target=%s", action_type, target)
@@ -222,3 +191,96 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
             raise RuntimeError(completed.stderr or completed.stdout or "cscli failed")
         logger.info("CrowdSec action completed type=%s target=%s", action_type, target)
         return {"status": "completed", "result": completed.stdout.strip() or "cscli action completed"}
+
+    # --- Action framework hooks (see app.plugins.base.ActionPlugin) ---
+
+    def validate_action(self, db: Session, action_type: str, target: str, parameters: dict[str, Any], dry_run: bool) -> dict[str, Any]:
+        # A real unban must target an actually-active decision, so its id can be
+        # sent to CrowdSec. Skipped in dry-run (nothing is really executed).
+        if action_type not in UNBAN_ACTION_TYPES or dry_run:
+            return parameters
+        decision = active_decision_for_ip(db, target)
+        decision_id = str((parameters or {}).get("decision_id") or "").strip()
+        if decision is None:
+            raise ValueError("No active CrowdSec ban decision found for this IP")
+        if not decision_id:
+            return {**(parameters or {}), "decision_id": decision.decision_id}
+        if decision_id != decision.decision_id:
+            raise ValueError("CrowdSec decision id does not match the active ban for this IP")
+        return parameters
+
+    def prepare_parameters(self, db: Session, action: Any) -> dict[str, Any] | None:
+        if action.action_type not in BAN_ACTION_TYPES or not action.parameters or not action.parameters.get("reason"):
+            return None
+        # action.id only exists after flush, so the id-tagged reason is
+        # assembled here, then actually sent to CrowdSec as the ban reason (see
+        # execute()) - this lets a later log-tailed re-import of CrowdSec's own
+        # log line about this decision be correlated back to exactly this action
+        # instead of guessing from timing (see events.find_duplicate_event).
+        return {**action.parameters, "reason": f"{action.parameters['reason']} (action #{action.id})"}
+
+    def success_event_type(self, action_type: str) -> str | None:
+        if action_type in BAN_ACTION_TYPES:
+            return "security.ban.manual"
+        if action_type in UNBAN_ACTION_TYPES:
+            return "security.unban.manual"
+        return None
+
+    def action_event_data(self, action: Any) -> dict[str, Any]:
+        if action.action_type not in BAN_ACTION_TYPES:
+            return {}
+        # The CrowdSec page reads data_json.scenario/duration for every ban row
+        # (manual or log-imported); without these a manual ban showed up with
+        # neither, since "reason" is what's actually told to CrowdSec.
+        parameters = action.parameters or {}
+        return {"scenario": parameters.get("reason") or "Manual ban via OpenSecDash", "duration": parameters.get("duration")}
+
+    def after_execute(self, db: Session, action: Any) -> None:
+        sync_crowdsec_decisions(db, force=True)
+
+    # --- Event dedupe rules (see app.services.events) ---
+
+    def duplicate_rules(self):
+        from .services.dedupe import RULES
+
+        return RULES
+
+    # --- Web surface: page, IP-explorer panel, nav (see app.plugins.web) ---
+
+    def ip_page_context(self, db: Session, ip: str) -> dict[str, Any]:
+        # The panel is included on the IP explorer for everyone (it also shows
+        # in dry-run while the plugin is disabled), so guard the enabled-only
+        # bits here. When the plugin is env-disabled it isn't loaded at all and
+        # this hook never runs, so the panel disappears entirely.
+        enabled = get_setting_value(db, "plugin.crowdsec.enabled", "false") == "true"
+        return {
+            "crowdsec_enabled": enabled,
+            "active_decision": active_decision_for_ip(db, ip) if enabled else None,
+            "cscli_status": crowdsec_cscli_status(db) if enabled else None,
+        }
+
+    def ip_page_count_widgets(self, db: Session, ip: str) -> list[dict[str, Any]]:
+        if get_setting_value(db, "plugin.crowdsec.enabled", "false") != "true":
+            return []
+        return [
+            {
+                "key": "bans",
+                "value": db.query(Event).filter(Event.ip == ip, Event.event_type.startswith("security.ban")).count(),
+                "href": f"/events?ip={ip}&event_type=security.ban",
+            }
+        ]
+
+    def web(self):
+        from pathlib import Path
+
+        from app.plugins.web import PluginNavItem, PluginWebRegistration
+
+        from .routes import router, ungated_router
+
+        return PluginWebRegistration(
+            router=router,
+            ungated_router=ungated_router,
+            templates_dir=Path(__file__).parent / "templates",
+            nav_items=(PluginNavItem(label_key="nav.crowdsec", href="/crowdsec", active_prefix="/crowdsec"),),
+            ip_page_panels=("crowdsec/ip_panel.html",),
+        )

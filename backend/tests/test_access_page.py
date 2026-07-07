@@ -1,8 +1,8 @@
 from types import SimpleNamespace
 from typing import Any, cast
 
-from app.api import pages
 from app.models.events import Event
+from conftest import import_plugin_module
 from app.models.settings import Setting
 
 
@@ -31,9 +31,10 @@ def test_access_page_hides_local_ips_by_default_when_traefik_setting_enabled(mon
         captured.update(context)
         return context
 
-    monkeypatch.setattr(pages, "render", fake_render)
+    routes = import_plugin_module("traefik_log", "routes")
+    monkeypatch.setattr(routes, "render", fake_render)
 
-    pages.access_page(cast(Any, _request()), db=db_session)
+    routes.access_page(cast(Any, _request()), db=db_session)
 
     assert captured["hide_local_ips"] is True
     assert [event.ip for event in captured["events"]] == ["8.8.8.8"]
@@ -55,9 +56,10 @@ def test_access_page_can_disable_default_local_ip_filter(monkeypatch, db_session
         captured.update(context)
         return context
 
-    monkeypatch.setattr(pages, "render", fake_render)
+    routes = import_plugin_module("traefik_log", "routes")
+    monkeypatch.setattr(routes, "render", fake_render)
 
-    pages.access_page(cast(Any, _request({"local_ip_filter": "1"})), db=db_session)
+    routes.access_page(cast(Any, _request({"local_ip_filter": "1"})), db=db_session)
 
     assert captured["hide_local_ips"] is False
     assert sorted(event.ip for event in captured["events"]) == ["10.0.0.5", "8.8.8.8"]

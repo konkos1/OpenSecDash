@@ -3,15 +3,15 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import func
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.gzip import GZipMiddleware
 
+from app.core import plugin_registry
 from app.core.logging import configure_logging_from_db, setup_service_logging
 from app.core.version import get_app_version
 
@@ -26,8 +26,9 @@ from app.core.template_context import get_setting_value
 from app.models.events import Event
 from app.plugins.manager import get_plugin_manager
 from app.services.insight_rules import refresh_insight_rules
+from app.web.guards import plugin_enabled_guard
+from app.web.templates import register_plugin_template_dirs, templates
 
-templates = Jinja2Templates(directory="app/templates")
 logger = logging.getLogger(__name__)
 
 
@@ -35,11 +36,13 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     migration_result = run_auto_migrations_if_enabled()
     init_db()
-    manager = get_plugin_manager()
     db = SessionLocal()
     try:
         configure_logging_from_db(db)
         logger.info("OpenSecDash %s starting...", get_app_version())
+        # Already discovered at import time (routes are mounted then); this
+        # returns the cached singleton.
+        manager = get_plugin_manager()
         if migration_result.get("applied"):
             logger.info(
                 "Database migration: schema upgraded from %s to %s",
@@ -79,6 +82,26 @@ app.include_router(events_router)
 app.include_router(actions_router)
 app.include_router(assets_router)
 app.include_router(pages_router)
+
+# Plugin-provided routes and template dirs. Mounted after the core routers so
+# core routes always win on any path overlap. A gated router 404s while its
+# plugin is disabled (plugin_enabled_guard); an ungated router does its own
+# gating. get_plugin_manager() triggers discovery here at import time (only
+# module imports, no DB access), which is fine and also surfaces the plugin
+# discovery log lines. No plugin registers a web surface yet (phase 6+).
+_plugin_manager = get_plugin_manager()
+for _plugin_id, _registration in _plugin_manager.web_registrations():
+    if _registration.router is not None:
+        app.include_router(_registration.router, dependencies=[Depends(plugin_enabled_guard(_plugin_id))])
+    if _registration.ungated_router is not None:
+        app.include_router(_registration.ungated_router)
+register_plugin_template_dirs(
+    {
+        _pid: str(_reg.templates_dir)
+        for _pid, _reg in _plugin_manager.web_registrations()
+        if _reg.templates_dir is not None
+    }
+)
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
@@ -173,7 +196,7 @@ def _websocket_poll_state() -> tuple[bool, int]:
     try:
         enabled = any(
             get_setting_value(db, f"plugin.{plugin_id}.enabled", "false") == "true"
-            for plugin_id in ["crowdsec", "geoblock_log", "traefik_log"]
+            for plugin_id in plugin_registry.ids_with_capability("datasource")
         )
         return enabled, int(db.query(func.max(Event.id)).scalar() or 0)
     finally:

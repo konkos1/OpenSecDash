@@ -30,6 +30,7 @@ class Plugin(ExportPlugin, PeriodicPlugin):
         id="mqtt-hass", 
         name="MQTT to Home Assistant", 
         version="1.0.0", 
+        api_version="2",
         capabilities=["export"], 
         description="Publishes OpenSecDash assets as update.* -Entity to Home Assistant via MQTT."
     )
@@ -83,6 +84,13 @@ class Plugin(ExportPlugin, PeriodicPlugin):
             "common.yes": "Ja", "common.no": "Nein",
         },
     }
+
+    def web(self):
+        from app.plugins.web import PluginWebRegistration
+
+        from .routes import ungated_router
+
+        return PluginWebRegistration(ungated_router=ungated_router)
 
     async def health(self, context) -> dict[str, str]:
         host = context.get("host")

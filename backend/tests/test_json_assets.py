@@ -1,12 +1,17 @@
 from datetime import timedelta
 
+import requests
+
 from app.core.time import utc_now
 from app.models.assets import Asset
 from app.models.settings import Setting
 from app.models.systems import System
 from app.api.pages import asset_last_seen_stale, asset_system_matches_search
-from app.services.json_assets_import import import_json_assets
-from app.services.json_assets_updates import refresh_asset_update, refresh_asset_updates
+from app.services.asset_updates import refresh_asset_update, refresh_asset_updates
+from conftest import import_plugin_module
+
+json_assets_importer = import_plugin_module("json_assets", "services.importer")
+import_json_assets = json_assets_importer.import_json_assets
 
 
 def test_import_json_assets_creates_updates_and_marks_missing_assets_inactive(db_session):
@@ -103,7 +108,7 @@ def test_refresh_asset_update_stores_latest_without_installed_version(monkeypatc
     db_session.add(asset)
     db_session.commit()
 
-    monkeypatch.setattr("app.services.json_assets_updates.get_latest_github_release", lambda *, repo, github_token: "v3.0.0")
+    monkeypatch.setattr("app.services.asset_updates.get_latest_github_release", lambda *, repo, github_token: "v3.0.0")
 
     result = refresh_asset_update(db_session, asset)
 
@@ -126,12 +131,51 @@ def test_refresh_asset_updates_caches_repositories_per_run(monkeypatch, db_sessi
         calls.append(repo)
         return "v3.0.0" if repo == "traefik/traefik" else "v2.0.0"
 
-    monkeypatch.setattr("app.services.json_assets_updates.get_latest_github_release", fake_latest_release)
+    monkeypatch.setattr("app.services.asset_updates.get_latest_github_release", fake_latest_release)
 
     result = refresh_asset_updates(db_session)
 
-    assert result == {"checked": 3, "updated": 3, "failed": 0}
+    assert result == {"checked": 3, "updated": 3, "failed": 0, "failed_assets": [], "failed_reasons": []}
     assert sorted(calls) == ["crowdsecurity/crowdsec", "traefik/traefik"]
+
+
+def test_refresh_asset_updates_reports_failed_asset_names(monkeypatch, db_session):
+    db_session.add(Asset(system_id=1, name="Broken App", version="v1.0", release_url="https://github.com/example/missing/releases/latest"))
+    db_session.commit()
+
+    def fake_latest_release(*, repo: str, github_token: str) -> str:
+        raise RuntimeError("GitHub unavailable")
+
+    monkeypatch.setattr("app.services.asset_updates.get_latest_github_release", fake_latest_release)
+
+    result = refresh_asset_updates(db_session)
+
+    assert result == {
+        "checked": 1,
+        "updated": 0,
+        "failed": 1,
+        "failed_assets": ["Broken App (example/missing: GitHub unavailable)"],
+        "failed_reasons": ["GitHub unavailable"],
+    }
+
+
+def test_refresh_asset_updates_normalizes_github_rate_limit(monkeypatch, db_session):
+    db_session.add(Asset(system_id=1, name="Rate Limited App", version="v1.0", release_url="https://github.com/example/rate-limited/releases/latest"))
+    db_session.commit()
+
+    def fake_latest_release(*, repo: str, github_token: str) -> str:
+        response = requests.Response()
+        response.status_code = 403
+        response.headers["X-RateLimit-Remaining"] = "0"
+        response._content = b'{"message":"API rate limit exceeded"}'
+        raise requests.HTTPError("403 Client Error: Forbidden", response=response)
+
+    monkeypatch.setattr("app.services.asset_updates.get_latest_github_release", fake_latest_release)
+
+    result = refresh_asset_updates(db_session)
+
+    assert result["failed_reasons"] == ["GitHub rate limit exceeded"]
+    assert result["failed_assets"] == ["Rate Limited App (example/rate-limited: GitHub rate limit exceeded)"]
 
 
 def test_refresh_asset_update_uses_github_release_and_token(monkeypatch, db_session):
@@ -151,7 +195,7 @@ def test_refresh_asset_update_uses_github_release_and_token(monkeypatch, db_sess
         calls.append((repo, github_token))
         return "v1.1.0"
 
-    monkeypatch.setattr("app.services.json_assets_updates.get_latest_github_release", fake_latest_release)
+    monkeypatch.setattr("app.services.asset_updates.get_latest_github_release", fake_latest_release)
 
     result = refresh_asset_update(db_session, asset)
 

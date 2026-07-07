@@ -50,8 +50,10 @@ def redact_sensitive(value: object) -> str:
 def display_logger_name(name: str) -> str:
     if name == "root":
         return "app.root"
-    if name.startswith("opensecdash_external_plugin_"):
-        plugin_name = name.removeprefix("opensecdash_external_plugin_").removesuffix(".plugin")
+    # Plugin modules live in the synthetic osd_plugins namespace (see
+    # app.plugins.loader), so their loggers are e.g. "osd_plugins.crowdsec.plugin".
+    if name.startswith("osd_plugins."):
+        plugin_name = name.removeprefix("osd_plugins.").removesuffix(".plugin")
         return f"plugins.{plugin_name}"
     return name
 
@@ -89,7 +91,7 @@ def setup_service_logging(level: str = "INFO") -> None:
     root = logging.getLogger()
     root.setLevel(_level(level))
     for name, logger_obj in logging.Logger.manager.loggerDict.items():
-        if name.startswith(("app", "opensecdash_external_plugin_")) and isinstance(logger_obj, logging.Logger):
+        if name.startswith(("app", "osd_plugins.")) and isinstance(logger_obj, logging.Logger):
             logger_obj.disabled = False
             logger_obj.setLevel(logging.NOTSET)
     for handler in root.handlers:

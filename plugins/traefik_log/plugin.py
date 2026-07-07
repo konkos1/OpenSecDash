@@ -6,8 +6,14 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy.orm import Session
+
+from app.core.template_context import get_setting_value
+from app.models.events import Event
 from app.plugins.base import DatasourcePlugin, PluginMetadata, PluginSetting, tail_text_file
 from app.services.events import classify_access_status, normalize_event_time
+
+from .locales import LOCALES
 
 
 logger = logging.getLogger(__name__)
@@ -23,6 +29,7 @@ class Plugin(DatasourcePlugin):
         id="traefik_log",
         name="Traefik Access Log",
         version="1.0.0",
+        api_version="2",
         capabilities=["datasource", "page", "widget"],
         description="Reads Traefik JSON access logs and emits access.* events.",
     )
@@ -32,32 +39,7 @@ class Plugin(DatasourcePlugin):
         PluginSetting("poll_interval", "traefik_log.settings.poll_interval", "traefik_log.settings.poll_interval.help", "number", "2"),
         PluginSetting("hide_local_ips_default", "traefik_log.settings.hide_local_ips_default", "traefik_log.settings.hide_local_ips_default.help", "boolean", "false", [("false", "common.no"), ("true", "common.yes")]),
     ]
-    locales = {
-        "en": {
-            "traefik_log.settings.enabled": "Traefik log enabled",
-            "traefik_log.settings.enabled.help": "Continuously watches the Traefik JSON access log and imports new lines as access events.",
-            "traefik_log.settings.log_path": "Traefik access log path",
-            "traefik_log.settings.log_path.help": "Path to the Traefik JSON access.log. Fields are parsed like the proven traefik-logs.sh script.",
-            "traefik_log.settings.poll_interval": "Traefik poll interval seconds",
-            "traefik_log.settings.poll_interval.help": "How often the file is checked for appended lines and rotation.",
-            "traefik_log.settings.hide_local_ips_default": "Hide local IPs by default",
-            "traefik_log.settings.hide_local_ips_default.help": "Starts the Access page with local/private IPs hidden unless the filter is changed manually.",
-            "common.yes": "Yes",
-            "common.no": "No",
-        },
-        "de": {
-            "traefik_log.settings.enabled": "Traefik Log aktiviert",
-            "traefik_log.settings.enabled.help": "Überwacht fortlaufend das Traefik JSON access.log und importiert neue Zeilen als Access-Events.",
-            "traefik_log.settings.log_path": "Traefik Access-Log-Pfad",
-            "traefik_log.settings.log_path.help": "Pfad zum Traefik JSON access.log. Die Felder werden wie im erprobten traefik-logs.sh geparst.",
-            "traefik_log.settings.poll_interval": "Traefik Prüfintervall in Sekunden",
-            "traefik_log.settings.poll_interval.help": "Wie oft die Datei auf neue Zeilen und Rotation geprüft wird.",
-            "traefik_log.settings.hide_local_ips_default": "Lokale IPs standardmäßig ausblenden",
-            "traefik_log.settings.hide_local_ips_default.help": "Öffnet die Access-Seite standardmäßig mit ausgeblendeten lokalen/privaten IPs, solange der Filter nicht manuell geändert wird.",
-            "common.yes": "Ja",
-            "common.no": "Nein",
-        },
-    }
+    locales = LOCALES
 
     def __init__(self) -> None:
         self._offsets: dict[str, int] = {}
@@ -134,3 +116,27 @@ class Plugin(DatasourcePlugin):
             },
             "raw_data": line.strip(),
         }
+
+    def ip_page_count_widgets(self, db: Session, ip: str) -> list[dict[str, Any]]:
+        if get_setting_value(db, "plugin.traefik_log.enabled", "false") != "true":
+            return []
+        return [
+            {
+                "key": "access",
+                "value": db.query(Event).filter(Event.ip == ip, Event.event_type.startswith("access.")).count(),
+                "href": f"/events?ip={ip}&event_type=access.*",
+            }
+        ]
+
+    def web(self):
+        from pathlib import Path
+
+        from app.plugins.web import PluginNavItem, PluginWebRegistration
+
+        from .routes import router
+
+        return PluginWebRegistration(
+            router=router,
+            templates_dir=Path(__file__).parent / "templates",
+            nav_items=(PluginNavItem(label_key="nav.access", href="/access", active_prefix="/access"),),
+        )

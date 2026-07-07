@@ -4,7 +4,8 @@ import logging
 
 from app.models.assets import Asset
 from app.plugins.base import PeriodicPlugin, PluginContext, PluginMetadata, PluginSetting
-from app.services.proxmox_assets import ProxmoxClient, inspect_proxmox_guest_visibility, proxmox_visibility_message, sync_proxmox_assets
+
+from .services.sync import ProxmoxClient, inspect_proxmox_guest_visibility, proxmox_visibility_message, sync_proxmox_assets
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +15,8 @@ class Plugin(PeriodicPlugin):
         id="proxmox_assets",
         name="Proxmox Assets",
         version="1.0.0",
-        capabilities=["datasource", "page", "widget"],
+        api_version="2",
+        capabilities=["asset_source", "widget"],
         description="Imports Proxmox nodes, VMs/LXCs, and optional app metadata from hidden notes blocks.",
     )
     settings = [
@@ -95,6 +97,13 @@ class Plugin(PeriodicPlugin):
             logger.debug("Skipping periodic Proxmox sync: an asset action is already running")
             return
         await self._export_assets(context)
+
+    def web(self):
+        from app.plugins.web import PluginWebRegistration
+
+        from .routes import router
+
+        return PluginWebRegistration(router=router)
 
     async def _export_assets(self, context: PluginContext) -> None:
         publishable_assets = (

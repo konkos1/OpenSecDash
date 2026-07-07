@@ -2,8 +2,13 @@ from typing import cast, Any
 
 from app.models.assets import Asset
 from app.models.systems import System
-from app.services import proxmox_assets
-from app.services.proxmox_assets import inspect_proxmox_guest_visibility, parse_opensecdash_notes, proxmox_visibility_message, sync_proxmox_assets
+from conftest import import_plugin_module
+
+proxmox_assets = import_plugin_module("proxmox_assets", "services.sync")
+inspect_proxmox_guest_visibility = proxmox_assets.inspect_proxmox_guest_visibility
+parse_opensecdash_notes = proxmox_assets.parse_opensecdash_notes
+proxmox_visibility_message = proxmox_assets.proxmox_visibility_message
+sync_proxmox_assets = proxmox_assets.sync_proxmox_assets
 
 
 def test_parse_opensecdash_notes_hidden_comment():

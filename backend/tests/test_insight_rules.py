@@ -65,6 +65,12 @@ def test_refresh_insight_rules_uses_hardcoded_source_url(monkeypatch, db_session
     result = refresh_insight_rules(db_session, force=True)
 
     assert result == {"status": "updated", "source": "remote", "version": "2026-07-02", "count": 6}
+    diagnostic = _ruleset_diagnostic(db_session)
+    assert "source=bundled+remote" in diagnostic.last_error
+    assert "bundled_version=2026-07-02" in diagnostic.last_error
+    assert "remote_version=2026-07-02" in diagnostic.last_error
+    assert "bundled=5" in diagnostic.last_error
+    assert "remote=1" in diagnostic.last_error
     assert calls[0][0] == RULE_SOURCE_URL
     assert db_session.query(Setting).filter_by(key="insight_rules.version").one().value == "2026-07-02"
 
@@ -110,6 +116,23 @@ def test_refresh_insight_rules_reports_last_known_good_remote_on_later_failure(m
     assert diagnostic.status == "warning"
     assert "last known-good remote rules: v2026-07-02" in diagnostic.last_error
     assert "plus pre-shipped rules" in diagnostic.last_error
+
+
+def test_refresh_insight_rules_reports_source_versions_from_cache(monkeypatch, db_session):
+    monkeypatch.setattr("app.services.insight_rules.requests.get", lambda url, timeout, headers: _Response())
+    first = refresh_insight_rules(db_session, force=True)
+    assert first["status"] == "updated"
+
+    skipped = refresh_insight_rules(db_session)
+
+    assert skipped["status"] == "skipped"
+    diagnostic = _ruleset_diagnostic(db_session)
+    assert "loaded from database" in diagnostic.last_error
+    assert "source=bundled+remote" in diagnostic.last_error
+    assert "bundled_version=2026-07-02" in diagnostic.last_error
+    assert "remote_version=2026-07-02" in diagnostic.last_error
+    assert "bundled=5" in diagnostic.last_error
+    assert "remote=1" in diagnostic.last_error
 
 
 def test_schema_version_allows_same_major_minor_updates():

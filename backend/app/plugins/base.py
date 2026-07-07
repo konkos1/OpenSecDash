@@ -3,22 +3,28 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from sqlalchemy.orm import Session
 
 from app.models.events import Event
-from app.services.events import store_event
+from app.services.events import DuplicateRule, store_event
+
+if TYPE_CHECKING:
+    # Type-only import keeps base.py free of FastAPI/Jinja at runtime while the
+    # web() hook can still annotate its return type. See app.plugins.web.
+    from app.plugins.web import PluginWebRegistration
 
 # Keep this module intentionally dependency-light: external plugins import it as
 # their public API surface. Changes here should be backwards compatible or paired
 # with an ADR/plugin API version bump.
 #
-# Note on the "page" capability: it is currently declarative only - plugin
-# pages and their integration services are still wired up in core
-# (app/api/pages.py, app/services/). See ADR-044 for the interim convention
-# and the goal of plugins owning their services and registering pages here.
-PluginCapability = Literal["datasource", "enrichment", "action", "export", "page", "widget", "insight"]
+# Plugins can register web surfaces through ``Plugin.web()`` (routers,
+# namespaced template directories, nav items, IP panels) while keeping FastAPI
+# and Jinja imports out of this base module at runtime.
+CURRENT_PLUGIN_API_VERSION = "2"
+
+PluginCapability = Literal["datasource", "asset_source", "enrichment", "action", "export", "page", "widget", "insight"]
 SettingType = Literal["text", "password", "number", "boolean", "select", "file", "url"]
 
 
@@ -110,7 +116,10 @@ class PluginMetadata:
     version: str = "1.0.0"
     description: str = ""
     author: str = ""
-    api_version: str = "1"
+    # "2" means package layout with mandatory __init__.py, relative plugin
+    # imports, optional web()/ip_page_context()/duplicate_rules() hooks, the
+    # action hook family, and the asset_source capability.
+    api_version: str = CURRENT_PLUGIN_API_VERSION
     capabilities: list[PluginCapability] = field(default_factory=list)
 
 
@@ -176,6 +185,26 @@ class Plugin:
     async def health(self, context: PluginContext) -> dict[str, str]:
         return {"status": "healthy"}
 
+    def web(self) -> "PluginWebRegistration | None":  # noqa: F821 - see app.plugins.web
+        """Optional web surface (router, templates, nav). See app.plugins.web."""
+        return None
+
+    def duplicate_rules(self) -> tuple[DuplicateRule, ...]:
+        """Plugin-provided event dedupe rules (see app.services.events)."""
+        return ()
+
+    def ip_page_context(self, db: Session, ip: str) -> dict[str, Any]:
+        """Extra template context for the IP explorer page (side-effect-free)."""
+        return {}
+
+    def ip_page_count_widgets(self, db: Session, ip: str) -> list[dict[str, Any]]:
+        """Count cards this plugin contributes to the IP explorer (side-effect-free).
+
+        Each dict has ``key`` (i18n suffix under "ip.count."), ``value`` and
+        ``href``. Only shown while the plugin is enabled - the plugin decides.
+        """
+        return []
+
 
 class DatasourcePlugin(Plugin):
     async def collect(self, context: PluginContext) -> Iterable[dict[str, Any]]:
@@ -188,6 +217,11 @@ class PeriodicPlugin(Plugin):
 
 
 class ActionPlugin(Plugin):
+    # Action types this plugin handles; used for routing, plugin_id attribution
+    # and (via critical_action_types) the confirmation/IP-validation gate.
+    action_types: frozenset[str] = frozenset()
+    critical_action_types: frozenset[str] = frozenset()
+
     async def execute(
         self,
         context: PluginContext,
@@ -196,6 +230,36 @@ class ActionPlugin(Plugin):
         parameters: dict[str, Any],
     ) -> dict[str, Any] | None:
         raise NotImplementedError
+
+    def validate_action(
+        self, db: Session, action_type: str, target: str, parameters: dict[str, Any], dry_run: bool
+    ) -> dict[str, Any]:
+        """Validate/normalize parameters before the Action row is created.
+
+        Raise ValueError to reject (message is shown to the user / stored on
+        the failed action). Returns the (possibly updated) parameters.
+        """
+        return parameters
+
+    def prepare_parameters(self, db: Session, action: Any) -> dict[str, Any] | None:
+        """Called after the Action row got its id (db.flush), before execution.
+
+        Return a NEW parameters dict to replace action.parameters, or None to
+        keep them. Runs in dry-run too - must be side-effect-free.
+        """
+        return None
+
+    def success_event_type(self, action_type: str) -> str | None:
+        """Event type stored for a completed action (None -> "action.executed")."""
+        return None
+
+    def action_event_data(self, action: Any) -> dict[str, Any]:
+        """Extra data_json fields for the action's event. Runs in dry-run too."""
+        return {}
+
+    def after_execute(self, db: Session, action: Any) -> None:
+        """Called after successful non-dry-run execution (e.g. state re-sync)."""
+        return None
 
 
 class ExportPlugin(Plugin):

@@ -1,12 +1,22 @@
 import asyncio
+from pathlib import Path
 from typing import Any
 
 import pytest
 
-import app.services.crowdsec_lapi as lapi_module
 from app.models.settings import Setting
-from app.services.crowdsec_decisions import active_decision_for_ip, sync_crowdsec_decisions
-from app.services.crowdsec_lapi import LapiError, lapi_active_ban_decisions, lapi_login
+from app.plugins.loader import import_plugin_module
+
+# CrowdSec's LAPI client and decision service now live in the plugin; load them
+# the same way the plugin manager does (see docs/internal/plugin-rework/).
+_CROWDSEC = Path(__file__).resolve().parents[2] / "plugins" / "crowdsec"
+lapi_module = import_plugin_module(_CROWDSEC, "services.lapi")
+decisions = import_plugin_module(_CROWDSEC, "services.decisions")
+LapiError = lapi_module.LapiError
+lapi_active_ban_decisions = lapi_module.lapi_active_ban_decisions
+lapi_login = lapi_module.lapi_login
+active_decision_for_ip = decisions.active_decision_for_ip
+sync_crowdsec_decisions = decisions.sync_crowdsec_decisions
 
 
 class FakeResponse:
@@ -117,12 +127,8 @@ def test_sync_crowdsec_decisions_records_lapi_error(monkeypatch, db_session):
 
 
 def test_plugin_execute_ban_and_unban_via_lapi(monkeypatch):
-    import importlib.util
-
-    spec = importlib.util.spec_from_file_location("crowdsec_plugin_test", "../plugins/crowdsec/plugin.py")
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    # Load through the plugin loader so the plugin's relative imports resolve.
+    module = import_plugin_module(_CROWDSEC, "plugin")
     plugin = module.Plugin()
 
     calls: list[tuple] = []

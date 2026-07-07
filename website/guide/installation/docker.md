@@ -151,6 +151,22 @@ You normally do not need to set these values in `docker-compose.yml`.
 
 Logging settings are stored in the app database after initial setup. Changing `LOG_FILE_ENABLED`, `LOG_FILE_PATH`, or `LOG_LEVEL` later may not override an already-saved Settings value; use the Settings page for runtime logging changes.
 
+### Disabling plugins
+
+Any plugin can be completely disabled with `OSD_PLUGIN_<PLUGIN>_DISABLED=true` (accepted values `1`/`true`/`yes`/`on`). A disabled plugin is not loaded at all: it is hidden from Settings, Diagnostics and the navigation, and runs no background tasks. Its saved settings stay in the database and reappear when the variable is removed.
+
+`<PLUGIN>` is the plugin's directory name or id, uppercased, with `-` replaced by `_`:
+
+| Plugin | Variable |
+| --- | --- |
+| CrowdSec | `OSD_PLUGIN_CROWDSEC_DISABLED` |
+| Traefik Access Log | `OSD_PLUGIN_TRAEFIK_LOG_DISABLED` |
+| GeoBlock Log | `OSD_PLUGIN_GEOBLOCK_LOG_DISABLED` |
+| GeoIP enrichment | `OSD_PLUGIN_GEOIP_DISABLED` |
+| JSON Assets | `OSD_PLUGIN_JSON_ASSETS_DISABLED` |
+| Proxmox Assets | `OSD_PLUGIN_PROXMOX_ASSETS_DISABLED` |
+| MQTT export | `OSD_PLUGIN_MQTT_DISABLED` (or `OSD_PLUGIN_MQTT_HASS_DISABLED`) |
+
 ## Plugin file mounts
 
 OpenSecDash is easiest to operate when it can read the relevant log files locally. In many homelab setups that means running the OpenSecDash container on the same Docker host or guest as Traefik, GeoBlock, CrowdSec, and similar tools, then mounting their log files read-only into the container.

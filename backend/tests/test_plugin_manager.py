@@ -56,6 +56,48 @@ class ExampleDatasourcePlugin(DatasourcePlugin):
     }
 
 
+def test_asset_update_diagnostic_includes_failed_assets(monkeypatch, db_session):
+    db_session.add(Setting(key="plugin.json_assets.enabled", value="true"))
+    db_session.commit()
+    manager = PluginManager(Path("/not-used"))
+
+    monkeypatch.setattr(
+        manager_module,
+        "refresh_asset_updates",
+        lambda db: {"checked": 2, "updated": 1, "failed": 1, "failed_assets": ["Broken App (example/missing: 404 Not Found)"], "failed_reasons": ["404 Not Found"]},
+    )
+
+    manager._run_asset_update_tick(db_session, 0.0)
+
+    diagnostic = db_session.query(Diagnostic).filter_by(plugin="asset_updates", component="plugin").one()
+    assert diagnostic.status == "warning"
+    assert diagnostic.last_error == "Last check: checked=2, updated=1, failed=1; failed assets: Broken App (example/missing: 404 Not Found)"
+
+
+def test_asset_update_diagnostic_calls_out_global_failure(monkeypatch, db_session):
+    db_session.add(Setting(key="plugin.json_assets.enabled", value="true"))
+    db_session.commit()
+    manager = PluginManager(Path("/not-used"))
+
+    monkeypatch.setattr(
+        manager_module,
+        "refresh_asset_updates",
+        lambda db: {
+            "checked": 2,
+            "updated": 0,
+            "failed": 2,
+            "failed_assets": ["App A (owner/a: rate limited)", "App B (owner/b: rate limited)"],
+            "failed_reasons": ["rate limited"],
+        },
+    )
+
+    manager._run_asset_update_tick(db_session, 0.0)
+
+    diagnostic = db_session.query(Diagnostic).filter_by(plugin="asset_updates", component="plugin").one()
+    assert diagnostic.status == "warning"
+    assert diagnostic.last_error == "Last check: checked=2, updated=0, failed=2; all checks failed: rate limited"
+
+
 def test_plugin_manager_seeds_metadata_datasource_diagnostics_and_settings(db_session):
     manager = PluginManager(Path("/not-used"))
     manager.plugins = {"example": ExampleDatasourcePlugin()}

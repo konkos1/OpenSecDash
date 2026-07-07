@@ -15,6 +15,7 @@ from app.models.core import CrowdSecDecision, Diagnostic
 logger = logging.getLogger(__name__)
 
 CSCLI_COMPONENT = "cscli"
+LAPI_COMPONENT = "lapi"
 DECISION_SYNC_INTERVAL_SECONDS = 120
 
 
@@ -48,10 +49,14 @@ def _decision_id(item: dict[str, Any]) -> str | None:
     return str(value) if value is not None and str(value).strip() else None
 
 
-def _update_cscli_diagnostic(db: Session, status: str, message: str | None) -> None:
-    diagnostic = db.query(Diagnostic).filter(Diagnostic.plugin == "crowdsec", Diagnostic.component == CSCLI_COMPONENT).first()
+def _decision_diagnostic_component(db: Session) -> str:
+    return LAPI_COMPONENT if crowdsec_connection_mode(db) == "lapi" else CSCLI_COMPONENT
+
+
+def _update_decision_diagnostic(db: Session, status: str, message: str | None) -> None:
+    diagnostic = db.query(Diagnostic).filter(Diagnostic.plugin == "crowdsec", Diagnostic.component == _decision_diagnostic_component(db)).first()
     if diagnostic is None:
-        diagnostic = Diagnostic(plugin="crowdsec", component=CSCLI_COMPONENT)
+        diagnostic = Diagnostic(plugin="crowdsec", component=_decision_diagnostic_component(db))
         db.add(diagnostic)
     diagnostic.status = status
     diagnostic.last_error = message
@@ -59,7 +64,7 @@ def _update_cscli_diagnostic(db: Session, status: str, message: str | None) -> N
 
 
 def crowdsec_cscli_status(db: Session) -> Diagnostic | None:
-    return db.query(Diagnostic).filter(Diagnostic.plugin == "crowdsec", Diagnostic.component == CSCLI_COMPONENT).first()
+    return db.query(Diagnostic).filter(Diagnostic.plugin == "crowdsec", Diagnostic.component == _decision_diagnostic_component(db)).first()
 
 
 def active_decision_for_ip(db: Session, ip: str) -> CrowdSecDecision | None:
@@ -97,7 +102,7 @@ def _fetch_decisions_via_cscli(db: Session) -> tuple[bool, str, list[Any]]:
 
 
 def _fetch_decisions_via_lapi(db: Session) -> tuple[bool, str, list[Any]]:
-    from app.services.crowdsec_lapi import LapiError, lapi_active_ban_decisions, lapi_login
+    from .lapi import LapiError, lapi_active_ban_decisions, lapi_login
 
     url = get_setting_value(db, "plugin.crowdsec.lapi_url", "http://127.0.0.1:8080")
     login = get_setting_value(db, "plugin.crowdsec.lapi_login", "")
@@ -120,7 +125,7 @@ def sync_crowdsec_decisions(db: Session, *, force: bool = False) -> tuple[bool, 
     else:
         ok, message, items = _fetch_decisions_via_lapi(db)
     if not ok:
-        _update_cscli_diagnostic(db, "error", message)
+        _update_decision_diagnostic(db, "error", message)
         return False, message
 
     db.query(CrowdSecDecision).delete()
@@ -149,6 +154,6 @@ def sync_crowdsec_decisions(db: Session, *, force: bool = False) -> tuple[bool, 
             )
         )
         count += 1
-    _update_cscli_diagnostic(db, "healthy", f"{count} active CrowdSec ban decision(s) synced.")
+    _update_decision_diagnostic(db, "healthy", f"{count} active CrowdSec ban decision(s) synced.")
     logger.info("Synced %d active CrowdSec decisions", count)
     return True, f"{count} active CrowdSec ban decision(s) synced."
