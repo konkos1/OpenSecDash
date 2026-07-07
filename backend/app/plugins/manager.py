@@ -303,11 +303,22 @@ class PluginManager:
             if last_run == 0 or now - last_run >= interval:
                 result = refresh_asset_updates(db)
                 logger.debug("Asset update checks completed: %s", result)
+                failed_assets = result.get("failed_assets") or []
+                failed_reasons = result.get("failed_reasons") or []
+                reasons_text = "; ".join(failed_reasons) or "unknown error"
+                rate_limited = "rate limit" in reasons_text.lower()
+                if failed_assets and result["failed"] == result["checked"] and rate_limited:
+                    failed_suffix = f"; all checks failed: {reasons_text}"
+                elif failed_assets and result["failed"] == result["checked"]:
+                    failed_suffix = f"; all checks failed: {reasons_text}; affected assets: {', '.join(failed_assets)}"
+                else:
+                    failed_suffix = f"; failed assets: {', '.join(failed_assets)}" if failed_assets else ""
+                status = "warning" if result["failed"] else "healthy"
                 self._update_diagnostic(
                     db,
                     "asset_updates",
-                    "healthy",
-                    f"Last check: checked={result['checked']}, updated={result['updated']}, failed={result['failed']}",
+                    status,
+                    f"Last check: checked={result['checked']}, updated={result['updated']}, failed={result['failed']}{failed_suffix}",
                 )
                 db.commit()
                 last_run = now

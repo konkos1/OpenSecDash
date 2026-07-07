@@ -1,4 +1,4 @@
-from typing import TypeAlias
+from typing import Any, TypeAlias
 
 from sqlalchemy.orm import Session
 
@@ -10,7 +10,7 @@ from app.models.assets import Asset
 from app.services.github_releases import get_latest_github_release
 from app.services.github_releases import github_repo_from_url
 
-ReleaseCache: TypeAlias = dict[str, tuple[bool, str | None]]
+ReleaseCache: TypeAlias = dict[str, tuple[bool, str | None, str | None]]
 
 
 def _github_token(db: Session) -> str:
@@ -32,19 +32,19 @@ def _apply_update_state(asset: Asset, latest_version: str | None) -> bool:
     return True
 
 
-def _cached_latest_release(db: Session, repo: str, cache: ReleaseCache | None) -> tuple[bool, str | None]:
+def _cached_latest_release(db: Session, repo: str, cache: ReleaseCache | None) -> tuple[bool, str | None, str | None]:
     if cache is not None and repo in cache:
         return cache[repo]
     try:
-        result = (True, get_latest_github_release(repo=repo, github_token=_github_token(db)))
-    except Exception:
-        result = (False, None)
+        result = (True, get_latest_github_release(repo=repo, github_token=_github_token(db)), None)
+    except Exception as exc:
+        result = (False, None, str(exc) or exc.__class__.__name__)
     if cache is not None:
         cache[repo] = result
     return result
 
 
-def refresh_asset_update(db: Session, asset: Asset, release_cache: ReleaseCache | None = None) -> dict[str, int]:
+def refresh_asset_update(db: Session, asset: Asset, release_cache: ReleaseCache | None = None) -> dict[str, Any]:
     """Refresh update metadata for one asset after user edits or imports.
 
     This intentionally recalculates ``update_available`` from the currently
@@ -61,9 +61,9 @@ def refresh_asset_update(db: Session, asset: Asset, release_cache: ReleaseCache 
         asset.update_available = False
         return {"checked": 0, "updated": 0, "failed": 0}
 
-    ok, latest_version = _cached_latest_release(db, repo, release_cache)
+    ok, latest_version, error = _cached_latest_release(db, repo, release_cache)
     if not ok:
-        return {"checked": 1, "updated": 0, "failed": 1}
+        return {"checked": 1, "updated": 0, "failed": 1, "failed_reason": error or "unknown error"}
 
     if not latest_version:
         return {"checked": 1, "updated": 0, "failed": 0}
@@ -71,10 +71,12 @@ def refresh_asset_update(db: Session, asset: Asset, release_cache: ReleaseCache 
     return {"checked": 1, "updated": 1 if _apply_update_state(asset, latest_version) else 0, "failed": 0}
 
 
-def refresh_asset_updates(db: Session) -> dict[str, int]:
+def refresh_asset_updates(db: Session) -> dict[str, Any]:
     checked = 0
     updated = 0
     failed = 0
+    failed_assets: list[str] = []
+    failed_reasons: list[str] = []
 
     assets = db.query(Asset).all()
     release_cache: ReleaseCache = {}
@@ -84,6 +86,12 @@ def refresh_asset_updates(db: Session) -> dict[str, int]:
         checked += result["checked"]
         updated += result["updated"]
         failed += result["failed"]
+        if result["failed"]:
+            repo = github_repo_from_url(asset.release_url)
+            reason = str(result.get("failed_reason") or "unknown error")
+            failed_assets.append(f"{asset.name} ({repo or asset.release_url or 'unknown release URL'}: {reason})")
+            if reason not in failed_reasons:
+                failed_reasons.append(reason)
 
     db.commit()
 
@@ -91,4 +99,6 @@ def refresh_asset_updates(db: Session) -> dict[str, int]:
         "checked": checked,
         "updated": updated,
         "failed": failed,
+        "failed_assets": failed_assets,
+        "failed_reasons": failed_reasons,
     }

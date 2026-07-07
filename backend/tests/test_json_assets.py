@@ -133,8 +133,28 @@ def test_refresh_asset_updates_caches_repositories_per_run(monkeypatch, db_sessi
 
     result = refresh_asset_updates(db_session)
 
-    assert result == {"checked": 3, "updated": 3, "failed": 0}
+    assert result == {"checked": 3, "updated": 3, "failed": 0, "failed_assets": [], "failed_reasons": []}
     assert sorted(calls) == ["crowdsecurity/crowdsec", "traefik/traefik"]
+
+
+def test_refresh_asset_updates_reports_failed_asset_names(monkeypatch, db_session):
+    db_session.add(Asset(system_id=1, name="Broken App", version="v1.0", release_url="https://github.com/example/missing/releases/latest"))
+    db_session.commit()
+
+    def fake_latest_release(*, repo: str, github_token: str) -> str:
+        raise RuntimeError("GitHub unavailable")
+
+    monkeypatch.setattr("app.services.asset_updates.get_latest_github_release", fake_latest_release)
+
+    result = refresh_asset_updates(db_session)
+
+    assert result == {
+        "checked": 1,
+        "updated": 0,
+        "failed": 1,
+        "failed_assets": ["Broken App (example/missing: GitHub unavailable)"],
+        "failed_reasons": ["GitHub unavailable"],
+    }
 
 
 def test_refresh_asset_update_uses_github_release_and_token(monkeypatch, db_session):
