@@ -12,8 +12,10 @@ changelog:
         - breaking-change
     - title: "🚀 Features"
       labels:
-        - enhancement
         - feature
+    - title: "✨ Enhancements"
+      labels:
+        - enhancement
     - title: "🐛 Fixes"
       labels:
         - bug

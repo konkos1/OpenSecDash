@@ -6,6 +6,7 @@
 
 - [ ] Bug fix
 - [ ] Feature
+- [ ] Enhancement
 - [ ] Documentation
 - [ ] Tests
 - [ ] Plugin
