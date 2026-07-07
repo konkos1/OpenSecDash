@@ -85,15 +85,28 @@ def test_validate_action_rejection_propagates(monkeypatch, db_session):
         create_action(db_session, "dummy.do", "1.2.3.4", "ip", {"reject": True}, confirmed=True)
 
 
-def test_unknown_action_type_defaults_to_core(monkeypatch, db_session):
-    # A plugin is present but does not handle this action type.
+def test_unknown_action_type_is_rejected(monkeypatch, db_session):
+    # A plugin is present but does not handle this action type. Accepting it
+    # anyway would record a bogus "completed" no-op and, worse, skip the
+    # plugin-declared safety gates (confirmation, IP validation) - exactly
+    # what happens when the owning plugin is disabled via
+    # OSD_PLUGIN_<NAME>_DISABLED. So create_action must reject it.
     _install(monkeypatch, DummyActionPlugin())
 
-    action = create_action(db_session, "misc.thing", "host-1", "host", {}, confirmed=False)
-    db_session.commit()
+    with pytest.raises(ValueError, match="Unknown action type: misc.thing"):
+        create_action(db_session, "misc.thing", "host-1", "host", {}, confirmed=False)
 
-    assert action.plugin_id == "core"
-    assert action.requires_confirmation is False
-    event = db_session.query(Event).filter_by(event_type="action.executed").one()
-    assert event.plugin == "core"
-    assert "scenario" not in event.data_json
+    assert db_session.query(Event).count() == 0
+
+
+def test_ban_without_owning_plugin_is_rejected(monkeypatch, db_session):
+    # Regression for the phase-1-6 review finding: with no plugin loaded at
+    # all (e.g. crowdsec disabled via OSD_PLUGIN_CROWDSEC_DISABLED),
+    # "security.ban" used to sail through without confirmation and without
+    # global-IP validation, ending up as a fake-"completed" core event.
+    _install(monkeypatch, None)
+
+    with pytest.raises(ValueError, match="Unknown action type: security.ban"):
+        create_action(db_session, "security.ban", "192.168.1.50", "ip", {}, confirmed=False)
+
+    assert db_session.query(Event).count() == 0

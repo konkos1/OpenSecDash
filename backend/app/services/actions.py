@@ -62,6 +62,15 @@ def create_action(
 ) -> Action:
     manager = get_plugin_manager()
     action_plugin = manager.action_plugin_for(action_type)
+    if action_plugin is None:
+        # Without an owning plugin nothing would actually execute, yet the
+        # action would be recorded as a bogus "completed" no-op - and worse,
+        # the plugin-declared safety gates below (confirmation requirement,
+        # global-IP validation) would silently not apply. That situation is
+        # real, not hypothetical: the owning plugin may simply be disabled via
+        # OSD_PLUGIN_<NAME>_DISABLED. Reject instead (POST /api/actions maps
+        # ValueError to HTTP 400).
+        raise ValueError(f"Unknown action type: {action_type}")
     critical = manager.critical_action_types()
     requires_confirmation = action_type in critical
     if requires_confirmation and not confirmed:
