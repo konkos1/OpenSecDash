@@ -1,5 +1,6 @@
 from typing import Any, TypeAlias
 
+import requests
 from sqlalchemy.orm import Session
 
 from app.core.template_context import get_setting_value
@@ -32,13 +33,25 @@ def _apply_update_state(asset: Asset, latest_version: str | None) -> bool:
     return True
 
 
+def _release_error_reason(exc: Exception) -> str:
+    if isinstance(exc, requests.HTTPError) and exc.response is not None:
+        response = exc.response
+        body = (response.text or "").strip()
+        if response.status_code == 403 and (response.headers.get("X-RateLimit-Remaining") == "0" or "rate limit" in body.lower()):
+            return "GitHub rate limit exceeded"
+        if body:
+            return f"GitHub API HTTP {response.status_code}: {body[:200]}"
+        return f"GitHub API HTTP {response.status_code}"
+    return str(exc) or exc.__class__.__name__
+
+
 def _cached_latest_release(db: Session, repo: str, cache: ReleaseCache | None) -> tuple[bool, str | None, str | None]:
     if cache is not None and repo in cache:
         return cache[repo]
     try:
         result = (True, get_latest_github_release(repo=repo, github_token=_github_token(db)), None)
     except Exception as exc:
-        result = (False, None, str(exc) or exc.__class__.__name__)
+        result = (False, None, _release_error_reason(exc))
     if cache is not None:
         cache[repo] = result
     return result

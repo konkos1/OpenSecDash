@@ -1,5 +1,7 @@
 from datetime import timedelta
 
+import requests
+
 from app.core.time import utc_now
 from app.models.assets import Asset
 from app.models.settings import Setting
@@ -155,6 +157,25 @@ def test_refresh_asset_updates_reports_failed_asset_names(monkeypatch, db_sessio
         "failed_assets": ["Broken App (example/missing: GitHub unavailable)"],
         "failed_reasons": ["GitHub unavailable"],
     }
+
+
+def test_refresh_asset_updates_normalizes_github_rate_limit(monkeypatch, db_session):
+    db_session.add(Asset(system_id=1, name="Rate Limited App", version="v1.0", release_url="https://github.com/example/rate-limited/releases/latest"))
+    db_session.commit()
+
+    def fake_latest_release(*, repo: str, github_token: str) -> str:
+        response = requests.Response()
+        response.status_code = 403
+        response.headers["X-RateLimit-Remaining"] = "0"
+        response._content = b'{"message":"API rate limit exceeded"}'
+        raise requests.HTTPError("403 Client Error: Forbidden", response=response)
+
+    monkeypatch.setattr("app.services.asset_updates.get_latest_github_release", fake_latest_release)
+
+    result = refresh_asset_updates(db_session)
+
+    assert result["failed_reasons"] == ["GitHub rate limit exceeded"]
+    assert result["failed_assets"] == ["Rate Limited App (example/rate-limited: GitHub rate limit exceeded)"]
 
 
 def test_refresh_asset_update_uses_github_release_and_token(monkeypatch, db_session):
