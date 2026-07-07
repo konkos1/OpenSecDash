@@ -404,6 +404,7 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
         dashboard_timezone = ZoneInfo(timezone_name) if timezone_name and timezone_name != "auto" else ZoneInfo("UTC")
     except ZoneInfoNotFoundError:
         dashboard_timezone = ZoneInfo("UTC")
+    dashboard_local_date = utc_now().astimezone(dashboard_timezone).strftime("%Y-%m-%d")
 
     def top_hours_for_plugins(plugin_ids: list[str], event_type: str) -> list[dict[str, object]]:
         if not plugin_ids:
@@ -480,6 +481,7 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
         today_events_href="/events?today=true",
         country_data_plugins=country_data_plugins,
         latest_security_events=latest_security_events,
+        dashboard_local_date=dashboard_local_date,
     )
 
 
