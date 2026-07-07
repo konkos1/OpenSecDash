@@ -2,6 +2,7 @@ import asyncio
 from collections import Counter
 from datetime import datetime, timedelta
 import io
+import ipaddress
 import logging
 from pathlib import Path
 import platform
@@ -611,6 +612,50 @@ async def save_events_columns(request: Request, db: Session = Depends(get_db)):
     return RedirectResponse(url=column_redirect_url(request, "/events", str(form.get("snapshot_before") or "")), status_code=303)
 
 
+def _ip_network_target(value: str) -> ipaddress.IPv4Network | ipaddress.IPv6Network | None:
+    if "/" not in value:
+        return None
+    try:
+        return ipaddress.ip_network(value.strip(), strict=False)
+    except ValueError:
+        return None
+
+
+def _ip_in_network(value: str | None, network: ipaddress.IPv4Network | ipaddress.IPv6Network | None) -> bool:
+    if not value or network is None:
+        return False
+    try:
+        return ipaddress.ip_address(value) in network
+    except ValueError:
+        return False
+
+
+def _events_for_ip_target(db: Session, ip: str, limit: int) -> list[Event]:
+    network = _ip_network_target(ip)
+    if network is None:
+        return db.query(Event).filter(Event.ip == ip).order_by(Event.event_time.desc()).limit(limit).all()
+    events: list[Event] = []
+    for event in db.query(Event).filter(Event.ip.isnot(None), Event.ip != "").order_by(Event.event_time.desc()).all():
+        if _ip_in_network(event.ip, network):
+            events.append(event)
+            if len(events) >= limit:
+                break
+    return events
+
+
+def _insights_for_ip_target(db: Session, ip: str, limit: int) -> list[Insight]:
+    network = _ip_network_target(ip)
+    if network is None:
+        return db.query(Insight).filter(Insight.ip == ip).order_by(Insight.timestamp.desc()).limit(limit).all()
+    insights: list[Insight] = []
+    for insight in db.query(Insight).filter(Insight.ip.isnot(None), Insight.ip != "").order_by(Insight.timestamp.desc()).all():
+        if _ip_in_network(insight.ip, network):
+            insights.append(insight)
+            if len(insights) >= limit:
+                break
+    return insights
+
+
 def dedupe_insights_for_display(raw_insights: list[Insight], limit: int, *, include_ip: bool = False) -> list[Insight]:
     insights = []
     seen_insight_keys = set()
@@ -628,8 +673,8 @@ def dedupe_insights_for_display(raw_insights: list[Insight], limit: int, *, incl
 @router.get("/ip/{ip:path}")
 def ip_explorer_page(ip: str, request: Request, db: Session = Depends(get_db)):
     require_events_feature_enabled(db)
-    events = db.query(Event).filter(Event.ip == ip).order_by(Event.event_time.desc()).limit(200).all()
-    raw_insights = db.query(Insight).filter(Insight.ip == ip).order_by(Insight.timestamp.desc()).limit(100).all()
+    events = _events_for_ip_target(db, ip, 200)
+    raw_insights = _insights_for_ip_target(db, ip, 100)
     insights = dedupe_insights_for_display(raw_insights, 50)
     # Count cards, extra context and panels are all contributed by plugins, so
     # the IP explorer stays free of any per-plugin knowledge.
