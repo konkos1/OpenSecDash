@@ -47,6 +47,12 @@ def redact_sensitive(value: object) -> str:
     return text
 
 
+def redacted_setting_value(key: str, value: str | None) -> str:
+    if any(part in key.lower() for part in SENSITIVE_WORDS):
+        return "<redacted>" if value else ""
+    return redact_sensitive(str(value or ""))
+
+
 def display_logger_name(name: str) -> str:
     if name == "root":
         return "app.root"

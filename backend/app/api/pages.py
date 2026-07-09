@@ -16,7 +16,7 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.core import plugin_registry
-from app.core.logging import configure_logging_from_db, redact_sensitive
+from app.core.logging import configure_logging_from_db, redact_sensitive, redacted_setting_value
 from app.core.template_context import get_setting_value
 from app.core.time import resolve_timezone, utc_now
 from app.core.version import get_app_version
@@ -62,13 +62,6 @@ from app.web.tables import (
 
 router = APIRouter(tags=["pages"])
 logger = logging.getLogger(__name__)
-
-
-def _redacted_setting_value(key: str, value: str | None) -> str:
-    sensitive_parts = ("password", "token", "secret", "credential", "api_key", "apikey", "access_key")
-    if any(part in key.lower() for part in sensitive_parts):
-        return "<redacted>" if value else ""
-    return redact_sensitive(str(value or ""))
 
 
 def _debug_line(label: str, value: object = "") -> str:
@@ -1077,7 +1070,7 @@ def build_debug_report_files(db: Session) -> dict[str, str]:
         ),
         "settings.txt": _debug_file(
             "Settings",
-            [_debug_line(setting.key, _redacted_setting_value(setting.key, setting.value)) for setting in db.query(Setting).order_by(Setting.key).all()],
+            [_debug_line(setting.key, redacted_setting_value(setting.key, setting.value)) for setting in db.query(Setting).order_by(Setting.key).all()],
         ),
         "plugins.txt": _debug_file(
             "Plugins",

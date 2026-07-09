@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from fastapi import Request
 from sqlalchemy.orm import Session
 
-from app.core.logging import redact_sensitive
+from app.core.logging import redacted_setting_value
 from app.core.secrets import decrypt_setting_value, encrypt_setting_value
 from app.core.template_context import get_setting_value
 from app.core.time import local_day_start_as_utc, resolve_timezone, utc_now
@@ -42,13 +42,6 @@ DEFAULT_EVENTS_COLUMNS = "time,type,severity,ip,country,status,url"
 DEFAULT_ACCESS_COLUMNS = "time,ip,host,method,status,path"
 
 
-def _redacted_setting_value(key: str, value: str | None) -> str:
-    sensitive_parts = ("password", "token", "secret", "credential", "api_key", "apikey", "access_key")
-    if any(part in key.lower() for part in sensitive_parts):
-        return "<redacted>" if value else ""
-    return redact_sensitive(str(value or ""))
-
-
 def save_setting(db: Session, key: str, value: str) -> None:
     # Sensitive values (passwords, tokens, ...) are encrypted at rest; the
     # comparison below runs on the decrypted value so re-saving an unchanged
@@ -58,15 +51,15 @@ def save_setting(db: Session, key: str, value: str) -> None:
     setting = db.query(Setting).filter(Setting.key == key).first()
     if setting is None:
         db.add(Setting(key=key, value=stored_value))
-        logger.info("Setting created key=%s value=%s", key, _redacted_setting_value(key, value))
+        logger.info("Setting created key=%s value=%s", key, redacted_setting_value(key, value))
     elif decrypt_setting_value(key, setting.value) != value:
         old_value = decrypt_setting_value(key, setting.value)
         setting.value = stored_value
         logger.info(
             "Setting changed key=%s old=%s new=%s",
             key,
-            _redacted_setting_value(key, old_value),
-            _redacted_setting_value(key, value),
+            redacted_setting_value(key, old_value),
+            redacted_setting_value(key, value),
         )
     else:
         logger.debug("Setting unchanged key=%s", key)
