@@ -195,6 +195,11 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
     # --- Action framework hooks (see app.plugins.base.ActionPlugin) ---
 
     def validate_action(self, db: Session, action_type: str, target: str, parameters: dict[str, Any], dry_run: bool) -> dict[str, Any]:
+        # The action hook intentionally receives no target_type; action_type is
+        # the routing contract. CrowdSec unban actions are IP-targeted actions,
+        # so this validation is deliberately applied to every real unban action
+        # of this type. If a caller supplied another target_type, the check is
+        # stricter than the older target_type == "ip" guard rather than looser.
         # A real unban must target an actually-active decision, so its id can be
         # sent to CrowdSec. Skipped in dry-run (nothing is really executed).
         if action_type not in UNBAN_ACTION_TYPES or dry_run:
