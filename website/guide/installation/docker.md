@@ -72,6 +72,17 @@ services:
       - /var/log/traefik/geoblock.log:/logs/geoblock.log:ro
       - /var/log/crowdsec/crowdsec.log:/logs/crowdsec.log:ro
       - ./assets/assets.json:/assets/assets.json:ro
+    # Optional: uncomment the environment block and one or more variables to
+    # completely disable plugins at startup. Disabled plugins are hidden from
+    # Settings, Diagnostics and navigation, and run no background tasks.
+    # environment:
+    #   OSD_PLUGIN_CROWDSEC_DISABLED: "true"
+    #   OSD_PLUGIN_TRAEFIK_LOG_DISABLED: "true"
+    #   OSD_PLUGIN_GEOBLOCK_LOG_DISABLED: "true"
+    #   OSD_PLUGIN_GEOIP_DISABLED: "true"
+    #   OSD_PLUGIN_JSON_ASSETS_DISABLED: "true"
+    #   OSD_PLUGIN_PROXMOX_ASSETS_DISABLED: "true"
+    #   OSD_PLUGIN_MQTT_DISABLED: "true"
     logging:
       driver: json-file
       options:
