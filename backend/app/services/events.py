@@ -281,8 +281,10 @@ def rollup_metrics_for_event(event: Event) -> list[tuple[str, str]]:
     metrics: list[tuple[str, str]] = [("summary", "total_events"), ("event_type", event_type)]
     if event_type.startswith("access.") and event.ip:
         metrics.append(("summary", "access_internal_events" if is_local_ip_value(event.ip) else "access_external_events"))
+        metrics.append(("hour_access", event.event_time.strftime("%H")))
     if event_type.startswith("security."):
         metrics.append(("summary", "security_events"))
+        metrics.append(("hour_security", event.event_time.strftime("%H")))
     if event_type.startswith("security.ban"):
         metrics.append(("summary", "bans"))
     if event_type == "security.geoblock":

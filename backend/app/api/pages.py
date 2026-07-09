@@ -217,6 +217,21 @@ def dashboard_yesterday_rollup_key(timezone_name: str | None) -> str:
     return (utc_now().astimezone(timezone) - timedelta(days=1)).strftime("%Y-%m-%d")
 
 
+def dashboard_today_rollup_key(since: datetime) -> str | None:
+    """Return today's daily-rollup key when it exactly matches the UI day.
+
+    Daily rollups are stored by UTC calendar day. The dashboard's `since` is
+    the configured UI day's start converted to UTC. For UTC/auto timezone this
+    is the same boundary and we can answer dashboard counters from rollups. For
+    non-UTC UI timezones the local day can span two UTC rollup rows, so keep
+    the existing live-event fallback until hourly/local-day rollups exist.
+    """
+    utc_day_start = utc_now().replace(tzinfo=None, hour=0, minute=0, second=0, microsecond=0)
+    if since == utc_day_start:
+        return since.strftime("%Y-%m-%d")
+    return None
+
+
 def dashboard_metric_counts(
     db: Session,
     enabled_plugins: dict[str, bool],
@@ -373,8 +388,9 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
         if is_plugin_enabled(db, plugin_id)
     ]
 
-    event_count = db.query(Event).filter(Event.event_time >= since, Event.plugin.in_(country_data_plugins)).count() if country_data_plugins else 0
-    today_counts = dashboard_metric_counts(db, enabled_plugins, since)
+    today_rollup_key = dashboard_today_rollup_key(since)
+    today_rollup_summary = rollup_summary(db, "day", today_rollup_key) if today_rollup_key else None
+    today_counts = today_rollup_summary or dashboard_metric_counts(db, enabled_plugins, since)
     active_bans = today_counts["bans"]
     geoblocks = today_counts["geoblocks"]
     access_external_events = today_counts["access_external_events"]
@@ -388,34 +404,42 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
     attack_hours = []
     access_hours = []
     if country_data_plugins:
-        top_countries = (
-            db.query(Event.country, func.count(Event.id))
-            .filter(
-                Event.country.isnot(None),
-                Event.event_time >= since,
-                Event.plugin.in_(country_data_plugins),
+        if today_rollup_key:
+            top_countries = [
+                (str(row["key"]), int(row["value"]))
+                for row in rollup_rows(db, "day", today_rollup_key, "country", limit=5)
+            ]
+        else:
+            top_countries = (
+                db.query(Event.country, func.count(Event.id))
+                .filter(
+                    Event.country.isnot(None),
+                    Event.event_time >= since,
+                    Event.plugin.in_(country_data_plugins),
+                )
+                .group_by(Event.country)
+                .order_by(func.count(Event.id).desc())
+                .limit(5)
+                .all()
             )
-            .group_by(Event.country)
-            .order_by(func.count(Event.id).desc())
-            .limit(5)
-            .all()
-        )
     try:
         dashboard_timezone = ZoneInfo(timezone_name) if timezone_name and timezone_name != "auto" else ZoneInfo("UTC")
     except ZoneInfoNotFoundError:
         dashboard_timezone = ZoneInfo("UTC")
     dashboard_local_date = utc_now().astimezone(dashboard_timezone).strftime("%Y-%m-%d")
 
-    def top_hours_for_plugins(plugin_ids: list[str], event_type: str) -> list[dict[str, object]]:
+    def top_hours_for_plugins(plugin_ids: list[str], event_type: str, rollup_metric: str) -> list[dict[str, object]]:
         if not plugin_ids:
             return []
-        # Group by UTC minute bucket in SQL and convert only the buckets (at
-        # most 1440 for a day) to the display timezone, instead of streaming
-        # every single event_time through Python on each dashboard render.
-        # Minute granularity keeps this exact for half-hour/quarter-hour
-        # timezone offsets, and converting per bucket stays DST-correct
-        # because each bucket is a concrete UTC timestamp, not just an
-        # hour-of-day number.
+        if today_rollup_key:
+            return [
+                {"hour": int(row["key"]), "count": int(row["value"]), "href": f"/events?event_type={event_type}&today=true&hour={int(row['key']):02d}"}
+                for row in rollup_rows(db, "day", today_rollup_key, rollup_metric, limit=5)
+                if str(row["key"]).isdigit()
+            ]
+        # Fallback for non-UTC UI days: group by UTC minute bucket in SQL and
+        # convert only the buckets (at most 1440 for a day) to the display
+        # timezone, instead of streaming every single event_time through Python.
         hour_counts: Counter[int] = Counter()
         bucket = func.strftime("%Y-%m-%d %H:%M", Event.event_time)
         for bucket_text, count in (
@@ -434,8 +458,8 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
             for hour, count in hour_counts.most_common(5)
         ]
 
-    attack_hours = top_hours_for_plugins(security_data_plugins, "security.*")
-    access_hours = top_hours_for_plugins(["traefik_log"] if enabled_plugins["traefik_log"] else [], "access.*")
+    attack_hours = top_hours_for_plugins(security_data_plugins, "security.*", "hour_security")
+    access_hours = top_hours_for_plugins(["traefik_log"] if enabled_plugins["traefik_log"] else [], "access.*", "hour_access")
     latest_security_events = []
     if security_data_plugins:
         latest_security_events = (
