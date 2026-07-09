@@ -33,6 +33,7 @@ tbody tr:hover { background: rgba(15, 23, 42, .65); }
 .dashboard-delta-down { color: #4ade80; }
 .dashboard-delta-same { color: #94a3b8; }
 .row { align-items: center; border-bottom: 1px solid rgb(30 41 59); display: flex; gap: 1rem; justify-content: space-between; padding: .6rem 0; }
+.row > span:first-child { min-width: 0; overflow-wrap: anywhere; }
 .row:last-child { border-bottom: 0; }
 .btn, .btn-small { background: #2563eb; border-radius: .7rem; color: white; display: inline-flex; min-height: 2.5rem; align-items: center; justify-content: center; padding: .55rem .9rem; }
 .btn:hover, .btn-small:hover { background: #1d4ed8; }
@@ -54,7 +55,7 @@ tbody tr:hover { background: rgba(15, 23, 42, .65); }
 .footer-update { background: #064e3b; border: 1px solid #047857; border-radius: 999px; color: #d1fae5; display: inline-block; font-weight: 700; margin-left: .5rem; padding: .3rem .7rem; text-decoration: none; white-space: nowrap; }
 .footer-update:hover { background: #065f46; }
 .alert-error { background: #450a0a; border: 1px solid #dc2626; border-radius: .75rem; color: #fecaca; font-weight: 600; margin-top: .5rem; padding: .65rem .75rem; }
-.status-badge { border: 1px solid #64748b; border-radius: 999px; color: #e2e8f0; display: inline-flex; font-size: .8rem; font-weight: 700; line-height: 1; padding: .35rem .65rem; white-space: nowrap; }
+.status-badge { border: 1px solid #64748b; border-radius: 999px; color: #e2e8f0; display: inline-flex; flex-shrink: 0; font-size: .8rem; font-weight: 700; line-height: 1; padding: .35rem .65rem; white-space: nowrap; }
 .status-healthy, .status-enabled, .status-completed { background: #064e3b; border-color: #047857; color: #d1fae5; }
 .status-warning, .status-pending { background: #451a03; border-color: #b45309; color: #fed7aa; }
 .status-error, .status-failed { background: #450a0a; border-color: #dc2626; color: #fecaca; }
