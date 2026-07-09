@@ -28,7 +28,7 @@ Rule of thumb: **~1 KB per stored event**. This is about how many events are cur
 
 ## Compose file
 
-Two `docker-compose.yml` examples: a minimal one that just gets the app running, and a full one with all plugin log mounts. Start minimal and add mounts as you enable plugins.
+The repository contains the full Compose example at `docker/docker-compose.example.yml`. Copy it to `docker-compose.yml` before starting, or use the examples below. Start minimal and add mounts as you enable plugins.
 
 <details>
 <summary>Minimal example</summary>

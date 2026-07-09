@@ -1,7 +1,7 @@
 # ADR-011: Repository
 
 > **Implementation status (2026-07-09):** Partially implemented.
-> The repository broadly follows the planned structure, but the current implementation uses package-style plugins under `plugins/`, website docs under `website/`, and no separate `docker/` directory.
+> The repository broadly follows the planned structure, but the current implementation uses package-style plugins under `plugins/`, website docs under `website/`, and Docker assets under `docker/`.
 
 
 
@@ -43,7 +43,7 @@ opensecdash/
 │
 ├── docker/
 │   ├── Dockerfile
-│   └── docker-compose.yml
+│   └── docker-compose.example.yml
 │
 ├── scripts/
 │
@@ -75,5 +75,11 @@ Documentation for the public website lives under:
 website/
 ```
 
-The current root contains the Dockerfile and compose example directly instead of a separate `docker/` directory.
+Docker assets live under:
+
+```none
+docker/
+```
+
+The Docker build context remains the repository root so the image can copy `backend/`, `plugins/`, `README.md`, and `LICENSE`. Automation therefore uses `docker/Dockerfile` explicitly.
 
