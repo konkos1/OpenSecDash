@@ -68,7 +68,7 @@ Filter security events, investigate a single IP with one click, and keep an eye 
 The recommended installation method is Docker Compose. It keeps Python dependencies, the database location, log handling, and file permissions reproducible.
 
 ```bash
-cp docker-compose.example.yml docker-compose.yml
+cp docker/docker-compose.example.yml docker-compose.yml
 docker compose up -d
 ```
 

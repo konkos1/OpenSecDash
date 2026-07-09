@@ -21,7 +21,7 @@ RUN addgroup --system opensecdash \
 COPY --chown=opensecdash:opensecdash backend /app/backend
 COPY --chown=opensecdash:opensecdash plugins /app/plugins
 COPY --chown=opensecdash:opensecdash README.md LICENSE /app/
-COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+COPY docker/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
 RUN python -m pip install --no-cache-dir --upgrade pip \
     && python -m pip install --no-cache-dir /app/backend \

@@ -194,7 +194,13 @@ class Plugin:
         return ()
 
     def ip_page_context(self, db: Session, ip: str) -> dict[str, Any]:
-        """Extra template context for the IP explorer page (side-effect-free)."""
+        """Extra template context for the IP explorer page (side-effect-free).
+
+        Returned keys are merged unprefixed into the core template context.
+        Plugin authors should prefix keys with their plugin id (for example
+        ``crowdsec_decisions``) to avoid collisions with core context values or
+        other trusted plugins.
+        """
         return {}
 
     def ip_page_count_widgets(self, db: Session, ip: str) -> list[dict[str, Any]]:

@@ -50,7 +50,7 @@ The website source is in [`website/`](website/).
 Docker Compose is the recommended installation method.
 
 ```bash
-cp docker-compose.example.yml docker-compose.yml
+cp docker/docker-compose.example.yml docker-compose.yml
 docker compose up -d
 ```
 

@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from app.plugins.web import PluginWebRegistration
 
 from app.core import plugin_registry
-from app.core.i18n import register_extra_locales
+from app.core.i18n import clear_extra_locales, register_extra_locales
 from app.core.template_context import get_setting_value
 from app.database.session import SessionLocal
 from app.models.assets import Asset
@@ -22,7 +22,7 @@ from app.models.settings import Setting
 from app.plugins.base import CURRENT_PLUGIN_API_VERSION, ActionPlugin, DatasourcePlugin, ExportPlugin, PeriodicPlugin, Plugin, PluginContext, PluginSetting
 from app.plugins.loader import env_disable_var, import_plugin_module, is_plugin_env_disabled
 from app.core.time import utc_now
-from app.services.events import cleanup_events_by_retention, compact_completed_daily_rollups, register_duplicate_rules
+from app.services.events import cleanup_events_by_retention, clear_duplicate_rules, compact_completed_daily_rollups, register_duplicate_rules
 from app.services.geoip import enrich_pending_events
 from app.services.insight_rules import refresh_insight_rules
 from app.services.asset_updates import refresh_asset_updates
@@ -62,6 +62,9 @@ class PluginManager:
         # namespace (see app.plugins.loader) so plugins can ship their own
         # submodules and import them relatively.
         self.plugins.clear()
+        clear_extra_locales()
+        clear_duplicate_rules()
+        plugin_registry.register_plugins(())
         if not self.plugin_dir.exists():
             logger.warning("Plugin directory does not exist: %s", self.plugin_dir)
             return

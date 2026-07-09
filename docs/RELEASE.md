@@ -42,7 +42,7 @@ uvx pip-audit --strict --desc off -r /tmp/opensecdash-requirements.txt
 5. Confirm Docker builds locally if packaging changed:
 
 ```bash
-docker build -t opensecdash:local .
+docker build -f docker/Dockerfile -t opensecdash:local .
 docker run --rm -p 8765:8000 -v opensecdash-data:/data opensecdash:local
 ```
 

@@ -46,12 +46,6 @@ def get_setting_values(db: Session, defaults: dict[str, str]) -> dict[str, str]:
     return values
 
 
-def enabled_plugin_map(db: Session) -> dict[str, bool]:
-    plugin_ids = plugin_registry.plugin_ids()
-    values = get_setting_values(db, {f"plugin.{plugin_id}.enabled": "false" for plugin_id in plugin_ids})
-    return {plugin_id: values[f"plugin.{plugin_id}.enabled"] == "true" for plugin_id in plugin_ids}
-
-
 def build_template_context(db: Session) -> dict[str, object | Callable[[str], str]]:
     values = get_setting_values(
         db,
