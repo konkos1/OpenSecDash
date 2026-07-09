@@ -114,14 +114,29 @@ def save_table_columns(db: Session, setting_key: str, selected: list[str], defau
     save_setting(db, setting_key, ",".join(values) if values else default)
 
 
+def _safe_local_redirect_target(request: Request, target: str | None, fallback: str) -> str:
+    candidate = (target or fallback).strip() or fallback
+    parts = urlsplit(candidate)
+    request_origin = urlsplit(str(request.url))
+
+    if parts.scheme or parts.netloc:
+        if parts.scheme != request_origin.scheme or parts.netloc != request_origin.netloc:
+            return fallback
+        return urlunsplit(("", "", parts.path or "/", parts.query, parts.fragment))
+
+    if not parts.path.startswith("/") or parts.path.startswith("//"):
+        return fallback
+    return urlunsplit(("", "", parts.path, parts.query, parts.fragment))
+
+
 def column_redirect_url(request: Request, fallback: str, snapshot_before: str | None) -> str:
-    target = request.headers.get("referer") or fallback
+    target = _safe_local_redirect_target(request, request.headers.get("referer"), fallback)
     if not snapshot_before:
         return target
     parts = urlsplit(target)
     query = dict(parse_qsl(parts.query, keep_blank_values=True))
     query["snapshot_before"] = snapshot_before
-    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
+    return urlunsplit(("", "", parts.path, urlencode(query), parts.fragment))
 
 
 def asset_links_for_events(db: Session, events: list[Event]) -> dict[int, str]:

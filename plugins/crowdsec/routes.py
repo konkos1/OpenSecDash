@@ -73,7 +73,7 @@ def crowdsec_decisions_refresh(request: Request, db: Session = Depends(get_db)):
     sync_crowdsec_decisions(db, force=True)
     db.commit()
     next_url = str(request.query_params.get("next") or "/crowdsec")
-    if not next_url.startswith("/"):
+    if not next_url.startswith("/") or next_url.startswith("//"):
         next_url = "/crowdsec"
     return RedirectResponse(url=next_url, status_code=303)
 
