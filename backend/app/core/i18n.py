@@ -6,6 +6,11 @@ from app.locales import LOCALES
 _EXTRA_LOCALES: dict[str, dict[str, str]] = {}
 
 
+def clear_extra_locales() -> None:
+    """Remove all plugin-provided translations before plugin re-discovery."""
+    _EXTRA_LOCALES.clear()
+
+
 def register_extra_locales(locales: dict[str, dict[str, str]]) -> None:
     """Merge plugin-provided translations in as a fallback layer below core LOCALES."""
     for language, entries in locales.items():

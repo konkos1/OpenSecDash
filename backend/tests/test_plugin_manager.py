@@ -4,7 +4,10 @@ from app.models.core import Datasource, Diagnostic, PluginRecord
 from app.models.events import Event
 from app.models.settings import Setting
 from app.plugins.base import DatasourcePlugin, PluginMetadata, PluginSetting
-from app.plugins.manager import PluginManager
+from app.core.i18n import register_extra_locales, translate
+from app.core import plugin_registry
+from app.plugins.manager import PluginManager, get_plugin_manager
+from app.services.events import DuplicateRule, _DUPLICATE_RULES, register_duplicate_rules
 import app.plugins.manager as manager_module
 
 
@@ -96,6 +99,25 @@ def test_asset_update_diagnostic_calls_out_global_failure(monkeypatch, db_sessio
     diagnostic = db_session.query(Diagnostic).filter_by(plugin="asset_updates", component="plugin").one()
     assert diagnostic.status == "warning"
     assert diagnostic.last_error == "Last check: checked=2, updated=0, failed=2; all checks failed: rate limited"
+
+
+def test_discover_clears_plugin_owned_process_state(tmp_path):
+    register_extra_locales({"en": {"stale.plugin.key": "Stale text"}})
+    register_duplicate_rules("stale_plugin", (DuplicateRule(lambda db, values: None),))
+    assert translate("stale.plugin.key") == "Stale text"
+    assert "stale_plugin" in _DUPLICATE_RULES
+
+    try:
+        manager = PluginManager(tmp_path)
+        manager.discover()
+
+        assert translate("stale.plugin.key") == "stale.plugin.key"
+        assert "stale_plugin" not in _DUPLICATE_RULES
+        assert plugin_registry.plugin_ids() == []
+    finally:
+        # Restore session-global plugin discovery state for tests that run after
+        # this one; production startup still discovers only once.
+        get_plugin_manager().discover()
 
 
 def test_plugin_manager_seeds_metadata_datasource_diagnostics_and_settings(db_session):

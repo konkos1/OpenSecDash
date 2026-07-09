@@ -92,6 +92,11 @@ class DuplicateRule:
 _DUPLICATE_RULES: dict[str, tuple[DuplicateRule, ...]] = {}
 
 
+def clear_duplicate_rules() -> None:
+    """Remove plugin-provided duplicate rules before plugin re-discovery."""
+    _DUPLICATE_RULES.clear()
+
+
 def register_duplicate_rules(plugin_id: str, rules: tuple[DuplicateRule, ...]) -> None:
     _DUPLICATE_RULES[plugin_id] = rules
 
