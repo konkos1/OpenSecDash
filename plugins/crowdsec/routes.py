@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.template_context import get_setting_value
 from app.core.time import utc_now
 from app.database.dependencies import get_db
-from app.models.core import Action, CrowdSecDecision
+from app.models.core import Action, AggregationDaily, AggregationMonthly, CrowdSecDecision
 from app.models.events import Event
 from app.plugins.manager import get_plugin_manager
 from app.services.actions import ActionAlreadyRunning, create_action
@@ -24,24 +24,29 @@ router = APIRouter(tags=["crowdsec"])
 ungated_router = APIRouter(tags=["crowdsec"])
 
 
+def _top_rollup_metric(db: Session, metric: str, limit: int) -> list[tuple[str | None, int]]:
+    """Return all-time top values from compacted monthly plus open daily rollups.
+
+    This keeps the CrowdSec overview off the raw events table for expensive
+    scenario/country GROUP BY queries. Monthly rollups contain completed
+    compacted days; daily rollups contain the current/open periods.
+    """
+    totals: dict[str, int] = {}
+    for key, value in db.query(AggregationMonthly.key, func.sum(AggregationMonthly.value)).filter(AggregationMonthly.metric == metric).group_by(AggregationMonthly.key).all():
+        totals[str(key)] = totals.get(str(key), 0) + int(value or 0)
+    for key, value in db.query(AggregationDaily.key, func.sum(AggregationDaily.value)).filter(AggregationDaily.metric == metric).group_by(AggregationDaily.key).all():
+        totals[str(key)] = totals.get(str(key), 0) + int(value or 0)
+    return [
+        (key or None, value)
+        for key, value in sorted(totals.items(), key=lambda item: (-item[1], item[0]))[:limit]
+    ]
+
+
 @router.get("/crowdsec")
 def crowdsec_page(request: Request, db: Session = Depends(get_db)):
     bans = db.query(Event).filter(Event.event_type.startswith("security.ban")).order_by(Event.event_time.desc()).limit(100).all()
     active_decisions = {decision.ip: decision for decision in db.query(CrowdSecDecision).filter(CrowdSecDecision.decision_type == "ban").all()}
-    # Count scenarios in SQL instead of deserializing every ban event's JSON
-    # payload in Python on each page view - this table grows without bound.
-    scenario_expr = func.coalesce(func.json_extract(Event.data_json, "$.scenario"), "")
-    scenarios = [
-        (str(scenario) or None, int(count))
-        for scenario, count in (
-            db.query(scenario_expr, func.count(Event.id))
-            .filter(Event.event_type.startswith("security.ban"))
-            .group_by(scenario_expr)
-            .order_by(func.count(Event.id).desc())
-            .limit(10)
-            .all()
-        )
-    ]
+    scenarios = _top_rollup_metric(db, "scenario", 10)
     countries = (
         db.query(Event.country, func.count(Event.id))
         .filter(Event.event_type.startswith("security.ban"), Event.country.isnot(None))

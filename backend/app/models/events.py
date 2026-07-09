@@ -29,6 +29,14 @@ class Event(Base):
         # index carries full raw_data text, trading disk space for O(log n)
         # ingestion.
         Index("ix_events_dedupe_raw", "plugin", "event_type", "raw_data"),
+        # Dashboard and event list queries filter by plugin/type/locality plus
+        # a recent event_time window. These composite indexes prevent SQLite
+        # from scanning every row for a plugin on larger homelab databases.
+        Index("ix_events_plugin_time", "plugin", "event_time"),
+        Index("ix_events_plugin_type_time", "plugin", "event_type", "event_time"),
+        Index("ix_events_plugin_local_time", "plugin", "is_local_ip", "event_time"),
+        Index("ix_events_country_time", "country", "event_time"),
+        Index("ix_events_plugin_country_time", "plugin", "country", "event_time"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
