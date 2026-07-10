@@ -65,3 +65,9 @@ These rules apply to all AI assistants, coding agents, and automated tools worki
 - Always clearly name changed files.
 - Do not perform unrequested changes.
 - If multiple reasonable approaches exist and the decision affects architecture, security, or user experience, ask first.
+
+## 10. Follow the code style
+
+- The project code style is documented in `website/guide/contributing/code-style.md` (published at https://opensecdash.app/guide/contributing/code-style) and applies to all contributions, human or AI.
+- Its baseline rule also applies when the guide is silent: write code that reads like the surrounding code.
+- If a requested change requires deviating from the code style, point this out instead of deviating silently.
