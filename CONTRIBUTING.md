@@ -5,6 +5,7 @@ Thank you for considering a contribution to OpenSecDash. Practical feedback from
 The detailed contributor documentation lives on the website:
 
 - Development setup and local checks: https://opensecdash.app/guide/contributing/development
+- Code style: https://opensecdash.app/guide/contributing/code-style
 - Plugin development: https://opensecdash.app/guide/contributing/plugin-development
 - Insight rules: https://opensecdash.app/guide/contributing/insight-rules
 - Translations: https://opensecdash.app/guide/contributing/translations
@@ -13,6 +14,7 @@ The detailed contributor documentation lives on the website:
 ## Quick checklist for pull requests
 
 - Keep changes focused: one feature or fix per PR.
+- Follow the [code style](https://opensecdash.app/guide/contributing/code-style) (source: `website/guide/contributing/code-style.md`).
 - Add or update tests when behavior changes.
 - Update website documentation for user-facing changes.
 - Run the backend checks before opening a PR:
