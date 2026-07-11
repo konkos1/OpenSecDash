@@ -64,12 +64,12 @@ def test_refresh_insight_rules_uses_hardcoded_source_url(monkeypatch, db_session
 
     result = refresh_insight_rules(db_session, force=True)
 
-    assert result == {"status": "updated", "source": "remote", "version": "2026-07-02", "count": 6}
+    assert result == {"status": "updated", "source": "remote", "version": "2026-07-02", "count": 7}
     diagnostic = _ruleset_diagnostic(db_session)
     assert "source=bundled+remote" in diagnostic.last_error
-    assert "bundled_version=2026-07-02" in diagnostic.last_error
+    assert "bundled_version=2026-07-11" in diagnostic.last_error
     assert "remote_version=2026-07-02" in diagnostic.last_error
-    assert "bundled=5" in diagnostic.last_error
+    assert "bundled=6" in diagnostic.last_error
     assert "remote=1" in diagnostic.last_error
     assert calls[0][0] == RULE_SOURCE_URL
     assert db_session.query(Setting).filter_by(key="insight_rules.version").one().value == "2026-07-02"
@@ -129,9 +129,9 @@ def test_refresh_insight_rules_reports_source_versions_from_cache(monkeypatch, d
     diagnostic = _ruleset_diagnostic(db_session)
     assert "loaded from database" in diagnostic.last_error
     assert "source=bundled+remote" in diagnostic.last_error
-    assert "bundled_version=2026-07-02" in diagnostic.last_error
+    assert "bundled_version=2026-07-11" in diagnostic.last_error
     assert "remote_version=2026-07-02" in diagnostic.last_error
-    assert "bundled=5" in diagnostic.last_error
+    assert "bundled=6" in diagnostic.last_error
     assert "remote=1" in diagnostic.last_error
 
 

@@ -40,6 +40,7 @@ class InsightRule:
     group_by: str = "ip"
     window_minutes: int = 5
     threshold: int = 1
+    min_distinct_ips: int = 1
     source: str = "bundled"
     schema_version: str = "1"
     ruleset_version: str = ""
@@ -97,7 +98,7 @@ def _validate_ruleset(data: dict[str, Any]) -> dict[str, Any]:
             raise ValueError("Insight rule must be an object")
         if not item.get("id") or not item.get("title"):
             raise ValueError("Insight rule id/title is required")
-        if item.get("group_by", "ip") != "ip":
+        if item.get("group_by", "ip") not in {"ip", "path"}:
             raise ValueError(f"Unsupported insight rule group_by for {item.get('id')}: {item.get('group_by')}")
         paths = item.get("path_contains_any", [])
         if not isinstance(paths, list) or not paths:
@@ -109,10 +110,16 @@ def _validate_ruleset(data: dict[str, Any]) -> dict[str, Any]:
             raise ValueError(f"Insight rule {item.get('id')} must define event_types")
         threshold = int(item.get("threshold", 1))
         window_minutes = int(item.get("window_minutes", 5))
+        min_distinct_ips_value = item.get("min_distinct_ips", 1)
+        if not isinstance(min_distinct_ips_value, int) or isinstance(min_distinct_ips_value, bool):
+            raise ValueError(f"Insight rule {item.get('id')} has invalid min_distinct_ips")
+        min_distinct_ips = min_distinct_ips_value
         if threshold < 1 or threshold > 100:
             raise ValueError(f"Insight rule {item.get('id')} has invalid threshold")
         if window_minutes < 1 or window_minutes > 1440:
             raise ValueError(f"Insight rule {item.get('id')} has invalid window_minutes")
+        if min_distinct_ips < 1 or min_distinct_ips > 1000:
+            raise ValueError(f"Insight rule {item.get('id')} has invalid min_distinct_ips")
     return data
 
 
@@ -131,9 +138,10 @@ def parse_rules(data: dict[str, Any], *, source: str = "bundled") -> list[Insigh
                 confidence=float(item.get("confidence") or 0.7),
                 event_types=tuple(str(value) for value in item["event_types"]),
                 path_contains_any=tuple(str(value) for value in item["path_contains_any"]),
-                group_by="ip",
+                group_by=str(item.get("group_by", "ip")),
                 window_minutes=int(item.get("window_minutes", 5)),
                 threshold=int(item.get("threshold", 1)),
+                min_distinct_ips=int(item.get("min_distinct_ips", 1)),
                 source=source,
                 schema_version=schema_version,
                 ruleset_version=ruleset_version,
@@ -167,6 +175,7 @@ def import_ruleset(db: Session, data: dict[str, Any], *, source: str) -> dict[st
         existing.group_by = rule.group_by
         existing.window_minutes = rule.window_minutes
         existing.threshold = rule.threshold
+        existing.min_distinct_ips = rule.min_distinct_ips
         existing.is_active = True
         existing.updated_at = now
         existing.last_seen_at = now
@@ -224,6 +233,7 @@ def active_rules(db: Session) -> list[InsightRule]:
             group_by=row.group_by,
             window_minutes=row.window_minutes,
             threshold=row.threshold,
+            min_distinct_ips=row.min_distinct_ips,
             source=row.source,
             schema_version=row.schema_version,
             ruleset_version=row.ruleset_version,
@@ -295,7 +305,14 @@ def refresh_insight_rules(db: Session, *, force: bool = False) -> dict[str, Any]
         return {"status": "failed", "source": "database", "version": last_known_version or str(bundled["version"]), "count": active_count, "error": str(exc)}
 
 
-def _insight_exists(db: Session, insight_type: str, event_ids: list[int]) -> bool:
+def _insight_exists(db: Session, insight_type: str, event_ids: list[int], *, ip: str | None, window_start: datetime) -> bool:
+    cooldown = db.query(Insight).filter(Insight.type == insight_type, Insight.timestamp >= window_start)
+    if ip is None:
+        cooldown = cooldown.filter(Insight.ip.is_(None))
+    else:
+        cooldown = cooldown.filter(Insight.ip == ip)
+    if cooldown.first() is not None:
+        return True
     return db.query(Insight).filter(Insight.type == insight_type, Insight.related_event_ids == event_ids).first() is not None
 
 
@@ -309,32 +326,39 @@ def apply_declarative_insight_rules(db: Session, event: Event) -> None:
         if not any(pattern.lower() in path for pattern in rule.path_contains_any):
             continue
         window_start = event.event_time - timedelta(minutes=rule.window_minutes)
-        matching_events = (
-            db.query(Event)
-            .filter(
-                Event.ip == event.ip,
-                Event.event_type.in_(rule.event_types),
-                Event.event_time >= window_start,
-                Event.event_time <= event.event_time,
-            )
-            .all()
+        matching_query = db.query(Event).filter(
+            Event.event_type.in_(rule.event_types),
+            Event.event_time >= window_start,
+            Event.event_time <= event.event_time,
         )
-        matching_ids = [candidate.id for candidate in matching_events if candidate.path and any(pattern.lower() in candidate.path.lower() for pattern in rule.path_contains_any)]
+        if rule.group_by == "ip":
+            matching_query = matching_query.filter(Event.ip == event.ip)
+        matching_events = [
+            candidate
+            for candidate in matching_query.all()
+            if candidate.path and any(pattern.lower() in candidate.path.lower() for pattern in rule.path_contains_any)
+        ]
+        matching_ids = [candidate.id for candidate in matching_events]
+        distinct_ips = {candidate.ip for candidate in matching_events if candidate.ip}
         if len(matching_ids) < rule.threshold:
             continue
-        related_ids = sorted(set(matching_ids))[-20:]
-        if _insight_exists(db, rule.id, related_ids):
+        if len(distinct_ips) < rule.min_distinct_ips:
             continue
+        related_ids = sorted(set(matching_ids))[-20:]
+        insight_ip = event.ip if rule.group_by == "ip" else None
+        if _insight_exists(db, rule.id, related_ids, ip=insight_ip, window_start=window_start):
+            continue
+        asset_ids = {candidate.asset_id for candidate in matching_events}
         db.add(
             Insight(
                 type=rule.id,
                 confidence=rule.confidence,
                 level=rule.level,
                 title=rule.title,
-                description=f"{rule.description} Matched {len(matching_ids)} event(s) from {event.ip} within {rule.window_minutes} minutes.",
+                description=f"{rule.description} Matched {len(matching_ids)} event(s) from {len(distinct_ips)} IP(s) within {rule.window_minutes} minutes.",
                 related_event_ids=related_ids,
-                ip=event.ip,
-                asset_id=event.asset_id,
+                ip=insight_ip,
+                asset_id=event.asset_id if rule.group_by == "ip" else asset_ids.pop() if len(asset_ids) == 1 else None,
             )
         )
 

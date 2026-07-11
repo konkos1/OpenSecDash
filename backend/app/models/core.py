@@ -74,6 +74,7 @@ class InsightRule(Base):
     group_by: Mapped[str] = mapped_column(String(50), default="ip")
     window_minutes: Mapped[int] = mapped_column(default=5)
     threshold: Mapped[int] = mapped_column(default=1)
+    min_distinct_ips: Mapped[int] = mapped_column(default=1, server_default="1")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
