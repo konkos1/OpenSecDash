@@ -409,15 +409,16 @@ def dashboard_trend_rows(db: Session, end_date: str) -> list[dict[str, str | int
     ]
 
 
-def dashboard_layout_widget_ids(db: Session) -> set[str]:
-    """Return the current allowlist of enabled dashboard widget ids."""
-    ids = {widget.id for widget in collect_dashboard_widgets(db, core_dashboard_widgets(db))}
+def dashboard_widget_plugin_state(db: Session) -> tuple[list[str], dict[str, bool], list[str]]:
+    """Return enabled plugin groups that decide which core widgets exist."""
     country_data_plugins = [
         plugin_id
         for plugin_id in plugin_registry.ids_with_capability("datasource")
         if is_plugin_enabled(db, plugin_id)
     ]
     enabled_plugins = {
+        "json_assets": is_plugin_enabled(db, "json_assets"),
+        "proxmox_assets": is_plugin_enabled(db, "proxmox_assets"),
         "crowdsec": is_plugin_enabled(db, "crowdsec"),
         "geoblock_log": is_plugin_enabled(db, "geoblock_log"),
         "traefik_log": is_plugin_enabled(db, "traefik_log"),
@@ -427,13 +428,26 @@ def dashboard_layout_widget_ids(db: Session) -> set[str]:
         for plugin_id in ["crowdsec", "geoblock_log"]
         if enabled_plugins[plugin_id]
     ]
-    if country_data_plugins:
-        ids.update({"core.top_countries", "core.country_heatmap"})
-    if security_data_plugins:
-        ids.update({"core.top_attack_hours", "core.latest_security_events", "core.security_events_trend"})
-    if enabled_plugins["traefik_log"]:
-        ids.add("core.top_access_hours")
-    return ids
+    return country_data_plugins, enabled_plugins, security_data_plugins
+
+
+def dashboard_layout_widget_ids(db: Session) -> set[str]:
+    """Return the current allowlist of enabled dashboard widget ids."""
+    country_data_plugins, enabled_plugins, security_data_plugins = dashboard_widget_plugin_state(db)
+    with dashboard_counts_cache():
+        widgets = collect_dashboard_widgets(
+            db,
+            core_dashboard_widgets(
+                db,
+                top_countries=[] if country_data_plugins else None,
+                country_heatmap=[] if country_data_plugins else None,
+                attack_hours=[] if security_data_plugins else None,
+                access_hours=[] if enabled_plugins["traefik_log"] else None,
+                latest_security_events=[] if security_data_plugins else None,
+                trend_rows=[] if security_data_plugins else None,
+            ),
+        )
+    return {widget.id for widget in widgets}
 
 
 def _layout_entries_from_form(
@@ -474,25 +488,9 @@ def backlog_banner_fragment(request: Request, db: Session = Depends(get_db)):
 def dashboard_page(request: Request, db: Session = Depends(get_db)):
     timezone_name = get_setting_value(db, "timezone", "auto")
     since = today_start(db)
-    enabled_plugins = {
-        "json_assets": is_plugin_enabled(db, "json_assets"),
-        "proxmox_assets": is_plugin_enabled(db, "proxmox_assets"),
-        "crowdsec": is_plugin_enabled(db, "crowdsec"),
-        "geoblock_log": is_plugin_enabled(db, "geoblock_log"),
-        "traefik_log": is_plugin_enabled(db, "traefik_log"),
-    }
-    country_data_plugins = [
-        plugin_id
-        for plugin_id in plugin_registry.ids_with_capability("datasource")
-        if is_plugin_enabled(db, plugin_id)
-    ]
+    country_data_plugins, enabled_plugins, security_data_plugins = dashboard_widget_plugin_state(db)
 
     today_rollup_key = dashboard_today_rollup_key(since)
-    security_data_plugins = [
-        plugin_id
-        for plugin_id in ["crowdsec", "geoblock_log"]
-        if enabled_plugins[plugin_id]
-    ]
     top_countries: list[tuple[str, int]] = []
     attack_hours: list[dict[str, int | str]] = []
     access_hours: list[dict[str, int | str]] = []

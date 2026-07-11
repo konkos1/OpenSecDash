@@ -172,7 +172,23 @@ def test_dashboard_core_widgets_include_tables_feed_and_trend(db_session, monkey
     context = cast(dict[str, Any], dashboard_page(cast(Request, SimpleNamespace()), db_session))
     ids = {widget.id for widget in context["dashboard_widgets"]}
     assert {"core.top_countries", "core.country_heatmap", "core.top_attack_hours", "core.top_access_hours", "core.latest_security_events", "core.security_events_trend"} <= ids
-    assert "core.country_heatmap" in pages.dashboard_layout_widget_ids(db_session)
+    assert {"core.top_countries", "core.country_heatmap", "core.top_attack_hours", "core.top_access_hours", "core.latest_security_events", "core.security_events_trend"} <= pages.dashboard_layout_widget_ids(db_session)
+
+
+def test_dashboard_layout_allowlist_uses_core_widget_descriptors(db_session, monkeypatch):
+    core_widget = DashboardWidget(
+        id="core.future_widget",
+        type="counter",
+        section="security",
+        title_key="dashboard.future_widget",
+        value=1,
+        href="/events",
+    )
+    monkeypatch.setattr(pages, "dashboard_widget_plugin_state", lambda db: ([], {"traefik_log": False}, []))
+    monkeypatch.setattr(pages, "core_dashboard_widgets", lambda db, **kwargs: [core_widget])
+    monkeypatch.setattr(pages, "collect_dashboard_widgets", lambda db, widgets: widgets)
+
+    assert pages.dashboard_layout_widget_ids(db_session) == {"core.future_widget"}
 
 
 def test_dashboard_page_keeps_hidden_widgets_in_editor_context(db_session, monkeypatch):
