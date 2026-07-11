@@ -11,9 +11,10 @@
   </div>
 
   <div id="dashboard-results">
-  {% if widgets %}
+  {% set counter_widgets = dashboard_widgets|selectattr("type", "equalto", "counter")|list %}
+  {% if counter_widgets %}
     <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-      {% for widget in widgets %}
+      {% for widget in counter_widgets %}
         <a href="{{ widget.href }}" class="card dashboard-widget hover:border-blue-500 flex flex-col items-center text-center">
           <span class="text-slate-400 text-sm">{{ t(widget.title_key) }}</span>
           <strong class="text-3xl">{{ widget.value }}</strong>

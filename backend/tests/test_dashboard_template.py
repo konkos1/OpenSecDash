@@ -9,9 +9,10 @@ from app.api import pages
 from app.models.assets import Asset
 from app.models.settings import Setting
 from app.models.systems import System
+from app.web.dashboard import DashboardWidget
 
 
-def render_dashboard(*, event_plugins_enabled: bool) -> str:
+def render_dashboard(*, event_plugins_enabled: bool, dashboard_widgets: list[DashboardWidget] | None = None) -> str:
     env = Environment(
         loader=FileSystemLoader("app/templates"),
         autoescape=select_autoescape(["html"]),
@@ -31,7 +32,7 @@ def render_dashboard(*, event_plugins_enabled: bool) -> str:
         enabled_plugins={"crowdsec": event_plugins_enabled, "geoblock_log": False, "traefik_log": False, "json_assets": False, "proxmox_assets": False},
         event_plugins_enabled=event_plugins_enabled,
         t=lambda key: key,
-        widgets=[],
+        dashboard_widgets=dashboard_widgets or [],
         top_countries=[],
         attack_hours=[],
         access_hours=[],
@@ -56,6 +57,32 @@ def test_dashboard_does_not_show_historical_rollup_widgets():
     assert "dashboard.rollups_historical" not in html
     assert "dashboard.rollup_event_types" not in html
     assert "dashboard.rollup_scenarios" not in html
+
+
+def test_dashboard_renders_counter_descriptors_in_order():
+    html = render_dashboard(
+        event_plugins_enabled=True,
+        dashboard_widgets=[
+            DashboardWidget(
+                id="crowdsec.active_bans",
+                type="counter",
+                section="security",
+                title_key="dashboard.active_bans",
+                value=7,
+                href="/events?event_type=security.ban*&today=true",
+            ),
+            DashboardWidget(
+                id="geoblock_log.geoblocks_today",
+                type="counter",
+                section="security",
+                title_key="dashboard.geoblocks_today",
+                value=11,
+                href="/events?event_type=security.geoblock&today=true",
+            ),
+        ],
+    )
+
+    assert html.index(">7<") < html.index(">11<")
 
 
 def test_dashboard_local_date_uses_configured_timezone(db_session, monkeypatch):
@@ -88,7 +115,7 @@ def test_dashboard_treats_missing_today_rollup_metrics_as_zero(db_session, monke
 
     pages.dashboard_page(cast(Request, SimpleNamespace()), db_session)
 
-    assert captured["widgets"] == []
+    assert captured["dashboard_widgets"] == []
 
 
 def test_dashboard_asset_widgets_show_for_proxmox_assets(db_session, monkeypatch):
@@ -119,6 +146,6 @@ def test_dashboard_asset_widgets_show_for_proxmox_assets(db_session, monkeypatch
 
     pages.dashboard_page(cast(Request, SimpleNamespace()), db_session)
 
-    widgets = captured["widgets"]
-    assert {widget["title_key"] for widget in widgets} == {"dashboard.assets", "dashboard.updates"}
-    assert [widget["value"] for widget in widgets] == [1, 1]
+    widgets = captured["dashboard_widgets"]
+    assert {widget.title_key for widget in widgets} == {"dashboard.assets", "dashboard.updates"}
+    assert [widget.value for widget in widgets] == [1, 1]

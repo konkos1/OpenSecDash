@@ -37,6 +37,7 @@ from app.services.asset_actions import (
 )
 from app.services.asset_hosts import matching_event_hostnames, normalize_asset_host, sync_asset_host_events
 from app.services.events import apply_event_filters, is_local_ip_value, tokenize_search_expression
+from app.web.dashboard import DashboardWidget, collect_dashboard_widgets
 from app.web.guards import (
     assets_feature_enabled,
     events_feature_enabled,
@@ -353,6 +354,94 @@ def dashboard_delta(current: int, previous: int | None) -> dict[str, str]:
     return {"label": "±0%", "class": "dashboard-delta-same"}
 
 
+def core_dashboard_widgets(
+    db: Session,
+    enabled_plugins: dict[str, bool],
+    active_bans: int,
+    geoblocks: int,
+    access_external_events: int,
+    access_internal_events: int,
+    yesterday_summary: dict[str, int],
+) -> list[DashboardWidget]:
+    """Build the phase-one core counter descriptors from existing metrics."""
+    widgets: list[DashboardWidget] = []
+    if enabled_plugins["crowdsec"]:
+        widgets.append(
+            DashboardWidget(
+                id="crowdsec.active_bans",
+                type="counter",
+                section="security",
+                title_key="dashboard.active_bans",
+                order=10,
+                value=active_bans,
+                href="/events?event_type=security.ban*&today=true",
+                delta=dashboard_delta(active_bans, yesterday_summary.get("bans")),
+            )
+        )
+    if enabled_plugins["geoblock_log"]:
+        widgets.append(
+            DashboardWidget(
+                id="geoblock_log.geoblocks_today",
+                type="counter",
+                section="security",
+                title_key="dashboard.geoblocks_today",
+                order=20,
+                value=geoblocks,
+                href="/events?event_type=security.geoblock&today=true",
+                delta=dashboard_delta(geoblocks, yesterday_summary.get("geoblocks")),
+            )
+        )
+    if enabled_plugins["traefik_log"]:
+        widgets.extend(
+            [
+                DashboardWidget(
+                    id="traefik_log.access_external_today",
+                    type="counter",
+                    section="activity",
+                    title_key="dashboard.access_external_today",
+                    order=10,
+                    value=access_external_events,
+                    href="/events?event_type=access.*&today=true&hide_local_ips=true",
+                    delta=dashboard_delta(access_external_events, yesterday_summary.get("access_external_events")),
+                ),
+                DashboardWidget(
+                    id="traefik_log.access_internal_today",
+                    type="counter",
+                    section="activity",
+                    title_key="dashboard.access_internal_today",
+                    order=20,
+                    value=access_internal_events,
+                    href="/events?event_type=access.*&today=true&show_local_ips=true",
+                    delta=dashboard_delta(access_internal_events, yesterday_summary.get("access_internal_events")),
+                ),
+            ]
+        )
+    if assets_feature_enabled(db):
+        widgets.extend(
+            [
+                DashboardWidget(
+                    id="core.assets",
+                    type="counter",
+                    section="assets",
+                    title_key="dashboard.assets",
+                    order=10,
+                    value=db.query(Asset).filter(Asset.is_active == True).count(),
+                    href="/assets",
+                ),
+                DashboardWidget(
+                    id="core.updates",
+                    type="counter",
+                    section="assets",
+                    title_key="dashboard.updates",
+                    order=20,
+                    value=db.query(Asset).filter(Asset.update_available == True).count(),
+                    href="/assets?updates=true",
+                ),
+            ]
+        )
+    return widgets
+
+
 @router.get("/fragments/backlog-banner")
 def backlog_banner_fragment(request: Request, db: Session = Depends(get_db)):
     # Polled by every page (see backlog_banner.html) so the sitewide "still
@@ -462,21 +551,18 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
             .limit(10)
             .all()
         )
-    widgets = []
-    if enabled_plugins["crowdsec"]:
-        widgets.append({"title_key": "dashboard.active_bans", "value": active_bans, "href": "/events?event_type=security.ban*&today=true", "delta": dashboard_delta(active_bans, yesterday_summary.get("bans"))})
-    if enabled_plugins["geoblock_log"]:
-        widgets.append({"title_key": "dashboard.geoblocks_today", "value": geoblocks, "href": "/events?event_type=security.geoblock&today=true", "delta": dashboard_delta(geoblocks, yesterday_summary.get("geoblocks"))})
-    if enabled_plugins["traefik_log"]:
-        widgets.append({"title_key": "dashboard.access_external_today", "value": access_external_events, "href": "/events?event_type=access.*&today=true&hide_local_ips=true", "delta": dashboard_delta(access_external_events, yesterday_summary.get("access_external_events"))})
-        widgets.append({"title_key": "dashboard.access_internal_today", "value": access_internal_events, "href": "/events?event_type=access.*&today=true&show_local_ips=true", "delta": dashboard_delta(access_internal_events, yesterday_summary.get("access_internal_events"))})
-    if assets_feature_enabled(db):
-        widgets.extend(
-            [
-                {"title_key": "dashboard.assets", "value": db.query(Asset).filter(Asset.is_active == True).count(), "href": "/assets"},
-                {"title_key": "dashboard.updates", "value": db.query(Asset).filter(Asset.update_available == True).count(), "href": "/assets?updates=true"},
-            ]
-        )
+    dashboard_widgets = collect_dashboard_widgets(
+        db,
+        core_dashboard_widgets(
+            db,
+            enabled_plugins,
+            active_bans,
+            geoblocks,
+            access_external_events,
+            access_internal_events,
+            yesterday_summary,
+        ),
+    )
 
     max_country_count = max((count for _, count in top_countries), default=0)
     country_heatmap = [
@@ -489,7 +575,7 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
         request,
         db,
         "dashboard.html",
-        widgets=widgets,
+        dashboard_widgets=dashboard_widgets,
         enabled_plugins=enabled_plugins,
         top_countries=top_countries,
         attack_hours=attack_hours,
