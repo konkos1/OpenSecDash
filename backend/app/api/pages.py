@@ -363,7 +363,7 @@ def core_dashboard_widgets(
                 title_key="dashboard.security_events_trend",
                 order=30,
                 rows=tuple(trend_rows),
-                empty_key="dashboard.no_security_events",
+                empty_key="dashboard.no_data",
             )
         )
     return widgets
