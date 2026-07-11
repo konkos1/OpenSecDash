@@ -43,10 +43,11 @@
     </form>
   </dialog>
 
-  <div id="dashboard-results" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-12 gap-4">
+  <div id="dashboard-results" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4">
   {% for widget in dashboard_widgets %}
+    {% set type_break = loop.index0 > 0 and loop.previtem.type != widget.type %}
     {% if widget.type == "counter" %}
-      <a href="{{ widget.href }}" class="card dashboard-widget hover:border-blue-500 flex flex-col items-center text-center sm:col-span-1 xl:col-span-3">
+      <a href="{{ widget.href }}" class="card dashboard-widget hover:border-blue-500 flex flex-col items-center text-center sm:col-span-1 lg:col-span-3{% if type_break %} lg:col-start-1{% endif %}">
         <span class="text-slate-400 text-sm">{{ t(widget.title_key) }}</span>
         <strong class="text-3xl">{{ widget.value }}</strong>
         {% if widget.delta %}
@@ -54,11 +55,11 @@
         {% endif %}
       </a>
     {% elif widget.type == "table" %}
-      <div class="sm:col-span-2 xl:col-span-4">
+      <div class="sm:col-span-2 lg:col-span-4{% if type_break %} lg:col-start-1{% endif %}">
         {% include "dashboard_table.html" %}
       </div>
       {% if widget.id == "core.top_countries" %}
-        <div class="sm:col-span-2 xl:col-span-12">
+        <div class="sm:col-span-2 lg:col-span-12">
           <div class="card">
             <h3 class="font-semibold mb-3">{{ t("dashboard.country_heatmap") }} <button type="button" class="help" data-tooltip="{{ t('dashboard.country_heatmap_help') }}">?</button></h3>
             {% if country_heatmap %}
@@ -89,11 +90,11 @@
         </div>
       {% endif %}
     {% elif widget.type == "trend" %}
-      <div class="sm:col-span-2 xl:col-span-12">
+      <div class="sm:col-span-2 lg:col-span-12{% if type_break %} lg:col-start-1{% endif %}">
         {% include "dashboard_trend.html" %}
       </div>
     {% elif widget.type == "feed" %}
-      <div class="sm:col-span-2 xl:col-span-12">
+      <div class="sm:col-span-2 lg:col-span-12{% if type_break %} lg:col-start-1{% endif %}">
         {% include "dashboard_feed.html" %}
       </div>
     {% endif %}

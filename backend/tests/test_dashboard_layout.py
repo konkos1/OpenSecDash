@@ -62,13 +62,54 @@ def test_apply_layout_orders_visibility_and_handles_stale_and_new_widgets():
     assert [widget.visible for widget in applied] == [False, True, True]
 
 
+def test_apply_layout_stored_order_overrides_default_type_order():
+    widgets = [
+        make_layout_widget("counter", "security", 10),
+        DashboardWidget(
+            id="table",
+            type="table",
+            section="trends",
+            title_key="dashboard.table",
+            order=10,
+            rows=({"label": "DE", "value": 1, "href": "/events"},),
+        ),
+        DashboardWidget(
+            id="feed",
+            type="feed",
+            section="feed",
+            title_key="dashboard.feed",
+            order=10,
+            rows=({"time": "2026-07-11", "type": "security.ban", "ip": "8.8.8.8", "href": "/events"},),
+        ),
+    ]
+
+    applied = apply_layout(
+        widgets,
+        [
+            {"id": "feed", "visible": True},
+            {"id": "counter", "visible": True},
+            {"id": "table", "visible": True},
+        ],
+    )
+
+    assert [widget.id for widget in applied] == ["feed", "counter", "table"]
+
+
 def test_apply_layout_missing_or_empty_layout_uses_natural_order(db_session):
     widgets = [
         make_layout_widget("late", "security", 20),
         make_layout_widget("first", "security", 10),
+        DashboardWidget(
+            id="table",
+            type="table",
+            section="trends",
+            title_key="dashboard.table",
+            order=1,
+            rows=({"label": "DE", "value": 1, "href": "/events"},),
+        ),
     ]
 
-    assert [widget.id for widget in apply_layout(widgets, [])] == ["first", "late"]
+    assert [widget.id for widget in apply_layout(widgets, [])] == ["first", "late", "table"]
     assert load_dashboard_layout(db_session) == []
 
 

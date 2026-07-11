@@ -18,6 +18,7 @@ WidgetSection = Literal["security", "activity", "assets", "trends", "feed"]
 _ALLOWED_TYPES = {"counter", "table", "feed", "trend"}
 _ALLOWED_SECTIONS = {"security", "activity", "assets", "trends", "feed"}
 _SECTION_ORDER = {"security": 0, "activity": 1, "assets": 2, "trends": 3, "feed": 4}
+_DEFAULT_TYPE_ORDER = {"counter": 0, "table": 1, "trend": 2, "feed": 3}
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +135,10 @@ def load_dashboard_layout(db: Session) -> list[dict[str, object]]:
 
 def apply_layout(widgets: list[DashboardWidget], layout: list[dict[str, object]]) -> list[DashboardWidget]:
     """Apply stored order and visibility while tolerating stale or new widgets."""
-    natural_widgets = sorted(widgets, key=lambda item: (_SECTION_ORDER[item.section], item.order, item.id))
+    natural_widgets = sorted(
+        widgets,
+        key=lambda item: (_DEFAULT_TYPE_ORDER[item.type], _SECTION_ORDER[item.section], item.order, item.id),
+    )
     widgets_by_id = {widget.id: widget for widget in natural_widgets}
     layout_visibility: dict[str, bool] = {}
     for entry in layout:
