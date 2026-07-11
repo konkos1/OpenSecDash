@@ -27,12 +27,13 @@
         <h3 class="font-semibold mb-1">{{ t("ip.insights") }} <button type="button" class="help" data-tooltip="{{ t('ip.insights_help') }}">?</button></h3>
         <p class="muted text-sm mb-3">{{ t("table.limit.ip_insights") }}</p>
         {% for insight in insights %}
+            {% set badge, certainty = insight.level|insight_level_badge %}
             <div class="row">
                 <span>{{ t("insight.title." ~ insight.type) if t("insight.title." ~ insight.type) != "insight.title." ~ insight.type else insight.title }}
                     <br>
                     <small class="muted">{{ t("insight.description." ~ insight.type) if t("insight.description." ~ insight.type) != "insight.description." ~ insight.type else insight.description }}</small>
                 </span>
-                <b>{{ t("insight.level." ~ insight.level) if t("insight.level." ~ insight.level) != "insight.level." ~ insight.level else insight.level }}</b>
+                <b>{{ badge }} {{ t("insight.certainty." ~ certainty) }}</b>
             </div>
         {% else %}
             <p class="muted">{{ t("ip.no_insights") }}</p>
