@@ -212,6 +212,7 @@ DE = {
     "ip.title": "IP Explorer",
     "ip.actions": "Aktionen",
     "ip.actions_dry_run": "Aktionssimulation ist aktiviert. Buttons werden ohne aktive cscli-Decision angezeigt.",
+    "action.confirm": "„{label}\" für {target} ausführen?",
     "ip.ban_confirm": "IP Bannen:",
     "ip.active_ban": "Diese IP hat aktuell eine aktive CrowdSec-Ban-Decision",
     "ip.local_ban_disabled": "Lokale, private oder reservierte IPs/IP-Ranges werden nicht per CrowdSec gebannt. Dadurch werden versehentliche Sperren interner Netze vermieden.",

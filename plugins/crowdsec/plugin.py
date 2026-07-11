@@ -227,6 +227,11 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
         return True
 
     def validate_action(self, db: Session, action_type: str, target: str, parameters: dict[str, Any], dry_run: bool) -> dict[str, Any]:
+        if not parameters.get("reason"):
+            if action_type in BAN_ACTION_TYPES:
+                parameters = {**parameters, "reason": "Manual ban via OpenSecDash"}
+            elif action_type in UNBAN_ACTION_TYPES:
+                parameters = {**parameters, "reason": "Manual unban via OpenSecDash"}
         # The action hook intentionally receives no target_type; action_type is
         # the routing contract. CrowdSec unban actions are IP-targeted actions,
         # so this validation is deliberately applied to every real unban action
@@ -312,11 +317,10 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
 
         from app.plugins.web import PluginNavItem, PluginWebRegistration
 
-        from .routes import router, ungated_router
+        from .routes import router
 
         return PluginWebRegistration(
             router=router,
-            ungated_router=ungated_router,
             templates_dir=Path(__file__).parent / "templates",
             nav_items=(PluginNavItem(label_key="nav.crowdsec", href="/crowdsec", active_prefix="/crowdsec"),),
             ip_page_panels=("crowdsec/ip_panel.html",),

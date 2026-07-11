@@ -716,6 +716,7 @@ def ip_explorer_page(ip: str, request: Request, db: Session = Depends(get_db)):
     for _plugin_id, registration in manager.web_registrations():
         plugin_ip_panels.extend(registration.ip_page_panels)
     action_dry_run = get_setting_value(db, "action_dry_run", "true").lower() == "true"
+    available_ip_actions = manager.available_actions(db, "ip", ip)
     return render(
         request,
         db,
@@ -726,6 +727,7 @@ def ip_explorer_page(ip: str, request: Request, db: Session = Depends(get_db)):
         count_widgets=count_widgets,
         local_ip_target=is_local_ip_value(ip),
         action_dry_run=action_dry_run,
+        available_ip_actions=available_ip_actions,
         plugin_ip_panels=plugin_ip_panels,
         **extra_context,
     )
