@@ -146,24 +146,6 @@ def test_dashboard_layout_route_enforces_allowlist_and_reset(layout_db, monkeypa
             {"id": "first", "visible": False},
         ]
 
-        response = client.post(
-            "/dashboard/layout",
-            content=encoded_form([
-                ("widget_id", "second"),
-                ("widget_id", "first"),
-                ("visible", "second"),
-                ("move_down", "second"),
-            ]),
-            headers={"content-type": "application/x-www-form-urlencoded"},
-            follow_redirects=False,
-        )
-        assert response.status_code == 303
-        moved = json.loads(get_setting_value(layout_db, "ui.dashboard_layout", ""))
-        assert moved == [
-            {"id": "first", "visible": False},
-            {"id": "second", "visible": True},
-        ]
-
         response = client.post("/dashboard/layout/reset", follow_redirects=False)
         assert response.status_code == 303
         assert layout_db.query(pages.Setting).filter_by(key="ui.dashboard_layout").count() == 0

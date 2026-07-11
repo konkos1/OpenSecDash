@@ -449,16 +449,6 @@ def _layout_entries_from_form(
     return entries
 
 
-def _move_layout_entry(entries: list[dict[str, object]], widget_id: str, direction: int) -> None:
-    current_index = next((index for index, entry in enumerate(entries) if entry.get("id") == widget_id), None)
-    if current_index is None:
-        return
-    target_index = current_index + direction
-    if target_index < 0 or target_index >= len(entries):
-        return
-    entries[current_index], entries[target_index] = entries[target_index], entries[current_index]
-
-
 def _save_dashboard_layout(db: Session, entries: list[dict[str, object]]) -> None:
     save_setting(db, "ui.dashboard_layout", json.dumps(entries, separators=(",", ":")))
     db.commit()
@@ -623,12 +613,6 @@ async def save_dashboard_layout(request: Request, db: Session = Depends(get_db))
         submitted_ids = [str(value) for value in form.getlist("widget_id")]
         visible_ids = {str(value) for value in form.getlist("visible")}
         entries = _layout_entries_from_form(known_ids, submitted_ids, visible_ids)
-        move_up = str(form.get("move_up") or "")
-        move_down = str(form.get("move_down") or "")
-        if move_up:
-            _move_layout_entry(entries, move_up, -1)
-        elif move_down:
-            _move_layout_entry(entries, move_down, 1)
         _save_dashboard_layout(db, entries)
 
     await asyncio.to_thread(_save)
