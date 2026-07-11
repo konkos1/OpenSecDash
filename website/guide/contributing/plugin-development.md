@@ -213,6 +213,44 @@ Sleep interval is derived from common settings such as `poll_interval` or `publi
 
 Use this for actions triggered by OpenSecDash, for example a ban/unban backend.
 
+Declare each action as an `ActionDefinition`. The registry metadata drives the available-actions API, confirmation dialog, audit record/event, and IP Explorer button:
+
+```python
+from app.plugins.base import ActionDefinition, ActionParameter, ActionPlugin
+
+
+class Plugin(ActionPlugin):
+    action_definitions = (
+        ActionDefinition(
+            action_type="security.ban",
+            label_key="ip.crowdsec_ban",
+            description_key="action.desc.security.ban",
+            target_types=frozenset({"ip"}),
+            critical=True,
+            permission="security.ban",
+            parameters=(
+                ActionParameter(
+                    name="duration",
+                    options=("4h", "24h", "7d"),
+                    default="4h",
+                    label_key="action.param.duration",
+                ),
+            ),
+        ),
+    )
+
+    async def execute(self, context, action_type, target, parameters):
+        ...
+
+    def validate_action(self, db, action_type, target, parameters, dry_run):
+        return parameters
+
+    def action_available(self, db, action_type, target, dry_run):
+        return True
+```
+
+The core exposes the registered actions at `GET /api/actions/available`. `target_types`, `critical`, `permission`, and `parameters` describe where an action is offered and how its form is rendered. `execute`, `validate_action`, and `action_available` remain plugin hooks; central confirmation, IP validation, dry-run handling, action records, and audit events stay in the core. The CrowdSec plugin uses the same pattern for its Ban and Unban definitions.
+
 ```python
 class Plugin(ActionPlugin):
     async def execute(self, context, action_type, target, parameters):

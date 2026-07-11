@@ -1,6 +1,6 @@
 # ADR-029: Action Framework
 
-> **Implementation status (2026-07-09):** Partially implemented.
+> **Implementation status (2026-07-11):** Partially implemented.
 > Action registration, plugin execution, confirmation requirement, dry-run, action status/history, and audit events exist. A real background action queue remains planned.
 
 
@@ -455,9 +455,8 @@ Event
 
 ---
 
-## Implementation notes (2026-07-09)
+## Implementation notes (2026-07-11)
 
-The current implementation supports action registration through plugins, confirmation requirements, dry-run mode, action records, action status, plugin validation hooks, plugin execution, and action audit events.
+The current implementation supports plugin registration through `ActionDefinition` metadata (id, label, permission, target types, and standardized Ban/Unban parameters such as `ip`, `duration`, and `reason`), confirmation requirements, dry-run mode, action records/status, plugin validation and availability hooks, plugin execution, and registry-driven IP Explorer UI. The registry provides API availability, confirmation dialogs, audit records/events, and action buttons from one definition.
 
-A persistent background action queue is not implemented yet. Execution is currently service-driven and guarded by locks to avoid conflicting concurrent actions.
-
+A persistent background action queue is not implemented yet. Execution is synchronous and guarded by in-process locks to avoid conflicting concurrent actions. The Dashboard widget `Latest actions` remains a later item; recent actions are currently shown in Diagnostics.
