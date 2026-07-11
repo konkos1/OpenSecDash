@@ -6,6 +6,7 @@ from typing import Any, cast
 from fastapi import Request
 from sqlalchemy.orm import Session
 
+from app.models.core import AggregationDaily
 from app.models.settings import Setting
 from app.models.events import Event
 from app.plugins.base import Plugin, PluginMetadata
@@ -39,6 +40,28 @@ def test_validate_widget_rejects_missing_identity_and_external_href():
 
 def test_validate_widget_accepts_internal_paths():
     assert validate_widget(make_widget(href="/events?today=true"))
+
+
+def test_validate_widget_validates_table_feed_and_trend_rows():
+    assert validate_widget(
+        make_widget(
+            type="table",
+            rows=({"label": "DE", "value": 3, "href": "/events?country=DE"},),
+        )
+    )
+    assert validate_widget(
+        make_widget(
+            type="feed",
+            rows=({"time": datetime.now(UTC), "type": "security.ban", "ip": "8.8.8.8", "href": "/ip/8.8.8.8"},),
+        )
+    )
+    assert validate_widget(
+        make_widget(type="trend", rows=({"bucket": "2026-07-11", "value": 4},))
+    )
+    assert not validate_widget(make_widget(type="table", rows=({"label": "DE", "value": "4"},)))
+    assert not validate_widget(make_widget(type="table", rows=({"label": "DE", "value": 4},)))
+    assert not validate_widget(make_widget(type="feed", rows=({"type": "security.ban", "ip": "8.8.8.8", "href": "/ip/8.8.8.8"},)))
+    assert not validate_widget(make_widget(type="trend", rows=({"bucket": "2026-07-11", "value": -1},)))
 
 
 def test_collect_dashboard_widgets_deduplicates_and_sorts(monkeypatch):
@@ -81,12 +104,52 @@ def test_core_dashboard_counter_order_matches_previous_dashboard(db_session, mon
     monkeypatch.setattr("app.api.pages.render", fake_render)
     dashboard_page(cast(Request, SimpleNamespace()), db_session)
 
-    assert [widget.id for widget in captured["dashboard_widgets"]] == [
+    assert [widget.id for widget in captured["dashboard_widgets"] if widget.type == "counter"] == [
         "crowdsec.active_bans",
         "geoblock_log.geoblocks_today",
         "traefik_log.access_external_today",
         "traefik_log.access_internal_today",
     ]
+
+
+def test_dashboard_core_widgets_include_tables_feed_and_trend(db_session, monkeypatch):
+    monkeypatch.setattr("app.api.pages.is_plugin_enabled", lambda db, plugin_id: plugin_id in {"crowdsec", "traefik_log"})
+    monkeypatch.setattr("app.api.pages.utc_now", lambda: datetime(2026, 7, 11, 12, tzinfo=UTC))
+    db_session.add_all(
+        [
+            Setting(key="plugin.crowdsec.enabled", value="true"),
+            Setting(key="plugin.traefik_log.enabled", value="true"),
+            AggregationDaily(date="2026-07-11", metric="summary", key="security_events", value=2),
+        ]
+    )
+    db_session.commit()
+
+    from app.api.pages import dashboard_page
+
+    monkeypatch.setattr("app.api.pages.render", lambda request, db, template, **context: context)
+    context = cast(dict[str, Any], dashboard_page(cast(Request, SimpleNamespace()), db_session))
+    ids = {widget.id for widget in context["dashboard_widgets"]}
+    assert {"core.top_countries", "core.top_attack_hours", "core.top_access_hours", "core.latest_security_events", "core.security_events_trend"} <= ids
+
+
+def test_crowdsec_dashboard_top_scenarios_is_a_rollup_table(db_session):
+    db_session.add_all(
+        [
+            Setting(key="plugin.crowdsec.enabled", value="true"),
+            AggregationDaily(date="2026-07-11", metric="scenario", key="crowdsecurity/ssh-bf", value=4),
+        ]
+    )
+    db_session.commit()
+
+    crowdsec = get_plugin_manager().plugins["crowdsec"]
+    widgets = {widget.id: widget for widget in crowdsec.dashboard_widgets(db_session)}
+
+    scenario_widget = widgets["crowdsec.top_scenarios"]
+    assert scenario_widget.type == "table"
+    assert scenario_widget.rows[0]["label"] == "crowdsecurity/ssh-bf"
+    assert scenario_widget.rows[0]["value"] == 4
+    assert scenario_widget.rows[0]["href"].startswith("/events?")
+    assert "security.ban" in scenario_widget.rows[0]["href"]
 
 
 def test_collect_dashboard_widgets_includes_plugin_widgets_and_isolates_failures(monkeypatch):

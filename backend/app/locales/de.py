@@ -62,6 +62,7 @@ DE = {
     "dashboard.latest_security_events": "Neueste Sicherheitsereignisse",
     "dashboard.latest_security_events_help": "Zeigt die neuesten 10 Security-Events.",
     "dashboard.no_security_events": "Keine Sicherheitsereignisse",
+    "dashboard.security_events_trend": "Sicherheitsereignisse · letzte 30 Tage",
     "dashboard.no_enabled_widgets": "Es sind keine Dashboard-Widgets sichtbar, weil die zugehörigen Daten-Plugins deaktiviert sind.",
     "dashboard.delta_vs_yesterday": "Verglichen mit dem Rollup von gestern",
     "dashboard.delta_new": "neu",

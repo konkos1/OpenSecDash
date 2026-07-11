@@ -245,8 +245,14 @@ def dashboard_delta(current: int, previous: int | None) -> dict[str, str]:
 
 def core_dashboard_widgets(
     db: Session,
+    *,
+    top_countries: list[tuple[str, int]] | None = None,
+    attack_hours: list[dict[str, int | str]] | None = None,
+    access_hours: list[dict[str, int | str]] | None = None,
+    latest_security_events: list[Event] | None = None,
+    trend_rows: list[dict[str, str | int]] | None = None,
 ) -> list[DashboardWidget]:
-    """Build the core-owned asset counter descriptors."""
+    """Build core-owned dashboard descriptors."""
     widgets: list[DashboardWidget] = []
     if assets_feature_enabled(db):
         widgets.extend(
@@ -271,7 +277,121 @@ def core_dashboard_widgets(
                 ),
             ]
         )
+
+    if top_countries is not None:
+        widgets.append(
+            DashboardWidget(
+                id="core.top_countries",
+                type="table",
+                section="trends",
+                title_key="dashboard.top_countries",
+                order=10,
+                rows=tuple(
+                    {
+                        "label": str(country),
+                        "value": int(count),
+                        "href": f"/events?{urlencode({'country': country, 'today': 'true'})}",
+                    }
+                    for country, count in top_countries
+                ),
+                empty_key="dashboard.no_data",
+            )
+        )
+
+    def hour_rows(items: list[dict[str, int | str]]) -> tuple[dict[str, int | str], ...]:
+        return tuple(
+            {
+                "label": f"{int(item['hour']):02d}:00\u2013{(int(item['hour']) + 1) % 24:02d}:00",
+                "value": int(item["count"]),
+                "href": str(item["href"]),
+            }
+            for item in items
+        )
+
+    if attack_hours is not None:
+        widgets.append(
+            DashboardWidget(
+                id="core.top_attack_hours",
+                type="table",
+                section="security",
+                title_key="dashboard.top_attack_hours",
+                order=10,
+                rows=hour_rows(attack_hours),
+                empty_key="dashboard.no_data",
+            )
+        )
+    if access_hours is not None:
+        widgets.append(
+            DashboardWidget(
+                id="core.top_access_hours",
+                type="table",
+                section="activity",
+                title_key="dashboard.top_access_hours",
+                order=10,
+                rows=hour_rows(access_hours),
+                empty_key="dashboard.no_data",
+            )
+        )
+    if latest_security_events is not None:
+        widgets.append(
+            DashboardWidget(
+                id="core.latest_security_events",
+                type="feed",
+                section="feed",
+                title_key="dashboard.latest_security_events",
+                order=10,
+                rows=tuple(
+                    {
+                        "time": event.event_time,
+                        "type": event.event_type,
+                        "ip": event.ip or "",
+                        "country": event.country or "",
+                        "href": f"/events?{urlencode({'ip': event.ip, 'event_type': event.event_type}) if event.ip else urlencode({'event_type': event.event_type})}",
+                    }
+                    for event in latest_security_events
+                ),
+                empty_key="dashboard.no_security_events",
+            )
+        )
+    if trend_rows is not None:
+        widgets.append(
+            DashboardWidget(
+                id="core.security_events_trend",
+                type="trend",
+                section="trends",
+                title_key="dashboard.security_events_trend",
+                order=30,
+                rows=tuple(trend_rows),
+                empty_key="dashboard.no_data",
+            )
+        )
     return widgets
+
+
+def dashboard_trend_rows(db: Session, end_date: str) -> list[dict[str, str | int]]:
+    """Build a 30-day security-event trend from daily summary rollups."""
+    end = datetime.strptime(end_date, "%Y-%m-%d")
+    start = end - timedelta(days=29)
+    rollup_values = {
+        str(day): int(value or 0)
+        for day, value in (
+            db.query(AggregationDaily.date, func.sum(AggregationDaily.value))
+            .filter(
+                AggregationDaily.date >= start.strftime("%Y-%m-%d"),
+                AggregationDaily.date <= end_date,
+                AggregationDaily.metric == "summary",
+                AggregationDaily.key == "security_events",
+            )
+            .group_by(AggregationDaily.date)
+            .all()
+        )
+    }
+    if not rollup_values:
+        return []
+    return [
+        {"bucket": (start + timedelta(days=offset)).strftime("%Y-%m-%d"), "value": rollup_values.get((start + timedelta(days=offset)).strftime("%Y-%m-%d"), 0)}
+        for offset in range(30)
+    ]
 
 
 @router.get("/fragments/backlog-banner")
@@ -307,9 +427,9 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
         for plugin_id in ["crowdsec", "geoblock_log"]
         if enabled_plugins[plugin_id]
     ]
-    top_countries = []
-    attack_hours = []
-    access_hours = []
+    top_countries: list[tuple[str, int]] = []
+    attack_hours: list[dict[str, int | str]] = []
+    access_hours: list[dict[str, int | str]] = []
     if country_data_plugins:
         if today_rollup_key:
             top_countries = [
@@ -317,25 +437,28 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
                 for row in rollup_rows(db, "day", today_rollup_key, "country", limit=5)
             ]
         else:
-            top_countries = (
-                db.query(Event.country, func.count(Event.id))
-                .filter(
-                    Event.country.isnot(None),
-                    Event.event_time >= since,
-                    Event.plugin.in_(country_data_plugins),
+            top_countries = [
+                (str(country), int(count or 0))
+                for country, count in (
+                    db.query(Event.country, func.count(Event.id))
+                    .filter(
+                        Event.country.isnot(None),
+                        Event.event_time >= since,
+                        Event.plugin.in_(country_data_plugins),
+                    )
+                    .group_by(Event.country)
+                    .order_by(func.count(Event.id).desc())
+                    .limit(5)
+                    .all()
                 )
-                .group_by(Event.country)
-                .order_by(func.count(Event.id).desc())
-                .limit(5)
-                .all()
-            )
+            ]
     try:
         dashboard_timezone = ZoneInfo(timezone_name) if timezone_name and timezone_name != "auto" else ZoneInfo("UTC")
     except ZoneInfoNotFoundError:
         dashboard_timezone = ZoneInfo("UTC")
     dashboard_local_date = utc_now().astimezone(dashboard_timezone).strftime("%Y-%m-%d")
 
-    def top_hours_for_plugins(plugin_ids: list[str], event_type: str, rollup_metric: str) -> list[dict[str, object]]:
+    def top_hours_for_plugins(plugin_ids: list[str], event_type: str, rollup_metric: str) -> list[dict[str, int | str]]:
         if not plugin_ids:
             return []
         if today_rollup_key:
@@ -367,7 +490,7 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
 
     attack_hours = top_hours_for_plugins(security_data_plugins, "security.*", "hour_security")
     access_hours = top_hours_for_plugins(["traefik_log"] if enabled_plugins["traefik_log"] else [], "access.*", "hour_access")
-    latest_security_events = []
+    latest_security_events: list[Event] = []
     if security_data_plugins:
         latest_security_events = (
             db.query(Event)
@@ -376,9 +499,17 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
             .limit(10)
             .all()
         )
+    trend_rows = dashboard_trend_rows(db, dashboard_local_date) if security_data_plugins else None
     dashboard_widgets = collect_dashboard_widgets(
         db,
-        core_dashboard_widgets(db),
+        core_dashboard_widgets(
+            db,
+            top_countries=top_countries if country_data_plugins else None,
+            attack_hours=attack_hours if security_data_plugins else None,
+            access_hours=access_hours if enabled_plugins["traefik_log"] else None,
+            latest_security_events=latest_security_events if security_data_plugins else None,
+            trend_rows=trend_rows,
+        ),
     )
 
     max_country_count = max((count for _, count in top_countries), default=0)

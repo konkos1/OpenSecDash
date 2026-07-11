@@ -62,6 +62,7 @@ EN = {
     "dashboard.latest_security_events": "Latest security events",
     "dashboard.latest_security_events_help": "Shows the newest 10 security events.",
     "dashboard.no_security_events": "No security events",
+    "dashboard.security_events_trend": "Security events · last 30 days",
     "dashboard.no_enabled_widgets": "No dashboard widgets are visible because the related data plugins are disabled.",
     "dashboard.delta_vs_yesterday": "Compared with yesterday's rollup",
     "dashboard.delta_new": "new",

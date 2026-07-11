@@ -5,32 +5,15 @@ from sqlalchemy.orm import Session
 
 from app.core.template_context import get_setting_value
 from app.database.dependencies import get_db
-from app.models.core import AggregationDaily, AggregationMonthly, CrowdSecDecision
+from app.models.core import CrowdSecDecision
 from app.models.events import Event
 from app.web.render import render
 
 from .services.decisions import crowdsec_cscli_status, sync_crowdsec_decisions
+from .services.rollups import _top_rollup_metric
 
 # Enabled-gated by the plugin router mount (see app.main); no require_plugin_enabled here.
 router = APIRouter(tags=["crowdsec"])
-
-
-def _top_rollup_metric(db: Session, metric: str, limit: int) -> list[tuple[str | None, int]]:
-    """Return all-time top values from compacted monthly plus open daily rollups.
-
-    This keeps the CrowdSec overview off the raw events table for expensive
-    scenario/country GROUP BY queries. Monthly rollups contain completed
-    compacted days; daily rollups contain the current/open periods.
-    """
-    totals: dict[str, int] = {}
-    for key, value in db.query(AggregationMonthly.key, func.sum(AggregationMonthly.value)).filter(AggregationMonthly.metric == metric).group_by(AggregationMonthly.key).all():
-        totals[str(key)] = totals.get(str(key), 0) + int(value or 0)
-    for key, value in db.query(AggregationDaily.key, func.sum(AggregationDaily.value)).filter(AggregationDaily.metric == metric).group_by(AggregationDaily.key).all():
-        totals[str(key)] = totals.get(str(key), 0) + int(value or 0)
-    return [
-        (key or None, value)
-        for key, value in sorted(totals.items(), key=lambda item: (-item[1], item[0]))[:limit]
-    ]
 
 
 @router.get("/crowdsec")

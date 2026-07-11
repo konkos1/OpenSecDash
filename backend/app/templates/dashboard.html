@@ -30,49 +30,16 @@
     </section>
   {% endif %}
 
-  {% if country_data_plugins %}
+  {% set table_widgets = dashboard_widgets|selectattr("type", "equalto", "table")|list %}
+  {% if table_widgets %}
     <section class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
-      <div class="card">
-        <h3 class="font-semibold mb-3">{{ t("dashboard.top_countries") }} <button type="button" class="help" data-tooltip="{{ t('dashboard.top_countries_help') }}">?</button></h3>
-        {% for country,count in top_countries %}
-          <a class="row" href="{{ today_events_href }}&country={{ country }}">
-            <span>{{ country|country_name }}</span>
-            <b>{{ count }}</b>
-          </a>
-        {% else %}
-          <p class="muted">{{ t("dashboard.no_data") }}</p>
-        {% endfor %}
-      </div>
-
-      {% if enabled_plugins.crowdsec or enabled_plugins.geoblock_log %}
-        <div class="card">
-          <h3 class="font-semibold mb-3">{{ t("dashboard.top_attack_hours") }} <button type="button" class="help" data-tooltip="{{ t('dashboard.top_attack_hours_help') }}">?</button></h3>
-          {% for item in attack_hours %}
-            <a class="row" href="{{ item.href }}">
-              <span>{{ "%02d:00–%02d:00"|format(item.hour, (item.hour + 1) % 24) }}</span>
-              <b>{{ item.count }}</b>
-            </a>
-          {% else %}
-            <p class="muted">{{ t("dashboard.no_data") }}</p>
-          {% endfor %}
-        </div>
-      {% endif %}
-
-      {% if enabled_plugins.traefik_log %}
-        <div class="card">
-          <h3 class="font-semibold mb-3">{{ t("dashboard.top_access_hours") }} <button type="button" class="help" data-tooltip="{{ t('dashboard.top_access_hours_help') }}">?</button></h3>
-          {% for item in access_hours %}
-            <a class="row" href="{{ item.href }}">
-              <span>{{ "%02d:00–%02d:00"|format(item.hour, (item.hour + 1) % 24) }}</span>
-              <b>{{ item.count }}</b>
-            </a>
-          {% else %}
-            <p class="muted">{{ t("dashboard.no_data") }}</p>
-          {% endfor %}
-        </div>
-      {% endif %}
+      {% for widget in table_widgets %}
+        {% include "dashboard_table.html" %}
+      {% endfor %}
     </section>
+  {% endif %}
 
+  {% if country_data_plugins %}
     <section class="grid grid-cols-1 mt-6">
       <div class="card">
         <h3 class="font-semibold mb-3">{{ t("dashboard.country_heatmap") }} <button type="button" class="help" data-tooltip="{{ t('dashboard.country_heatmap_help') }}">?</button></h3>
@@ -102,22 +69,26 @@
         {% endif %}
       </div>
     </section>
+  {% endif %}
 
+  {% set trend_widgets = dashboard_widgets|selectattr("type", "equalto", "trend")|list %}
+  {% if trend_widgets %}
     <section class="grid grid-cols-1 mt-6">
-      <div class="card">
-        <h3 class="font-semibold mb-1">{{ t("dashboard.latest_security_events") }}</h3>
-        <p class="muted text-sm mb-3">{{ t("dashboard.latest_security_events_help") }}</p>
-        {% for event in latest_security_events %}
-          <a class="row" href="/events?ip={{ event.ip or '' }}&event_type={{ event.event_type }}">
-            <span>{{ event.event_time|datetime }} · {{ event.event_type }} · {{ event.ip or '-' }}</span>
-            <b>{{ event.country|country_or_local(event.ip) if event.country or event.ip else '' }}</b>
-          </a>
-        {% else %}
-          <p class="muted">{{ t("dashboard.no_security_events") }}</p>
-        {% endfor %}
-      </div>
+      {% for widget in trend_widgets %}
+        {% include "dashboard_trend.html" %}
+      {% endfor %}
     </section>
   {% endif %}
+
+  {% set feed_widgets = dashboard_widgets|selectattr("type", "equalto", "feed")|list %}
+  {% if feed_widgets %}
+    <section class="grid grid-cols-1 mt-6">
+      {% for widget in feed_widgets %}
+        {% include "dashboard_feed.html" %}
+      {% endfor %}
+    </section>
+  {% endif %}
+
   </div>
 
 {% endblock %}

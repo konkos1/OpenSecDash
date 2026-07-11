@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 import logging
 from typing import Any, Iterable, Literal
@@ -45,12 +46,61 @@ def validate_widget(widget: DashboardWidget) -> bool:
         return False
     if not isinstance(widget.title_key, str) or not widget.title_key:
         return False
-    if widget.href is not None and (
-        not isinstance(widget.href, str)
-        or not widget.href.startswith("/")
-        or widget.href.startswith("//")
-    ):
+    if not isinstance(widget.order, int) or isinstance(widget.order, bool):
         return False
+    if widget.value is not None and (not isinstance(widget.value, int) or isinstance(widget.value, bool)):
+        return False
+    if widget.empty_key is not None and (not isinstance(widget.empty_key, str) or not widget.empty_key):
+        return False
+
+    def valid_href(value: object) -> bool:
+        return value is None or (
+            isinstance(value, str)
+            and value.startswith("/")
+            and not value.startswith("//")
+        )
+
+    def required_href(value: object) -> bool:
+        return isinstance(value, str) and valid_href(value)
+
+    if not valid_href(widget.href):
+        return False
+
+    if not isinstance(widget.rows, (list, tuple)):
+        return False
+    if widget.type == "table":
+        for row in widget.rows:
+            if not isinstance(row, Mapping):
+                return False
+            if not isinstance(row.get("label"), str):
+                return False
+            if not isinstance(row.get("value"), int) or isinstance(row.get("value"), bool):
+                return False
+            if not required_href(row.get("href")):
+                return False
+    elif widget.type == "feed":
+        for row in widget.rows:
+            if not isinstance(row, Mapping):
+                return False
+            if not isinstance(row.get("time"), str) and not hasattr(row.get("time"), "strftime"):
+                return False
+            if not isinstance(row.get("type"), str) or not isinstance(row.get("ip"), str):
+                return False
+            if not required_href(row.get("href")):
+                return False
+            if "country" in row and not isinstance(row.get("country"), str):
+                return False
+    elif widget.type == "trend":
+        for row in widget.rows:
+            if not isinstance(row, Mapping):
+                return False
+            if not isinstance(row.get("bucket"), str):
+                return False
+            value = row.get("value")
+            if not isinstance(value, int) or isinstance(value, bool):
+                return False
+            if value < 0:
+                return False
     return True
 
 

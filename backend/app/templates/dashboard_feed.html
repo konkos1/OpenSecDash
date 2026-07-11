@@ -1,0 +1,11 @@
+<div class="card">
+  <h3 class="font-semibold mb-3">{{ t(widget.title_key) }}</h3>
+  {% for row in widget.rows %}
+    <a class="row" href="{{ row.href }}">
+      <span>{{ row.time|datetime }} · {{ row.type }} · {{ row.ip or '-' }}</span>
+      <b>{{ row.country|country_or_local(row.ip) if row.country or row.ip else '' }}</b>
+    </a>
+  {% else %}
+    <p class="muted">{{ t(widget.empty_key or "dashboard.no_data") }}</p>
+  {% endfor %}
+</div>

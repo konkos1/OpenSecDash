@@ -6,6 +6,7 @@ import re
 import subprocess
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlencode
 
 from sqlalchemy.orm import Session
 
@@ -18,6 +19,7 @@ from app.web.dashboard import DashboardWidget
 
 from .locales import LOCALES
 from .services.decisions import active_decision_for_ip, crowdsec_cscli_status, sync_crowdsec_decisions
+from .services.rollups import _top_rollup_metric
 
 
 logger = logging.getLogger(__name__)
@@ -332,7 +334,23 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
                 value=value,
                 href="/events?event_type=security.ban*&today=true",
                 delta=metric_delta(value, previous.get("bans")),
-            )
+            ),
+            DashboardWidget(
+                id="crowdsec.top_scenarios",
+                type="table",
+                section="trends",
+                title_key="crowdsec.top_scenarios",
+                order=20,
+                rows=tuple(
+                    {
+                        "label": scenario or "unknown",
+                        "value": count,
+                        "href": f"/events?{urlencode({'event_type': 'security.ban*', 'q': scenario or 'unknown'})}",
+                    }
+                    for scenario, count in _top_rollup_metric(db, "scenario", 10)
+                ),
+                empty_key="crowdsec.no_scenarios",
+            ),
         ]
 
     def web(self):

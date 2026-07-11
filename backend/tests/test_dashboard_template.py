@@ -85,6 +85,47 @@ def test_dashboard_renders_counter_descriptors_in_order():
     assert html.index(">7<") < html.index(">11<")
 
 
+def test_dashboard_renders_table_feed_trend_and_empty_states():
+    html = render_dashboard(
+        event_plugins_enabled=True,
+        dashboard_widgets=[
+            DashboardWidget(
+                id="core.table",
+                type="table",
+                section="trends",
+                title_key="dashboard.top_countries",
+                rows=({"label": "DE", "value": 3, "href": "/events?country=DE"},),
+            ),
+            DashboardWidget(
+                id="core.empty_table",
+                type="table",
+                section="trends",
+                title_key="dashboard.top_countries",
+                empty_key="dashboard.no_data",
+            ),
+            DashboardWidget(
+                id="core.feed",
+                type="feed",
+                section="feed",
+                title_key="dashboard.latest_security_events",
+                rows=({"time": datetime(2026, 7, 11, 12), "type": "security.ban", "ip": "8.8.8.8", "href": "/events?ip=8.8.8.8"},),
+            ),
+            DashboardWidget(
+                id="core.trend",
+                type="trend",
+                section="trends",
+                title_key="dashboard.security_events_trend",
+                rows=({"bucket": "2026-07-11", "value": 2},),
+            ),
+        ],
+    )
+
+    assert "dashboard.top_countries" in html
+    assert "dashboard.no_data" in html
+    assert "security.ban" in html
+    assert "2026-07-11" in html
+
+
 def test_dashboard_local_date_uses_configured_timezone(db_session, monkeypatch):
     db_session.add(Setting(key="timezone", value="Pacific/Kiritimati"))
     db_session.commit()
