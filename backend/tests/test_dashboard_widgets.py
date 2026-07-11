@@ -131,6 +131,8 @@ def test_dashboard_core_widgets_include_tables_feed_and_trend(db_session, monkey
     context = cast(dict[str, Any], dashboard_page(cast(Request, SimpleNamespace()), db_session))
     ids = {widget.id for widget in context["dashboard_widgets"]}
     assert {"core.top_countries", "core.top_attack_hours", "core.top_access_hours", "core.latest_security_events", "core.security_events_trend"} <= ids
+    trend_widget = next(widget for widget in context["dashboard_widgets"] if widget.id == "core.security_events_trend")
+    assert trend_widget.empty_key == "dashboard.no_security_events"
 
 
 def test_dashboard_page_keeps_hidden_widgets_in_editor_context(db_session, monkeypatch):
