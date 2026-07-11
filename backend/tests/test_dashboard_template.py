@@ -151,6 +151,7 @@ def test_dashboard_renders_table_feed_trend_and_empty_states():
     assert "2026-07-11" in html
     assert "dashboard-trend-axis" in html
     assert "07-11" in html
+    assert "min-height: 3px" in html
 
 
 def test_dashboard_distinguishes_disabled_data_plugins_from_hidden_widgets():

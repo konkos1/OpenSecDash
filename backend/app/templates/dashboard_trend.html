@@ -9,7 +9,7 @@
           {% for row in widget.rows %}
             {% set height = (row.value / max_value * 100) if max_value else 0 %}
             <div class="dashboard-trend-bar" title="{{ row.bucket }} · {{ row.value }}">
-              <div class="w-full rounded-t bg-sky-400" style="height: {{ height }}%"></div>
+              <div class="w-full rounded-t bg-sky-400" style="height: {{ height }}%; min-height: {{ '3px' if row.value else '0' }}"></div>
             </div>
           {% endfor %}
         </div>
