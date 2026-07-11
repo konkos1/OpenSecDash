@@ -75,6 +75,22 @@ def test_dashboard_local_date_uses_configured_timezone(db_session, monkeypatch):
     assert captured["dashboard_local_date"] == "2026-07-29"
 
 
+def test_dashboard_treats_missing_today_rollup_metrics_as_zero(db_session, monkeypatch):
+    captured = {}
+
+    def fake_render(request, db, template, **context):
+        captured.update(context)
+        return context
+
+    monkeypatch.setattr(pages, "render", fake_render)
+    monkeypatch.setattr(pages, "rollup_summary", lambda db, period, value: {"bans": 1, "security_events": 1, "total_events": 1})
+    monkeypatch.setattr(pages, "dashboard_today_rollup_key", lambda since: "2026-07-11")
+
+    pages.dashboard_page(cast(Request, SimpleNamespace()), db_session)
+
+    assert captured["widgets"] == []
+
+
 def test_dashboard_asset_widgets_show_for_proxmox_assets(db_session, monkeypatch):
     db_session.add(Setting(key="plugin.proxmox_assets.enabled", value="true"))
     system = System(vmid="100", hostname="vm-100", system_type="vm", source_plugin="proxmox_assets", external_id="node/qemu/100")
