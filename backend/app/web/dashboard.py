@@ -31,6 +31,7 @@ class DashboardWidget:
     type: WidgetType
     section: WidgetSection
     title_key: str
+    help_key: str | None = None
     order: int = 100
     value: int | None = None
     href: str | None = None
@@ -49,6 +50,8 @@ def validate_widget(widget: DashboardWidget) -> bool:
     if not isinstance(widget.id, str) or not widget.id:
         return False
     if not isinstance(widget.title_key, str) or not widget.title_key:
+        return False
+    if widget.help_key is not None and (not isinstance(widget.help_key, str) or not widget.help_key):
         return False
     if not isinstance(widget.visible, bool):
         return False
