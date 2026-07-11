@@ -188,13 +188,24 @@ def import_bundled_rules(db: Session) -> dict[str, Any]:
     return import_ruleset(db, _load_default_ruleset(), source="bundled")
 
 
+def invalidate_active_rules_cache(db: Session) -> None:
+    """Discard the per-session active-rules cache after rule changes."""
+    db.info.pop(_ACTIVE_RULES_CACHE_KEY, None)
+
+
 def _ruleset_state_message(db: Session) -> str:
     rows = db.query(InsightRuleModel).filter(InsightRuleModel.is_active == True).all()
     bundled_rows = [row for row in rows if row.source == "bundled"]
     remote_rows = [row for row in rows if row.source == "remote"]
+    plugin_rows = [row for row in rows if row.source.startswith("plugin:")]
     bundled_versions = sorted({row.ruleset_version for row in bundled_rows if row.ruleset_version})
     remote_versions = sorted({row.ruleset_version for row in remote_rows if row.ruleset_version})
-    sources = "+".join(source for source, source_rows in (("bundled", bundled_rows), ("remote", remote_rows)) if source_rows) or "none"
+    plugin_sources = sorted({row.source for row in plugin_rows})
+    sources = "+".join(
+        source
+        for source, source_rows in (("bundled", bundled_rows), ("remote", remote_rows), *[(source, [source]) for source in plugin_sources])
+        if source_rows
+    ) or "none"
     parts = [f"source={sources}"]
     if bundled_rows:
         parts.append(f"bundled_version={','.join(bundled_versions) or 'unknown'}")
@@ -202,6 +213,9 @@ def _ruleset_state_message(db: Session) -> str:
     if remote_rows:
         parts.append(f"remote_version={','.join(remote_versions) or 'unknown'}")
         parts.append(f"remote={len(remote_rows)}")
+    if plugin_rows:
+        parts.append(f"plugin_sources={','.join(plugin_sources)}")
+        parts.append(f"plugin={len(plugin_rows)}")
     parts.append(f"active={len(rows)}")
     return "; ".join(parts)
 
