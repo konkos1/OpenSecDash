@@ -228,7 +228,7 @@ DE = {
     "ip.active_ban": "Diese IP hat aktuell eine aktive CrowdSec-Ban-Decision",
     "ip.local_ban_disabled": "Lokale, private oder reservierte IPs/IP-Ranges werden nicht per CrowdSec gebannt. Dadurch werden versehentliche Sperren interner Netze vermieden.",
     "ip.insights": "Insights",
-    "ip.insights_help": "Insights sind aus Events abgeleitete Hinweise zu dieser IP/ diesem Host. Die Stufe bedeutet: niedrig = schwacher Hinweis, mittel = auffälliges Muster, hoch = klarer Security-Treffer wie Ban/GeoBlock, kritisch = starke Angriffskorrelation oder Handlungsbedarf. Sie beschreibt nicht den technischen Zustand von OpenSecDash.",
+    "ip.insights_help": "Insights sind aus zusammenhängenden Events abgeleitete Hinweise. ✓ Sicher steht für hohe oder kritische Sicherheit; ≈ Wahrscheinlich für mittlere; ? Möglich für niedrige. Sie beschreiben beobachtete Sicherheitssignale, nicht den technischen Zustand von OpenSecDash.",
     "ip.no_insights": "Keine Insights für diese IP",
     "ip.events": "Events",
     "ip.no_events": "Keine Events",
