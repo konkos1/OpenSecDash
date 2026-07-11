@@ -73,6 +73,17 @@
     {% endif %}
   {% endfor %}
 
+  {% if event_plugins_enabled %}
+    <section class="card sm:col-span-2 lg:col-span-4">
+      <h3 class="font-semibold mb-1">{{ t("dashboard.top_insights") }} <button type="button" class="help" data-tooltip="{{ t('dashboard.top_insights_help') }}">?</button></h3>
+      {% for insight in top_insights %}
+        <p>{{ insight.count }}x {{ t("insight.title." ~ insight.type) if t("insight.title." ~ insight.type) != "insight.title." ~ insight.type else insight.title }}</p>
+      {% else %}
+        <p class="muted">{{ t("dashboard.no_data") }}</p>
+      {% endfor %}
+    </section>
+  {% endif %}
+
   {% if not dashboard_widgets %}
     <section class="card">
       <p class="muted">{{ t("dashboard.no_visible_widgets") if dashboard_layout_widgets or event_data_plugins_enabled else t("dashboard.no_enabled_widgets") }}</p>

@@ -183,6 +183,9 @@
 
         <div class="card mb-5" x-show="selectedHost === 'combined'">
             <h3 class="font-semibold mb-3">{{ t("asset.insights") }} <button type="button" class="help" data-tooltip="{{ t('ip.insights_help') }}">?</button>{% if focused_asset %} · {{ focused_asset.name }}{% endif %}</h3>
+            {% if top_asset_insight %}
+                <p class="muted text-sm mb-3">{{ t("asset.main_cause") }}: {{ t("insight.title." ~ top_asset_insight.type) if t("insight.title." ~ top_asset_insight.type) != "insight.title." ~ top_asset_insight.type else top_asset_insight.title }}</p>
+            {% endif %}
             {% for insight in insights %}
                 {% set badge, certainty = insight.level|insight_level_badge %}
                 <div class="row">

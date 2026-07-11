@@ -554,6 +554,19 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
 
     attack_hours = top_hours_for_plugins(security_data_plugins, "security.*", "hour_security")
     access_hours = top_hours_for_plugins(["traefik_log"] if enabled_plugins["traefik_log"] else [], "access.*", "hour_access")
+    top_insights: list[dict[str, str | int]] = []
+    if country_data_plugins:
+        top_insights = [
+            {"type": str(insight_type), "count": int(count), "title": str(title)}
+            for insight_type, count, title in (
+                db.query(Insight.type, func.count(Insight.id), func.max(Insight.title))
+                .filter(Insight.timestamp >= since)
+                .group_by(Insight.type)
+                .order_by(func.count(Insight.id).desc())
+                .limit(5)
+                .all()
+            )
+        ]
     latest_security_events: list[Event] = []
     if security_data_plugins:
         latest_security_events = (
@@ -601,6 +614,7 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
         country_data_plugins=country_data_plugins,
         latest_security_events=latest_security_events,
         dashboard_local_date=dashboard_local_date,
+        top_insights=top_insights,
     )
 
 
@@ -1055,6 +1069,15 @@ def asset_page(system_id: int, request: Request, show_inactive: bool = False, as
         else []
     )
     insights = dedupe_insights_for_display(raw_insights, 50, include_ip=True)
+    top_asset_insight = None
+    if app_ids:
+        top_asset_insight = (
+            db.query(Insight.type, func.count(Insight.id), func.max(Insight.title))
+            .filter(Insight.asset_id.in_(app_ids))
+            .group_by(Insight.type)
+            .order_by(func.count(Insight.id).desc())
+            .first()
+        )
     mqtt_plugin_enabled = (
         get_setting_value(db, "plugin.mqtt.enabled", get_setting_value(db, "plugin.mqtt-hass.enabled", "false")) == "true"
     )
@@ -1067,6 +1090,7 @@ def asset_page(system_id: int, request: Request, show_inactive: bool = False, as
         events=events,
         host_event_sections=host_event_sections,
         insights=insights,
+        top_asset_insight=top_asset_insight,
         focused_asset=focused_asset,
         show_inactive=show_inactive,
         mqtt_plugin_enabled=mqtt_plugin_enabled,
