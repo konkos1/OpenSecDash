@@ -3,6 +3,7 @@ from collections import Counter
 from datetime import datetime, timedelta
 import io
 import ipaddress
+import json
 import logging
 from pathlib import Path
 import platform
@@ -44,7 +45,7 @@ from app.services.asset_actions import (
 )
 from app.services.asset_hosts import matching_event_hostnames, normalize_asset_host, sync_asset_host_events
 from app.services.events import apply_event_filters, is_local_ip_value, tokenize_search_expression
-from app.web.dashboard import DashboardWidget, collect_dashboard_widgets
+from app.web.dashboard import DashboardWidget, apply_layout, collect_dashboard_widgets, load_dashboard_layout
 from app.web.guards import (
     assets_feature_enabled,
     events_feature_enabled,
@@ -394,6 +395,67 @@ def dashboard_trend_rows(db: Session, end_date: str) -> list[dict[str, str | int
     ]
 
 
+def dashboard_layout_widget_ids(db: Session) -> set[str]:
+    """Return the current allowlist of enabled dashboard widget ids."""
+    ids = {widget.id for widget in collect_dashboard_widgets(db, core_dashboard_widgets(db))}
+    country_data_plugins = [
+        plugin_id
+        for plugin_id in plugin_registry.ids_with_capability("datasource")
+        if is_plugin_enabled(db, plugin_id)
+    ]
+    enabled_plugins = {
+        "crowdsec": is_plugin_enabled(db, "crowdsec"),
+        "geoblock_log": is_plugin_enabled(db, "geoblock_log"),
+        "traefik_log": is_plugin_enabled(db, "traefik_log"),
+    }
+    security_data_plugins = [
+        plugin_id
+        for plugin_id in ["crowdsec", "geoblock_log"]
+        if enabled_plugins[plugin_id]
+    ]
+    if country_data_plugins:
+        ids.add("core.top_countries")
+    if security_data_plugins:
+        ids.update({"core.top_attack_hours", "core.latest_security_events", "core.security_events_trend"})
+    if enabled_plugins["traefik_log"]:
+        ids.add("core.top_access_hours")
+    return ids
+
+
+def _layout_entries_from_form(
+    known_ids: set[str],
+    submitted_ids: list[str],
+    visible_ids: set[str],
+) -> list[dict[str, object]]:
+    entries: list[dict[str, object]] = []
+    seen_ids: set[str] = set()
+    for widget_id in submitted_ids:
+        if widget_id in known_ids and widget_id not in seen_ids:
+            entries.append({"id": widget_id, "visible": widget_id in visible_ids})
+            seen_ids.add(widget_id)
+    return entries
+
+
+def _move_layout_entry(entries: list[dict[str, object]], widget_id: str, direction: int) -> None:
+    current_index = next((index for index, entry in enumerate(entries) if entry.get("id") == widget_id), None)
+    if current_index is None:
+        return
+    target_index = current_index + direction
+    if target_index < 0 or target_index >= len(entries):
+        return
+    entries[current_index], entries[target_index] = entries[target_index], entries[current_index]
+
+
+def _save_dashboard_layout(db: Session, entries: list[dict[str, object]]) -> None:
+    save_setting(db, "ui.dashboard_layout", json.dumps(entries, separators=(",", ":")))
+    db.commit()
+
+
+def _reset_dashboard_layout(db: Session) -> None:
+    db.query(Setting).filter(Setting.key == "ui.dashboard_layout").delete(synchronize_session=False)
+    db.commit()
+
+
 @router.get("/fragments/backlog-banner")
 def backlog_banner_fragment(request: Request, db: Session = Depends(get_db)):
     # Polled by every page (see backlog_banner.html) so the sitewide "still
@@ -511,6 +573,8 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
             trend_rows=trend_rows,
         ),
     )
+    dashboard_layout_widgets = apply_layout(dashboard_widgets, load_dashboard_layout(db))
+    visible_dashboard_widgets = [widget for widget in dashboard_layout_widgets if widget.visible]
 
     max_country_count = max((count for _, count in top_countries), default=0)
     country_heatmap = [
@@ -523,7 +587,8 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
         request,
         db,
         "dashboard.html",
-        dashboard_widgets=dashboard_widgets,
+        dashboard_widgets=visible_dashboard_widgets,
+        dashboard_layout_widgets=dashboard_layout_widgets,
         enabled_plugins=enabled_plugins,
         top_countries=top_countries,
         attack_hours=attack_hours,
@@ -534,6 +599,33 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
         latest_security_events=latest_security_events,
         dashboard_local_date=dashboard_local_date,
     )
+
+
+@router.post("/dashboard/layout")
+async def save_dashboard_layout(request: Request, db: Session = Depends(get_db)):
+    form = await request.form()
+
+    def _save() -> None:
+        known_ids = dashboard_layout_widget_ids(db)
+        submitted_ids = [str(value) for value in form.getlist("widget_id")]
+        visible_ids = {str(value) for value in form.getlist("visible")}
+        entries = _layout_entries_from_form(known_ids, submitted_ids, visible_ids)
+        move_up = str(form.get("move_up") or "")
+        move_down = str(form.get("move_down") or "")
+        if move_up:
+            _move_layout_entry(entries, move_up, -1)
+        elif move_down:
+            _move_layout_entry(entries, move_down, 1)
+        _save_dashboard_layout(db, entries)
+
+    await asyncio.to_thread(_save)
+    return RedirectResponse(url="/", status_code=303)
+
+
+@router.post("/dashboard/layout/reset")
+async def reset_dashboard_layout(db: Session = Depends(get_db)):
+    await asyncio.to_thread(_reset_dashboard_layout, db)
+    return RedirectResponse(url="/", status_code=303)
 
 
 @router.get("/rollups")

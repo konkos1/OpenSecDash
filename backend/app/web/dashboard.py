@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+import json
 import logging
 from typing import Any, Iterable, Literal
 
 from sqlalchemy.orm import Session
 
+from app.core.template_context import get_setting_value
 from app.plugins.manager import get_plugin_manager
 
 
@@ -34,6 +36,7 @@ class DashboardWidget:
     delta: dict[str, Any] | None = None
     rows: tuple[dict[str, Any], ...] = ()
     empty_key: str | None = None
+    visible: bool = True
 
 
 def validate_widget(widget: DashboardWidget) -> bool:
@@ -45,6 +48,8 @@ def validate_widget(widget: DashboardWidget) -> bool:
     if not isinstance(widget.id, str) or not widget.id:
         return False
     if not isinstance(widget.title_key, str) or not widget.title_key:
+        return False
+    if not isinstance(widget.visible, bool):
         return False
     if not isinstance(widget.order, int) or isinstance(widget.order, bool):
         return False
@@ -102,6 +107,56 @@ def validate_widget(widget: DashboardWidget) -> bool:
             if value < 0:
                 return False
     return True
+
+
+def load_dashboard_layout(db: Session) -> list[dict[str, object]]:
+    """Load valid layout entries from the migrations-free settings store."""
+    raw_layout = get_setting_value(db, "ui.dashboard_layout", "")
+    if not raw_layout:
+        return []
+    try:
+        payload = json.loads(raw_layout)
+    except (TypeError, ValueError):
+        return []
+    if not isinstance(payload, list):
+        return []
+
+    entries: list[dict[str, object]] = []
+    for item in payload:
+        if not isinstance(item, Mapping):
+            continue
+        widget_id = item.get("id")
+        visible = item.get("visible")
+        if isinstance(widget_id, str) and widget_id and isinstance(visible, bool):
+            entries.append({"id": widget_id, "visible": visible})
+    return entries
+
+
+def apply_layout(widgets: list[DashboardWidget], layout: list[dict[str, object]]) -> list[DashboardWidget]:
+    """Apply stored order and visibility while tolerating stale or new widgets."""
+    natural_widgets = sorted(widgets, key=lambda item: (_SECTION_ORDER[item.section], item.order, item.id))
+    widgets_by_id = {widget.id: widget for widget in natural_widgets}
+    layout_visibility: dict[str, bool] = {}
+    for entry in layout:
+        widget_id = entry.get("id")
+        visible = entry.get("visible")
+        if (
+            isinstance(widget_id, str)
+            and widget_id in widgets_by_id
+            and widget_id not in layout_visibility
+            and isinstance(visible, bool)
+        ):
+            layout_visibility[widget_id] = visible
+
+    ordered: list[DashboardWidget] = []
+    seen_ids: set[str] = set()
+    for widget_id, visible in layout_visibility.items():
+        ordered.append(replace(widgets_by_id[widget_id], visible=visible))
+        seen_ids.add(widget_id)
+    for widget in natural_widgets:
+        if widget.id not in seen_ids:
+            ordered.append(replace(widget, visible=True))
+    return ordered
 
 
 def collect_dashboard_widgets(db: Session, core_widgets: Iterable[DashboardWidget]) -> list[DashboardWidget]:

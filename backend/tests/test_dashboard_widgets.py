@@ -132,6 +132,30 @@ def test_dashboard_core_widgets_include_tables_feed_and_trend(db_session, monkey
     assert {"core.top_countries", "core.top_attack_hours", "core.top_access_hours", "core.latest_security_events", "core.security_events_trend"} <= ids
 
 
+def test_dashboard_page_keeps_hidden_widgets_in_editor_context(db_session, monkeypatch):
+    db_session.add_all(
+        [
+            Setting(key="plugin.crowdsec.enabled", value="true"),
+            Setting(key="ui.dashboard_layout", value='[{"id":"crowdsec.active_bans","visible":false}]'),
+        ]
+    )
+    db_session.commit()
+    captured = {}
+
+    def fake_render(request, db, template, **context):
+        captured.update(context)
+        return context
+
+    monkeypatch.setattr("app.api.pages.render", fake_render)
+    from app.api.pages import dashboard_page
+
+    dashboard_page(cast(Request, SimpleNamespace()), db_session)
+
+    assert "crowdsec.active_bans" not in {widget.id for widget in captured["dashboard_widgets"]}
+    editor_widgets = {widget.id: widget for widget in captured["dashboard_layout_widgets"]}
+    assert editor_widgets["crowdsec.active_bans"].visible is False
+
+
 def test_crowdsec_dashboard_top_scenarios_is_a_rollup_table(db_session):
     db_session.add_all(
         [
