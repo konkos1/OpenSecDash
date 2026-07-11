@@ -21,6 +21,19 @@ The dashboard gives you a quick overview of current homelab security activity:
 - recent security context
 - small comparison badges based on yesterday's rollups when available
 
+Dashboard content comes from a widget container. Enabled plugins can contribute
+validated counter, table, feed, and trend widgets; the core renders those descriptors
+and plugins do not provide dashboard HTML. For example, CrowdSec contributes its
+active-ban counter and GeoBlock contributes today's geoblock counter, while cross-plugin
+lists such as top countries remain core-owned.
+
+To adapt the dashboard for a homelab, open **Customize dashboard**. Clear a widget's
+checkbox to hide it, use the up/down controls to change its order, and choose **Apply
+layout**. **Reset layout** removes the saved customization and restores the default
+ordering and visibility. A widget from a disabled plugin disappears after reload; if
+the plugin is enabled again later, its widget is added back visibly. Widget links open
+the corresponding filtered Events or Assets view.
+
 The Events page supports **Live** and **Snapshot** modes. Live mode keeps the UI fresh. Snapshot mode freezes the current view so you can filter and inspect without the table moving under your mouse.
 
 Historical rollups live in the [Rollup Explorer](../operations/dashboard-rollups.md), while the Dashboard stays focused on today's activity.

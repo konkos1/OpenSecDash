@@ -1,0 +1,17 @@
+<div class="card overflow-x-auto responsive-table">
+  <h3 class="font-semibold mb-3">{{ t(widget.title_key) }}</h3>
+  <table class="w-full text-sm table-middle">
+    <tbody>
+      {% for row in widget.rows %}
+        <tr>
+          <td>
+            {% if row.href %}<a href="{{ row.href }}">{{ row.label }}</a>{% else %}{{ row.label }}{% endif %}
+          </td>
+          <td class="text-right"><strong>{{ row.value }}</strong></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="2">{{ t(widget.empty_key or "dashboard.no_data") }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

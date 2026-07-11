@@ -173,6 +173,43 @@ locales = {
 
 Plugins inherit from one or more base classes in `app.plugins.base`.
 
+### Dashboard widgets
+
+Plugins with dashboard content implement `dashboard_widgets()` and declare the
+`widget` capability in `PluginMetadata`. The hook returns `DashboardWidget` descriptors
+from `app.web.dashboard`; it does not return HTML, templates, or callables. The
+descriptor type is one of `counter`, `table`, `feed`, or `trend`, and links use internal
+paths so the core can validate them before rendering. Check the plugin's `enabled`
+setting in the hook and return an empty list when it is disabled.
+
+Package-layout plugins use `api_version="2"`, for example:
+
+```python
+from app.core.template_context import get_setting_value
+from app.plugins.base import DatasourcePlugin
+from app.web.dashboard import DashboardWidget
+
+
+class Plugin(DatasourcePlugin):
+    def dashboard_widgets(self, db) -> list[DashboardWidget]:
+        if get_setting_value(db, "plugin.my_firewall.enabled", "false") != "true":
+            return []
+        return [
+            DashboardWidget(
+                id="my_firewall.blocked_today",
+                type="counter",
+                section="security",
+                title_key="my_firewall.dashboard.blocked_today",
+                value=0,
+                href="/events?event_type=security.firewall_block&today=true",
+            )
+        ]
+```
+
+Use the existing `DashboardWidget` model for fields and row shapes; do not invent a
+plugin-specific schema. Add matching translation keys for `title_key` and keep all
+data structured so the core templates escape it safely.
+
 ### `DatasourcePlugin`
 
 Use this for plugins that import events.

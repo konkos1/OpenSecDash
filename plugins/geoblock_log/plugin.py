@@ -10,7 +10,9 @@ from sqlalchemy.orm import Session
 from app.core.template_context import get_setting_value
 from app.models.events import Event
 from app.plugins.base import DatasourcePlugin, PluginMetadata, PluginSetting, tail_text_file
+from app.services.dashboard_metrics import metric_delta, today_counts, yesterday_counts
 from app.services.events import normalize_event_time
+from app.web.dashboard import DashboardWidget
 
 
 logger = logging.getLogger(__name__)
@@ -134,4 +136,23 @@ class Plugin(DatasourcePlugin):
                 "value": db.query(Event).filter(Event.ip == ip, Event.event_type == "security.geoblock").count(),
                 "href": f"/events?ip={ip}&event_type=security.geoblock",
             }
+        ]
+
+    def dashboard_widgets(self, db: Session) -> list[DashboardWidget]:
+        if get_setting_value(db, "plugin.geoblock_log.enabled", "false") != "true":
+            return []
+        current = today_counts(db)
+        previous = yesterday_counts(db)
+        value = current.get("geoblocks", 0)
+        return [
+            DashboardWidget(
+                id="geoblock_log.geoblocks_today",
+                type="counter",
+                section="security",
+                title_key="dashboard.geoblocks_today",
+                order=20,
+                value=value,
+                href="/events?event_type=security.geoblock&today=true",
+                delta=metric_delta(value, previous.get("geoblocks")),
+            )
         ]

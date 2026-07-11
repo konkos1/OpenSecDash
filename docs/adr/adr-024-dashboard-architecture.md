@@ -1,7 +1,12 @@
 # ADR-024: Dashboard Architecture
 
-> **Implementation status (2026-07-09):** Partially implemented.
-> Dashboard cards, rollups, deltas, feeds, and responsive templates exist. User-managed widget layout and fully plugin-owned dashboard widgets remain planned.
+> **Implementation status: Implemented (2026-07-11).**
+> The dashboard is a descriptor-backed widget container with a core registry and
+> plugin-owned widgets supplied through `Plugin.dashboard_widgets()`.
+> Counter, table, feed, trend, and the core-only map widget are rendered by core templates,
+> while user-managed visibility and ordering are stored in SQLite as `ui.dashboard_layout`.
+> The heatmap is a separately managed core widget; layout V1 is a linear responsive list with
+> up/down movement, not a freely positioned WYSIWYG or drag-and-drop grid.
 
 
 
@@ -116,9 +121,8 @@ Example:
 
 ## Map Widget
 
-Later:
-
-`Geoblock Heatmap`
+The core-owned top-countries heatmap is independently shown, hidden, and moved with the
+other dashboard widgets. Plugins cannot register map widgets.
 
 
 ---
@@ -228,9 +232,9 @@ Top scenarios
 
 ---
 
-## Implementation notes (2026-07-09)
+## Implementation notes (2026-07-11)
 
-The dashboard is currently implemented as core-rendered server-side pages and templates with metric cards, recent security context, top countries/hours, rollup comparisons, and responsive layout.
-
-User-managed widget layout and fully plugin-owned dashboard widgets remain planned. The `widget` capability exists declaratively.
-
+The dashboard is implemented as core-rendered server-side pages and templates with
+metric cards, recent security context, top countries/hours, rollup comparisons, and
+responsive layout. Plugins contribute validated descriptors rather than HTML. The
+heatmap remains a fixed core block (Map is "later"), and no new metrics were added.

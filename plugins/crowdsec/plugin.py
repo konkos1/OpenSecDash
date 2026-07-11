@@ -6,16 +6,20 @@ import re
 import subprocess
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlencode
 
 from sqlalchemy.orm import Session
 
 from app.core.template_context import get_setting_value
 from app.models.events import Event
 from app.plugins.base import ActionDefinition, ActionParameter, ActionPlugin, DatasourcePlugin, PeriodicPlugin, PluginMetadata, PluginSetting, tail_text_file
+from app.services.dashboard_metrics import metric_delta, today_counts, yesterday_counts
 from app.services.events import normalize_event_time
+from app.web.dashboard import DashboardWidget
 
 from .locales import LOCALES
 from .services.decisions import active_decision_for_ip, crowdsec_cscli_status, sync_crowdsec_decisions
+from .services.rollups import _top_daily_rollup_metric, _top_rollup_metric
 
 
 logger = logging.getLogger(__name__)
@@ -312,6 +316,41 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
                 "value": db.query(Event).filter(Event.ip == ip, Event.event_type.startswith("security.ban")).count(),
                 "href": f"/events?ip={ip}&event_type=security.ban",
             }
+        ]
+
+    def dashboard_widgets(self, db: Session) -> list[DashboardWidget]:
+        if get_setting_value(db, "plugin.crowdsec.enabled", "false") != "true":
+            return []
+        current = today_counts(db)
+        previous = yesterday_counts(db)
+        value = current.get("bans", 0)
+        return [
+            DashboardWidget(
+                id="crowdsec.active_bans",
+                type="counter",
+                section="security",
+                title_key="dashboard.active_bans",
+                order=10,
+                value=value,
+                href="/events?event_type=security.ban*&today=true",
+                delta=metric_delta(value, previous.get("bans")),
+            ),
+            DashboardWidget(
+                id="crowdsec.top_scenarios",
+                type="table",
+                section="trends",
+                title_key="crowdsec.dashboard_top_scenarios",
+                order=20,
+                rows=tuple(
+                    {
+                        "label": scenario or "unknown",
+                        "value": count,
+                        "href": f"/events?{urlencode({'event_type': 'security.ban*', 'q': scenario or 'unknown'})}",
+                    }
+                    for scenario, count in _top_daily_rollup_metric(db, "scenario", 10)
+                ),
+                empty_key="crowdsec.no_scenarios",
+            ),
         ]
 
     def web(self):

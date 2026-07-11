@@ -1,0 +1,26 @@
+<div class="card">
+  <h3 class="font-semibold mb-3">{{ t(widget.title_key) }} <button type="button" class="help" data-tooltip="{{ t('dashboard.security_events_trend_help') }}">?</button></h3>
+  {% if widget.rows %}
+    {% set max_value = widget.rows|map(attribute="value")|max %}
+    {% set tick_indexes = [0, 6, 13, 20, 29] %}
+    <div class="dashboard-trend-scroll overflow-x-auto">
+      <div class="dashboard-trend-chart">
+        <div class="dashboard-trend-bars" role="img" aria-label="{{ t(widget.title_key) }}">
+          {% for row in widget.rows %}
+            {% set height = (row.value / max_value * 100) if max_value else 0 %}
+            <div class="dashboard-trend-bar" title="{{ row.bucket }} · {{ row.value }}">
+              <div class="w-full rounded-t bg-sky-400" style="height: {{ height }}%; min-height: {{ '3px' if row.value else '0' }}"></div>
+            </div>
+          {% endfor %}
+        </div>
+        <div class="dashboard-trend-axis" aria-hidden="true">
+          {% for row in widget.rows %}
+            <span>{% if loop.index0 in tick_indexes %}{{ row.bucket[5:] }}{% endif %}</span>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  {% else %}
+    <p class="muted">{{ t(widget.empty_key or "dashboard.no_data") }}</p>
+  {% endif %}
+</div>

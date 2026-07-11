@@ -21,7 +21,7 @@ class Plugin(PeriodicPlugin):
         name="JSON Assets",
         version="1.0.0",
         api_version="2",
-        capabilities=["asset_source", "widget"],
+        capabilities=["asset_source"],
         description="Imports assets from the assets.json inventory format.",
     )
     settings = [

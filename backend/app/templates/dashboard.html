@@ -8,115 +8,77 @@
 
   <div class="flex items-center justify-between gap-4 mb-6" x-data="openSecDashAutoRefresh('#dashboard-results', {{ 'true' if live_page_refresh else 'false' }})" x-init="init()">
     <h2 class="text-2xl font-semibold">{{ t("dashboard.ui_title") }}{% if dashboard_local_date %} · {{ dashboard_local_date }}{% endif %}</h2>
+    <button type="button" class="btn-small btn-icon" data-columns-open="dashboard-layout" aria-label="{{ t('dashboard.customize') }}" title="{{ t('dashboard.customize') }}">⚙</button>
   </div>
 
-  <div id="dashboard-results">
-  {% if widgets %}
-    <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-      {% for widget in widgets %}
-        <a href="{{ widget.href }}" class="card dashboard-widget hover:border-blue-500 flex flex-col items-center text-center">
-          <span class="text-slate-400 text-sm">{{ t(widget.title_key) }}</span>
-          <strong class="text-3xl">{{ widget.value }}</strong>
-          {% if widget.delta %}
-            <small class="dashboard-delta {{ widget.delta.class }}" title="{{ t('dashboard.delta_vs_yesterday') }}">{{ t(widget.delta.label_key) if widget.delta.label_key else widget.delta.label }}</small>
-          {% endif %}
-        </a>
-      {% endfor %}
-    </section>
-  {% else %}
-    <section class="card">
-      <p class="muted">{{ t("dashboard.no_enabled_widgets") }}</p>
-    </section>
-  {% endif %}
-
-  {% if country_data_plugins %}
-    <section class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
-      <div class="card">
-        <h3 class="font-semibold mb-3">{{ t("dashboard.top_countries") }} <button type="button" class="help" data-tooltip="{{ t('dashboard.top_countries_help') }}">?</button></h3>
-        {% for country,count in top_countries %}
-          <a class="row" href="{{ today_events_href }}&country={{ country }}">
-            <span>{{ country|country_name }}</span>
-            <b>{{ count }}</b>
-          </a>
-        {% else %}
-          <p class="muted">{{ t("dashboard.no_data") }}</p>
-        {% endfor %}
+  <dialog id="dashboard-layout" class="columns-dialog">
+    <form method="post" action="/dashboard/layout" class="columns-dialog-panel">
+      <div class="columns-dialog-header">
+        <div>
+          <strong>{{ t("dashboard.customize") }}</strong>
+        </div>
+        <button type="button" class="text-overlay-close" data-columns-close="dashboard-layout" aria-label="{{ t('common.close') }}">×</button>
       </div>
+      <ol id="dashboard-widget-list" class="space-y-2">
+        {% for widget in dashboard_layout_widgets %}
+          <li data-dashboard-widget class="flex items-center justify-between gap-3 border-b border-slate-700 py-2 last:border-b-0">
+            <input type="hidden" name="widget_id" value="{{ widget.id }}">
+            <label class="flex min-w-0 items-center gap-2 text-sm">
+              <input type="checkbox" name="visible" value="{{ widget.id }}" {% if widget.visible %}checked{% endif %} aria-label="{{ t('dashboard.widget_visible') }}: {{ t(widget.title_key) }}">
+              <span class="truncate">{{ t(widget.title_key) }}</span>
+            </label>
+            <div class="flex shrink-0 gap-1">
+              <button class="btn-small btn-icon" type="button" data-dashboard-move="up" {% if loop.first %}disabled{% endif %} aria-label="{{ t('dashboard.move_up') }}" title="{{ t('dashboard.move_up') }}">↑</button>
+              <button class="btn-small btn-icon" type="button" data-dashboard-move="down" {% if loop.last %}disabled{% endif %} aria-label="{{ t('dashboard.move_down') }}" title="{{ t('dashboard.move_down') }}">↓</button>
+            </div>
+          </li>
+        {% endfor %}
+      </ol>
+      <div class="flex justify-end gap-2 mt-4">
+        <button class="btn-small" type="submit">{{ t("dashboard.apply_layout") }}</button>
+      </div>
+    </form>
+    <form method="post" action="/dashboard/layout/reset" class="columns-dialog-panel mt-3">
+      <button class="btn-small btn-secondary" type="submit">{{ t("dashboard.reset_layout") }}</button>
+    </form>
+  </dialog>
 
-      {% if enabled_plugins.crowdsec or enabled_plugins.geoblock_log %}
-        <div class="card">
-          <h3 class="font-semibold mb-3">{{ t("dashboard.top_attack_hours") }} <button type="button" class="help" data-tooltip="{{ t('dashboard.top_attack_hours_help') }}">?</button></h3>
-          {% for item in attack_hours %}
-            <a class="row" href="{{ item.href }}">
-              <span>{{ "%02d:00–%02d:00"|format(item.hour, (item.hour + 1) % 24) }}</span>
-              <b>{{ item.count }}</b>
-            </a>
-          {% else %}
-            <p class="muted">{{ t("dashboard.no_data") }}</p>
-          {% endfor %}
-        </div>
-      {% endif %}
-
-      {% if enabled_plugins.traefik_log %}
-        <div class="card">
-          <h3 class="font-semibold mb-3">{{ t("dashboard.top_access_hours") }} <button type="button" class="help" data-tooltip="{{ t('dashboard.top_access_hours_help') }}">?</button></h3>
-          {% for item in access_hours %}
-            <a class="row" href="{{ item.href }}">
-              <span>{{ "%02d:00–%02d:00"|format(item.hour, (item.hour + 1) % 24) }}</span>
-              <b>{{ item.count }}</b>
-            </a>
-          {% else %}
-            <p class="muted">{{ t("dashboard.no_data") }}</p>
-          {% endfor %}
-        </div>
-      {% endif %}
-    </section>
-
-    <section class="grid grid-cols-1 mt-6">
-      <div class="card">
-        <h3 class="font-semibold mb-3">{{ t("dashboard.country_heatmap") }} <button type="button" class="help" data-tooltip="{{ t('dashboard.country_heatmap_help') }}">?</button></h3>
-        {% if country_heatmap %}
-          <div class="world-map relative rounded-xl overflow-hidden border border-slate-700 bg-slate-950">
-            <img src="/static/img/world-map.svg" alt="{{ t('dashboard.country_heatmap') }}" class="world-map-image w-full h-auto block" loading="lazy">
-            {% for point in country_heatmap %}
-              <a
-                href="{{ today_events_href }}&country={{ point.country }}"
-                class="absolute rounded-full border border-sky-200 bg-sky-400/30 hover:bg-sky-300/50"
-                style="left: calc({{ '%.2f'|format(point.x) }}% - {{ '%.2f'|format(point.radius) }}px); top: calc({{ '%.2f'|format(point.y) }}% - {{ '%.2f'|format(point.radius) }}px); width: {{ '%.2f'|format(point.radius * 2) }}px; height: {{ '%.2f'|format(point.radius * 2) }}px; box-shadow: 0 0 18px rgba(125, 211, 252, .55);"
-                title="{{ point.country }} · {{ point.count }}"
-                data-country-title="{{ point.country }}"
-                data-country-count="{{ point.count }}"
-              >
-                <span class="sr-only">{{ point.country|country_name }} · {{ point.count }}</span>
-              </a>
-            {% endfor %}
-          </div>
-          <div class="flex flex-wrap gap-2 mt-3 text-sm">
-            {% for point in country_heatmap %}
-              <a class="badge" href="{{ today_events_href }}&country={{ point.country }}">{{ point.country|country_name }} · {{ point.count }}</a>
-            {% endfor %}
-          </div>
-        {% else %}
-          <p class="muted">{{ t("dashboard.no_data") }}</p>
+  <div id="dashboard-results" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4">
+  {% for widget in dashboard_widgets %}
+    {% set type_break = loop.index0 > 0 and loop.previtem.type != widget.type %}
+    {% if widget.type == "counter" %}
+      <a href="{{ widget.href }}" class="card dashboard-widget hover:border-blue-500 flex flex-col items-center text-center sm:col-span-1 lg:col-span-3{% if type_break %} lg:col-start-1{% endif %}">
+        <span class="text-slate-400 text-sm">{{ t(widget.title_key) }}</span>
+        <strong class="text-3xl">{{ widget.value }}</strong>
+        {% if widget.delta %}
+          <small class="dashboard-delta {{ widget.delta.class }}" title="{{ t('dashboard.delta_vs_yesterday') }}">{{ t(widget.delta.label_key) if widget.delta.label_key else widget.delta.label }}</small>
         {% endif %}
+      </a>
+    {% elif widget.type == "table" %}
+      <div class="sm:col-span-2 lg:col-span-4{% if type_break %} lg:col-start-1{% endif %}">
+        {% include "dashboard_table.html" %}
       </div>
-    </section>
+    {% elif widget.type == "map" %}
+      <div class="sm:col-span-2 lg:col-span-12{% if type_break %} lg:col-start-1{% endif %}">
+        {% include "dashboard_map.html" %}
+      </div>
+    {% elif widget.type == "trend" %}
+      <div class="sm:col-span-2 lg:col-span-12{% if type_break %} lg:col-start-1{% endif %}">
+        {% include "dashboard_trend.html" %}
+      </div>
+    {% elif widget.type == "feed" %}
+      <div class="sm:col-span-2 lg:col-span-12{% if type_break %} lg:col-start-1{% endif %}">
+        {% include "dashboard_feed.html" %}
+      </div>
+    {% endif %}
+  {% endfor %}
 
-    <section class="grid grid-cols-1 mt-6">
-      <div class="card">
-        <h3 class="font-semibold mb-1">{{ t("dashboard.latest_security_events") }}</h3>
-        <p class="muted text-sm mb-3">{{ t("dashboard.latest_security_events_help") }}</p>
-        {% for event in latest_security_events %}
-          <a class="row" href="/events?ip={{ event.ip or '' }}&event_type={{ event.event_type }}">
-            <span>{{ event.event_time|datetime }} · {{ event.event_type }} · {{ event.ip or '-' }}</span>
-            <b>{{ event.country|country_or_local(event.ip) if event.country or event.ip else '' }}</b>
-          </a>
-        {% else %}
-          <p class="muted">{{ t("dashboard.no_security_events") }}</p>
-        {% endfor %}
-      </div>
+  {% if not dashboard_widgets %}
+    <section class="card">
+      <p class="muted">{{ t("dashboard.no_visible_widgets") if dashboard_layout_widgets or event_data_plugins_enabled else t("dashboard.no_enabled_widgets") }}</p>
     </section>
   {% endif %}
+
   </div>
 
 {% endblock %}

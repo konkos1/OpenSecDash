@@ -1,0 +1,27 @@
+<div class="card">
+  <h3 class="font-semibold mb-3">{{ t(widget.title_key) }} <button type="button" class="help" data-tooltip="{{ t('dashboard.country_heatmap_help') }}">?</button></h3>
+  {% if widget.rows %}
+    <div class="world-map relative rounded-xl overflow-hidden border border-slate-700 bg-slate-950">
+      <img src="/static/img/world-map.svg" alt="{{ t(widget.title_key) }}" class="world-map-image w-full h-auto block" loading="lazy">
+      {% for point in widget.rows %}
+        <a
+          href="{{ today_events_href }}&country={{ point.country }}"
+          class="absolute rounded-full border border-sky-200 bg-sky-400/30 hover:bg-sky-300/50"
+          style="left: calc({{ '%.2f'|format(point.x) }}% - {{ '%.2f'|format(point.radius) }}px); top: calc({{ '%.2f'|format(point.y) }}% - {{ '%.2f'|format(point.radius) }}px); width: {{ '%.2f'|format(point.radius * 2) }}px; height: {{ '%.2f'|format(point.radius * 2) }}px; box-shadow: 0 0 18px rgba(125, 211, 252, .55);"
+          title="{{ point.country }} · {{ point.count }}"
+          data-country-title="{{ point.country }}"
+          data-country-count="{{ point.count }}"
+        >
+          <span class="sr-only">{{ point.country|country_name }} · {{ point.count }}</span>
+        </a>
+      {% endfor %}
+    </div>
+    <div class="flex flex-wrap gap-2 mt-3 text-sm">
+      {% for point in widget.rows %}
+        <a class="badge" href="{{ today_events_href }}&country={{ point.country }}">{{ point.country|country_name }} · {{ point.count }}</a>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="muted">{{ t(widget.empty_key or "dashboard.no_data") }}</p>
+  {% endif %}
+</div>
