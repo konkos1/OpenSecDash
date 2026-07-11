@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import UTC, datetime, timedelta
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 from sqlalchemy.orm import Session
 
@@ -13,6 +16,29 @@ from app.models.events import Event
 
 _DASHBOARD_PLUGIN_IDS = ("crowdsec", "geoblock_log", "traefik_log")
 DASHBOARD_DELTA_PERCENT_CAP = 999
+_request_dashboard_counts: ContextVar[dict[str, dict[str, int]] | None] = ContextVar(
+    "request_dashboard_counts",
+    default=None,
+)
+
+
+@contextmanager
+def dashboard_counts_cache() -> Iterator[None]:
+    """Share dashboard counter queries across widget hooks in one request."""
+    token = _request_dashboard_counts.set({})
+    try:
+        yield
+    finally:
+        _request_dashboard_counts.reset(token)
+
+
+def _cached_dashboard_counts(key: str, load: Callable[[], dict[str, int]]) -> dict[str, int]:
+    cache = _request_dashboard_counts.get()
+    if cache is None:
+        return load()
+    if key not in cache:
+        cache[key] = load()
+    return dict(cache[key])
 
 
 def _enabled_plugins(db: Session) -> dict[str, bool]:
@@ -169,20 +195,26 @@ def _today_start(timezone_name: str | None, now: datetime) -> datetime:
 
 def today_counts(db: Session) -> dict[str, int]:
     """Return today's counters using the rollup fast path where applicable."""
-    timezone_name = get_setting_value(db, "timezone", "auto")
-    current = utc_now()
-    since = _today_start(timezone_name, current)
-    rollup_key = dashboard_today_rollup_key(since, current)
-    rollup_summary = _daily_rollup_summary(db, rollup_key) if rollup_key else None
-    return rollup_summary or dashboard_metric_counts(db, _enabled_plugins(db), since)
+    def load() -> dict[str, int]:
+        timezone_name = get_setting_value(db, "timezone", "auto")
+        current = utc_now()
+        since = _today_start(timezone_name, current)
+        rollup_key = dashboard_today_rollup_key(since, current)
+        rollup_summary = _daily_rollup_summary(db, rollup_key) if rollup_key else None
+        return rollup_summary or dashboard_metric_counts(db, _enabled_plugins(db), since)
+
+    return _cached_dashboard_counts("today", load)
 
 
 def yesterday_counts(db: Session) -> dict[str, int]:
     """Return yesterday's counters using the existing retention-aware fallback."""
-    timezone_name = get_setting_value(db, "timezone", "auto")
-    current = utc_now()
-    since = _today_start(timezone_name, current)
-    return dashboard_yesterday_summary(db, timezone_name, since, _enabled_plugins(db), now=current)
+    def load() -> dict[str, int]:
+        timezone_name = get_setting_value(db, "timezone", "auto")
+        current = utc_now()
+        since = _today_start(timezone_name, current)
+        return dashboard_yesterday_summary(db, timezone_name, since, _enabled_plugins(db), now=current)
+
+    return _cached_dashboard_counts("yesterday", load)
 
 
 def metric_delta(current: int, previous: int | None) -> dict[str, str]:

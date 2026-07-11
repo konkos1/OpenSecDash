@@ -123,6 +123,37 @@ def test_core_dashboard_counter_order_matches_previous_dashboard(db_session, mon
     ]
 
 
+def test_dashboard_page_shares_counter_queries_across_plugin_widgets(db_session, monkeypatch):
+    monkeypatch.setattr("app.api.pages.is_plugin_enabled", lambda db, plugin_id: plugin_id in {"crowdsec", "geoblock_log", "traefik_log"})
+    monkeypatch.setattr("app.api.pages.utc_now", lambda: datetime(2026, 7, 11, 12, tzinfo=UTC))
+    monkeypatch.setattr(dashboard_metrics, "utc_now", lambda: datetime(2026, 7, 11, 12, tzinfo=UTC))
+    db_session.add_all(
+        [
+            Setting(key="plugin.crowdsec.enabled", value="true"),
+            Setting(key="plugin.geoblock_log.enabled", value="true"),
+            Setting(key="plugin.traefik_log.enabled", value="true"),
+        ]
+    )
+    db_session.commit()
+    calls = {"today": 0, "yesterday": 0}
+
+    def today_metric_counts(*args, **kwargs):
+        calls["today"] += 1
+        return {"bans": 0, "geoblocks": 0, "access_external_events": 0, "access_internal_events": 0}
+
+    def yesterday_summary(*args, **kwargs):
+        calls["yesterday"] += 1
+        return {}
+
+    monkeypatch.setattr(dashboard_metrics, "dashboard_metric_counts", today_metric_counts)
+    monkeypatch.setattr(dashboard_metrics, "dashboard_yesterday_summary", yesterday_summary)
+    monkeypatch.setattr("app.api.pages.render", lambda request, db, template, **context: context)
+
+    pages.dashboard_page(cast(Request, SimpleNamespace()), db_session)
+
+    assert calls == {"today": 1, "yesterday": 1}
+
+
 def test_dashboard_core_widgets_include_tables_feed_and_trend(db_session, monkeypatch):
     monkeypatch.setattr("app.api.pages.is_plugin_enabled", lambda db, plugin_id: plugin_id in {"crowdsec", "traefik_log"})
     monkeypatch.setattr("app.api.pages.utc_now", lambda: datetime(2026, 7, 11, 12, tzinfo=UTC))

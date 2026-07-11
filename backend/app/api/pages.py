@@ -28,6 +28,7 @@ from app.models.events import Event
 from app.models.settings import Setting
 from app.models.systems import System
 from app.services.dashboard_metrics import (
+    dashboard_counts_cache,
     dashboard_delta as _dashboard_delta,
     dashboard_metric_counts as _dashboard_metric_counts,
     dashboard_today_rollup_key as _dashboard_today_rollup_key,
@@ -571,18 +572,19 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
         if (point := country_map_point(country, count, max_country_count)) is not None
     ]
     trend_rows = dashboard_trend_rows(db, dashboard_local_date) if security_data_plugins else None
-    dashboard_widgets = collect_dashboard_widgets(
-        db,
-        core_dashboard_widgets(
+    with dashboard_counts_cache():
+        dashboard_widgets = collect_dashboard_widgets(
             db,
-            top_countries=top_countries if country_data_plugins else None,
-            country_heatmap=country_heatmap if country_data_plugins else None,
-            attack_hours=attack_hours if security_data_plugins else None,
-            access_hours=access_hours if enabled_plugins["traefik_log"] else None,
-            latest_security_events=latest_security_events if security_data_plugins else None,
-            trend_rows=trend_rows,
-        ),
-    )
+            core_dashboard_widgets(
+                db,
+                top_countries=top_countries if country_data_plugins else None,
+                country_heatmap=country_heatmap if country_data_plugins else None,
+                attack_hours=attack_hours if security_data_plugins else None,
+                access_hours=access_hours if enabled_plugins["traefik_log"] else None,
+                latest_security_events=latest_security_events if security_data_plugins else None,
+                trend_rows=trend_rows,
+            ),
+        )
     dashboard_layout_widgets = apply_layout(dashboard_widgets, load_dashboard_layout(db))
     visible_dashboard_widgets = [widget for widget in dashboard_layout_widgets if widget.visible]
 
