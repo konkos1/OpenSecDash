@@ -248,6 +248,7 @@ def core_dashboard_widgets(
     db: Session,
     *,
     top_countries: list[tuple[str, int]] | None = None,
+    country_heatmap: list[dict[str, object]] | None = None,
     attack_hours: list[dict[str, int | str]] | None = None,
     access_hours: list[dict[str, int | str]] | None = None,
     latest_security_events: list[Event] | None = None,
@@ -295,6 +296,18 @@ def core_dashboard_widgets(
                     }
                     for country, count in top_countries
                 ),
+                empty_key="dashboard.no_data",
+            )
+        )
+    if country_heatmap is not None:
+        widgets.append(
+            DashboardWidget(
+                id="core.country_heatmap",
+                type="map",
+                section="trends",
+                title_key="dashboard.country_heatmap",
+                order=10,
+                rows=tuple(country_heatmap),
                 empty_key="dashboard.no_data",
             )
         )
@@ -414,7 +427,7 @@ def dashboard_layout_widget_ids(db: Session) -> set[str]:
         if enabled_plugins[plugin_id]
     ]
     if country_data_plugins:
-        ids.add("core.top_countries")
+        ids.update({"core.top_countries", "core.country_heatmap"})
     if security_data_plugins:
         ids.update({"core.top_attack_hours", "core.latest_security_events", "core.security_events_trend"})
     if enabled_plugins["traefik_log"]:
@@ -561,12 +574,19 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
             .limit(10)
             .all()
         )
+    max_country_count = max((count for _, count in top_countries), default=0)
+    country_heatmap = [
+        point
+        for country, count in top_countries
+        if (point := country_map_point(country, count, max_country_count)) is not None
+    ]
     trend_rows = dashboard_trend_rows(db, dashboard_local_date) if security_data_plugins else None
     dashboard_widgets = collect_dashboard_widgets(
         db,
         core_dashboard_widgets(
             db,
             top_countries=top_countries if country_data_plugins else None,
+            country_heatmap=country_heatmap if country_data_plugins else None,
             attack_hours=attack_hours if security_data_plugins else None,
             access_hours=access_hours if enabled_plugins["traefik_log"] else None,
             latest_security_events=latest_security_events if security_data_plugins else None,
@@ -575,13 +595,6 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
     )
     dashboard_layout_widgets = apply_layout(dashboard_widgets, load_dashboard_layout(db))
     visible_dashboard_widgets = [widget for widget in dashboard_layout_widgets if widget.visible]
-
-    max_country_count = max((count for _, count in top_countries), default=0)
-    country_heatmap = [
-        point
-        for country, count in top_countries
-        if (point := country_map_point(country, count, max_country_count)) is not None
-    ]
 
     return render(
         request,
@@ -594,7 +607,6 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
         top_countries=top_countries,
         attack_hours=attack_hours,
         access_hours=access_hours,
-        country_heatmap=country_heatmap,
         today_events_href="/events?today=true",
         country_data_plugins=country_data_plugins,
         latest_security_events=latest_security_events,

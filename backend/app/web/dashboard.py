@@ -12,13 +12,13 @@ from app.core.template_context import get_setting_value
 from app.plugins.manager import get_plugin_manager
 
 
-WidgetType = Literal["counter", "table", "feed", "trend"]
+WidgetType = Literal["counter", "table", "feed", "trend", "map"]
 WidgetSection = Literal["security", "activity", "assets", "trends", "feed"]
 
-_ALLOWED_TYPES = {"counter", "table", "feed", "trend"}
+_ALLOWED_TYPES = {"counter", "table", "feed", "trend", "map"}
 _ALLOWED_SECTIONS = {"security", "activity", "assets", "trends", "feed"}
 _SECTION_ORDER = {"security": 0, "activity": 1, "assets": 2, "trends": 3, "feed": 4}
-_DEFAULT_TYPE_ORDER = {"counter": 0, "table": 1, "trend": 2, "feed": 3}
+_DEFAULT_TYPE_ORDER = {"counter": 0, "table": 1, "map": 2, "trend": 3, "feed": 4}
 
 logger = logging.getLogger(__name__)
 
@@ -107,6 +107,19 @@ def validate_widget(widget: DashboardWidget) -> bool:
                 return False
             if value < 0:
                 return False
+    elif widget.type == "map":
+        if widget.id != "core.country_heatmap":
+            return False
+        for row in widget.rows:
+            if not isinstance(row, Mapping):
+                return False
+            if not isinstance(row.get("country"), str):
+                return False
+            if not isinstance(row.get("count"), int) or isinstance(row.get("count"), bool):
+                return False
+            for key in ("x", "y", "radius"):
+                if not isinstance(row.get(key), (int, float)) or isinstance(row.get(key), bool):
+                    return False
     return True
 
 

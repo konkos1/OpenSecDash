@@ -3,9 +3,9 @@
 > **Implementation status: Implemented (2026-07-11).**
 > The dashboard is a descriptor-backed widget container with a core registry and
 > plugin-owned widgets supplied through `Plugin.dashboard_widgets()`.
-> Counter, table, feed, and trend widget types are rendered by core templates, while
-> user-managed visibility and ordering are stored in SQLite as `ui.dashboard_layout`.
-> The heatmap remains a fixed core block; layout V1 is a linear responsive list with
+> Counter, table, feed, trend, and the core-only map widget are rendered by core templates,
+> while user-managed visibility and ordering are stored in SQLite as `ui.dashboard_layout`.
+> The heatmap is a separately managed core widget; layout V1 is a linear responsive list with
 > up/down movement, not a freely positioned WYSIWYG or drag-and-drop grid.
 
 
@@ -121,9 +121,8 @@ Example:
 
 ## Map Widget
 
-Later:
-
-`Geoblock Heatmap`
+The core-owned top-countries heatmap is independently shown, hidden, and moved with the
+other dashboard widgets. Plugins cannot register map widgets.
 
 
 ---

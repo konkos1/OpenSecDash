@@ -7,6 +7,7 @@ from typing import Any, cast
 from fastapi import Request
 from sqlalchemy.orm import Session
 
+from app.api import pages
 from app.models.core import AggregationDaily, AggregationMonthly
 from app.models.settings import Setting
 from app.models.events import Event
@@ -59,10 +60,19 @@ def test_validate_widget_validates_table_feed_and_trend_rows():
     assert validate_widget(
         make_widget(type="trend", rows=({"bucket": "2026-07-11", "value": 4},))
     )
+    assert validate_widget(
+        make_widget(
+            id="core.country_heatmap",
+            type="map",
+            section="trends",
+            rows=({"country": "DE", "count": 3, "x": 52.0, "y": 26.0, "radius": 6.0},),
+        )
+    )
     assert not validate_widget(make_widget(type="table", rows=({"label": "DE", "value": "4"},)))
     assert not validate_widget(make_widget(type="table", rows=({"label": "DE", "value": 4},)))
     assert not validate_widget(make_widget(type="feed", rows=({"type": "security.ban", "ip": "8.8.8.8", "href": "/ip/8.8.8.8"},)))
     assert not validate_widget(make_widget(type="trend", rows=({"bucket": "2026-07-11", "value": -1},)))
+    assert not validate_widget(make_widget(id="plugin.map", type="map", rows=({"country": "DE", "count": 3, "x": 52.0, "y": 26.0, "radius": 6.0},)))
 
 
 def test_collect_dashboard_widgets_deduplicates_and_sorts(monkeypatch):
@@ -130,7 +140,8 @@ def test_dashboard_core_widgets_include_tables_feed_and_trend(db_session, monkey
     monkeypatch.setattr("app.api.pages.render", lambda request, db, template, **context: context)
     context = cast(dict[str, Any], dashboard_page(cast(Request, SimpleNamespace()), db_session))
     ids = {widget.id for widget in context["dashboard_widgets"]}
-    assert {"core.top_countries", "core.top_attack_hours", "core.top_access_hours", "core.latest_security_events", "core.security_events_trend"} <= ids
+    assert {"core.top_countries", "core.country_heatmap", "core.top_attack_hours", "core.top_access_hours", "core.latest_security_events", "core.security_events_trend"} <= ids
+    assert "core.country_heatmap" in pages.dashboard_layout_widget_ids(db_session)
 
 
 def test_dashboard_page_keeps_hidden_widgets_in_editor_context(db_session, monkeypatch):

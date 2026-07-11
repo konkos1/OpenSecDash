@@ -81,18 +81,28 @@ def test_apply_layout_stored_order_overrides_default_type_order():
             order=10,
             rows=({"time": "2026-07-11", "type": "security.ban", "ip": "8.8.8.8", "href": "/events"},),
         ),
+        DashboardWidget(
+            id="core.country_heatmap",
+            type="map",
+            section="trends",
+            title_key="dashboard.country_heatmap",
+            order=10,
+            rows=({"country": "DE", "count": 1, "x": 52.0, "y": 26.0, "radius": 3.0},),
+        ),
     ]
 
     applied = apply_layout(
         widgets,
         [
+            {"id": "core.country_heatmap", "visible": False},
             {"id": "feed", "visible": True},
             {"id": "counter", "visible": True},
             {"id": "table", "visible": True},
         ],
     )
 
-    assert [widget.id for widget in applied] == ["feed", "counter", "table"]
+    assert [widget.id for widget in applied] == ["core.country_heatmap", "feed", "counter", "table"]
+    assert applied[0].visible is False
 
 
 def test_apply_layout_missing_or_empty_layout_uses_natural_order(db_session):

@@ -39,7 +39,6 @@ def render_dashboard(*, event_plugins_enabled: bool, dashboard_widgets: list[Das
         top_countries=[],
         attack_hours=[],
         access_hours=[],
-        country_heatmap=[],
         today_events_href="/events?today=true",
         country_data_plugins=["crowdsec"] if event_plugins_enabled else [],
         latest_security_events=[],
@@ -162,6 +161,13 @@ def test_dashboard_renders_table_feed_trend_and_empty_states():
                 empty_key="dashboard.no_data",
             ),
             DashboardWidget(
+                id="core.country_heatmap",
+                type="map",
+                section="trends",
+                title_key="dashboard.country_heatmap",
+                rows=({"country": "DE", "count": 3, "x": 52.0, "y": 26.0, "radius": 6.0},),
+            ),
+            DashboardWidget(
                 id="core.feed",
                 type="feed",
                 section="feed",
@@ -180,6 +186,7 @@ def test_dashboard_renders_table_feed_trend_and_empty_states():
 
     assert "dashboard.top_countries" in html
     assert "dashboard.no_data" in html
+    assert "world-map" in html
     assert "security.ban" in html
     assert "2026-07-11" in html
     assert "dashboard-trend-axis" in html
