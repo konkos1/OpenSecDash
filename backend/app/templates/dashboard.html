@@ -19,23 +19,23 @@
         </div>
         <button type="button" class="text-overlay-close" data-columns-close="dashboard-layout" aria-label="{{ t('common.close') }}">×</button>
       </div>
-      <ol class="space-y-2">
+      <ol id="dashboard-widget-list" class="space-y-2">
         {% for widget in dashboard_layout_widgets %}
-          <li class="flex items-center justify-between gap-3 border-b border-slate-700 py-2 last:border-b-0">
+          <li data-dashboard-widget class="flex items-center justify-between gap-3 border-b border-slate-700 py-2 last:border-b-0">
             <input type="hidden" name="widget_id" value="{{ widget.id }}">
             <label class="flex min-w-0 items-center gap-2 text-sm">
               <input type="checkbox" name="visible" value="{{ widget.id }}" {% if widget.visible %}checked{% endif %} aria-label="{{ t('dashboard.widget_visible') }}: {{ t(widget.title_key) }}">
               <span class="truncate">{{ t(widget.title_key) }}</span>
             </label>
             <div class="flex shrink-0 gap-1">
-              <button class="btn-small btn-icon" type="submit" name="move_up" value="{{ widget.id }}" {% if loop.first %}disabled{% endif %} aria-label="{{ t('dashboard.move_up') }}" title="{{ t('dashboard.move_up') }}">↑</button>
-              <button class="btn-small btn-icon" type="submit" name="move_down" value="{{ widget.id }}" {% if loop.last %}disabled{% endif %} aria-label="{{ t('dashboard.move_down') }}" title="{{ t('dashboard.move_down') }}">↓</button>
+              <button class="btn-small btn-icon" type="button" data-dashboard-move="up" {% if loop.first %}disabled{% endif %} aria-label="{{ t('dashboard.move_up') }}" title="{{ t('dashboard.move_up') }}">↑</button>
+              <button class="btn-small btn-icon" type="button" data-dashboard-move="down" {% if loop.last %}disabled{% endif %} aria-label="{{ t('dashboard.move_down') }}" title="{{ t('dashboard.move_down') }}">↓</button>
             </div>
           </li>
         {% endfor %}
       </ol>
       <div class="flex justify-end gap-2 mt-4">
-        <button class="btn-small" type="submit">{{ t("dashboard.save_layout") }}</button>
+        <button class="btn-small" type="submit">{{ t("dashboard.apply_layout") }}</button>
       </div>
     </form>
     <form method="post" action="/dashboard/layout/reset" class="columns-dialog-panel mt-3">

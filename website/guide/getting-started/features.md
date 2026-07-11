@@ -28,7 +28,7 @@ active-ban counter and GeoBlock contributes today's geoblock counter, while cros
 lists such as top countries remain core-owned.
 
 To adapt the dashboard for a homelab, open **Customize dashboard**. Clear a widget's
-checkbox to hide it, use the up/down controls to change its order, and choose **Save
+checkbox to hide it, use the up/down controls to change its order, and choose **Apply
 layout**. **Reset layout** removes the saved customization and restores the default
 ordering and visibility. A widget from a disabled plugin disappears after reload; if
 the plugin is enabled again later, its widget is added back visibly. Widget links open

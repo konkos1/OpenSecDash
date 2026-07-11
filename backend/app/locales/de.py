@@ -68,6 +68,7 @@ DE = {
     "dashboard.move_up": "Nach oben",
     "dashboard.move_down": "Nach unten",
     "dashboard.save_layout": "Layout speichern",
+    "dashboard.apply_layout": "Übernehmen",
     "dashboard.reset_layout": "Layout zurücksetzen",
     "dashboard.no_enabled_widgets": "Es sind keine Dashboard-Widgets sichtbar, weil die zugehörigen Daten-Plugins deaktiviert sind.",
     "dashboard.no_visible_widgets": "Es sind keine Dashboard-Widgets sichtbar. Öffne „Dashboard anpassen“, um mindestens ein Widget einzublenden.",

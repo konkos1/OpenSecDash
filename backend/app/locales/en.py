@@ -68,6 +68,7 @@ EN = {
     "dashboard.move_up": "Move up",
     "dashboard.move_down": "Move down",
     "dashboard.save_layout": "Save layout",
+    "dashboard.apply_layout": "Apply layout",
     "dashboard.reset_layout": "Reset layout",
     "dashboard.no_enabled_widgets": "No dashboard widgets are visible because the related data plugins are disabled.",
     "dashboard.no_visible_widgets": "No dashboard widgets are visible. Use Customize dashboard to show at least one widget.",

@@ -88,6 +88,28 @@ def test_dashboard_renders_counter_descriptors_in_order():
     assert html.index(">7<") < html.index(">11<")
 
 
+def test_dashboard_layout_reordering_waits_for_apply():
+    html = render_dashboard(
+        event_plugins_enabled=True,
+        dashboard_widgets=[
+            DashboardWidget(
+                id="crowdsec.active_bans",
+                type="counter",
+                section="security",
+                title_key="dashboard.active_bans",
+                value=7,
+                href="/events?event_type=security.ban*&today=true",
+            )
+        ],
+    )
+
+    assert 'data-dashboard-move="up"' in html
+    assert 'data-dashboard-move="down"' in html
+    assert 'name="move_up"' not in html
+    assert 'name="move_down"' not in html
+    assert 'type="submit">dashboard.apply_layout</button>' in html
+
+
 def test_dashboard_renders_table_feed_trend_and_empty_states():
     html = render_dashboard(
         event_plugins_enabled=True,

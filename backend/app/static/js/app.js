@@ -141,6 +141,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const overlayClose = event.target.closest("[data-text-overlay-close]");
         const columnsOpen = event.target.closest("[data-columns-open]");
         const columnsClose = event.target.closest("[data-columns-close]");
+        const dashboardMove = event.target.closest("[data-dashboard-move]");
         const columnsDialogBackdrop = event.target.tagName === "DIALOG" && event.target.classList.contains("columns-dialog") ? event.target : null;
         const overlayBackdrop = event.target.classList.contains("text-overlay-backdrop") ? event.target : null;
 
@@ -169,6 +170,31 @@ document.addEventListener("DOMContentLoaded", () => {
             if (dialog && typeof dialog.close === "function") {
                 dialog.close();
             }
+            return;
+        }
+
+        if (dashboardMove) {
+            event.preventDefault();
+            const item = dashboardMove.closest("[data-dashboard-widget]");
+            const list = item && item.parentElement;
+            if (!item || !list) {
+                return;
+            }
+            if (dashboardMove.dataset.dashboardMove === "up") {
+                const previous = item.previousElementSibling;
+                if (previous) {
+                    list.insertBefore(item, previous);
+                }
+            } else {
+                const next = item.nextElementSibling;
+                if (next) {
+                    list.insertBefore(next, item);
+                }
+            }
+            Array.from(list.querySelectorAll("[data-dashboard-widget]")).forEach((entry, index, entries) => {
+                entry.querySelector('[data-dashboard-move="up"]').disabled = index === 0;
+                entry.querySelector('[data-dashboard-move="down"]').disabled = index === entries.length - 1;
+            });
             return;
         }
 
