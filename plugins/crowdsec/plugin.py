@@ -19,7 +19,7 @@ from app.web.dashboard import DashboardWidget
 
 from .locales import LOCALES
 from .services.decisions import active_decision_for_ip, crowdsec_cscli_status, sync_crowdsec_decisions
-from .services.rollups import _top_rollup_metric
+from .services.rollups import _top_daily_rollup_metric, _top_rollup_metric
 
 
 logger = logging.getLogger(__name__)
@@ -339,7 +339,7 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
                 id="crowdsec.top_scenarios",
                 type="table",
                 section="trends",
-                title_key="crowdsec.top_scenarios",
+                title_key="crowdsec.dashboard_top_scenarios",
                 order=20,
                 rows=tuple(
                     {
@@ -347,7 +347,7 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
                         "value": count,
                         "href": f"/events?{urlencode({'event_type': 'security.ban*', 'q': scenario or 'unknown'})}",
                     }
-                    for scenario, count in _top_rollup_metric(db, "scenario", 10)
+                    for scenario, count in _top_daily_rollup_metric(db, "scenario", 10)
                 ),
                 empty_key="crowdsec.no_scenarios",
             ),

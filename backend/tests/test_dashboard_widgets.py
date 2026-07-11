@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from importlib import import_module
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
@@ -6,7 +7,7 @@ from typing import Any, cast
 from fastapi import Request
 from sqlalchemy.orm import Session
 
-from app.models.core import AggregationDaily
+from app.models.core import AggregationDaily, AggregationMonthly
 from app.models.settings import Setting
 from app.models.events import Event
 from app.plugins.base import Plugin, PluginMetadata
@@ -156,11 +157,15 @@ def test_dashboard_page_keeps_hidden_widgets_in_editor_context(db_session, monke
     assert editor_widgets["crowdsec.active_bans"].visible is False
 
 
-def test_crowdsec_dashboard_top_scenarios_is_a_rollup_table(db_session):
+def test_crowdsec_dashboard_top_scenarios_uses_only_today_daily_rollup(db_session, monkeypatch):
+    rollups = import_module("osd_plugins.crowdsec.services.rollups")
+    monkeypatch.setattr(rollups, "utc_now", lambda: datetime(2026, 7, 11, 12, tzinfo=UTC))
     db_session.add_all(
         [
             Setting(key="plugin.crowdsec.enabled", value="true"),
             AggregationDaily(date="2026-07-11", metric="scenario", key="crowdsecurity/ssh-bf", value=4),
+            AggregationDaily(date="2026-07-10", metric="scenario", key="crowdsecurity/old-daily", value=20),
+            AggregationMonthly(month="2026-06", metric="scenario", key="crowdsecurity/old-monthly", value=30),
         ]
     )
     db_session.commit()
@@ -170,10 +175,12 @@ def test_crowdsec_dashboard_top_scenarios_is_a_rollup_table(db_session):
 
     scenario_widget = widgets["crowdsec.top_scenarios"]
     assert scenario_widget.type == "table"
+    assert scenario_widget.title_key == "crowdsec.dashboard_top_scenarios"
     assert scenario_widget.rows[0]["label"] == "crowdsecurity/ssh-bf"
     assert scenario_widget.rows[0]["value"] == 4
     assert scenario_widget.rows[0]["href"].startswith("/events?")
     assert "security.ban" in scenario_widget.rows[0]["href"]
+    assert [row["label"] for row in scenario_widget.rows] == ["crowdsecurity/ssh-bf"]
 
 
 def test_collect_dashboard_widgets_includes_plugin_widgets_and_isolates_failures(monkeypatch):
