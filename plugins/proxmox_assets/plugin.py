@@ -16,7 +16,7 @@ class Plugin(PeriodicPlugin):
         name="Proxmox Assets",
         version="1.0.0",
         api_version="2",
-        capabilities=["asset_source", "widget"],
+        capabilities=["asset_source"],
         description="Imports Proxmox nodes, VMs/LXCs, and optional app metadata from hidden notes blocks.",
     )
     settings = [
