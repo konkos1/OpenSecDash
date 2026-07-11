@@ -26,7 +26,11 @@ def action_ip_page(
     parameters: dict[str, str] = {}
     try:
         definition = next(
-            (definition for _plugin_id, definition in manager.action_definitions() if definition.action_type == action_type),
+            (
+                definition
+                for _plugin_id, definition in manager.action_definitions()
+                if definition.action_type == action_type or action_type in definition.aliases
+            ),
             None,
         )
         if definition is None:
@@ -37,9 +41,9 @@ def action_ip_page(
             value = duration or parameter.default
             if value is None:
                 raise ValueError(f"Missing action parameter: {parameter.name}")
+            parameters[parameter.name] = value
             if value not in parameter.options:
                 raise ValueError(f"Invalid value for action parameter: {parameter.name}")
-            parameters[parameter.name] = value
         create_action(db, action_type, ip, "ip", parameters, confirmed)
     except ActionAlreadyRunning as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc

@@ -222,6 +222,8 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
     # --- Action framework hooks (see app.plugins.base.ActionPlugin) ---
 
     def action_available(self, db: Session, action_type: str, target: str, dry_run: bool) -> bool:
+        if not dry_run and get_setting_value(db, "plugin.crowdsec.enabled", "false") != "true":
+            return False
         if action_type in UNBAN_ACTION_TYPES and not dry_run:
             return active_decision_for_ip(db, target) is not None
         return True

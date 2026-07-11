@@ -89,6 +89,42 @@ def test_action_form_records_unknown_action_failure(action_db):
     assert action.plugin_id == "core"
 
 
+def test_action_form_accepts_crowdsec_alias(action_db):
+    client = _client(action_db)
+    try:
+        response = client.post(
+            "/actions/ip",
+            data={"action_type": "crowdsec_ban", "ip": "8.8.8.8", "duration": "4h", "confirmed": "true"},
+            follow_redirects=False,
+        )
+    finally:
+        client.close()
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 303
+    action = action_db.query(Action).one()
+    assert action.action_type == "crowdsec_ban"
+    assert action.status == "completed"
+
+
+def test_action_form_preserves_invalid_declared_parameter(action_db):
+    client = _client(action_db)
+    try:
+        response = client.post(
+            "/actions/ip",
+            data={"action_type": "security.ban", "ip": "8.8.8.8", "duration": "12h", "confirmed": "true"},
+            follow_redirects=False,
+        )
+    finally:
+        client.close()
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 303
+    action = action_db.query(Action).one()
+    assert action.status == "failed"
+    assert action.parameters["duration"] == "12h"
+
+
 def test_ip_action_panel_is_registry_driven(action_db):
     action_db.add(Setting(key="plugin.crowdsec.enabled", value="true"))
     action_db.add(Setting(key="action_dry_run", value="true"))

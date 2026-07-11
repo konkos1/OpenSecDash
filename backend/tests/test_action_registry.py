@@ -37,5 +37,13 @@ def test_available_actions_respects_unban_availability_hook(db_session):
     assert get_setting_value(db_session, "action_dry_run") == "true"
 
 
+def test_available_actions_hides_crowdsec_when_disabled_outside_dry_run(db_session):
+    db_session.add(Setting(key="plugin.crowdsec.enabled", value="false"))
+    db_session.add(Setting(key="action_dry_run", value="false"))
+    db_session.commit()
+
+    assert available_actions("ip", "1.2.3.4", db_session) == []
+
+
 def test_available_api_excludes_unsupported_target_type(db_session):
     assert available_actions("asset", "x", db_session) == []
