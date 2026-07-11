@@ -88,6 +88,39 @@ def test_dashboard_renders_counter_descriptors_in_order():
     assert html.index(">7<") < html.index(">11<")
 
 
+def test_dashboard_renders_mixed_widget_types_in_layout_order():
+    html = render_dashboard(
+        event_plugins_enabled=True,
+        dashboard_widgets=[
+            DashboardWidget(
+                id="core.feed_first",
+                type="feed",
+                section="feed",
+                title_key="dashboard.feed_first",
+                rows=({"time": datetime(2026, 7, 11, 12), "type": "security.ban", "ip": "8.8.8.8", "href": "/events"},),
+            ),
+            DashboardWidget(
+                id="core.counter_second",
+                type="counter",
+                section="security",
+                title_key="dashboard.counter_second",
+                value=2,
+                href="/events",
+            ),
+            DashboardWidget(
+                id="core.table_third",
+                type="table",
+                section="trends",
+                title_key="dashboard.table_third",
+                rows=({"label": "DE", "value": 3, "href": "/events"},),
+            ),
+        ],
+    )
+
+    rendered = html.split('<div id="dashboard-results"', 1)[1]
+    assert rendered.index("dashboard.feed_first") < rendered.index("dashboard.counter_second") < rendered.index("dashboard.table_third")
+
+
 def test_dashboard_layout_reordering_waits_for_apply():
     html = render_dashboard(
         event_plugins_enabled=True,
