@@ -63,6 +63,7 @@ EN = {
     "dashboard.latest_security_events_help": "Shows the newest 10 security events.",
     "dashboard.no_security_events": "No security events",
     "dashboard.security_events_trend": "Security events · last 30 days",
+    "dashboard.security_events_trend_help": "Counts all security.* events per day from daily rollups for the last 30 days. Access events are not included; hover a bar for its exact date and count.",
     "dashboard.customize": "Customize dashboard",
     "dashboard.widget_visible": "Visible",
     "dashboard.move_up": "Move up",

@@ -63,6 +63,7 @@ DE = {
     "dashboard.latest_security_events_help": "Zeigt die neuesten 10 Security-Events.",
     "dashboard.no_security_events": "Keine Sicherheitsereignisse",
     "dashboard.security_events_trend": "Sicherheitsereignisse · letzte 30 Tage",
+    "dashboard.security_events_trend_help": "Summiert alle security.*-Events pro Tag aus den Tages-Rollups der letzten 30 Tage. Access-Events sind nicht enthalten; fahre über einen Balken für Datum und genaue Anzahl.",
     "dashboard.customize": "Dashboard anpassen",
     "dashboard.widget_visible": "Sichtbar",
     "dashboard.move_up": "Nach oben",
