@@ -19,6 +19,8 @@
         </section>
     {% endif %}
 
+    {% include "ip_actions_panel.html" %}
+
     {% for panel in plugin_ip_panels %}{% include panel %}{% endfor %}
 
     <div class="card mb-5">

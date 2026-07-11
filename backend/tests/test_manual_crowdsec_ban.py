@@ -26,16 +26,15 @@ def test_manual_ban_action_records_scenario_and_duration(db_session):
     assert action.status == "completed"
 
 
-def test_manual_ban_falls_back_to_default_scenario_text_without_reason(db_session):
-    # No "reason" param at all -> the id-embedding step in create_action() is
-    # skipped (it only fires when a reason is present), so execute_action()'s
-    # fallback text is stored as-is, without an action id suffix.
+def test_manual_ban_gets_default_reason_without_reason_parameter(db_session):
+    # The plugin supplies the same default reason used by the IP action form,
+    # so the id-embedding step can correlate this action with a later log line.
     action = create_action(db_session, "security.ban", "9.9.9.9", "ip", {"duration": "4h"}, confirmed=True)
     db_session.commit()
 
     event = db_session.query(Event).filter_by(event_type="security.ban.manual", ip="9.9.9.9").one()
 
-    assert event.data_json["scenario"] == "Manual ban via OpenSecDash"
+    assert event.data_json["scenario"] == f"Manual ban via OpenSecDash (action #{action.id})"
     assert event.data_json["duration"] == "4h"
     assert action.id is not None
 

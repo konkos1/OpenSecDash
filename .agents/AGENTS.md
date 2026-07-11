@@ -42,6 +42,7 @@ These rules apply to all AI assistants, coding agents, and automated tools worki
 ## 6. Keep changes intentional and minimal
 
 - Only change files that are necessary for the task.
+- Never commit files or directories that are covered by `.gitignore` (local databases, logs, virtualenvs, build artifacts, etc.). Do not bypass this with `git add -f`. If a task seems to require committing an ignored path, stop and ask instead of forcing it.
 - Do not perform broad refactorings, formatting changes, or restructuring as a side effect.
 - Respect the existing architecture, plugin structure, and documentation style.
 - If something is unclear, first explain what is unclear and ask for a decision.

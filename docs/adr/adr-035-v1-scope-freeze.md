@@ -2,6 +2,7 @@
 
 > **Implementation status (2026-07-09):** Partially implemented.
 > Most V1 scope areas exist. Torblock and some planned scope items are not implemented; Proxmox Assets is implemented although not part of the original V1 list.
+> Scope decision (2026-07-11): Torblock is excluded from V1 (see implementation notes).
 
 
 ## OpenSecDash V1 includes
@@ -200,3 +201,4 @@ The current implementation includes several V1 areas: Dashboard, CrowdSec, Acces
 
 Torblock is listed in earlier V1 planning but is not currently implemented as a plugin. Proxmox Assets is currently implemented even though it was not part of the original concise V1 core plugin list.
 
+Scope decision (2026-07-11): Torblock remains excluded from V1. The Torblock entries above (Dashboard "Torblocks today", IP Explorer "Torblocks") do not apply to V1; consistent with this, the V1 core plugin list above never included a Torblock datasource.
