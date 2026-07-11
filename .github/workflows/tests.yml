@@ -84,14 +84,14 @@ jobs:
         run: |
           python -m venv .venv
           .venv/bin/python -m pip install --upgrade pip
-          .venv/bin/python -m pip install -e . pytest pyright
+          .venv/bin/python -m pip install -e . pytest pyright httpx2
 
       - name: Run tests
         working-directory: backend
         run: .venv/bin/pytest -q
 
       - name: Run Pyright
-        run: backend/.venv/bin/pyright backend/app backend/tests plugins
+        run: backend/.venv/bin/pyright --pythonversion 3.13 backend/app backend/tests plugins
 
       - name: Check pre-built Tailwind CSS is up to date
         working-directory: backend
