@@ -67,7 +67,14 @@ These rules apply to all AI assistants, coding agents, and automated tools worki
 - Do not perform unrequested changes.
 - If multiple reasonable approaches exist and the decision affects architecture, security, or user experience, ask first.
 
-## 10. Follow the code style
+## 10. Never commit directly to main
+
+- Never commit or push directly to the `main` branch.
+- `main` may only be updated through pull requests.
+- For any change that should land in `main`, create a feature branch instead.
+- If a task appears to require a direct commit to `main`, stop and ask instead of proceeding.
+
+## 11. Follow the code style
 
 - The project code style is documented in `website/guide/contributing/code-style.md` (published at https://opensecdash.app/guide/contributing/code-style) and applies to all contributions, human or AI.
 - Its baseline rule also applies when the guide is silent: write code that reads like the surrounding code.
