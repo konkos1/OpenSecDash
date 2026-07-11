@@ -212,7 +212,7 @@ EN = {
     "ip.title": "IP Explorer",
     "ip.actions": "Actions",
     "ip.actions_dry_run": "Action simulation is enabled. Buttons are shown without requiring a live cscli decision.",
-    "ip.ban_confirm": "Ban IP:",
+    "action.confirm": "Run \"{label}\" for {target}?",
     "ip.active_ban": "This IP currently has an active CrowdSec ban decision",
     "ip.local_ban_disabled": "Local, private or reserved IPs/IP ranges are not banned via CrowdSec to avoid accidental blocks of internal networks.",
     "ip.insights": "Insights",
@@ -264,6 +264,9 @@ EN = {
     "diagnostics.recent_actions_help": "Shows manually triggered actions such as CrowdSec ban/unban from the IP Explorer. Plain log parsing does not create actions here.",
     "action.type.security.ban": "Manual CrowdSec ban",
     "action.type.security.unban": "Manual CrowdSec unban",
+    "action.desc.security.ban": "Bans the IP via CrowdSec for the selected duration.",
+    "action.desc.security.unban": "Removes the active CrowdSec decision for the IP.",
+    "action.param.duration": "Duration",
     "diagnostics.no_actions": "No actions triggered",
 
     "footer.update_available": "Update {version} available",

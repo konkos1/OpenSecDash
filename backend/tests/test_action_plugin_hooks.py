@@ -3,13 +3,12 @@ from typing import Any
 import pytest
 
 from app.models.events import Event
-from app.plugins.base import ActionPlugin
+from app.plugins.base import ActionDefinition, ActionPlugin
 from app.services.actions import create_action
 
 
 class DummyActionPlugin(ActionPlugin):
-    action_types = frozenset({"dummy.do"})
-    critical_action_types = frozenset({"dummy.do"})
+    action_definitions = (ActionDefinition(action_type="dummy.do", label_key="dummy.do", target_types=frozenset({"ip"}), critical=True),)
 
     def __init__(self):
         self.after_execute_calls = 0

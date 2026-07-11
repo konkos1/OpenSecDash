@@ -1,0 +1,37 @@
+{% if available_ip_actions %}
+    <div class="card mb-5">
+        <div class="mb-3">
+            <h3 class="font-semibold">{{ t("ip.actions") }}</h3>
+            {% if action_dry_run %}
+                <p class="muted text-sm">{{ t("ip.actions_dry_run") }}</p>
+            {% endif %}
+        </div>
+        {% if local_ip_target %}
+            <p class="muted text-sm">{{ t("ip.local_ban_disabled") }}</p>
+        {% else %}
+            <div class="flex flex-col gap-3">
+                {% for _plugin_id, definition in available_ip_actions %}
+                    <form class="flex flex-col sm:flex-row sm:items-end gap-2" method="post" action="/actions/ip"{% if definition.critical %} data-confirm="{{ t('action.confirm').replace('{label}', t(definition.label_key)).replace('{target}', ip) }}"{% endif %} data-submit-busy>
+                        <input type="hidden" name="action_type" value="{{ definition.action_type }}">
+                        <input type="hidden" name="ip" value="{{ ip }}">
+                        <input type="hidden" name="confirmed" value="true">
+                        {% for parameter in definition.parameters if parameter.kind == "select" %}
+                            <label class="muted text-sm">
+                                {{ t(parameter.label_key) if parameter.label_key else parameter.name }}
+                                <select class="input sm:w-48" name="{{ parameter.name }}">
+                                    {% for option in parameter.options %}
+                                        <option value="{{ option }}"{% if option == parameter.default %} selected{% endif %}>{{ option }}</option>
+                                    {% endfor %}
+                                </select>
+                            </label>
+                        {% endfor %}
+                        <button class="{% if definition.parameters %}btn{% else %}btn-small{% endif %} sm:w-auto sm:self-end" data-busy-label="{{ t('common.processing') }}">{{ t(definition.label_key) }}</button>
+                    </form>
+                    {% if definition.description_key %}
+                        <p class="muted text-sm">{{ t(definition.description_key) }}</p>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        {% endif %}
+    </div>
+{% endif %}

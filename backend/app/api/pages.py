@@ -384,10 +384,10 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
     today_rollup_key = dashboard_today_rollup_key(since)
     today_rollup_summary = rollup_summary(db, "day", today_rollup_key) if today_rollup_key else None
     today_counts = today_rollup_summary or dashboard_metric_counts(db, enabled_plugins, since)
-    active_bans = today_counts["bans"]
-    geoblocks = today_counts["geoblocks"]
-    access_external_events = today_counts["access_external_events"]
-    access_internal_events = today_counts["access_internal_events"]
+    active_bans = today_counts.get("bans", 0)
+    geoblocks = today_counts.get("geoblocks", 0)
+    access_external_events = today_counts.get("access_external_events", 0)
+    access_internal_events = today_counts.get("access_internal_events", 0)
     security_data_plugins = [
         plugin_id
         for plugin_id in ["crowdsec", "geoblock_log"]
@@ -716,6 +716,7 @@ def ip_explorer_page(ip: str, request: Request, db: Session = Depends(get_db)):
     for _plugin_id, registration in manager.web_registrations():
         plugin_ip_panels.extend(registration.ip_page_panels)
     action_dry_run = get_setting_value(db, "action_dry_run", "true").lower() == "true"
+    available_ip_actions = manager.available_actions(db, "ip", ip)
     return render(
         request,
         db,
@@ -726,6 +727,7 @@ def ip_explorer_page(ip: str, request: Request, db: Session = Depends(get_db)):
         count_widgets=count_widgets,
         local_ip_target=is_local_ip_value(ip),
         action_dry_run=action_dry_run,
+        available_ip_actions=available_ip_actions,
         plugin_ip_panels=plugin_ip_panels,
         **extra_context,
     )

@@ -19,7 +19,7 @@ from app.database.session import SessionLocal
 from app.models.assets import Asset
 from app.models.core import Datasource, Diagnostic, PluginRecord
 from app.models.settings import Setting
-from app.plugins.base import CURRENT_PLUGIN_API_VERSION, ActionPlugin, DatasourcePlugin, ExportPlugin, PeriodicPlugin, Plugin, PluginContext, PluginSetting
+from app.plugins.base import ActionDefinition, CURRENT_PLUGIN_API_VERSION, ActionPlugin, DatasourcePlugin, ExportPlugin, PeriodicPlugin, Plugin, PluginContext, PluginSetting
 from app.plugins.loader import env_disable_var, import_plugin_module, is_plugin_env_disabled
 from app.core.time import utc_now
 from app.services.events import cleanup_events_by_retention, clear_duplicate_rules, compact_completed_daily_rollups, register_duplicate_rules
@@ -750,6 +750,37 @@ class PluginManager:
         for plugin in self.plugins.values():
             if isinstance(plugin, ActionPlugin):
                 result |= plugin.critical_action_types
+        return result
+
+    def action_definitions(self) -> list[tuple[str, ActionDefinition]]:
+        result: list[tuple[str, ActionDefinition]] = []
+        seen_types: set[str] = set()
+        for plugin in self.plugins.values():
+            if not isinstance(plugin, ActionPlugin):
+                continue
+            for definition in plugin.action_definitions:
+                definition_types = {definition.action_type, *definition.aliases}
+                collisions = definition_types & seen_types
+                if collisions:
+                    logger.warning(
+                        "Ignoring colliding action definition from plugin %s: %s",
+                        plugin.metadata.id,
+                        sorted(collisions),
+                    )
+                    continue
+                seen_types.update(definition_types)
+                result.append((plugin.metadata.id, definition))
+        return result
+
+    def available_actions(self, db: Session, target_type: str, target: str) -> list[tuple[str, ActionDefinition]]:
+        dry_run = get_setting_value(db, "action_dry_run", "true").lower() == "true"
+        result: list[tuple[str, ActionDefinition]] = []
+        for plugin_id, definition in self.action_definitions():
+            plugin = self.plugins.get(plugin_id)
+            if not isinstance(plugin, ActionPlugin) or target_type not in definition.target_types:
+                continue
+            if plugin.action_available(db, definition.action_type, target, dry_run):
+                result.append((plugin_id, definition))
         return result
 
     def plugin_id_for_action(self, action_type: str) -> str:

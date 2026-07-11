@@ -212,7 +212,7 @@ DE = {
     "ip.title": "IP Explorer",
     "ip.actions": "Aktionen",
     "ip.actions_dry_run": "Aktionssimulation ist aktiviert. Buttons werden ohne aktive cscli-Decision angezeigt.",
-    "ip.ban_confirm": "IP Bannen:",
+    "action.confirm": "„{label}“ für {target} ausführen?",
     "ip.active_ban": "Diese IP hat aktuell eine aktive CrowdSec-Ban-Decision",
     "ip.local_ban_disabled": "Lokale, private oder reservierte IPs/IP-Ranges werden nicht per CrowdSec gebannt. Dadurch werden versehentliche Sperren interner Netze vermieden.",
     "ip.insights": "Insights",
@@ -264,6 +264,9 @@ DE = {
     "diagnostics.recent_actions_help": "Hier erscheinen manuell ausgelöste Aktionen wie CrowdSec Ban/Unban aus dem IP Explorer. Reines Log-Parsen erzeugt hier keine Aktionen.",
     "action.type.security.ban": "Manueller CrowdSec-Ban",
     "action.type.security.unban": "Manueller CrowdSec-Unban",
+    "action.desc.security.ban": "Sperrt die IP über CrowdSec für die gewählte Dauer.",
+    "action.desc.security.unban": "Entfernt die aktive CrowdSec-Decision für die IP.",
+    "action.param.duration": "Dauer",
     "diagnostics.no_actions": "Keine Aktionen ausgelöst",
 
     "footer.update_available": "Update {version} verfügbar",

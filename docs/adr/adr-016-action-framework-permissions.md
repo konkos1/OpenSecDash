@@ -1,7 +1,7 @@
 # ADR-016 Action Framework (Permissions for Actions)
 
-> **Implementation status (2026-07-09):** Partially implemented.
-> Central action validation, confirmation checks, global-IP validation, action records, and plugin execution exist. A full asynchronous action queue is not implemented.
+> **Implementation status (2026-07-11):** Implemented.
+> Central validation, confirmation requirements, global-IP gates, audit records/events, metadata-based action registration, and registry-driven IP Explorer actions are implemented. The asynchronous queue and user management remain outside this V1 scope.
 
 
 ## Goal
@@ -312,9 +312,9 @@ without every plugin having to implement it again.
 
 ---
 
-## Implementation notes (2026-07-09)
+## Implementation notes (2026-07-11)
 
-The current implementation performs central validation for critical IP actions, rejects non-global IP targets, records actions in the `actions` table, supports confirmation requirements, and delegates execution to the owning plugin.
-
-A full background action queue is not implemented. Actions are currently protected by in-process locks and executed through the service/plugin path.
-
+- **Action scope:** Per ADR-035 (V1 Scope Freeze), V1 actions are limited to CrowdSec Ban and CrowdSec Unban. The IP Explorer examples in this ADR (Whois, Reverse DNS, GeoIP Refresh) and the Asset (Show logs, Healthcheck) and Event example actions are not implemented. The framework supports additional targets/actions generically through `target_types` and `ActionDefinition`; a future action requires a registration and a plugin `execute` hook, not framework work.
+- **Audit table:** The audit table is named `actions`, consistent with ADR-029 and ADR-036, rather than `action_log` as named in the original text.
+- **Action queue:** An asynchronous queue is not part of this ADR's text. Execution is synchronous and protected by in-process locks. The queue specified by ADR-029 remains open.
+- **Permissions:** Each action declares a `permission` value as specified by ADR-029, but permissions are always allowed in V1. User management is explicitly not V1 per ADR-035.
