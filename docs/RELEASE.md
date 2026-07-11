@@ -65,6 +65,12 @@ konkos1/opensecdash:latest
 
 The Release workflow publishes a GitHub Release for the same tag. Release notes are generated from pull requests associated with commits between the previous version tag and the new tag, not from a full commit list. Each entry includes the PR number, title, and contributor.
 
+### Insight rules rollout note
+
+If a release adds `group_by: "path"` insight rules, mention that the public remote
+ruleset will be updated only after the app release is available. Do not publish those
+rules before then: older app versions reject the entire remote ruleset.
+
 ## After publishing
 
 1. Verify the generated GitHub Release notes.
