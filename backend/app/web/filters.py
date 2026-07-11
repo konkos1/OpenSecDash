@@ -78,6 +78,14 @@ def http_status_label(value: int | None) -> str:
         return str(value)
 
 
+def insight_level_badge(level: str) -> tuple[str, str]:
+    if level in {"high", "critical"}:
+        return "✓", "certain"
+    if level == "medium":
+        return "≈", "probable"
+    return "?", "possible"
+
+
 def event_url(event: Event) -> str:
     path = event.path or ""
     if not path:
@@ -129,6 +137,7 @@ def register_filters(env: Environment) -> None:
     env.filters["url_path_quote"] = url_path_quote
     env.filters["event_url"] = event_url
     env.filters["http_status_label"] = http_status_label
+    env.filters["insight_level_badge"] = insight_level_badge
     # Was injected into every render() context; a global keeps templates
     # working without render() needing to import from pages.
     env.globals["event_data_value"] = event_data_value

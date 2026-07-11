@@ -1,7 +1,26 @@
 {
   "schema_version": 1,
-  "ruleset_version": "2026-07-02",
+  "ruleset_version": "2026-07-11",
   "rules": [
+    {
+      "id": "web.scanner_wave",
+      "title": "Scanner wave detected",
+      "description": "Requests targeting common WordPress paths were observed.",
+      "level": "high",
+      "confidence": 0.85,
+      "event_types": ["access.denied", "access.error"],
+      "path_contains_any": [
+        "/wp-login.php",
+        "/wp-admin",
+        "/xmlrpc.php",
+        "/wp-content/",
+        "/wp-includes/"
+      ],
+      "group_by": "path",
+      "window_minutes": 5,
+      "threshold": 20,
+      "min_distinct_ips": 5
+    },
     {
       "id": "web.wordpress_scan",
       "title": "Possible WordPress scan",

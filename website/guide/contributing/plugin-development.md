@@ -210,6 +210,39 @@ Use the existing `DashboardWidget` model for fields and row shapes; do not inven
 plugin-specific schema. Add matching translation keys for `title_key` and keep all
 data structured so the core templates escape it safely.
 
+### Insight rules
+
+Plugins can optionally return a declarative insight ruleset. The core imports it during
+database seeding, validates it with the same schema as bundled and remote rules, and
+stores it with the source `plugin:<plugin_id>`. Return data only: do not return Python
+code, callables, templates, or a remote URL.
+
+```python
+from typing import Any
+
+
+class Plugin(DatasourcePlugin):
+    def insight_rules(self) -> dict[str, Any] | None:
+        return {
+            "schema_version": 1,
+            "ruleset_version": "2026-07-11",
+            "rules": [
+                {
+                    "id": "my_firewall.login_probe",
+                    "title": "Repeated login probe",
+                    "event_types": ["access.denied"],
+                    "path_contains_any": ["/login"],
+                    "group_by": "ip",
+                    "window_minutes": 5,
+                    "threshold": 3,
+                }
+            ],
+        }
+```
+
+An invalid ruleset is reported as a plugin diagnostic warning and does not stop other
+plugins from seeding. Rules for plugins that are no longer loaded are deactivated.
+
 ### `DatasourcePlugin`
 
 Use this for plugins that import events.

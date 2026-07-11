@@ -416,7 +416,22 @@ def cleanup_events_by_retention(db: Session, retention_days: int, reference_time
     return int(deleted or 0)
 
 
-def _insight_exists(db: Session, insight_type: str, event_ids: list[int]) -> bool:
+def _insight_exists(
+    db: Session,
+    insight_type: str,
+    event_ids: list[int],
+    *,
+    ip: str | None = None,
+    window_start: datetime | None = None,
+) -> bool:
+    if window_start is not None:
+        cooldown = db.query(Insight).filter(Insight.type == insight_type, Insight.timestamp >= window_start)
+        if ip is None:
+            cooldown = cooldown.filter(Insight.ip.is_(None))
+        else:
+            cooldown = cooldown.filter(Insight.ip == ip)
+        if cooldown.first() is not None:
+            return True
     return (
         db.query(Insight)
         .filter(Insight.type == insight_type, Insight.related_event_ids == event_ids)

@@ -1,7 +1,11 @@
 # ADR-015: Event Correlation
 
-> **Implementation status (2026-07-09):** Partially implemented.
-> Rule-based insights and IP/asset related views exist. More complex correlation levels remain planned.
+> **Implementation status (2026-07-12):** Implemented.
+> - Deterministic rule-based correlations cover IP, asset, path, and time-window views.
+> - Pattern rules can correlate one path across multiple IPs; plugins can register validated declarative rules.
+> - IP and asset views show Certain/Probable/Possible certainty, and the dashboard lists top insights.
+> - Level 2 multi-asset/multi-country chains remain deliberately out of scope for V1.
+> - Torblock correlation is not applicable because no Torblock plugin exists.
 
 
 

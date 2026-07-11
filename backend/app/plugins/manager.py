@@ -17,14 +17,14 @@ from app.core.i18n import clear_extra_locales, register_extra_locales
 from app.core.template_context import get_setting_value
 from app.database.session import SessionLocal
 from app.models.assets import Asset
-from app.models.core import Datasource, Diagnostic, PluginRecord
+from app.models.core import Datasource, Diagnostic, InsightRule as InsightRuleModel, PluginRecord
 from app.models.settings import Setting
 from app.plugins.base import ActionDefinition, CURRENT_PLUGIN_API_VERSION, ActionPlugin, DatasourcePlugin, ExportPlugin, PeriodicPlugin, Plugin, PluginContext, PluginSetting
 from app.plugins.loader import env_disable_var, import_plugin_module, is_plugin_env_disabled
 from app.core.time import utc_now
 from app.services.events import cleanup_events_by_retention, clear_duplicate_rules, compact_completed_daily_rollups, register_duplicate_rules
 from app.services.geoip import enrich_pending_events
-from app.services.insight_rules import refresh_insight_rules
+from app.services.insight_rules import import_ruleset, invalidate_active_rules_cache, refresh_insight_rules
 from app.services.asset_updates import refresh_asset_updates
 from app.services.self_update import run_self_update_check
 
@@ -169,7 +169,8 @@ class PluginManager:
 
             diagnostic = db.query(Diagnostic).filter(Diagnostic.plugin == meta.id, Diagnostic.component == "plugin").first()
             if diagnostic is None:
-                db.add(Diagnostic(plugin=meta.id, component="plugin", status="healthy"))
+                diagnostic = Diagnostic(plugin=meta.id, component="plugin", status="healthy")
+                db.add(diagnostic)
 
             if isinstance(plugin, DatasourcePlugin):
                 datasource = db.query(Datasource).filter(Datasource.plugin_id == meta.id).first()
@@ -193,6 +194,27 @@ class PluginManager:
                 existing = db.query(Setting).filter(Setting.key == key).first()
                 if existing is None:
                     db.add(Setting(key=key, value=setting.default))
+
+            try:
+                ruleset = plugin.insight_rules()
+                if ruleset is not None:
+                    import_ruleset(db, ruleset, source=f"plugin:{meta.id}")
+            except Exception as exc:
+                diagnostic.status = "warning"
+                diagnostic.last_error = f"Insight rules import failed: {exc}"
+                diagnostic.last_run = utc_now().replace(tzinfo=None)
+                logger.warning("Failed to import insight rules for plugin %s: %s", meta.id, exc)
+
+        active_plugin_sources = {f"plugin:{plugin_id}" for plugin_id in self.plugins}
+        stale_rules = (
+            db.query(InsightRuleModel)
+            .filter(InsightRuleModel.source.startswith("plugin:"), InsightRuleModel.source.notin_(active_plugin_sources))
+            .all()
+        )
+        for rule in stale_rules:
+            rule.is_active = False
+        if stale_rules:
+            invalidate_active_rules_cache(db)
         db.commit()
         logger.debug("Seeded %d plugin records", len(self.plugins))
 

@@ -252,6 +252,7 @@ def core_dashboard_widgets(
     country_heatmap: list[dict[str, object]] | None = None,
     attack_hours: list[dict[str, int | str]] | None = None,
     access_hours: list[dict[str, int | str]] | None = None,
+    top_insights: list[dict[str, str | int]] | None = None,
     latest_security_events: list[Event] | None = None,
     trend_rows: list[dict[str, str | int]] | None = None,
 ) -> list[DashboardWidget]:
@@ -344,6 +345,27 @@ def core_dashboard_widgets(
                 title_key="dashboard.top_access_hours",
                 order=10,
                 rows=hour_rows(access_hours),
+                empty_key="dashboard.no_data",
+            )
+        )
+    if top_insights is not None:
+        widgets.append(
+            DashboardWidget(
+                id="core.top_insights",
+                type="table",
+                section="feed",
+                title_key="dashboard.top_insights",
+                help_key="dashboard.top_insights_help",
+                order=5,
+                rows=tuple(
+                    {
+                        "label": str(insight["title"]),
+                        "insight_type": str(insight["type"]),
+                        "value": int(insight["count"]),
+                        "href": "/events?today=true",
+                    }
+                    for insight in top_insights
+                ),
                 empty_key="dashboard.no_data",
             )
         )
@@ -443,6 +465,7 @@ def dashboard_layout_widget_ids(db: Session) -> set[str]:
                 country_heatmap=[] if country_data_plugins else None,
                 attack_hours=[] if security_data_plugins else None,
                 access_hours=[] if enabled_plugins["traefik_log"] else None,
+                top_insights=[] if country_data_plugins else None,
                 latest_security_events=[] if security_data_plugins else None,
                 trend_rows=[] if security_data_plugins else None,
             ),
@@ -554,6 +577,19 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
 
     attack_hours = top_hours_for_plugins(security_data_plugins, "security.*", "hour_security")
     access_hours = top_hours_for_plugins(["traefik_log"] if enabled_plugins["traefik_log"] else [], "access.*", "hour_access")
+    top_insights: list[dict[str, str | int]] = []
+    if country_data_plugins:
+        top_insights = [
+            {"type": str(insight_type), "count": int(count), "title": str(title)}
+            for insight_type, count, title in (
+                db.query(Insight.type, func.count(Insight.id), func.max(Insight.title))
+                .filter(Insight.timestamp >= since)
+                .group_by(Insight.type)
+                .order_by(func.count(Insight.id).desc())
+                .limit(5)
+                .all()
+            )
+        ]
     latest_security_events: list[Event] = []
     if security_data_plugins:
         latest_security_events = (
@@ -579,6 +615,7 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
                 country_heatmap=country_heatmap if country_data_plugins else None,
                 attack_hours=attack_hours if security_data_plugins else None,
                 access_hours=access_hours if enabled_plugins["traefik_log"] else None,
+                top_insights=top_insights if country_data_plugins else None,
                 latest_security_events=latest_security_events if security_data_plugins else None,
                 trend_rows=trend_rows,
             ),
@@ -1055,6 +1092,15 @@ def asset_page(system_id: int, request: Request, show_inactive: bool = False, as
         else []
     )
     insights = dedupe_insights_for_display(raw_insights, 50, include_ip=True)
+    top_asset_insight = None
+    if app_ids:
+        top_asset_insight = (
+            db.query(Insight.type, func.count(Insight.id), func.max(Insight.title))
+            .filter(Insight.asset_id.in_(app_ids))
+            .group_by(Insight.type)
+            .order_by(func.count(Insight.id).desc())
+            .first()
+        )
     mqtt_plugin_enabled = (
         get_setting_value(db, "plugin.mqtt.enabled", get_setting_value(db, "plugin.mqtt-hass.enabled", "false")) == "true"
     )
@@ -1067,6 +1113,7 @@ def asset_page(system_id: int, request: Request, show_inactive: bool = False, as
         events=events,
         host_event_sections=host_event_sections,
         insights=insights,
+        top_asset_insight=top_asset_insight,
         focused_asset=focused_asset,
         show_inactive=show_inactive,
         mqtt_plugin_enabled=mqtt_plugin_enabled,

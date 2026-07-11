@@ -194,6 +194,12 @@ class Plugin:
         """Plugin-provided event dedupe rules (see app.services.events)."""
         return ()
 
+    def insight_rules(self) -> dict[str, Any] | None:
+        """Optional declarative insight ruleset (same JSON schema as
+        default-rules.json). Validated by the core; data only, never code.
+        """
+        return None
+
     def ip_page_context(self, db: Session, ip: str) -> dict[str, Any]:
         """Extra template context for the IP explorer page (side-effect-free).
 

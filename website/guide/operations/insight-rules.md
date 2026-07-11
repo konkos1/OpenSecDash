@@ -40,6 +40,21 @@ The default ruleset includes patterns for common web probes, for example:
 - exposed Git repository paths such as `/.git/config`
 - repeated generic admin panel probes
 
+## Pattern rules and cooldowns
+
+Rules can use either grouping mode:
+
+- `group_by: "ip"` counts matching requests from the triggering IP.
+- `group_by: "path"` counts matching requests for the same path pattern across IPs.
+
+`min_distinct_ips` sets how many different IPs must match. It defaults to `1` and
+accepts values from `1` to `1000`. For example, the bundled scanner-wave rule
+requires 20 requests to common WordPress paths from at least 5 IPs in 5 minutes.
+
+After a rule creates an insight, OpenSecDash applies a cooldown for that rule and
+correlation key for the rule window. Repeated matching events during that window do
+not create duplicate insights. Raw events remain unchanged.
+
 ## Diagnostics and debug reports
 
 Diagnostics shows **Insights engine** as a core plugin, including whether remote rules were loaded or whether OpenSecDash is using database-imported/default rules.
@@ -53,6 +68,9 @@ Debug reports include `insight-rules.txt` with:
 - rule count
 - last fetch time
 - active rule IDs/titles and their source (`bundled` or `remote`)
+
+Plugin-provided rules use a `plugin:<plugin_id>` source and appear in the same
+diagnostic summary after validation.
 
 ## Rule format
 
