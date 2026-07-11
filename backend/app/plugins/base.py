@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     # Type-only import keeps base.py free of FastAPI/Jinja at runtime while the
     # web() hook can still annotate its return type. See app.plugins.web.
     from app.plugins.web import PluginWebRegistration
+    from app.web.dashboard import DashboardWidget
 
 # Keep this module intentionally dependency-light: external plugins import it as
 # their public API surface. Changes here should be backwards compatible or paired
@@ -208,6 +209,15 @@ class Plugin:
 
         Each dict has ``key`` (i18n suffix under "ip.count."), ``value`` and
         ``href``. Only shown while the plugin is enabled - the plugin decides.
+        """
+        return []
+
+    def dashboard_widgets(self, db: Session) -> list["DashboardWidget"]:  # noqa: F821
+        """Counter/table/feed/trend widgets this plugin contributes to the dashboard.
+
+        Descriptors only (validated and rendered by core), never HTML. Only return
+        widgets while the plugin is enabled - the plugin decides, mirroring
+        ``ip_page_count_widgets``. See app.web.dashboard.DashboardWidget.
         """
         return []
 

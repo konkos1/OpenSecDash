@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from app.core import plugin_registry
 from app.core.logging import configure_logging_from_db, redact_sensitive, redacted_setting_value
 from app.core.template_context import get_setting_value
-from app.core.time import resolve_timezone, utc_now
+from app.core.time import utc_now
 from app.core.version import get_app_version
 from app.database.dependencies import get_db
 from app.models.assets import Asset
@@ -26,6 +26,13 @@ from app.models.core import Action, AggregationDaily, AggregationMonthly, Dataso
 from app.models.events import Event
 from app.models.settings import Setting
 from app.models.systems import System
+from app.services.dashboard_metrics import (
+    dashboard_delta as _dashboard_delta,
+    dashboard_metric_counts as _dashboard_metric_counts,
+    dashboard_today_rollup_key as _dashboard_today_rollup_key,
+    dashboard_yesterday_rollup_key as _dashboard_yesterday_rollup_key,
+    dashboard_yesterday_summary as _dashboard_yesterday_summary,
+)
 from app.services.insight_rules import debug_summary as insight_rules_debug_summary
 from app.services.asset_updates import refresh_asset_update
 from app.plugins.manager import get_plugin_manager
@@ -207,23 +214,11 @@ def rollup_summary(db: Session, period: str, value: str) -> dict[str, int] | Non
 
 
 def dashboard_yesterday_rollup_key(timezone_name: str | None) -> str:
-    timezone = resolve_timezone(timezone_name)
-    return (utc_now().astimezone(timezone) - timedelta(days=1)).strftime("%Y-%m-%d")
+    return _dashboard_yesterday_rollup_key(timezone_name, now=utc_now())
 
 
 def dashboard_today_rollup_key(since: datetime) -> str | None:
-    """Return today's daily-rollup key when it exactly matches the UI day.
-
-    Daily rollups are stored by UTC calendar day. The dashboard's `since` is
-    the configured UI day's start converted to UTC. For UTC/auto timezone this
-    is the same boundary and we can answer dashboard counters from rollups. For
-    non-UTC UI timezones the local day can span two UTC rollup rows, so keep
-    the existing live-event fallback until hourly/local-day rollups exist.
-    """
-    utc_day_start = utc_now().replace(tzinfo=None, hour=0, minute=0, second=0, microsecond=0)
-    if since == utc_day_start:
-        return since.strftime("%Y-%m-%d")
-    return None
+    return _dashboard_today_rollup_key(since, now=utc_now())
 
 
 def dashboard_metric_counts(
@@ -232,51 +227,7 @@ def dashboard_metric_counts(
     start: datetime,
     end: datetime | None = None,
 ) -> dict[str, int]:
-    def in_range(query):
-        query = query.filter(Event.event_time >= start)
-        if end is not None:
-            query = query.filter(Event.event_time < end)
-        return query
-
-    bans = (
-        in_range(db.query(Event).filter(Event.event_type.startswith("security.ban"), Event.plugin == "crowdsec")).count()
-        if enabled_plugins["crowdsec"]
-        else 0
-    )
-    geoblocks = (
-        in_range(db.query(Event).filter(Event.event_type == "security.geoblock", Event.plugin == "geoblock_log")).count()
-        if enabled_plugins["geoblock_log"]
-        else 0
-    )
-    access_external_events = 0
-    access_internal_events = 0
-    if enabled_plugins["traefik_log"]:
-        # Plain SQL counts on the precomputed is_local_ip column - this runs
-        # on every dashboard render/auto-refresh and used to pull every
-        # matching IP into Python just to classify it.
-        def access_count(is_local: bool) -> int:
-            return in_range(
-                db.query(Event).filter(
-                    Event.event_type.startswith("access."),
-                    Event.plugin == "traefik_log",
-                    Event.ip.isnot(None),
-                    Event.ip != "",
-                    Event.is_local_ip == is_local,
-                )
-            ).count()
-
-        access_internal_events = access_count(True)
-        access_external_events = access_count(False)
-    return {
-        "bans": bans,
-        "geoblocks": geoblocks,
-        "access_external_events": access_external_events,
-        "access_internal_events": access_internal_events,
-    }
-
-
-def _plugin_has_data_before(db: Session, plugin: str, cutoff: datetime) -> bool:
-    return db.query(Event.id).filter(Event.plugin == plugin, Event.event_time < cutoff).first() is not None
+    return _dashboard_metric_counts(db, enabled_plugins, start, end)
 
 
 def dashboard_yesterday_summary(
@@ -285,137 +236,18 @@ def dashboard_yesterday_summary(
     since: datetime,
     enabled_plugins: dict[str, bool],
 ) -> dict[str, int]:
-    """Yesterday's counts for the dashboard delta widgets, in local-calendar terms.
-
-    Events are always stored in UTC; timezone only applies at read time so
-    changing the setting never leaves stale, timezone-tagged data behind. Raw
-    events give an exact local-day count (mirroring `since` for "today"), but
-    retention may already have deleted them for "yesterday" - the daily rollup
-    (bucketed by UTC calendar day, not local calendar day) is used as a
-    best-effort fallback in that case, since a whole UTC-day bucket can't be
-    sliced at an arbitrary local-day boundary.
-    """
-    yesterday_start = since - timedelta(days=1)
-    yesterday_end = since
-    try:
-        retention_days = int(get_setting_value(db, "retention_days", "30"))
-    except (TypeError, ValueError):
-        retention_days = 30
-    retention_cutoff = utc_now().replace(tzinfo=None) - timedelta(days=retention_days)
-    if retention_days <= 0 or yesterday_start >= retention_cutoff:
-        counts = dashboard_metric_counts(db, enabled_plugins, yesterday_start, yesterday_end)
-
-        # Drop metrics whose plugin has no event older than yesterday - a
-        # fresh install, a plugin enabled today, or a log rotated at local
-        # midnight all mean "yesterday" only ever saw a partial day (or a few
-        # leftover lines), not a real comparison baseline. dashboard_delta
-        # already treats a missing value the same as "no prior data" and
-        # shows "new" instead of computing a percentage against a near-zero,
-        # unrepresentative number. Only applies to this raw-events branch:
-        # reaching the rollup branch below already implies the app has been
-        # running for at least retention_days, so that scenario can't happen
-        # there - and rollups are built incrementally as events are first
-        # ingested, so they don't have a "partial recent tail" to begin with.
-        if not enabled_plugins.get("crowdsec") or not _plugin_has_data_before(db, "crowdsec", yesterday_start):
-            counts.pop("bans", None)
-        if not enabled_plugins.get("geoblock_log") or not _plugin_has_data_before(db, "geoblock_log", yesterday_start):
-            counts.pop("geoblocks", None)
-        if not enabled_plugins.get("traefik_log") or not _plugin_has_data_before(db, "traefik_log", yesterday_start):
-            counts.pop("access_external_events", None)
-            counts.pop("access_internal_events", None)
-        return counts
-
-    return rollup_summary(db, "day", dashboard_yesterday_rollup_key(timezone_name)) or {}
-
-
-DASHBOARD_DELTA_PERCENT_CAP = 999
+    return _dashboard_yesterday_summary(db, timezone_name, since, enabled_plugins, now=utc_now())
 
 
 def dashboard_delta(current: int, previous: int | None) -> dict[str, str]:
-    previous = previous or 0
-    if previous == 0:
-        if current == 0:
-            return {"label": "±0%", "class": "dashboard-delta-same"}
-        return {"label_key": "dashboard.delta_new", "class": "dashboard-delta-up"}
-    percent = round(((current - previous) / previous) * 100)
-    # A tiny (but non-zero) previous value - a handful of leftover events from
-    # a freshly rotated log, for example - can blow this up to five-digit
-    # percentages that are technically correct but meaningless as a display.
-    # Capping is a second line of defense; dashboard_yesterday_summary is the
-    # primary fix, dropping such a value entirely so it never reaches here.
-    # Only an upper cap is needed: counts can't go negative, so a decrease is
-    # always bounded at -100%.
-    if percent > DASHBOARD_DELTA_PERCENT_CAP:
-        return {"label": f">+{DASHBOARD_DELTA_PERCENT_CAP}%", "class": "dashboard-delta-up"}
-    if percent > 0:
-        return {"label": f"+{percent}%", "class": "dashboard-delta-up"}
-    if percent < 0:
-        return {"label": f"{percent}%", "class": "dashboard-delta-down"}
-    return {"label": "±0%", "class": "dashboard-delta-same"}
+    return _dashboard_delta(current, previous)
 
 
 def core_dashboard_widgets(
     db: Session,
-    enabled_plugins: dict[str, bool],
-    active_bans: int,
-    geoblocks: int,
-    access_external_events: int,
-    access_internal_events: int,
-    yesterday_summary: dict[str, int],
 ) -> list[DashboardWidget]:
-    """Build the phase-one core counter descriptors from existing metrics."""
+    """Build the core-owned asset counter descriptors."""
     widgets: list[DashboardWidget] = []
-    if enabled_plugins["crowdsec"]:
-        widgets.append(
-            DashboardWidget(
-                id="crowdsec.active_bans",
-                type="counter",
-                section="security",
-                title_key="dashboard.active_bans",
-                order=10,
-                value=active_bans,
-                href="/events?event_type=security.ban*&today=true",
-                delta=dashboard_delta(active_bans, yesterday_summary.get("bans")),
-            )
-        )
-    if enabled_plugins["geoblock_log"]:
-        widgets.append(
-            DashboardWidget(
-                id="geoblock_log.geoblocks_today",
-                type="counter",
-                section="security",
-                title_key="dashboard.geoblocks_today",
-                order=20,
-                value=geoblocks,
-                href="/events?event_type=security.geoblock&today=true",
-                delta=dashboard_delta(geoblocks, yesterday_summary.get("geoblocks")),
-            )
-        )
-    if enabled_plugins["traefik_log"]:
-        widgets.extend(
-            [
-                DashboardWidget(
-                    id="traefik_log.access_external_today",
-                    type="counter",
-                    section="activity",
-                    title_key="dashboard.access_external_today",
-                    order=10,
-                    value=access_external_events,
-                    href="/events?event_type=access.*&today=true&hide_local_ips=true",
-                    delta=dashboard_delta(access_external_events, yesterday_summary.get("access_external_events")),
-                ),
-                DashboardWidget(
-                    id="traefik_log.access_internal_today",
-                    type="counter",
-                    section="activity",
-                    title_key="dashboard.access_internal_today",
-                    order=20,
-                    value=access_internal_events,
-                    href="/events?event_type=access.*&today=true&show_local_ips=true",
-                    delta=dashboard_delta(access_internal_events, yesterday_summary.get("access_internal_events")),
-                ),
-            ]
-        )
     if assets_feature_enabled(db):
         widgets.extend(
             [
@@ -463,7 +295,6 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
         "geoblock_log": is_plugin_enabled(db, "geoblock_log"),
         "traefik_log": is_plugin_enabled(db, "traefik_log"),
     }
-    yesterday_summary = dashboard_yesterday_summary(db, timezone_name, since, enabled_plugins)
     country_data_plugins = [
         plugin_id
         for plugin_id in plugin_registry.ids_with_capability("datasource")
@@ -471,12 +302,6 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
     ]
 
     today_rollup_key = dashboard_today_rollup_key(since)
-    today_rollup_summary = rollup_summary(db, "day", today_rollup_key) if today_rollup_key else None
-    today_counts = today_rollup_summary or dashboard_metric_counts(db, enabled_plugins, since)
-    active_bans = today_counts.get("bans", 0)
-    geoblocks = today_counts.get("geoblocks", 0)
-    access_external_events = today_counts.get("access_external_events", 0)
-    access_internal_events = today_counts.get("access_internal_events", 0)
     security_data_plugins = [
         plugin_id
         for plugin_id in ["crowdsec", "geoblock_log"]
@@ -553,15 +378,7 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
         )
     dashboard_widgets = collect_dashboard_widgets(
         db,
-        core_dashboard_widgets(
-            db,
-            enabled_plugins,
-            active_bans,
-            geoblocks,
-            access_external_events,
-            access_internal_events,
-            yesterday_summary,
-        ),
+        core_dashboard_widgets(db),
     )
 
     max_country_count = max((count for _, count in top_countries), default=0)

@@ -12,7 +12,9 @@ from sqlalchemy.orm import Session
 from app.core.template_context import get_setting_value
 from app.models.events import Event
 from app.plugins.base import ActionDefinition, ActionParameter, ActionPlugin, DatasourcePlugin, PeriodicPlugin, PluginMetadata, PluginSetting, tail_text_file
+from app.services.dashboard_metrics import metric_delta, today_counts, yesterday_counts
 from app.services.events import normalize_event_time
+from app.web.dashboard import DashboardWidget
 
 from .locales import LOCALES
 from .services.decisions import active_decision_for_ip, crowdsec_cscli_status, sync_crowdsec_decisions
@@ -312,6 +314,25 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
                 "value": db.query(Event).filter(Event.ip == ip, Event.event_type.startswith("security.ban")).count(),
                 "href": f"/events?ip={ip}&event_type=security.ban",
             }
+        ]
+
+    def dashboard_widgets(self, db: Session) -> list[DashboardWidget]:
+        if get_setting_value(db, "plugin.crowdsec.enabled", "false") != "true":
+            return []
+        current = today_counts(db)
+        previous = yesterday_counts(db)
+        value = current.get("bans", 0)
+        return [
+            DashboardWidget(
+                id="crowdsec.active_bans",
+                type="counter",
+                section="security",
+                title_key="dashboard.active_bans",
+                order=10,
+                value=value,
+                href="/events?event_type=security.ban*&today=true",
+                delta=metric_delta(value, previous.get("bans")),
+            )
         ]
 
     def web(self):

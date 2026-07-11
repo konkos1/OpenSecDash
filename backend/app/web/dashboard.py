@@ -6,6 +6,8 @@ from typing import Any, Iterable, Literal
 
 from sqlalchemy.orm import Session
 
+from app.plugins.manager import get_plugin_manager
+
 
 WidgetType = Literal["counter", "table", "feed", "trend"]
 WidgetSection = Literal["security", "activity", "assets", "trends", "feed"]
@@ -53,16 +55,24 @@ def validate_widget(widget: DashboardWidget) -> bool:
 
 
 def collect_dashboard_widgets(db: Session, core_widgets: Iterable[DashboardWidget]) -> list[DashboardWidget]:
-    """Validate, deduplicate, and deterministically order core descriptors."""
-    del db  # The session is used by plugin providers starting in phase 2.
+    """Collect, validate, deduplicate, and deterministically order descriptors."""
     widgets: list[DashboardWidget] = []
     seen_ids: set[str] = set()
-    for widget in core_widgets:
-        if not validate_widget(widget):
-            logger.warning("Skipping invalid dashboard widget %s", widget.id)
-            continue
-        if widget.id in seen_ids:
-            continue
-        seen_ids.add(widget.id)
-        widgets.append(widget)
+
+    def add_widgets(candidates: Iterable[DashboardWidget]) -> None:
+        for widget in candidates:
+            if not validate_widget(widget):
+                logger.warning("Skipping invalid dashboard widget %s", widget.id)
+                continue
+            if widget.id in seen_ids:
+                continue
+            seen_ids.add(widget.id)
+            widgets.append(widget)
+
+    add_widgets(core_widgets)
+    for plugin in get_plugin_manager().plugins.values():
+        try:
+            add_widgets(plugin.dashboard_widgets(db))
+        except Exception:
+            logger.warning("Dashboard widget hook failed for plugin %s", plugin.metadata.id, exc_info=True)
     return sorted(widgets, key=lambda item: (_SECTION_ORDER[item.section], item.order, item.id))

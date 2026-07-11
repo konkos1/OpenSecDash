@@ -11,7 +11,9 @@ from sqlalchemy.orm import Session
 from app.core.template_context import get_setting_value
 from app.models.events import Event
 from app.plugins.base import DatasourcePlugin, PluginMetadata, PluginSetting, tail_text_file
+from app.services.dashboard_metrics import metric_delta, today_counts, yesterday_counts
 from app.services.events import classify_access_status, normalize_event_time
+from app.web.dashboard import DashboardWidget
 
 from .locales import LOCALES
 
@@ -126,6 +128,36 @@ class Plugin(DatasourcePlugin):
                 "value": db.query(Event).filter(Event.ip == ip, Event.event_type.startswith("access.")).count(),
                 "href": f"/events?ip={ip}&event_type=access.*",
             }
+        ]
+
+    def dashboard_widgets(self, db: Session) -> list[DashboardWidget]:
+        if get_setting_value(db, "plugin.traefik_log.enabled", "false") != "true":
+            return []
+        current = today_counts(db)
+        previous = yesterday_counts(db)
+        external_value = current.get("access_external_events", 0)
+        internal_value = current.get("access_internal_events", 0)
+        return [
+            DashboardWidget(
+                id="traefik_log.access_external_today",
+                type="counter",
+                section="activity",
+                title_key="dashboard.access_external_today",
+                order=10,
+                value=external_value,
+                href="/events?event_type=access.*&today=true&hide_local_ips=true",
+                delta=metric_delta(external_value, previous.get("access_external_events")),
+            ),
+            DashboardWidget(
+                id="traefik_log.access_internal_today",
+                type="counter",
+                section="activity",
+                title_key="dashboard.access_internal_today",
+                order=20,
+                value=internal_value,
+                href="/events?event_type=access.*&today=true&show_local_ips=true",
+                delta=metric_delta(internal_value, previous.get("access_internal_events")),
+            ),
         ]
 
     def web(self):
