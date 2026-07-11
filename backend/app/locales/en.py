@@ -264,6 +264,9 @@ EN = {
     "diagnostics.recent_actions_help": "Shows manually triggered actions such as CrowdSec ban/unban from the IP Explorer. Plain log parsing does not create actions here.",
     "action.type.security.ban": "Manual CrowdSec ban",
     "action.type.security.unban": "Manual CrowdSec unban",
+    "action.desc.security.ban": "Bans the IP via CrowdSec for the selected duration.",
+    "action.desc.security.unban": "Removes the active CrowdSec decision for the IP.",
+    "action.param.duration": "Duration",
     "diagnostics.no_actions": "No actions triggered",
 
     "footer.update_available": "Update {version} available",

@@ -222,11 +222,56 @@ class PeriodicPlugin(Plugin):
         return None
 
 
+@dataclass(frozen=True)
+class ActionParameter:
+    """Declarative form parameter of an action (rendered by the core UI)."""
+
+    name: str
+    kind: str = "select"
+    options: tuple[str, ...] = ()
+    default: str | None = None
+    label_key: str | None = None
+
+
+@dataclass(frozen=True)
+class ActionDefinition:
+    """ADR-016 "Action Definition" / ADR-029 "Action registration"."""
+
+    action_type: str
+    label_key: str
+    target_types: frozenset[str]
+    aliases: frozenset[str] = frozenset()
+    description_key: str | None = None
+    critical: bool = False
+    permission: str = ""
+    parameters: tuple[ActionParameter, ...] = ()
+
+
 class ActionPlugin(Plugin):
-    # Action types this plugin handles; used for routing, plugin_id attribution
-    # and (via critical_action_types) the confirmation/IP-validation gate.
-    action_types: frozenset[str] = frozenset()
-    critical_action_types: frozenset[str] = frozenset()
+    # Action definitions are the source for routing, plugin_id attribution and
+    # (via critical_action_types) the confirmation/IP-validation gate.
+    action_definitions: tuple[ActionDefinition, ...] = ()
+
+    @property
+    def action_types(self) -> frozenset[str]:
+        return frozenset(
+            action_type
+            for definition in self.action_definitions
+            for action_type in (definition.action_type, *definition.aliases)
+        )
+
+    @property
+    def critical_action_types(self) -> frozenset[str]:
+        return frozenset(
+            action_type
+            for definition in self.action_definitions
+            if definition.critical
+            for action_type in (definition.action_type, *definition.aliases)
+        )
+
+    def action_available(self, db: Session, action_type: str, target: str, dry_run: bool) -> bool:
+        """Whether the action should be offered for this target right now."""
+        return True
 
     async def execute(
         self,
