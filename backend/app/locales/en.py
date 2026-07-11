@@ -70,6 +70,7 @@ EN = {
     "dashboard.save_layout": "Save layout",
     "dashboard.reset_layout": "Reset layout",
     "dashboard.no_enabled_widgets": "No dashboard widgets are visible because the related data plugins are disabled.",
+    "dashboard.no_visible_widgets": "No dashboard widgets are visible. Use Customize dashboard to show at least one widget.",
     "dashboard.delta_vs_yesterday": "Compared with yesterday's rollup",
     "dashboard.delta_new": "new",
 

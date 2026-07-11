@@ -57,10 +57,6 @@
         </a>
       {% endfor %}
     </section>
-  {% else %}
-    <section class="card">
-      <p class="muted">{{ t("dashboard.no_enabled_widgets") }}</p>
-    </section>
   {% endif %}
 
   {% set table_widgets = dashboard_widgets|selectattr("type", "equalto", "table")|list %}
@@ -119,6 +115,12 @@
       {% for widget in feed_widgets %}
         {% include "dashboard_feed.html" %}
       {% endfor %}
+    </section>
+  {% endif %}
+
+  {% if not dashboard_widgets %}
+    <section class="card">
+      <p class="muted">{{ t("dashboard.no_visible_widgets") if dashboard_layout_widgets or event_data_plugins_enabled else t("dashboard.no_enabled_widgets") }}</p>
     </section>
   {% endif %}
 

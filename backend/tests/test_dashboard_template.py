@@ -13,6 +13,7 @@ from app.web.dashboard import DashboardWidget
 
 
 def render_dashboard(*, event_plugins_enabled: bool, dashboard_widgets: list[DashboardWidget] | None = None) -> str:
+    all_dashboard_widgets = dashboard_widgets or []
     env = Environment(
         loader=FileSystemLoader("app/templates"),
         autoescape=select_autoescape(["html"]),
@@ -32,7 +33,9 @@ def render_dashboard(*, event_plugins_enabled: bool, dashboard_widgets: list[Das
         enabled_plugins={"crowdsec": event_plugins_enabled, "geoblock_log": False, "traefik_log": False, "json_assets": False, "proxmox_assets": False},
         event_plugins_enabled=event_plugins_enabled,
         t=lambda key: key,
-        dashboard_widgets=dashboard_widgets or [],
+        dashboard_widgets=[widget for widget in all_dashboard_widgets if widget.visible],
+        dashboard_layout_widgets=all_dashboard_widgets,
+        event_data_plugins_enabled=event_plugins_enabled,
         top_countries=[],
         attack_hours=[],
         access_hours=[],
@@ -124,6 +127,29 @@ def test_dashboard_renders_table_feed_trend_and_empty_states():
     assert "dashboard.no_data" in html
     assert "security.ban" in html
     assert "2026-07-11" in html
+
+
+def test_dashboard_distinguishes_disabled_data_plugins_from_hidden_widgets():
+    disabled_html = render_dashboard(event_plugins_enabled=False)
+    hidden_html = render_dashboard(
+        event_plugins_enabled=True,
+        dashboard_widgets=[
+            DashboardWidget(
+                id="crowdsec.active_bans",
+                type="counter",
+                section="security",
+                title_key="dashboard.active_bans",
+                value=1,
+                href="/events?event_type=security.ban*&today=true",
+                visible=False,
+            )
+        ],
+    )
+
+    assert "dashboard.no_enabled_widgets" in disabled_html
+    assert "dashboard.no_visible_widgets" not in disabled_html
+    assert "dashboard.no_visible_widgets" in hidden_html
+    assert "dashboard.no_enabled_widgets" not in hidden_html
 
 
 def test_dashboard_local_date_uses_configured_timezone(db_session, monkeypatch):

@@ -589,6 +589,7 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
         "dashboard.html",
         dashboard_widgets=visible_dashboard_widgets,
         dashboard_layout_widgets=dashboard_layout_widgets,
+        event_data_plugins_enabled=bool(country_data_plugins),
         enabled_plugins=enabled_plugins,
         top_countries=top_countries,
         attack_hours=attack_hours,
