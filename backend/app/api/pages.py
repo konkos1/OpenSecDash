@@ -36,6 +36,7 @@ from app.services.dashboard_metrics import (
     dashboard_yesterday_summary as _dashboard_yesterday_summary,
 )
 from app.services.insight_rules import debug_summary as insight_rules_debug_summary
+from app.services.notifications import invalidate_rules_cache
 from app.services.asset_updates import refresh_asset_update
 from app.plugins.manager import get_plugin_manager
 from app.services.asset_actions import (
@@ -1523,6 +1524,7 @@ async def save_settings(
                     text_value = clean_url_value(text_value)
                 save_setting(db, key, text_value)
         db.commit()
+        invalidate_rules_cache()
         get_plugin_manager().refresh_health_diagnostics(db)
         configure_logging_from_db(db)
 

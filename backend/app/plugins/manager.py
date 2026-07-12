@@ -22,7 +22,7 @@ from app.models.settings import Setting
 from app.plugins.base import ActionDefinition, CURRENT_PLUGIN_API_VERSION, ActionPlugin, DatasourcePlugin, ExportPlugin, PeriodicPlugin, Plugin, PluginContext, PluginSetting
 from app.plugins.loader import env_disable_var, import_plugin_module, is_plugin_env_disabled
 from app.core.time import utc_now
-from app.services.events import cleanup_events_by_retention, clear_duplicate_rules, compact_completed_daily_rollups, register_duplicate_rules
+from app.services.events import cleanup_events_by_retention, clear_duplicate_rules, compact_completed_daily_rollups, register_duplicate_rules, store_event
 from app.services.geoip import enrich_pending_events
 from app.services.insight_rules import import_ruleset, invalidate_active_rules_cache, refresh_insight_rules
 from app.services.asset_updates import refresh_asset_updates
@@ -757,9 +757,21 @@ class PluginManager:
         if diagnostic is None:
             diagnostic = Diagnostic(plugin=plugin_id, component="plugin")
             db.add(diagnostic)
+        previous_status = diagnostic.status
         diagnostic.status = status
         diagnostic.last_error = error
         diagnostic.last_run = utc_now().replace(tzinfo=None)
+        if previous_status != "error" and status == "error":
+            store_event(
+                db,
+                source="System",
+                source_id="diagnostics",
+                plugin="core",
+                plugin_id="core",
+                event_type="system.plugin_error",
+                severity="error",
+                data_json={"plugin": plugin_id, "message": error},
+            )
 
     def action_plugin_for(self, action_type: str) -> ActionPlugin | None:
         for plugin in self.plugins.values():
