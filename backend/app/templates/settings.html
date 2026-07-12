@@ -9,10 +9,15 @@
     <h2 class="text-2xl font-semibold mb-5">{{ t("settings.title") }}</h2>
 
     <form class="space-y-5" method="post" action="/settings" data-unsaved-warning="{{ t('settings.unsaved_changes') }}" x-data='{ settings: {{ plugin_settings_state | tojson }}, logFileEnabled: {{ log_file_enabled | tojson }}, notificationsEnabled: {{ notifications_enabled | tojson }} }'>
+        <button class="sr-only" type="submit" aria-hidden="true" tabindex="-1">{{ t("common.save_button") }}</button>
         <section class="card grid grid-cols-1 md:grid-cols-2 gap-4">
             <h3 class="font-semibold md:col-span-2">{{ t("settings.core") }}</h3>
             <label>{{ t("settings.domain") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.domain') }}">?</button>
                 <input class="input" type="text" name="domain" value="{{ domain }}" placeholder="mydomain.com">
+            </label>
+
+            <label>{{ t("settings.instance_description") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.instance_description') }}">?</button>
+                <input class="input" type="text" name="instance_description" value="{{ instance_description }}">
             </label>
 
         <label>{{ t("settings.language") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.language') }}">?</button>
@@ -45,6 +50,15 @@
                 <option value="auto" {% if theme == 'auto' %}selected{% endif %}>{{ t("settings.theme_auto") }}</option>
                 <option value="dark" {% if theme == 'dark' %}selected{% endif %}>{{ t("settings.theme_dark") }}</option>
                 <option value="light" {% if theme == 'light' %}selected{% endif %}>{{ t("settings.theme_light") }}</option>
+            </select>
+        </label>
+
+        <label>{{ t("settings.accent_color") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.accent_color') }}">?</button>
+            <select class="input" name="instance_accent_color">
+                <option value="blue" {% if instance_accent_color == 'blue' %}selected{% endif %}>{{ t("settings.accent_blue") }}</option>
+                <option value="green" {% if instance_accent_color == 'green' %}selected{% endif %}>{{ t("settings.accent_green") }}</option>
+                <option value="orange" {% if instance_accent_color == 'orange' %}selected{% endif %}>{{ t("settings.accent_orange") }}</option>
+                <option value="red" {% if instance_accent_color == 'red' %}selected{% endif %}>{{ t("settings.accent_red") }}</option>
             </select>
         </label>
 
@@ -98,17 +112,41 @@
 
         </section>
 
-        <section class="card grid grid-cols-1 md:grid-cols-2 gap-4" :class="(settings['plugin.json_assets.enabled'] === 'true' || settings['plugin.proxmox_assets.enabled'] === 'true') ? '' : 'settings-disabled'">
-            <h3 class="font-semibold md:col-span-2">{{ t("settings.asset_update_checks") }}</h3>
-            <p class="muted text-sm md:col-span-2">{{ t("settings.asset_update_checks_help") }}</p>
+        <section class="card space-y-4">
+            <h3 class="font-semibold">{{ t("settings.branding") }}</h3>
+            <p class="muted text-sm">{{ t("settings.branding_help") }}</p>
 
-            <label>{{ t("settings.asset_updates_github_token") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.asset_updates_github_token') }}">?</button>
-                <input class="input" type="password" name="asset_updates_github_token" value="{{ asset_updates_github_token }}" :readonly="!(settings['plugin.json_assets.enabled'] === 'true' || settings['plugin.proxmox_assets.enabled'] === 'true')">
-            </label>
+            {% if branding_error %}
+                <p class="text-red-400 text-sm">{{ t("settings.branding_error." ~ branding_error) }}</p>
+            {% endif %}
 
-            <label>{{ t("settings.asset_updates_github_interval") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.asset_updates_github_interval') }}">?</button>
-                <input class="input" type="number" min="0" name="asset_updates_github_interval" value="{{ asset_updates_github_interval }}" :readonly="!(settings['plugin.json_assets.enabled'] === 'true' || settings['plugin.proxmox_assets.enabled'] === 'true')">
-            </label>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <label>{{ t("settings.custom_logo") }}
+                    <input class="input" type="file" name="logo" accept=".png,.svg,.webp,.jpg,.jpeg">
+                </label>
+                <label>{{ t("settings.custom_favicon") }}
+                    <input class="input" type="file" name="favicon" accept=".png,.svg,.webp,.ico">
+                </label>
+                <div class="md:col-span-2">
+                    <button class="btn" type="submit" formaction="/settings/branding" formenctype="multipart/form-data">{{ t("settings.branding_upload") }}</button>
+                </div>
+            </div>
+
+            {% if instance_logo %}
+                <div class="flex items-center gap-3">
+                    <img src="/instance/logo?v={{ instance_logo.updated_at }}" alt="" class="branding-preview">
+                    <span class="text-sm">{{ instance_logo.filename }}</span>
+                    <button class="btn" type="submit" formaction="/settings/branding/remove" name="kind" value="logo">{{ t("settings.branding_remove") }}</button>
+                </div>
+            {% endif %}
+
+            {% if instance_favicon %}
+                <div class="flex items-center gap-3">
+                    <img src="/instance/favicon?v={{ instance_favicon.updated_at }}" alt="" class="branding-preview">
+                    <span class="text-sm">{{ instance_favicon.filename }}</span>
+                    <button class="btn" type="submit" formaction="/settings/branding/remove" name="kind" value="favicon">{{ t("settings.branding_remove") }}</button>
+                </div>
+            {% endif %}
         </section>
 
         <section class="card grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -158,6 +196,19 @@
                     <input class="input" type="email" name="notifications_smtp_recipient" value="{{ notifications_smtp_recipient }}" placeholder="admin@example.net">
                 </label>
             </div>
+        </section>
+
+        <section class="card grid grid-cols-1 md:grid-cols-2 gap-4" :class="(settings['plugin.json_assets.enabled'] === 'true' || settings['plugin.proxmox_assets.enabled'] === 'true') ? '' : 'settings-disabled'">
+            <h3 class="font-semibold md:col-span-2">{{ t("settings.asset_update_checks") }}</h3>
+            <p class="muted text-sm md:col-span-2">{{ t("settings.asset_update_checks_help") }}</p>
+
+            <label>{{ t("settings.asset_updates_github_token") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.asset_updates_github_token') }}">?</button>
+                <input class="input" type="password" name="asset_updates_github_token" value="{{ asset_updates_github_token }}" :readonly="!(settings['plugin.json_assets.enabled'] === 'true' || settings['plugin.proxmox_assets.enabled'] === 'true')">
+            </label>
+
+            <label>{{ t("settings.asset_updates_github_interval") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.asset_updates_github_interval') }}">?</button>
+                <input class="input" type="number" min="0" name="asset_updates_github_interval" value="{{ asset_updates_github_interval }}" :readonly="!(settings['plugin.json_assets.enabled'] === 'true' || settings['plugin.proxmox_assets.enabled'] === 'true')">
+            </label>
         </section>
 
         {% for group in plugin_setting_groups %}

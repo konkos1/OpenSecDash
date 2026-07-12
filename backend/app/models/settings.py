@@ -1,4 +1,4 @@
-from sqlalchemy import String
+from sqlalchemy import BigInteger, LargeBinary, String
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
 
@@ -19,3 +19,14 @@ class Setting(Base):
     value: Mapped[str] = mapped_column(
         String(5000)
     )
+
+
+class InstanceFile(Base):
+    __tablename__ = "instance_files"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    kind: Mapped[str] = mapped_column(String(20), unique=True, index=True)
+    filename: Mapped[str] = mapped_column(String(255))
+    content_type: Mapped[str] = mapped_column(String(100))
+    data: Mapped[bytes] = mapped_column(LargeBinary)
+    updated_at: Mapped[int] = mapped_column(BigInteger)

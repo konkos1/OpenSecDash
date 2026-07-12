@@ -58,7 +58,7 @@
                         </td>
                         <td class="cell-stack" data-label="{{ t('asset.host_url') }}">
                             {% if apps_master == 'opensecdash' and app.is_active %}
-                                <button class="btn-small btn-icon" type="button" data-columns-open="asset-host-dialog-{{ app.id }}" title="{{ app.host_url or t('asset.edit_host_url') }}" aria-label="{{ t('asset.edit_host_url') }}">✎</button>
+                                <button class="btn-small btn-icon" type="button" data-columns-open="asset-host-dialog-{{ app.id }}" title="{{ app.host_url or t('asset.edit_host_url') }}" aria-label="{{ t('asset.edit_host_url') }}"><span class="icon edit-icon" aria-hidden="true"></span></button>
                                 <dialog id="asset-host-dialog-{{ app.id }}" class="columns-dialog">
                                     <div class="columns-dialog-panel">
                                         <div class="columns-dialog-header">
@@ -112,7 +112,7 @@
                         <td class="cell-stack" data-label="{{ t('assets.release') }}">
                             {% if apps_master == 'opensecdash' and app.is_active %}
                                 <div class="flex gap-2 items-center">
-                                    <button class="btn-small btn-icon" type="button" data-columns-open="asset-release-dialog-{{ app.id }}" title="{{ t('asset.edit_release_url') }}" aria-label="{{ t('asset.edit_release_url') }}">✎</button>
+                                    <button class="btn-small btn-icon" type="button" data-columns-open="asset-release-dialog-{{ app.id }}" title="{{ t('asset.edit_release_url') }}" aria-label="{{ t('asset.edit_release_url') }}"><span class="icon edit-icon" aria-hidden="true"></span></button>
                                 </div>
                                 <dialog id="asset-release-dialog-{{ app.id }}" class="columns-dialog">
                                     <div class="columns-dialog-panel">

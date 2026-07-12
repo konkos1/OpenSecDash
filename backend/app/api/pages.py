@@ -38,6 +38,7 @@ from app.services.dashboard_metrics import (
     dashboard_yesterday_summary as _dashboard_yesterday_summary,
 )
 from app.services.insight_rules import debug_summary as insight_rules_debug_summary
+from app.services.instance_branding import get_instance_file
 from app.services.notification_channels import get_channel
 from app.services.notifications import invalidate_rules_cache
 from app.services.saved_views import VIEW_SCOPES, clean_view_name, plugin_views_for_scope, view_filters_from_query, view_query_state_from_query, view_to_query
@@ -1617,6 +1618,11 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
         db,
         "settings.html",
         domain=get_setting_value(db, "domain", ""),
+        instance_description=get_setting_value(db, "instance_description", ""),
+        instance_accent_color=get_setting_value(db, "instance_accent_color", "blue"),
+        instance_logo=get_instance_file(db, "logo"),
+        instance_favicon=get_instance_file(db, "favicon"),
+        branding_error=request.query_params.get("branding_error", ""),
         language_setting=get_setting_value(db, "language", "en"),
         retention_days=get_setting_value(db, "retention_days", "30"),
         live_default=get_setting_value(db, "live_default", "true"),
@@ -1651,10 +1657,12 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
 async def save_settings(
     request: Request,
     domain: str = Form(""),
+    instance_description: str = Form(""),
     language: str = Form("en"),
     retention_days: str = Form("30"),
     live_default: str = Form("true"),
     theme: str = Form("auto"),
+    instance_accent_color: str = Form("blue"),
     timezone: str = Form("auto"),
     log_timestamp_timezone: str = Form("UTC"),
     live_page_refresh: str = Form("true"),
@@ -1686,19 +1694,23 @@ async def save_settings(
     # every page for everyone whenever a background writer holds the write
     # lock - which is exactly when users go to Settings to disable a plugin.
     def _save() -> None:
-        nonlocal language, domain, asset_source, notifications_base_url
+        nonlocal language, domain, instance_accent_color, asset_source, notifications_base_url
         if language not in {"de", "en"}:
             language = "en"
+        if instance_accent_color not in {"blue", "green", "orange", "red"}:
+            instance_accent_color = "blue"
         domain = clean_url_value(domain)
         if asset_source_type == "url":
             asset_source = clean_url_value(asset_source)
         notifications_base_url = clean_url_value(notifications_base_url)
         for key, value in {
             "domain": domain,
+            "instance_description": instance_description.strip()[:500],
             "language": language,
             "retention_days": retention_days,
             "live_default": live_default,
             "theme": theme,
+            "instance_accent_color": instance_accent_color,
             "timezone": timezone,
             "log_timestamp_timezone": log_timestamp_timezone,
             "live_page_refresh": live_page_refresh,

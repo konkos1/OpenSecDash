@@ -20,10 +20,15 @@
         {# ?v= busts the Cache-Control max-age (see main.py) on app updates. #}
         <script src="/static/vendor/htmx.min.js?v={{ app_version }}"></script>
         <script defer src="/static/vendor/alpinejs.min.js?v={{ app_version }}"></script>
-        <link rel="icon" href="/static/img/opensecdash-icon.svg" type="image/svg+xml">
-        <link rel="icon" href="/static/img/pwa/icon-192.png" sizes="192x192" type="image/png">
-        <link rel="apple-touch-icon" href="/static/img/pwa/icon-192.png">
-        <link rel="manifest" href="/static/manifest.webmanifest">
+        {% if instance_favicon_version %}
+            <link rel="icon" href="/instance/favicon?v={{ instance_favicon_version }}">
+            <link rel="apple-touch-icon" href="/instance/favicon?v={{ instance_favicon_version }}">
+        {% else %}
+            <link rel="icon" href="/static/img/opensecdash-icon.svg" type="image/svg+xml">
+            <link rel="icon" href="/static/img/pwa/icon-192.png" sizes="192x192" type="image/png">
+            <link rel="apple-touch-icon" href="/static/img/pwa/icon-192.png">
+        {% endif %}
+        <link rel="manifest" href="/manifest.webmanifest">
         <link rel="stylesheet" href="/static/css/app.css?v={{ app_version }}">
         {# tailwind.css must come AFTER app.css: the Play CDN used to inject
            its styles at runtime (i.e. last), so utilities like .grid always
@@ -33,7 +38,7 @@
         <link rel="stylesheet" href="/static/css/tailwind.css?v={{ app_version }}">
     </head>
 
-    <body class="bg-slate-950 text-slate-100 min-h-screen" data-ui-timezone="{{ timezone }}" data-theme="{{ theme }}">
+    <body class="bg-slate-950 text-slate-100 min-h-screen" data-ui-timezone="{{ timezone }}" data-theme="{{ theme }}" data-accent="{{ accent_color }}">
         {% set current_path = request.url.path %}
         {% set top_level_paths = ['/', '/assets', '/events', '/rollups', '/diagnostics', '/notifications', '/settings'] + (plugin_nav_items | map(attribute='href') | list) %}
         <header class="border-b border-slate-800 bg-slate-900/90 sticky top-0 z-10">
@@ -42,17 +47,20 @@
                     <span class="text-xl font-bold brand-title"><img src="/static/img/opensecdash-icon.svg" alt="" class="app-icon" aria-hidden="true"> {{ t("app.name") }}</span>
                     <span class="text-sm text-slate-400">{{ domain or t("common.local_instance") }}</span>
                 </a>
+                {% if instance_logo_version %}
+                    <img src="/instance/logo?v={{ instance_logo_version }}" alt="" class="instance-logo" aria-hidden="true">
+                {% endif %}
 
                 <button class="nav-menu-toggle rounded bg-slate-800 px-3 py-2" @click="menu=!menu">☰</button>
 
                 <nav class="nav-links-desktop gap-2 text-sm">
                     <a class="nav {{ 'nav-active' if current_path == '/' else '' }}" href="/">{{ t("nav.dashboard") }}</a>
                     {% for item in plugin_nav_items %}<a class="nav {{ 'nav-active' if current_path.startswith(item.active_prefix) else '' }}" href="{{ item.href }}">{{ item.label }}</a>{% endfor %}
-                    {% if asset_plugins_enabled %}<a class="nav {{ 'nav-active' if current_path.startswith('/assets') else '' }}" href="/assets">{{ t("nav.assets") }}</a>{% endif %}
                     {% if event_plugins_enabled %}<a class="nav {{ 'nav-active' if current_path.startswith('/events') or current_path.startswith('/ip') else '' }}" href="/events">{{ t("nav.events") }}</a>{% endif %}
                     {% if event_plugins_enabled %}<a class="nav {{ 'nav-active' if current_path.startswith('/rollups') else '' }}" href="/rollups">{{ t("nav.rollups") }}</a>{% endif %}
-                    <a class="nav {{ 'nav-active' if current_path.startswith('/diagnostics') else '' }}" href="/diagnostics">{{ t("nav.diagnostics") }}</a>
+                    {% if asset_plugins_enabled %}<a class="nav {{ 'nav-active' if current_path.startswith('/assets') else '' }}" href="/assets">{{ t("nav.assets") }}</a>{% endif %}
                     <a class="nav {{ 'nav-active' if current_path.startswith('/notifications') else '' }}" href="/notifications">{{ t("nav.notifications") }}</a>
+                    <a class="nav {{ 'nav-active' if current_path.startswith('/diagnostics') else '' }}" href="/diagnostics">{{ t("nav.diagnostics") }}</a>
                     <a class="nav {{ 'nav-active' if current_path.startswith('/settings') else '' }}" href="/settings">{{ t("nav.settings") }}</a>
                 </nav>
             </div>
@@ -71,11 +79,11 @@
             <nav class="nav-links-mobile px-4 pb-4 grid gap-2" x-show="menu" x-cloak>
                 <a class="nav {{ 'nav-active' if current_path == '/' else '' }}" href="/">{{ t("nav.dashboard") }}</a>
                 {% for item in plugin_nav_items %}<a class="nav {{ 'nav-active' if current_path.startswith(item.active_prefix) else '' }}" href="{{ item.href }}">{{ item.label }}</a>{% endfor %}
-                {% if asset_plugins_enabled %}<a class="nav {{ 'nav-active' if current_path.startswith('/assets') else '' }}" href="/assets">{{ t("nav.assets") }}</a>{% endif %}
                 {% if event_plugins_enabled %}<a class="nav {{ 'nav-active' if current_path.startswith('/events') or current_path.startswith('/ip') else '' }}" href="/events">{{ t("nav.events") }}</a>{% endif %}
                 {% if event_plugins_enabled %}<a class="nav {{ 'nav-active' if current_path.startswith('/rollups') else '' }}" href="/rollups">{{ t("nav.rollups") }}</a>{% endif %}
-                <a class="nav {{ 'nav-active' if current_path.startswith('/diagnostics') else '' }}" href="/diagnostics">{{ t("nav.diagnostics") }}</a>
+                {% if asset_plugins_enabled %}<a class="nav {{ 'nav-active' if current_path.startswith('/assets') else '' }}" href="/assets">{{ t("nav.assets") }}</a>{% endif %}
                 <a class="nav {{ 'nav-active' if current_path.startswith('/notifications') else '' }}" href="/notifications">{{ t("nav.notifications") }}</a>
+                <a class="nav {{ 'nav-active' if current_path.startswith('/diagnostics') else '' }}" href="/diagnostics">{{ t("nav.diagnostics") }}</a>
                 <a class="nav {{ 'nav-active' if current_path.startswith('/settings') else '' }}" href="/settings">{{ t("nav.settings") }}</a>
                 {% if event_plugins_enabled or asset_plugins_enabled %}
                     <form method="get" action="/search" class="flex gap-2">

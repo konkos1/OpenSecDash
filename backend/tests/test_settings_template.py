@@ -14,6 +14,7 @@ def test_theme_dropdown_selects_saved_theme():
         request=SimpleNamespace(url=SimpleNamespace(path="/settings")),
         language="en",
         theme="light",
+        instance_accent_color="blue",
         timezone="auto",
         domain="homelab.example",
         enabled_plugins={},
@@ -47,3 +48,5 @@ def test_theme_dropdown_selects_saved_theme():
 
     assert '<option value="light" selected>settings.theme_light</option>' in html
     assert '<option value="auto" selected>' not in html
+    assert '<button class="sr-only" type="submit" aria-hidden="true" tabindex="-1">common.save_button</button>' in html
+    assert html.index('class="sr-only"') < html.index('formaction="/settings/branding"')
