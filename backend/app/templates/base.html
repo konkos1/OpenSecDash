@@ -56,11 +56,11 @@
                 <nav class="nav-links-desktop gap-2 text-sm">
                     <a class="nav {{ 'nav-active' if current_path == '/' else '' }}" href="/">{{ t("nav.dashboard") }}</a>
                     {% for item in plugin_nav_items %}<a class="nav {{ 'nav-active' if current_path.startswith(item.active_prefix) else '' }}" href="{{ item.href }}">{{ item.label }}</a>{% endfor %}
-                    {% if asset_plugins_enabled %}<a class="nav {{ 'nav-active' if current_path.startswith('/assets') else '' }}" href="/assets">{{ t("nav.assets") }}</a>{% endif %}
                     {% if event_plugins_enabled %}<a class="nav {{ 'nav-active' if current_path.startswith('/events') or current_path.startswith('/ip') else '' }}" href="/events">{{ t("nav.events") }}</a>{% endif %}
                     {% if event_plugins_enabled %}<a class="nav {{ 'nav-active' if current_path.startswith('/rollups') else '' }}" href="/rollups">{{ t("nav.rollups") }}</a>{% endif %}
-                    <a class="nav {{ 'nav-active' if current_path.startswith('/diagnostics') else '' }}" href="/diagnostics">{{ t("nav.diagnostics") }}</a>
+                    {% if asset_plugins_enabled %}<a class="nav {{ 'nav-active' if current_path.startswith('/assets') else '' }}" href="/assets">{{ t("nav.assets") }}</a>{% endif %}
                     <a class="nav {{ 'nav-active' if current_path.startswith('/notifications') else '' }}" href="/notifications">{{ t("nav.notifications") }}</a>
+                    <a class="nav {{ 'nav-active' if current_path.startswith('/diagnostics') else '' }}" href="/diagnostics">{{ t("nav.diagnostics") }}</a>
                     <a class="nav {{ 'nav-active' if current_path.startswith('/settings') else '' }}" href="/settings">{{ t("nav.settings") }}</a>
                 </nav>
             </div>
@@ -79,11 +79,11 @@
             <nav class="nav-links-mobile px-4 pb-4 grid gap-2" x-show="menu" x-cloak>
                 <a class="nav {{ 'nav-active' if current_path == '/' else '' }}" href="/">{{ t("nav.dashboard") }}</a>
                 {% for item in plugin_nav_items %}<a class="nav {{ 'nav-active' if current_path.startswith(item.active_prefix) else '' }}" href="{{ item.href }}">{{ item.label }}</a>{% endfor %}
-                {% if asset_plugins_enabled %}<a class="nav {{ 'nav-active' if current_path.startswith('/assets') else '' }}" href="/assets">{{ t("nav.assets") }}</a>{% endif %}
                 {% if event_plugins_enabled %}<a class="nav {{ 'nav-active' if current_path.startswith('/events') or current_path.startswith('/ip') else '' }}" href="/events">{{ t("nav.events") }}</a>{% endif %}
                 {% if event_plugins_enabled %}<a class="nav {{ 'nav-active' if current_path.startswith('/rollups') else '' }}" href="/rollups">{{ t("nav.rollups") }}</a>{% endif %}
-                <a class="nav {{ 'nav-active' if current_path.startswith('/diagnostics') else '' }}" href="/diagnostics">{{ t("nav.diagnostics") }}</a>
+                {% if asset_plugins_enabled %}<a class="nav {{ 'nav-active' if current_path.startswith('/assets') else '' }}" href="/assets">{{ t("nav.assets") }}</a>{% endif %}
                 <a class="nav {{ 'nav-active' if current_path.startswith('/notifications') else '' }}" href="/notifications">{{ t("nav.notifications") }}</a>
+                <a class="nav {{ 'nav-active' if current_path.startswith('/diagnostics') else '' }}" href="/diagnostics">{{ t("nav.diagnostics") }}</a>
                 <a class="nav {{ 'nav-active' if current_path.startswith('/settings') else '' }}" href="/settings">{{ t("nav.settings") }}</a>
                 {% if event_plugins_enabled or asset_plugins_enabled %}
                     <form method="get" action="/search" class="flex gap-2">
