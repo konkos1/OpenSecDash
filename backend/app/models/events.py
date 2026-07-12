@@ -57,7 +57,7 @@ class Event(Base):
     ip: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     country: Mapped[str | None] = mapped_column(String(8), nullable=True, index=True)
     city: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
-    asn: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    asn: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
     isp: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     hostname: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     asset_id: Mapped[int | None] = mapped_column(nullable=True, index=True)

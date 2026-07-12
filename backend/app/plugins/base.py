@@ -194,6 +194,10 @@ class Plugin:
         """Plugin-provided event dedupe rules (see app.services.events)."""
         return ()
 
+    def default_views(self) -> list[dict[str, Any]]:
+        """Read-only default views: [{"scope", "name", "filter": {...}}]. Data only."""
+        return []
+
     def insight_rules(self) -> dict[str, Any] | None:
         """Optional declarative insight ruleset (same JSON schema as
         default-rules.json). Validated by the core; data only, never code.

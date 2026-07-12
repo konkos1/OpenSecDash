@@ -28,6 +28,33 @@
     </div>
   </div>
 
+  <div class="card flex flex-col gap-3 mb-5">
+    <div class="flex flex-wrap items-center gap-2">
+      <strong>{{ t("views.title") }}</strong>
+      {% for view in plugin_views %}
+        <a class="badge" href="{{ view.href }}">{{ view.name }}</a>
+        <span class="muted text-xs">{{ t("views.provided") }}</span>
+      {% endfor %}
+      {% for view in saved_views %}
+        <span class="badge inline-flex items-center gap-1">
+          <a href="/events?{{ view_to_query(view.filter_json, view.query_json) }}">{{ view.name }}</a>
+          <form method="post" action="/views/{{ view.id }}/delete" class="inline" data-confirm="{{ t('views.delete_confirm') }}">
+            <input type="hidden" name="scope" value="events">
+            <button class="view-delete-button" type="submit" title="{{ t('views.delete_confirm') }}" aria-label="{{ t('views.delete_confirm') }}"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg></button>
+          </form>
+        </span>
+      {% endfor %}
+    </div>
+    <form method="post" action="/views" class="flex flex-col sm:flex-row gap-2">
+      <input type="hidden" name="scope" value="events">
+      <input type="hidden" name="filters" value="{{ current_view_query }}">
+      <input type="hidden" name="return_query" value="{{ current_view_return_query }}">
+      <input class="input flex-1" name="name" maxlength="120" placeholder="{{ t('views.name_placeholder') }}">
+      <button class="btn-small" type="submit">{{ t("views.save") }}</button>
+    </form>
+    {% if view_error == "missing_name" %}<p class="text-red-400 text-sm">{{ t("views.name_required") }}</p>{% endif %}
+  </div>
+
   <form class="card grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 mb-5" method="get">
     {% if filters.hour %}<input type="hidden" name="hour" value="{{ filters.hour }}">{% endif %}
     <input type="hidden" name="snapshot_before" value="{{ filters.snapshot_before or '' }}" data-snapshot-before>
@@ -45,6 +72,21 @@
       <button type="button" class="help" style="position:absolute;right:.45rem;top:.95rem;margin-left:0;z-index:5" data-tooltip="{{ t('events.country_help') }}">?</button>
     </div>
     <input class="input" name="status_code" value="{{ filters.status_code or '' }}" placeholder="{{ t('events.status_placeholder') }}">
+    <input class="input" name="status_min" value="{{ filters.status_min or '' }}" placeholder="{{ t('events.status_min') }}">
+    <input class="input" name="status_max" value="{{ filters.status_max or '' }}" placeholder="{{ t('events.status_max') }}">
+    <input class="input" name="asn" value="{{ filters.asn or '' }}" placeholder="{{ t('events.asn_placeholder') }}">
+    <input class="input" name="hostname" value="{{ filters.hostname or '' }}" placeholder="{{ t('events.hostname_placeholder') }}">
+    <label class="flex items-center gap-2 text-sm lg:col-span-1">
+      <span>{{ t("events.time_range") }}</span>
+      <select class="input" name="range">
+        <option value="">{{ t("events.range_all") }}</option>
+        <option value="1h" {% if filters.range == "1h" %}selected{% endif %}>{{ t("events.range_1h") }}</option>
+        <option value="24h" {% if filters.range == "24h" %}selected{% endif %}>{{ t("events.range_24h") }}</option>
+        <option value="7d" {% if filters.range == "7d" %}selected{% endif %}>{{ t("events.range_7d") }}</option>
+        <option value="30d" {% if filters.range == "30d" %}selected{% endif %}>{{ t("events.range_30d") }}</option>
+        <option value="custom" {% if filters.range == "custom" %}selected{% endif %}>{{ t("events.range_custom") }}</option>
+      </select>
+    </label>
     <label class="flex items-center gap-2 text-sm lg:col-span-1">
       <input type="checkbox" name="hide_local_ips" value="true" {% if filters.hide_local_ips %}checked{% endif %}>
       <span>{{ t("events.hide_local_ips") }}</span>

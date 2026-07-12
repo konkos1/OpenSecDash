@@ -68,12 +68,23 @@ The Events and Access views support practical filters for homelab investigations
 
 - event type, including wildcards such as `access.*`
 - IP address
-- country code
-- status code
+- country code, country exclusions, and comma-separated country lists
+- exact status code or an inclusive status-code range
+- ASN, hostname, and asset
 - path
 - plugin/source
 - local-IP include/exclude behavior
 - text search with boolean expressions such as `wp-login && (404 || 403)`
+
+Operator filters are structured URL parameters rather than a free-text query language. For example, `/events?country_in=RU,CN` is the structured equivalent of `country IN (RU,CN)` and investigates traffic from a country list; `/events?country_not=DE` excludes German traffic, and `/access?status_min=400&status_max=499` shows client-error responses. The Events filter form also exposes status ranges, ASN, and hostname; URL filters make the same investigation links shareable.
+
+Choose **Last hour**, **24 hours**, **7 days**, or **30 days** in the time-range picker. The selected range is retained when moving between Events and Access. For a custom range, use a shareable URL such as `/events?range=custom&from=2026-07-12T00:00:00Z&to=2026-07-13T00:00:00Z`.
+
+The header has one global search box. An IP address or CIDR opens the IP Explorer, a matching asset name or hostname opens Asset Explorer, and other searches open matching Events. For example, searching `/wp-login.php` opens Events with that search term.
+
+### Saved views
+
+Both Events and Access have a **Saved views** area above their filters. Give the current filter set a name to save it as a reusable link; a view called **404 errors** can preserve `status_min=400` and `status_max=499` for a reverse-proxy investigation. Saved views are global to the instance, and saving the same name again in the same area replaces it. Plugins can also show read-only provided views alongside your own views.
 
 Long values such as paths, URLs, user agents, and ISP names are truncated in tables and can be opened in an overlay.
 

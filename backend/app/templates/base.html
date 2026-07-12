@@ -57,6 +57,15 @@
                 </nav>
             </div>
 
+            {% if event_plugins_enabled or asset_plugins_enabled %}
+                <div class="nav-links-desktop max-w-7xl mx-auto px-4 pb-4">
+                    <form method="get" action="/search" class="flex w-full gap-2">
+                        <input class="input flex-1" name="q" placeholder="{{ t('search.placeholder') }}">
+                        <button class="btn-small" type="submit">{{ t("common.search") }}</button>
+                    </form>
+                </div>
+            {% endif %}
+
             {# x-cloak: without it the mobile menu is visible for a moment on
                every page load until Alpine initializes and x-show hides it. #}
             <nav class="nav-links-mobile px-4 pb-4 grid gap-2" x-show="menu" x-cloak>
@@ -68,6 +77,12 @@
                 <a class="nav {{ 'nav-active' if current_path.startswith('/diagnostics') else '' }}" href="/diagnostics">{{ t("nav.diagnostics") }}</a>
                 <a class="nav {{ 'nav-active' if current_path.startswith('/notifications') else '' }}" href="/notifications">{{ t("nav.notifications") }}</a>
                 <a class="nav {{ 'nav-active' if current_path.startswith('/settings') else '' }}" href="/settings">{{ t("nav.settings") }}</a>
+                {% if event_plugins_enabled or asset_plugins_enabled %}
+                    <form method="get" action="/search" class="flex gap-2">
+                        <input class="input flex-1" name="q" placeholder="{{ t('search.placeholder') }}">
+                        <button class="btn-small" type="submit">{{ t("common.search") }}</button>
+                    </form>
+                {% endif %}
             </nav>
         </header>
 

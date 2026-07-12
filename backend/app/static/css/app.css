@@ -47,6 +47,9 @@ tbody tr:hover { background: rgba(15, 23, 42, .65); }
 .btn-icon { min-width: 2rem; padding: .35rem; }
 .input { background: #020617; border: 1px solid #334155; border-radius: .65rem; color: #f8fafc; margin-top: .25rem; min-height: 2.5rem; padding: .5rem .7rem; width: 100%; }
 .badge { background: #064e3b; border: 1px solid #047857; border-radius: 999px; color: #d1fae5; padding: .35rem .7rem; }
+.view-delete-button { background: #f87171; border-radius: 999px; color: white; line-height: 1; padding: .15rem .35rem; }
+.view-delete-button:hover { background: #ef4444; }
+.view-delete-button svg { display: block; height: .85rem; width: .85rem; }
 .badge-live { background: #064e3b; border-color: #047857; color: #d1fae5; }
 .badge-snapshot { background: #334155; border-color: #64748b; color: #e2e8f0; }
 .badge-warning { background: #451a03; border-color: #b45309; color: #fed7aa; }

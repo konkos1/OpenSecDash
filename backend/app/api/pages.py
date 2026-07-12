@@ -7,11 +7,12 @@ import json
 import logging
 from pathlib import Path
 import platform
+from typing import Annotated
 import zipfile
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-from urllib.parse import unquote, urlencode
+from urllib.parse import parse_qsl, quote, unquote, urlencode
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse, Response
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
@@ -25,6 +26,7 @@ from app.database.dependencies import get_db
 from app.models.assets import Asset
 from app.models.core import Action, AggregationDaily, AggregationMonthly, Datasource, Diagnostic, Insight, Notification, NotificationRule, PluginRecord
 from app.models.events import Event
+from app.models.saved_views import SavedView
 from app.models.settings import Setting
 from app.models.systems import System
 from app.services.dashboard_metrics import (
@@ -38,6 +40,7 @@ from app.services.dashboard_metrics import (
 from app.services.insight_rules import debug_summary as insight_rules_debug_summary
 from app.services.notification_channels import get_channel
 from app.services.notifications import invalidate_rules_cache
+from app.services.saved_views import VIEW_SCOPES, clean_view_name, plugin_views_for_scope, view_filters_from_query, view_query_state_from_query, view_to_query
 from app.services.asset_updates import refresh_asset_update
 from app.plugins.manager import get_plugin_manager
 from app.services.asset_actions import (
@@ -61,12 +64,15 @@ from app.web.tables import (
     DEFAULT_EVENTS_COLUMNS,
     asset_links_for_events,
     clean_filter_value,
+    clean_time_range,
     clean_url_value,
     column_redirect_url,
+    _safe_local_redirect_target,
     parse_snapshot_before,
     save_setting,
     save_table_columns,
     table_columns,
+    time_range_start,
     today_hour_range,
     today_start,
     utc_search_terms_for_ui_time,
@@ -78,6 +84,59 @@ logger = logging.getLogger(__name__)
 
 def _debug_line(label: str, value: object = "") -> str:
     return f"{label}: {redact_sensitive(value)}"
+
+
+def _is_ip_or_network(value: str) -> bool:
+    try:
+        ipaddress.ip_address(value)
+        return True
+    except ValueError:
+        try:
+            ipaddress.ip_network(value, strict=False)
+            return True
+        except ValueError:
+            return False
+
+
+def _has_asset_search_match(db: Session, query: str) -> bool:
+    if not query:
+        return False
+    return bool(
+        db.query(Asset.id)
+        .filter(or_(Asset.name.contains(query), Asset.hostname.contains(query)))
+        .first()
+        or db.query(System.id).filter(System.hostname.contains(query)).first()
+    )
+
+
+def _view_path(scope: str, filters: dict[str, object], query_state: dict[str, object] | None = None) -> str:
+    path = "/events" if scope == "events" else "/access"
+    query = view_to_query(filters, query_state)
+    return f"{path}?{query}" if query else path
+
+
+def _saved_view_context(db: Session, scope: str, request: Request) -> dict[str, object]:
+    query_params = request.query_params
+    query_items = query_params.multi_items() if hasattr(query_params, "multi_items") else query_params.items()
+    return_query = urlencode([(key, value) for key, value in query_items if key != "view_error"])
+    plugin_views = plugin_views_for_scope(
+        [
+            view
+            for view in get_plugin_manager().default_views()
+            if is_plugin_enabled(db, str(view.get("plugin_id", "")))
+        ],
+        scope,
+    )
+    for view in plugin_views:
+        view["href"] = _view_path(scope, view["filter_json"])
+    user_views = db.query(SavedView).filter(SavedView.scope == scope).order_by(SavedView.created_at.desc()).all()
+    return {
+        "plugin_views": plugin_views,
+        "saved_views": user_views,
+        "current_view_query": view_to_query(view_filters_from_query(query_items)),
+        "current_view_return_query": return_query,
+        "view_error": str(query_params.get("view_error", "")),
+    }
 
 
 COUNTRY_COORDINATES = {
@@ -509,6 +568,60 @@ def backlog_banner_fragment(request: Request, db: Session = Depends(get_db)):
     return render(request, db, "backlog_banner.html")
 
 
+@router.get("/search")
+def global_search(q: str = "", db: Session = Depends(get_db)):
+    search_text = q.strip()
+    if events_feature_enabled(db) and _is_ip_or_network(search_text):
+        return RedirectResponse(url=f"/ip/{quote(search_text, safe='')}")
+    if assets_feature_enabled(db) and _has_asset_search_match(db, search_text):
+        return RedirectResponse(url=f"/assets?q={quote(search_text, safe='')}")
+    if events_feature_enabled(db):
+        return RedirectResponse(url=f"/events?q={quote(search_text, safe='')}")
+    return RedirectResponse(url="/")
+
+
+@router.post("/views")
+def save_view(
+    request: Request,
+    scope: str = Form(""),
+    name: str = Form(""),
+    filters: str = Form(""),
+    return_query: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    if scope not in VIEW_SCOPES:
+        return RedirectResponse(url="/", status_code=303)
+    filter_json = view_filters_from_query(parse_qsl(filters, keep_blank_values=True))
+    query_json = view_query_state_from_query(parse_qsl(return_query if isinstance(return_query, str) else "", keep_blank_values=True))
+    if not (view_name := clean_view_name(name)):
+        return_query_text = return_query if isinstance(return_query, str) else ""
+        query = urlencode([(key, value) for key, value in parse_qsl(return_query_text, keep_blank_values=True) if key != "view_error"])
+        if not query:
+            query = view_to_query(filter_json)
+        path = "/events" if scope == "events" else "/access"
+        return RedirectResponse(url=f"{path}?{query}{'&' if query else ''}view_error=missing_name", status_code=303)
+    view = db.query(SavedView).filter(SavedView.scope == scope, SavedView.name == view_name).first()
+    if view is None:
+        view = SavedView(scope=scope, name=view_name, filter_json=filter_json, query_json=query_json)
+        db.add(view)
+    else:
+        view.filter_json = filter_json
+        view.query_json = query_json
+    db.commit()
+    return RedirectResponse(url=_view_path(scope, filter_json, query_json), status_code=303)
+
+
+@router.post("/views/{view_id}/delete")
+def delete_saved_view(request: Request, view_id: int, scope: str = Form(""), db: Session = Depends(get_db)):
+    if scope not in VIEW_SCOPES:
+        return RedirectResponse(url="/", status_code=303)
+    view = db.query(SavedView).filter(SavedView.id == view_id, SavedView.scope == scope).first()
+    if view is not None:
+        db.delete(view)
+        db.commit()
+    return RedirectResponse(url=_safe_local_redirect_target(request, request.headers.get("referer"), _view_path(scope, {})), status_code=303)
+
+
 @router.get("/")
 def dashboard_page(request: Request, db: Session = Depends(get_db)):
     timezone_name = get_setting_value(db, "timezone", "auto")
@@ -703,7 +816,14 @@ def events_page(
     event_type: str | None = None,
     ip: str | None = None,
     country: str | None = None,
+    country_in: str | None = None,
+    country_not: str | None = None,
     status_code: str | None = None,
+    status_min: str | None = None,
+    status_max: str | None = None,
+    asn: str | None = None,
+    hostname: str | None = None,
+    asset: str | None = None,
     path: str | None = None,
     q: str | None = None,
     hide_local_ips: str | None = None,
@@ -711,6 +831,9 @@ def events_page(
     today: str | None = None,
     hour: str | None = None,
     snapshot_before: str | None = None,
+    range: str | None = None,
+    from_: Annotated[str | None, Query(alias="from")] = None,
+    to: str | None = None,
     db: Session = Depends(get_db),
 ):
     require_events_feature_enabled(db)
@@ -718,6 +841,7 @@ def events_page(
     country_value = clean_filter_value(country)
     if country_value and country_value != "-":
         country_value = country_value[:2].upper()
+    country_in_values = [value for item in (country_in or "").split(",") if (value := clean_filter_value(item))]
     q_value = clean_filter_value(q)
     timezone_name = get_setting_value(db, "timezone", "auto")
     enabled_event_plugins = [
@@ -731,12 +855,28 @@ def events_page(
     hour_value = int(hour) if hour and hour.isdigit() and 0 <= int(hour) <= 23 else None
     hour_start, hour_end = today_hour_range(db, hour_value) if hour_value is not None else (None, None)
     snapshot_cutoff = parse_snapshot_before(snapshot_before)
-    event_time_to = min([value for value in [hour_end, snapshot_cutoff] if value is not None], default=None)
+    range_value = clean_time_range(range)
+    if range is None:
+        range_value = clean_time_range(get_setting_value(db, "ui.time_range", ""))
+    elif range_value:
+        save_setting(db, "ui.time_range", range_value)
+        db.commit()
+    range_start = time_range_start(range_value, from_)
+    custom_to = parse_snapshot_before(to) if range_value == "custom" else None
+    event_time_from = max([value for value in [hour_start, today_start(db) if today_enabled else None, range_start] if value is not None], default=None)
+    event_time_to = min([value for value in [hour_end, snapshot_cutoff, custom_to] if value is not None], default=None)
     filters = {
         "event_type": clean_filter_value(event_type),
         "ip": clean_filter_value(ip),
         "country": country_value,
+        "country_in": country_in_values,
+        "country_not": clean_filter_value(country_not),
         "status_code": int(status_code_value) if status_code_value and status_code_value.isdigit() else None,
+        "status_code_min": clean_filter_value(status_min),
+        "status_code_max": clean_filter_value(status_max),
+        "asn": clean_filter_value(asn),
+        "hostname": clean_filter_value(hostname),
+        "asset": clean_filter_value(asset),
         "path": clean_filter_value(path),
         "q": q_value,
         "q_utc_terms": utc_search_terms_for_ui_time(q_value, timezone_name),
@@ -744,25 +884,34 @@ def events_page(
         "plugins": enabled_event_plugins,
         "hide_local_ips": hide_local_ips == "true",
         "show_local_ips": show_local_ips == "true",
-        "event_time_from": hour_start or (today_start(db) if today_enabled else None),
+        "event_time_from": event_time_from,
         "event_time_to": event_time_to,
     }
     form_values = {
         "event_type": event_type or "",
         "ip": ip or "",
         "country": country or "",
+        "country_in": country_in or "",
+        "country_not": country_not or "",
         "status_code": status_code or "",
+        "status_min": status_min or "",
+        "status_max": status_max or "",
+        "asn": asn or "",
+        "hostname": hostname or "",
+        "asset": asset or "",
         "path": path or "",
         "q": q or "",
         "hide_local_ips": hide_local_ips == "true",
         "show_local_ips": show_local_ips == "true",
         "today": today_enabled,
+        "range": range_value or "",
         "hour": f"{hour_value:02d}" if hour_value is not None else "",
         "snapshot_before": snapshot_before or "",
     }
     events = apply_event_filters(db.query(Event), filters).order_by(Event.event_time.desc()).limit(200).all()
     column_options, active_columns = table_columns(db, "ui.events.visible_columns", DEFAULT_EVENTS_COLUMNS)
     event_asset_links = asset_links_for_events(db, events)
+    saved_view_context = _saved_view_context(db, "events", request)
     return render(
         request,
         db,
@@ -774,6 +923,8 @@ def events_page(
         active_columns=active_columns,
         columns_setting_action="/events/columns",
         live_default=get_setting_value(db, "live_default", "true"),
+        view_to_query=view_to_query,
+        **saved_view_context,
     )
 
 
