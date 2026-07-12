@@ -1,6 +1,7 @@
 import asyncio
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
@@ -13,10 +14,13 @@ from app.web.tables import (
     DEFAULT_ACCESS_COLUMNS,
     asset_links_for_events,
     clean_filter_value,
+    clean_time_range,
     column_redirect_url,
     parse_snapshot_before,
+    save_setting,
     save_table_columns,
     table_columns,
+    time_range_start,
     today_start,
     utc_search_terms_for_ui_time,
 )
@@ -40,6 +44,9 @@ def access_page(
     show_local_ips: str | None = None,
     today: str | None = None,
     snapshot_before: str | None = None,
+    range: str | None = None,
+    from_: Annotated[str | None, Query(alias="from")] = None,
+    to: str | None = None,
     db: Session = Depends(get_db),
 ):
     q_value = clean_filter_value(q)
@@ -49,6 +56,14 @@ def access_page(
     q_utc_terms_by_term = {token: utc_search_terms_for_ui_time(token, timezone_name) for token in q_tokens}
     today_enabled = today == "true"
     snapshot_cutoff = parse_snapshot_before(snapshot_before)
+    range_value = clean_time_range(range)
+    if range is None:
+        range_value = clean_time_range(get_setting_value(db, "ui.time_range", ""))
+    elif range_value:
+        save_setting(db, "ui.time_range", range_value)
+        db.commit()
+    range_start = time_range_start(range_value, from_)
+    custom_to = parse_snapshot_before(to) if range_value == "custom" else None
     local_filter_touched = "local_ip_filter" in request.query_params
     hide_local_default = get_setting_value(db, "plugin.traefik_log.hide_local_ips_default", "false") == "true"
     hide_local_enabled = hide_local_ips == "true" or (hide_local_ips is None and show_local_ips is None and not local_filter_touched and hide_local_default)
@@ -68,8 +83,8 @@ def access_page(
         "plugins": ["traefik_log"],
         "hide_local_ips": hide_local_enabled,
         "show_local_ips": show_local_enabled,
-        "event_time_from": today_start(db) if today_enabled else None,
-        "event_time_to": snapshot_cutoff,
+        "event_time_from": max([value for value in [today_start(db) if today_enabled else None, range_start] if value is not None], default=None),
+        "event_time_to": min([value for value in [snapshot_cutoff, custom_to] if value is not None], default=None),
     }
     events = apply_event_filters(db.query(Event), filters).order_by(Event.event_time.desc()).limit(200).all()
     column_options, active_columns = table_columns(db, "ui.access.visible_columns", DEFAULT_ACCESS_COLUMNS)
@@ -87,6 +102,7 @@ def access_page(
         hide_local_ips=hide_local_enabled,
         show_local_ips=show_local_enabled,
         today=today_enabled,
+        range=range_value or "",
         snapshot_before=snapshot_before or "",
         live_default=get_setting_value(db, "live_default", "true"),
     )

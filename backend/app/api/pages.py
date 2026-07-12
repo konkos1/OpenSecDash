@@ -7,11 +7,12 @@ import json
 import logging
 from pathlib import Path
 import platform
+from typing import Annotated
 import zipfile
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from urllib.parse import unquote, urlencode
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse, Response
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
@@ -61,12 +62,14 @@ from app.web.tables import (
     DEFAULT_EVENTS_COLUMNS,
     asset_links_for_events,
     clean_filter_value,
+    clean_time_range,
     clean_url_value,
     column_redirect_url,
     parse_snapshot_before,
     save_setting,
     save_table_columns,
     table_columns,
+    time_range_start,
     today_hour_range,
     today_start,
     utc_search_terms_for_ui_time,
@@ -718,6 +721,9 @@ def events_page(
     today: str | None = None,
     hour: str | None = None,
     snapshot_before: str | None = None,
+    range: str | None = None,
+    from_: Annotated[str | None, Query(alias="from")] = None,
+    to: str | None = None,
     db: Session = Depends(get_db),
 ):
     require_events_feature_enabled(db)
@@ -739,7 +745,16 @@ def events_page(
     hour_value = int(hour) if hour and hour.isdigit() and 0 <= int(hour) <= 23 else None
     hour_start, hour_end = today_hour_range(db, hour_value) if hour_value is not None else (None, None)
     snapshot_cutoff = parse_snapshot_before(snapshot_before)
-    event_time_to = min([value for value in [hour_end, snapshot_cutoff] if value is not None], default=None)
+    range_value = clean_time_range(range)
+    if range is None:
+        range_value = clean_time_range(get_setting_value(db, "ui.time_range", ""))
+    elif range_value:
+        save_setting(db, "ui.time_range", range_value)
+        db.commit()
+    range_start = time_range_start(range_value, from_)
+    custom_to = parse_snapshot_before(to) if range_value == "custom" else None
+    event_time_from = max([value for value in [hour_start, today_start(db) if today_enabled else None, range_start] if value is not None], default=None)
+    event_time_to = min([value for value in [hour_end, snapshot_cutoff, custom_to] if value is not None], default=None)
     filters = {
         "event_type": clean_filter_value(event_type),
         "ip": clean_filter_value(ip),
@@ -759,7 +774,7 @@ def events_page(
         "plugins": enabled_event_plugins,
         "hide_local_ips": hide_local_ips == "true",
         "show_local_ips": show_local_ips == "true",
-        "event_time_from": hour_start or (today_start(db) if today_enabled else None),
+        "event_time_from": event_time_from,
         "event_time_to": event_time_to,
     }
     form_values = {
@@ -779,6 +794,7 @@ def events_page(
         "hide_local_ips": hide_local_ips == "true",
         "show_local_ips": show_local_ips == "true",
         "today": today_enabled,
+        "range": range_value or "",
         "hour": f"{hour_value:02d}" if hour_value is not None else "",
         "snapshot_before": snapshot_before or "",
     }

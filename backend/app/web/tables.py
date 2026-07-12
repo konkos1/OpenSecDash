@@ -40,6 +40,13 @@ TABLE_COLUMN_DEFINITIONS = [
 TABLE_COLUMN_KEYS = [str(item["key"]) for item in TABLE_COLUMN_DEFINITIONS]
 DEFAULT_EVENTS_COLUMNS = "time,type,severity,ip,country,status,url"
 DEFAULT_ACCESS_COLUMNS = "time,ip,host,method,status,path"
+TIME_RANGE_PRESETS = {
+    "1h": timedelta(hours=1),
+    "24h": timedelta(hours=24),
+    "7d": timedelta(days=7),
+    "30d": timedelta(days=30),
+}
+TIME_RANGE_VALUES = {*TIME_RANGE_PRESETS, "custom"}
 
 
 def save_setting(db: Session, key: str, value: str) -> None:
@@ -91,6 +98,21 @@ def parse_snapshot_before(value: str | None) -> datetime | None:
     if parsed.tzinfo is None:
         return parsed
     return parsed.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
+
+
+def clean_time_range(value: str | None) -> str | None:
+    text = (value or "").strip()
+    return text if text in TIME_RANGE_VALUES else None
+
+
+def time_range_start(value: str | None, custom_from: str | None = None) -> datetime | None:
+    """Return the UTC start for a selected preset or a custom URL range."""
+    if value == "custom":
+        return parse_snapshot_before(custom_from)
+    offset = TIME_RANGE_PRESETS.get(value or "")
+    if offset is None:
+        return None
+    return (utc_now() - offset).replace(tzinfo=None)
 
 
 def table_columns(db: Session, setting_key: str, default: str) -> tuple[list[dict[str, object]], set[str]]:
