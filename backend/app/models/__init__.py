@@ -13,7 +13,7 @@ from app.models.core import (
 )
 from app.models.events import Event
 from app.models.saved_views import SavedView
-from app.models.settings import Setting
+from app.models.settings import InstanceFile, Setting
 from app.models.systems import System
 
 __all__ = [
@@ -26,6 +26,7 @@ __all__ = [
     "Event",
     "GeoIPCache",
     "Insight",
+    "InstanceFile",
     "Notification",
     "NotificationRule",
     "PluginRecord",

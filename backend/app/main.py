@@ -17,7 +17,7 @@ from app.core.version import get_app_version
 
 setup_service_logging()
 
-from app.api import action_forms_router, actions_router, assets_router, events_router, pages_router, settings_router
+from app.api import action_forms_router, actions_router, assets_router, events_router, instance_router, pages_router, settings_router
 from app.database.init_db import init_db
 from app.database.migrations import run_auto_migrations_if_enabled, update_migration_diagnostic
 from app.core.template_context import build_template_context
@@ -85,6 +85,7 @@ app.include_router(events_router)
 app.include_router(actions_router)
 app.include_router(action_forms_router)
 app.include_router(assets_router)
+app.include_router(instance_router)
 app.include_router(pages_router)
 
 # Plugin-provided routes and template dirs. Mounted after the core routers so
