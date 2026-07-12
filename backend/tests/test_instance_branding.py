@@ -9,6 +9,7 @@ from app.database.base import Base
 from app.database.dependencies import get_db
 from app.main import app
 from app.models.settings import InstanceFile
+from app.core.template_context import get_setting_value
 from app.services import instance_branding
 
 
@@ -115,3 +116,122 @@ def test_instance_file_routes_return_files_with_security_headers(instance_brandi
     assert response.headers["cache-control"] == "public, max-age=86400"
     assert response.headers["x-content-type-options"] == "nosniff"
     assert response.headers["content-security-policy"] == "default-src 'none'; style-src 'unsafe-inline'"
+
+
+@pytest.mark.parametrize(
+    ("kind", "filename", "path"),
+    [
+        ("logo", "logo.png", "/instance/logo"),
+        ("favicon", "favicon.png", "/instance/favicon"),
+    ],
+)
+def test_branding_upload_stores_files_and_serves_them(instance_branding_db, kind, filename, path):
+    app.dependency_overrides[get_db] = lambda: instance_branding_db
+    client = TestClient(app)
+    try:
+        upload = client.post(
+            "/settings/branding",
+            files={kind: (filename, PNG_DATA, "image/png")},
+            follow_redirects=False,
+        )
+        response = client.get(path)
+    finally:
+        client.close()
+        app.dependency_overrides.clear()
+
+    assert upload.status_code == 303
+    assert upload.headers["location"] == "/settings"
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+
+
+def test_branding_upload_rejects_unsupported_logo(instance_branding_db):
+    app.dependency_overrides[get_db] = lambda: instance_branding_db
+    client = TestClient(app)
+    try:
+        response = client.post(
+            "/settings/branding",
+            files={"logo": ("logo.gif", b"GIF89a", "image/gif")},
+            follow_redirects=False,
+        )
+        error_page = client.get("/settings?branding_error=invalid_type")
+    finally:
+        client.close()
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/settings?branding_error=invalid_type"
+    assert "This file type is not supported." in error_page.text
+    assert instance_branding.get_instance_file(instance_branding_db, instance_branding.KIND_LOGO) is None
+
+
+@pytest.mark.parametrize(
+    ("kind", "filename"),
+    [
+        (instance_branding.KIND_LOGO, "logo.png"),
+        (instance_branding.KIND_FAVICON, "favicon.png"),
+    ],
+)
+def test_branding_remove_deletes_allowed_kind(instance_branding_db, kind, filename):
+    instance_branding.save_instance_file(instance_branding_db, kind, filename, PNG_DATA)
+    app.dependency_overrides[get_db] = lambda: instance_branding_db
+    client = TestClient(app)
+    try:
+        removed = client.post("/settings/branding/remove", data={"kind": kind}, follow_redirects=False)
+    finally:
+        client.close()
+        app.dependency_overrides.clear()
+
+    assert removed.status_code == 303
+    assert instance_branding.get_instance_file(instance_branding_db, kind) is None
+
+
+def test_branding_remove_ignores_unknown_kind(instance_branding_db):
+    app.dependency_overrides[get_db] = lambda: instance_branding_db
+    client = TestClient(app)
+    try:
+        response = client.post("/settings/branding/remove", data={"kind": "unknown"}, follow_redirects=False)
+    finally:
+        client.close()
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 303
+
+
+def test_settings_post_saves_instance_description_without_changing_domain(instance_branding_db):
+    app.dependency_overrides[get_db] = lambda: instance_branding_db
+    client = TestClient(app)
+    try:
+        response = client.post(
+            "/settings",
+            data={"domain": "homelab.example", "instance_description": " Test instance "},
+            follow_redirects=False,
+        )
+        page = client.get("/settings")
+    finally:
+        client.close()
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 303
+    assert get_setting_value(instance_branding_db, "domain") == "homelab.example"
+    assert get_setting_value(instance_branding_db, "instance_description") == "Test instance"
+    assert 'value="Test instance"' in page.text
+
+
+def test_settings_page_renders_branding_section(instance_branding_db):
+    instance_branding.save_instance_file(instance_branding_db, instance_branding.KIND_LOGO, "logo.png", PNG_DATA)
+    instance_branding.save_instance_file(instance_branding_db, instance_branding.KIND_FAVICON, "favicon.png", PNG_DATA)
+    app.dependency_overrides[get_db] = lambda: instance_branding_db
+    client = TestClient(app)
+    try:
+        response = client.get("/settings")
+    finally:
+        client.close()
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert 'action="/settings/branding"' in response.text
+    assert "logo.png" in response.text
+    assert "favicon.png" in response.text
+    assert "/instance/logo?v=" in response.text
+    assert "/instance/favicon?v=" in response.text

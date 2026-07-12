@@ -1,4 +1,7 @@
+import asyncio
 from pathlib import Path
+
+import pytest
 
 from app.models.core import Datasource, Diagnostic, PluginRecord
 from app.models.events import Event
@@ -233,6 +236,30 @@ def test_next_datasource_delay_is_short_while_backlog_pending():
     assert PluginManager._next_datasource_delay(10, True) < 1
     assert PluginManager._next_datasource_delay(10, False) == 10
     assert PluginManager._next_datasource_delay(0, False) == 1
+
+
+def test_cancelled_background_loop_closes_its_session_once(monkeypatch):
+    class Session:
+        closes = 0
+
+        def close(self):
+            self.closes += 1
+
+    session = Session()
+    manager = PluginManager(Path("/not-used"))
+    monkeypatch.setattr(manager_module, "SessionLocal", lambda: session)
+    monkeypatch.setattr(manager, "_run_rollup_compaction", lambda db: 0)
+
+    async def cancel_loop():
+        task = asyncio.create_task(manager._rollup_compaction_loop())
+        await asyncio.sleep(0)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    asyncio.run(cancel_loop())
+
+    assert session.closes == 1
 
 
 def test_run_datasource_tick_commits_periodically_for_large_batches(db_session, monkeypatch):

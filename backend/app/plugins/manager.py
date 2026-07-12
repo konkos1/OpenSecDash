@@ -314,7 +314,6 @@ class PluginManager:
                 last_run = await asyncio.to_thread(self._run_asset_update_tick, db, last_run)
                 await asyncio.sleep(60)
             except asyncio.CancelledError:
-                db.close()
                 raise
             except Exception:
                 logger.exception("Asset update check failed")
@@ -391,7 +390,6 @@ class PluginManager:
                 logger.debug("Insights engine rules refresh result: %s", result)
                 await asyncio.sleep(24 * 60 * 60)
             except asyncio.CancelledError:
-                db.close()
                 raise
             except Exception:
                 logger.exception("Insights engine rules refresh failed")
@@ -408,7 +406,6 @@ class PluginManager:
                     logger.info("Compacted %d completed rollup month(s)", compacted)
                 await asyncio.sleep(60 * 60)
             except asyncio.CancelledError:
-                db.close()
                 raise
             except Exception:
                 logger.exception("Rollup compaction failed")
@@ -435,7 +432,6 @@ class PluginManager:
                     logger.info("Retention cleanup removed %d raw event(s)", deleted)
                 await asyncio.sleep(60 * 60)
             except asyncio.CancelledError:
-                db.close()
                 raise
             except Exception:
                 logger.exception("Retention cleanup failed")
@@ -462,7 +458,6 @@ class PluginManager:
                 # after a large log import), back off once caught up.
                 await asyncio.sleep(1 if processed >= GEOIP_BACKFILL_BATCH_SIZE else 15)
             except asyncio.CancelledError:
-                db.close()
                 raise
             except Exception:
                 logger.exception("GeoIP backfill failed")
@@ -482,7 +477,6 @@ class PluginManager:
                 await asyncio.to_thread(run_self_update_check, db)
                 await asyncio.sleep(6 * 60 * 60)
             except asyncio.CancelledError:
-                db.close()
                 raise
             except Exception:
                 logger.exception("OpenSecDash update check failed")
@@ -499,7 +493,6 @@ class PluginManager:
                     logger.info("Dispatched %d notification(s)", sent)
                 await asyncio.sleep(30)
             except asyncio.CancelledError:
-                db.close()
                 raise
             except Exception:
                 logger.exception("Notification dispatch failed")
@@ -538,7 +531,6 @@ class PluginManager:
                 await asyncio.to_thread(self._run_health_tick, db, plugin)
                 await asyncio.sleep(60)
             except asyncio.CancelledError:
-                db.close()
                 raise
             except Exception as exc:
                 logger.exception("Plugin %s health check failed", plugin.metadata.id)
@@ -608,7 +600,6 @@ class PluginManager:
                 interval, backlog_pending = await asyncio.to_thread(self._run_datasource_tick, db, plugin)
                 await asyncio.sleep(self._next_datasource_delay(interval, backlog_pending))
             except asyncio.CancelledError:
-                db.close()
                 raise
             except Exception as exc:
                 logger.exception("Datasource plugin %s failed", plugin.metadata.id)
@@ -720,7 +711,6 @@ class PluginManager:
                 sleep_for = await asyncio.to_thread(self._run_periodic_tick, db, plugin)
                 await asyncio.sleep(sleep_for)
             except asyncio.CancelledError:
-                db.close()
                 raise
             except Exception as exc:
                 logger.exception("Periodic plugin %s failed", plugin.metadata.id)

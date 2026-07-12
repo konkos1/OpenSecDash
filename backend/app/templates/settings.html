@@ -15,6 +15,10 @@
                 <input class="input" type="text" name="domain" value="{{ domain }}" placeholder="mydomain.com">
             </label>
 
+            <label>{{ t("settings.instance_description") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.instance_description') }}">?</button>
+                <input class="input" type="text" name="instance_description" value="{{ instance_description }}">
+            </label>
+
         <label>{{ t("settings.language") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.language') }}">?</button>
             <select class="input" name="language">
                 <option value="en" {% if language_setting == 'en' %}selected{% endif %}>English</option>
@@ -194,5 +198,48 @@
             <button class="btn" type="submit">{{ t("common.save_button") }}</button>
         </div>
     </form>
+
+    <section class="card space-y-4 mt-5">
+        <h3 class="font-semibold">{{ t("settings.branding") }}</h3>
+        <p class="muted text-sm">{{ t("settings.branding_help") }}</p>
+
+        {% if branding_error %}
+            <p class="text-red-400 text-sm">{{ t("settings.branding_error." ~ branding_error) }}</p>
+        {% endif %}
+
+        <form method="post" action="/settings/branding" enctype="multipart/form-data" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <label>{{ t("settings.custom_logo") }}
+                <input class="input" type="file" name="logo" accept=".png,.svg,.webp,.jpg,.jpeg">
+            </label>
+            <label>{{ t("settings.custom_favicon") }}
+                <input class="input" type="file" name="favicon" accept=".png,.svg,.webp,.ico">
+            </label>
+            <div class="md:col-span-2">
+                <button class="btn" type="submit">{{ t("settings.branding_upload") }}</button>
+            </div>
+        </form>
+
+        {% if instance_logo %}
+            <div class="flex items-center gap-3">
+                <img src="/instance/logo?v={{ instance_logo.updated_at }}" alt="" class="branding-preview">
+                <span class="text-sm">{{ instance_logo.filename }}</span>
+                <form method="post" action="/settings/branding/remove">
+                    <input type="hidden" name="kind" value="logo">
+                    <button class="btn" type="submit">{{ t("settings.branding_remove") }}</button>
+                </form>
+            </div>
+        {% endif %}
+
+        {% if instance_favicon %}
+            <div class="flex items-center gap-3">
+                <img src="/instance/favicon?v={{ instance_favicon.updated_at }}" alt="" class="branding-preview">
+                <span class="text-sm">{{ instance_favicon.filename }}</span>
+                <form method="post" action="/settings/branding/remove">
+                    <input type="hidden" name="kind" value="favicon">
+                    <button class="btn" type="submit">{{ t("settings.branding_remove") }}</button>
+                </form>
+            </div>
+        {% endif %}
+    </section>
 
 {% endblock %}
