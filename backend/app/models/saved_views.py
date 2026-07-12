@@ -15,4 +15,5 @@ class SavedView(Base):
     name: Mapped[str] = mapped_column(String(120))
     scope: Mapped[str] = mapped_column(String(20), index=True)
     filter_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    query_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)

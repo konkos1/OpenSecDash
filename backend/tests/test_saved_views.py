@@ -43,6 +43,48 @@ def test_save_view_stores_only_validated_allowlist_filters_and_overwrites_duplic
     assert db_session.query(SavedView).one().filter_json == {"status_code_max": 499}
 
 
+def test_save_view_without_name_preserves_filters_and_reports_validation_error(db_session):
+    response = pages.save_view(
+        cast(Any, _request()),
+        scope="events",
+        name=" ",
+        filters="status_min=400&country=DE",
+        db=db_session,
+    )
+
+    assert response.headers["location"] == "/events?country=DE&status_min=400&view_error=missing_name"
+    assert db_session.query(SavedView).count() == 0
+
+
+def test_save_access_view_without_name_preserves_route_only_filters(db_session):
+    response = pages.save_view(
+        cast(Any, _request("/access")),
+        scope="access",
+        name="",
+        filters="status_min=404",
+        return_query="status_min=404&range=24h&today=true&snapshot_before=2026-07-12T12%3A00%3A00",
+        db=db_session,
+    )
+
+    assert response.headers["location"] == "/access?status_min=404&range=24h&today=true&snapshot_before=2026-07-12T12%3A00%3A00&view_error=missing_name"
+
+
+def test_save_view_keeps_validated_route_state_with_engine_filters(db_session):
+    response = pages.save_view(
+        cast(Any, _request("/access")),
+        scope="access",
+        name="Recent errors",
+        filters="status_min=404",
+        return_query="status_min=404&range=24h&today=true&snapshot_before=2026-07-12T12%3A00%3A00",
+        db=db_session,
+    )
+
+    view = db_session.query(SavedView).one()
+    assert view.filter_json == {"status_code_min": 404}
+    assert view.query_json == {"range": "24h", "today": "true", "snapshot_before": "2026-07-12T12:00:00"}
+    assert response.headers["location"] == "/access?status_min=404&range=24h&today=true&snapshot_before=2026-07-12T12%3A00%3A00"
+
+
 def test_saved_views_are_listed_per_scope_and_can_be_deleted(db_session):
     events_view = SavedView(name="Events", scope="events", filter_json={"country": "DE"})
     access_view = SavedView(name="Access", scope="access", filter_json={"status_code_min": 400})

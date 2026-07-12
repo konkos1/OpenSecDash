@@ -40,7 +40,7 @@ from app.services.dashboard_metrics import (
 from app.services.insight_rules import debug_summary as insight_rules_debug_summary
 from app.services.notification_channels import get_channel
 from app.services.notifications import invalidate_rules_cache
-from app.services.saved_views import VIEW_SCOPES, clean_view_name, plugin_views_for_scope, view_filters_from_query, view_to_query
+from app.services.saved_views import VIEW_SCOPES, clean_view_name, plugin_views_for_scope, view_filters_from_query, view_query_state_from_query, view_to_query
 from app.services.asset_updates import refresh_asset_update
 from app.plugins.manager import get_plugin_manager
 from app.services.asset_actions import (
@@ -109,15 +109,16 @@ def _has_asset_search_match(db: Session, query: str) -> bool:
     )
 
 
-def _view_path(scope: str, filters: dict[str, object]) -> str:
+def _view_path(scope: str, filters: dict[str, object], query_state: dict[str, object] | None = None) -> str:
     path = "/events" if scope == "events" else "/access"
-    query = view_to_query(filters)
+    query = view_to_query(filters, query_state)
     return f"{path}?{query}" if query else path
 
 
 def _saved_view_context(db: Session, scope: str, request: Request) -> dict[str, object]:
     query_params = request.query_params
     query_items = query_params.multi_items() if hasattr(query_params, "multi_items") else query_params.items()
+    return_query = urlencode([(key, value) for key, value in query_items if key != "view_error"])
     plugin_views = plugin_views_for_scope(
         [
             view
@@ -133,6 +134,8 @@ def _saved_view_context(db: Session, scope: str, request: Request) -> dict[str, 
         "plugin_views": plugin_views,
         "saved_views": user_views,
         "current_view_query": view_to_query(view_filters_from_query(query_items)),
+        "current_view_return_query": return_query,
+        "view_error": str(query_params.get("view_error", "")),
     }
 
 
@@ -583,21 +586,29 @@ def save_view(
     scope: str = Form(""),
     name: str = Form(""),
     filters: str = Form(""),
+    return_query: str = Form(""),
     db: Session = Depends(get_db),
 ):
     if scope not in VIEW_SCOPES:
         return RedirectResponse(url="/", status_code=303)
-    if not (view_name := clean_view_name(name)):
-        return RedirectResponse(url=_view_path(scope, {}), status_code=303)
     filter_json = view_filters_from_query(parse_qsl(filters, keep_blank_values=True))
+    query_json = view_query_state_from_query(parse_qsl(return_query if isinstance(return_query, str) else "", keep_blank_values=True))
+    if not (view_name := clean_view_name(name)):
+        return_query_text = return_query if isinstance(return_query, str) else ""
+        query = urlencode([(key, value) for key, value in parse_qsl(return_query_text, keep_blank_values=True) if key != "view_error"])
+        if not query:
+            query = view_to_query(filter_json)
+        path = "/events" if scope == "events" else "/access"
+        return RedirectResponse(url=f"{path}?{query}{'&' if query else ''}view_error=missing_name", status_code=303)
     view = db.query(SavedView).filter(SavedView.scope == scope, SavedView.name == view_name).first()
     if view is None:
-        view = SavedView(scope=scope, name=view_name, filter_json=filter_json)
+        view = SavedView(scope=scope, name=view_name, filter_json=filter_json, query_json=query_json)
         db.add(view)
     else:
         view.filter_json = filter_json
+        view.query_json = query_json
     db.commit()
-    return RedirectResponse(url=_view_path(scope, filter_json), status_code=303)
+    return RedirectResponse(url=_view_path(scope, filter_json, query_json), status_code=303)
 
 
 @router.post("/views/{view_id}/delete")

@@ -1,5 +1,6 @@
 import asyncio
 from typing import Annotated
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import RedirectResponse
@@ -36,6 +37,7 @@ router = APIRouter(tags=["traefik_log"])
 def _saved_view_context(db: Session, request: Request) -> dict[str, object]:
     query_params = request.query_params
     query_items = query_params.multi_items() if hasattr(query_params, "multi_items") else query_params.items()
+    return_query = urlencode([(key, value) for key, value in query_items if key != "view_error"])
     plugin_views = plugin_views_for_scope(
         [
             view
@@ -52,6 +54,8 @@ def _saved_view_context(db: Session, request: Request) -> dict[str, object]:
         "plugin_views": plugin_views,
         "saved_views": saved_views,
         "current_view_query": view_to_query(view_filters_from_query(query_items)),
+        "current_view_return_query": return_query,
+        "view_error": str(query_params.get("view_error", "")),
     }
 
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable, Mapping
+from datetime import datetime
 from typing import Any
 from urllib.parse import urlencode
 
@@ -10,6 +11,7 @@ VIEW_SCOPES = {"events", "access"}
 MAX_VIEW_NAME_LENGTH = 120
 MAX_FILTER_VALUE_LENGTH = 2048
 MAX_FILTER_LIST_VALUES = 20
+_TIME_RANGES = {"1h", "24h", "7d", "30d", "custom"}
 
 
 def clean_view_name(value: object) -> str | None:
@@ -43,6 +45,17 @@ def _country(value: object) -> str | None:
 
 def _truthy(value: object) -> bool:
     return value is True or str(value).lower() == "true"
+
+
+def _datetime_text(value: object) -> str | None:
+    text = _text(value, 64)
+    if text is None:
+        return None
+    try:
+        datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return text
 
 
 def validate_view_filters(filters: Mapping[str, object]) -> dict[str, Any]:
@@ -104,8 +117,29 @@ def view_filters_from_query(items: Iterable[tuple[str, str]]) -> dict[str, Any]:
     return validate_view_filters(values)
 
 
-def view_to_query(filters: Mapping[str, object]) -> str:
-    """Serialize validated saved-view filters into a page query string."""
+def view_query_state_from_query(items: Iterable[tuple[str, str]]) -> dict[str, Any]:
+    """Return validated route state that is not part of apply_event_filters."""
+    values = {key: value for key, value in items}
+    result: dict[str, Any] = {}
+    if (range_value := _text(values.get("range"), 10)) in _TIME_RANGES:
+        result["range"] = range_value
+    for key in ["from", "to", "snapshot_before"]:
+        if (value := _datetime_text(values.get(key))) is not None:
+            result[key] = value
+    try:
+        hour = int(str(values.get("hour", "")))
+    except (TypeError, ValueError):
+        hour = None
+    if hour is not None and 0 <= hour <= 23:
+        result["hour"] = hour
+    for key in ["today", "local_ip_filter"]:
+        if _truthy(values.get(key)) or values.get(key) == "1":
+            result[key] = "true" if key == "today" else "1"
+    return result
+
+
+def view_to_query(filters: Mapping[str, object], query_state: Mapping[str, object] | None = None) -> str:
+    """Serialize validated saved-view filters and route state into a page query string."""
     validated = validate_view_filters(filters)
     params: list[tuple[str, str]] = []
     for key in ["event_type", "ip", "severity", "source", "plugin", "country", "country_not", "asn", "hostname", "asset", "path", "q"]:
@@ -119,6 +153,10 @@ def view_to_query(filters: Mapping[str, object]) -> str:
     for key in ["show_local_ips", "hide_local_ips"]:
         if validated.get(key):
             params.append((key, "true"))
+    state = view_query_state_from_query((str(key), str(value)) for key, value in (query_state or {}).items())
+    for key in ["range", "from", "to", "today", "hour", "snapshot_before", "local_ip_filter"]:
+        if key in state:
+            params.append((key, str(state[key])))
     return urlencode(params)
 
 
