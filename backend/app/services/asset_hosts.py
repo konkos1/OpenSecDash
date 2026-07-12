@@ -1,11 +1,26 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from urllib.parse import urlsplit
 
 from sqlalchemy.orm import Session
 
 from app.models.assets import Asset
 from app.models.events import Event
+from app.core.time import utc_now
+
+
+def asset_stale_threshold(source_plugin: str | None) -> timedelta:
+    if source_plugin == "proxmox_assets":
+        return timedelta(hours=24)
+    return timedelta(days=7)
+
+
+def asset_last_seen_stale(last_seen: datetime | None, source_plugin: str | None, now: datetime | None = None) -> bool:
+    if last_seen is None:
+        return True
+    current = now or utc_now().replace(tzinfo=None)
+    return current - last_seen > asset_stale_threshold(source_plugin)
 
 
 def normalize_asset_host(value: str | None) -> str | None:

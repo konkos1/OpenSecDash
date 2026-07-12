@@ -27,6 +27,7 @@ from app.services.geoip import enrich_pending_events
 from app.services.insight_rules import import_ruleset, invalidate_active_rules_cache, refresh_insight_rules
 from app.services.asset_updates import refresh_asset_updates
 from app.services.self_update import run_self_update_check
+from app.services.notifications import dispatch_pending_notifications
 
 
 logger = logging.getLogger(__name__)
@@ -284,6 +285,7 @@ class PluginManager:
         self.tasks.append(asyncio.create_task(self._retention_cleanup_loop(), name="core-retention-cleanup"))
         self.tasks.append(asyncio.create_task(self._geoip_backfill_loop(), name="core-geoip-backfill"))
         self.tasks.append(asyncio.create_task(self._self_update_check_loop(), name="core-self-update-check"))
+        self.tasks.append(asyncio.create_task(self._notification_dispatch_loop(), name="core-notification-dispatch"))
         for plugin in self.plugins.values():
             self.tasks.append(asyncio.create_task(self._health_loop(plugin), name=f"plugin-health-{plugin.metadata.id}"))
             if isinstance(plugin, DatasourcePlugin):
@@ -475,6 +477,24 @@ class PluginManager:
             except Exception:
                 logger.exception("OpenSecDash update check failed")
                 await asyncio.sleep(60 * 60)
+            finally:
+                db.close()
+
+    async def _notification_dispatch_loop(self) -> None:
+        while True:
+            db = SessionLocal()
+            try:
+                sent = await asyncio.to_thread(dispatch_pending_notifications, db)
+                if sent:
+                    logger.info("Dispatched %d notification(s)", sent)
+                await asyncio.sleep(30)
+            except asyncio.CancelledError:
+                db.close()
+                raise
+            except Exception:
+                logger.exception("Notification dispatch failed")
+                db.rollback()
+                await asyncio.sleep(30)
             finally:
                 db.close()
 

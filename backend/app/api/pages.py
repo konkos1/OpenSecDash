@@ -23,7 +23,7 @@ from app.core.time import utc_now
 from app.core.version import get_app_version
 from app.database.dependencies import get_db
 from app.models.assets import Asset
-from app.models.core import Action, AggregationDaily, AggregationMonthly, Datasource, Diagnostic, Insight, PluginRecord
+from app.models.core import Action, AggregationDaily, AggregationMonthly, Datasource, Diagnostic, Insight, Notification, PluginRecord
 from app.models.events import Event
 from app.models.settings import Setting
 from app.models.systems import System
@@ -36,6 +36,7 @@ from app.services.dashboard_metrics import (
     dashboard_yesterday_summary as _dashboard_yesterday_summary,
 )
 from app.services.insight_rules import debug_summary as insight_rules_debug_summary
+from app.services.notification_channels import get_channel
 from app.services.notifications import invalidate_rules_cache
 from app.services.asset_updates import refresh_asset_update
 from app.plugins.manager import get_plugin_manager
@@ -45,7 +46,7 @@ from app.services.asset_actions import (
     refresh_asset_updates_action,
     run_asset_metadata_action,
 )
-from app.services.asset_hosts import matching_event_hostnames, normalize_asset_host, sync_asset_host_events
+from app.services.asset_hosts import asset_last_seen_stale, asset_stale_threshold, matching_event_hostnames, normalize_asset_host, sync_asset_host_events
 from app.services.events import apply_event_filters, is_local_ip_value, tokenize_search_expression
 from app.web.dashboard import DashboardWidget, apply_layout, collect_dashboard_widgets, load_dashboard_layout
 from app.web.guards import (
@@ -792,6 +793,39 @@ async def save_events_columns(request: Request, db: Session = Depends(get_db)):
     return RedirectResponse(url=column_redirect_url(request, "/events", str(form.get("snapshot_before") or "")), status_code=303)
 
 
+@router.post("/notifications/test")
+async def notification_test(db: Session = Depends(get_db)):
+    def _send() -> bool:
+        channel = get_channel("email")
+        notification = Notification(rule_id="core.test", channel="email", status="pending")
+        db.add(notification)
+        if channel is None or not channel.is_configured(db):
+            notification.status = "failed"
+            notification.error = "Email channel is not configured."
+            db.commit()
+            return False
+        try:
+            from app.core.i18n import translate
+
+            language = get_setting_value(db, "language", "en")
+            subject = translate("notification.email.test_subject", language)
+            body = translate("notification.email.test_body", language)
+            channel.send(db, subject, body)
+        except Exception as exc:
+            notification.status = "failed"
+            notification.error = str(exc)[:2000]
+            db.commit()
+            return False
+        notification.status = "sent"
+        notification.subject = subject
+        notification.sent_at = utc_now().replace(tzinfo=None)
+        db.commit()
+        return True
+
+    success = await asyncio.to_thread(_send)
+    return RedirectResponse(url="/notifications?test=ok" if success else "/notifications?test=failed", status_code=303)
+
+
 def _clean_ip_target(value: str | None) -> str:
     return unquote(str(value or "").strip())
 
@@ -918,19 +952,6 @@ def asset_system_matches_search(system: System, apps: list[Asset], query: str) -
     ]
     haystack = " ".join([system_blob, *app_blobs])
     return all(term in haystack for term in terms)
-
-
-def asset_stale_threshold(source_plugin: str | None) -> timedelta:
-    if source_plugin == "proxmox_assets":
-        return timedelta(hours=24)
-    return timedelta(days=7)
-
-
-def asset_last_seen_stale(last_seen: datetime | None, source_plugin: str | None, now: datetime | None = None) -> bool:
-    if last_seen is None:
-        return True
-    current = now or utc_now().replace(tzinfo=None)
-    return current - last_seen > asset_stale_threshold(source_plugin)
 
 
 def _assets_url(*, show_inactive: bool, updates: bool, q: str, source: str = "") -> str:

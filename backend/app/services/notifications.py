@@ -7,8 +7,12 @@ from sqlalchemy.orm import Session
 
 from app.core.template_context import get_setting_value
 from app.core.time import utc_now
+from app.core.i18n import translate
 from app.models.core import Insight, Notification, NotificationRule
 from app.models.events import Event
+from app.models.systems import System
+from app.services.asset_hosts import asset_last_seen_stale
+from app.services.notification_channels import get_channel
 
 
 logger = logging.getLogger(__name__)
@@ -34,6 +38,7 @@ class NotificationRuleSnapshot:
 _rules_cache: list[NotificationRuleSnapshot] | None = None
 _rules_loaded_at: float | None = None
 _notifications_enabled_cache: bool | None = None
+_last_offline_state: dict[int, bool] = {}
 
 EVENT_SEVERITY_ORDER = {"info": 0, "warning": 1, "error": 2, "critical": 3}
 INSIGHT_LEVEL_ORDER = {"low": 0, "medium": 1, "high": 2, "critical": 3}
@@ -226,3 +231,121 @@ def handle_insight(db: Session, insight: Insight) -> None:
             )
     except Exception:
         logger.exception("Notification engine failed while handling insight id=%s", insight.id)
+
+
+def _notification_name(rule: NotificationRule) -> str:
+    return rule.name
+
+
+def render_notification(db: Session, rule: NotificationRule, pending: list[Notification]) -> tuple[str, str]:
+    """Render one plain-text notification or digest in the configured language."""
+    language = get_setting_value(db, "language", "en")
+    text = lambda key: translate(key, language)
+    name = _notification_name(rule)
+    subject = f"{text('notification.email.subject_prefix')} {name}"
+    base_url = get_setting_value(db, "notifications.base_url", "").rstrip("/")
+    if len(pending) > 1:
+        lines = [text("notification.email.digest_title").format(count=len(pending), name=name, minutes=rule.window_minutes), ""]
+        for item in pending[:5]:
+            payload = item.payload or {}
+            parts = [str(payload[key]) for key in ("ip", "country", "path") if payload.get(key)]
+            if parts:
+                lines.append(" · ".join(parts))
+        if len(pending) > 5:
+            lines.extend(["", text("notification.email.and_more").format(count=len(pending) - 5)])
+    else:
+        payload = pending[0].payload or {}
+        lines = [name]
+        fields = (("ip", "notification.email.ip"), ("country", "notification.email.country"), ("path", "notification.email.path"), ("severity", "notification.email.severity"), ("level", "notification.email.level"))
+        for key, label in fields:
+            if payload.get(key):
+                lines.append(f"{text(label)}: {payload[key]}")
+    if base_url:
+        payload = pending[0].payload or {}
+        event_type = str(payload.get("type") or "")
+        if event_type == "system.plugin_error":
+            link_path, link_label = "/diagnostics", "notification.email.open_diagnostics"
+        elif event_type == "system.asset_offline":
+            link_path, link_label = "/assets", "notification.email.open_assets"
+        elif payload.get("ip"):
+            link_path, link_label = f"/ip/{payload['ip']}", "notification.email.open_ip"
+        else:
+            link_path, link_label = "/events", "notification.email.show_events"
+        lines.extend(["", f"{text(link_label)}: {base_url}{link_path}"])
+        if event_type not in {"system.plugin_error", "system.asset_offline"}:
+            lines.append(f"{text('notification.email.show_events')}: {base_url}/events")
+    return subject, "\n".join(lines)
+
+
+def _detect_offline_systems(db: Session) -> None:
+    now = utc_now().replace(tzinfo=None)
+    for system in db.query(System).filter(System.last_seen.isnot(None)).all():
+        if system.last_seen is None:
+            continue
+        offline = asset_last_seen_stale(system.last_seen, system.source_plugin, now)
+        was_offline = _last_offline_state.get(system.id, False)
+        _last_offline_state[system.id] = offline
+        if not offline or was_offline:
+            continue
+        from app.services.events import store_event
+
+        asset_id = system.assets[0].id if system.assets else None
+        store_event(
+            db,
+            source="System",
+            source_id="assets",
+            plugin="core",
+            event_type="system.asset_offline",
+            severity="warning",
+            asset_id=asset_id,
+            hostname=system.hostname,
+            data_json={"system": system.hostname, "last_seen": system.last_seen.isoformat()},
+        )
+
+
+def dispatch_pending_notifications(db: Session) -> int:
+    """Detect offline systems and send eligible notification batches."""
+    _detect_offline_systems(db)
+    sent_count = 0
+    now = utc_now().replace(tzinfo=None)
+    if get_setting_value(db, "notifications.enabled", "false").lower() != "true":
+        db.commit()
+        return sent_count
+    rule_ids = [rule_id for (rule_id,) in db.query(Notification.rule_id).filter(Notification.status == "pending").distinct().all()]
+    for rule_id in rule_ids:
+        rule = db.query(NotificationRule).filter(NotificationRule.rule_id == rule_id).first()
+        if rule is None:
+            continue
+        channel = get_channel(rule.channel)
+        if channel is None or not channel.is_configured(db):
+            continue
+        pending = db.query(Notification).filter(Notification.rule_id == rule_id, Notification.status == "pending").order_by(Notification.created_at.asc()).all()
+        window_start = now - timedelta(minutes=rule.window_minutes)
+        recent = [item for item in pending if item.created_at >= window_start]
+        if rule.min_count > 1 and len(recent) < rule.min_count:
+            for item in pending:
+                if item.created_at < window_start:
+                    item.status = "skipped"
+            continue
+        cooldown_start = now - timedelta(minutes=rule.cooldown_minutes)
+        if db.query(Notification).filter(Notification.rule_id == rule_id, Notification.status == "sent", Notification.sent_at >= cooldown_start).first() is not None:
+            continue
+        if not pending:
+            continue
+        subject, body = render_notification(db, rule, pending)
+        try:
+            channel.send(db, subject, body)
+        except Exception as exc:
+            for item in pending:
+                item.status = "failed"
+                item.error = str(exc)[:2000]
+            logger.exception("Notification delivery failed for rule %s", rule_id)
+            continue
+        sent_at = utc_now().replace(tzinfo=None)
+        for item in pending:
+            item.status = "sent"
+            item.sent_at = sent_at
+            item.subject = subject
+        sent_count += len(pending)
+    db.commit()
+    return sent_count
