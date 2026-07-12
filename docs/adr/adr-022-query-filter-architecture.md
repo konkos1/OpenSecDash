@@ -1,7 +1,9 @@
 # ADR-022: Query & Filter Architecture
 
-> **Implementation status (2026-07-09):** Partially implemented.
-> Events/access pages support practical filters, search expressions, URL filters, local-IP filtering, and table column settings. Saved views/global search are not fully implemented.
+> **Implementation status (2026-07-12):** Implemented.
+> Events and Access use the shared filter engine with structured operator keys, ASN/hostname/asset filters, time-range presets, URL filters, local-IP filtering, search expressions, saved views, and table column settings. The global header search routes IPs/CIDRs to IP Explorer, matching asset names/hostnames to Asset Explorer, and all other input to Events.
+
+> **Intentional scope:** Filter operators are explicit structured keys, not a free-text DSL, so validation and SQLAlchemy-bound queries remain straightforward and safe. Custom time ranges use `range=custom` with `from`/`to` URL parameters, and only the selected time range is preserved between Events and Access. Saved views with the same name in the same scope are overwritten; plugin-provided views are supported as read-only defaults. Torblock is not applicable because no Torblock plugin exists. Generated drill-down values link to matching Events/Access views where a meaningful filter exists; technical, inventory, notification, current-decision, and Rollup values remain intentionally non-drill-down.
 
 
 
@@ -424,9 +426,8 @@ Time range remains:
 
 ---
 
-## Implementation notes (2026-07-09)
+## Implementation notes (2026-07-12)
 
-The Events and Access views implement practical filters and search, including event type, IP, country, status code, path, plugin/source, local-IP behavior, boolean-style text search, URL-based filters, and configurable table columns.
+The shared `apply_event_filters` engine supports additive structured keys for country lists and exclusions, inclusive status-code bounds, ASN, hostname, and asset. ASN equality is indexed. Events and Access expose the same applicable URL filters and time-range presets (`1h`, `24h`, `7d`, `30d`, and custom `from`/`to` URLs); the selected range is retained when switching between those pages.
 
-Saved views and a single global search bar that routes directly to IP/Asset Explorer remain planned.
-
+Saved views are global and validated against the filter allowlist. They are available independently for Events and Access, preserve supported route state, replace an existing view with the same name in the same scope, and can be complemented by read-only plugin-provided defaults. Dashboard and CrowdSec drill-downs link generated event aggregates to matching filtered views; values without an equivalent Events/Access query are documented as intentional exceptions above.
