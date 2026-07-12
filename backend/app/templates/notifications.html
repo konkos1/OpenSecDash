@@ -16,7 +16,7 @@
     {% if test_result == 'ok' %}<section class="card border border-emerald-700 mb-5">{{ t("notifications.test_ok") }}</section>{% endif %}
     {% if test_result == 'failed' %}<section class="card border border-red-700 mb-5">{{ t("notifications.test_failed") }}</section>{% endif %}
 
-    <section class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
         {% for status in ['sent', 'failed', 'pending'] %}
             <div class="card text-center"><span class="muted text-sm">{{ t('notifications.' ~ status) }}</span><strong class="block text-3xl">{{ counts[status] }}</strong></div>
         {% endfor %}

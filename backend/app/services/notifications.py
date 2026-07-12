@@ -248,7 +248,9 @@ def render_notification(db: Session, rule: NotificationRule, pending: list[Notif
     language = get_setting_value(db, "language", "en")
     text = lambda key: translate(key, language)
     name = _notification_name(rule)
-    subject = f"{text('notification.email.subject_prefix')} {name}"
+    domain = get_setting_value(db, "domain", "").strip()
+    instance_label = f" {domain}" if domain else ""
+    subject = f"{text('notification.email.subject_prefix')}{instance_label} · {name}"
     base_url = get_setting_value(db, "notifications.base_url", "").rstrip("/")
     if len(pending) > 1:
         lines = [text("notification.email.digest_title").format(count=len(pending), name=name, minutes=rule.window_minutes), ""]

@@ -51,13 +51,14 @@ def _pending(rule_id: str, **payload) -> Notification:
 def test_dispatch_sends_pending_event_with_deep_link(db_session, monkeypatch):
     channel = FakeChannel()
     monkeypatch.setattr(notifications, "get_channel", lambda _: channel)
+    save_setting(db_session, "domain", "homelab.example")
     item = _pending("core.crowdsec_ban", source="event", type="security.ban", ip="1.2.3.4", country="RU", path="/wp-login.php", severity="warning")
     db_session.add(item)
     db_session.commit()
 
     assert dispatch_pending_notifications(db_session) == 1
     assert item.status == "sent"
-    assert item.subject == "[OpenSecDash] CrowdSec ban"
+    assert item.subject == "[OpenSecDash] homelab.example · CrowdSec ban"
     assert item.sent_at is not None
     assert "IP: 1.2.3.4" in channel.messages[0][1]
     assert "http://dashboard.example/ip/1.2.3.4" in channel.messages[0][1]

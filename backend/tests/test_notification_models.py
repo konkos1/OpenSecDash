@@ -4,10 +4,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.core.template_context import get_setting_value
+from app.api import pages
 from app.database.base import Base
 from app.database.dependencies import get_db
 from app.main import app
-from app.models.core import NotificationRule
+from app.models.core import Notification, NotificationRule
 from app.models.settings import Setting
 from app.services.notifications import seed_default_notification_rules
 from app.web.tables import save_setting
@@ -112,3 +113,31 @@ def test_notification_settings_post_persists_all_values(test_settings_db):
     }
     assert {key: get_setting_value(test_settings_db, key) for key in expected} == expected
     assert test_settings_db.query(Setting).filter_by(key="notifications.smtp_password").one().value.startswith("enc:v1:")
+
+
+def test_notification_test_email_subject_includes_primary_domain(test_settings_db, monkeypatch):
+    class FakeChannel:
+        def __init__(self):
+            self.subject = ""
+
+        def is_configured(self, db):
+            return True
+
+        def send(self, db, subject, body):
+            self.subject = subject
+
+    channel = FakeChannel()
+    monkeypatch.setattr(pages, "get_channel", lambda _: channel)
+    save_setting(test_settings_db, "domain", "homelab.example")
+    test_settings_db.commit()
+    app.dependency_overrides[get_db] = lambda: test_settings_db
+    client = TestClient(app)
+    try:
+        response = client.post("/notifications/test", follow_redirects=False)
+    finally:
+        client.close()
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 303
+    assert channel.subject == "[OpenSecDash] homelab.example · Notification test"
+    assert test_settings_db.query(Notification).filter_by(rule_id="core.test", status="sent").count() == 1

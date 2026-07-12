@@ -808,7 +808,9 @@ async def notification_test(db: Session = Depends(get_db)):
             from app.core.i18n import translate
 
             language = get_setting_value(db, "language", "en")
-            subject = translate("notification.email.test_subject", language)
+            domain = get_setting_value(db, "domain", "").strip()
+            instance_label = f" {domain}" if domain else ""
+            subject = f"{translate('notification.email.subject_prefix', language)}{instance_label} · {translate('notification.email.test_subject', language)}"
             body = translate("notification.email.test_body", language)
             channel.send(db, subject, body)
         except Exception as exc:
