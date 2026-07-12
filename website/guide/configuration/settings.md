@@ -7,6 +7,8 @@ OpenSecDash settings are available from the Settings page. Dependent settings us
 | Setting | What it does |
 | --- | --- |
 | Primary Domain | Shown as the identity of this OpenSecDash instance. Useful when screenshots/debug reports need to identify which homelab instance they came from or simply as branding. |
+| Instance Description | A short description shown as the app description when OpenSecDash is installed as a PWA. |
+| Accent Color | Colors buttons, links, and highlights. Choose Blue, Green, Orange, or Red; OpenSecDash branding stays unchanged. |
 | Language | UI language. Technical event identifiers such as `access.denied` stay unchanged. |
 | Retention days | How long raw events are kept in the local database. Rollups are preserved before cleanup so historical summaries remain available. |
 | Default Events mode | Starts the Events- and Access page in Live or Snapshot mode. Live keeps updating; Snapshot freezes the current view for investigation. |
@@ -15,6 +17,22 @@ OpenSecDash settings are available from the Settings page. Dependent settings us
 | Log timestamp timezone | Assumed timezone for log lines that don't include a timezone offset themselves. Defaults to `UTC`. See [Storage is always UTC](#storage-is-always-utc) below. |
 | Auto-refresh dashboard/CrowdSec/diagnostics/assets pages | Keeps those four pages updating in the background (scroll position is preserved) without a manual reload. Defaults to enabled. Disable it if OpenSecDash's own web UI is itself behind a reverse proxy whose access log OpenSecDash imports, since the periodic refresh requests would otherwise show up as `access.*` events about OpenSecDash itself. The Events/Access page has its own separate Live/Snapshot toggle and is unaffected by this setting. |
 | Check for OpenSecDash updates | Periodically asks GitHub for the latest OpenSecDash release (one small API request every few hours; no data about your instance is sent). When a newer version exists, a clearly visible hint with the version appears in the footer, linking to the release. Defaults to enabled. |
+
+## Instance branding
+
+Use **Add logo** to add a custom logo next to the OpenSecDash name. The
+OpenSecDash name and icon always remain visible; a custom logo does not replace
+them.
+
+You can also upload a custom favicon. Favicons support PNG, SVG, WEBP, and ICO
+up to 512 KB. They are used for the browser tab, bookmarks, and the PWA icon.
+ICO works in the browser tab only; use PNG, SVG, or WEBP when you also want the
+custom icon in the installed PWA. Logos support PNG, SVG, WEBP, and JPEG up to
+1 MB.
+
+Use the **Remove** button next to a stored logo or favicon to return to the
+default OpenSecDash branding. Uploaded files are stored in the database, so they
+are included in backups of the `/data` volume.
 
 ## Notifications
 
