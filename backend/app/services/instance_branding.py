@@ -3,6 +3,7 @@ from pathlib import Path
 import time
 
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import OperationalError
 
 from app.models.settings import InstanceFile
 
@@ -88,6 +89,9 @@ def delete_instance_file(db: Session, kind: str) -> None:
 def instance_file_versions(db: Session) -> dict[str, int | None]:
     """Return cache-busting versions without loading the image BLOBs."""
     versions: dict[str, int | None] = {KIND_LOGO: None, KIND_FAVICON: None}
-    for kind, updated_at in db.query(InstanceFile.kind, InstanceFile.updated_at).all():
-        versions[kind] = updated_at
+    try:
+        for kind, updated_at in db.query(InstanceFile.kind, InstanceFile.updated_at).all():
+            versions[kind] = updated_at
+    except OperationalError:
+        db.rollback()
     return versions
