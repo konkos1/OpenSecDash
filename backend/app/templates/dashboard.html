@@ -8,7 +8,7 @@
 
   <div class="flex items-center justify-between gap-4 mb-6" x-data="openSecDashAutoRefresh('#dashboard-results', {{ 'true' if live_page_refresh else 'false' }})" x-init="init()">
     <h2 class="text-2xl font-semibold">{{ t("dashboard.ui_title") }}{% if dashboard_local_date %} · {{ dashboard_local_date }}{% endif %}</h2>
-    <button type="button" class="btn-small btn-icon" data-columns-open="dashboard-layout" aria-label="{{ t('dashboard.customize') }}" title="{{ t('dashboard.customize') }}">⚙</button>
+    <button type="button" class="btn-small btn-icon" data-columns-open="dashboard-layout" aria-label="{{ t('dashboard.customize') }}" title="{{ t('dashboard.customize') }}"><span class="icon settings-icon" aria-hidden="true"></span></button>
   </div>
 
   <dialog id="dashboard-layout" class="columns-dialog">

@@ -40,7 +40,7 @@
                     <a href="/access?{{ view_to_query(view.filter_json, view.query_json) }}">{{ view.name }}</a>
                     <form method="post" action="/views/{{ view.id }}/delete" class="inline" data-confirm="{{ t('views.delete_confirm') }}">
                         <input type="hidden" name="scope" value="access">
-                        <button class="view-delete-button" type="submit" title="{{ t('views.delete_confirm') }}" aria-label="{{ t('views.delete_confirm') }}"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg></button>
+                        <button class="view-delete-button" type="submit" title="{{ t('views.delete_confirm') }}" aria-label="{{ t('views.delete_confirm') }}"><span class="icon trash-icon" aria-hidden="true"></span></button>
                     </form>
                 </span>
             {% endfor %}
@@ -116,7 +116,7 @@
     <div class="card overflow-x-auto responsive-table">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
             <p class="muted text-sm">{{ t("table.limit.access") }}</p>
-            <button type="button" class="btn-small btn-icon" data-columns-open="access-columns" aria-label="{{ t('table.columns') }}" title="{{ t('table.columns') }}">⚙</button>
+            <button type="button" class="btn-small btn-icon" data-columns-open="access-columns" aria-label="{{ t('table.columns') }}" title="{{ t('table.columns') }}"><span class="icon settings-icon" aria-hidden="true"></span></button>
         </div>
         <table class="w-full text-sm table-middle">
             <thead>

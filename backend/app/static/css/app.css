@@ -88,11 +88,15 @@ tbody tr:hover { background: rgba(15, 23, 42, .65); }
 .btn-secondary { background: #334155; color: #e2e8f0; }
 .btn-secondary:hover { background: #475569; }
 .btn-icon { min-width: 2rem; padding: .35rem; }
+.icon { --icon: none; background-color: currentColor; display: block; height: 1rem; mask: var(--icon) center / contain no-repeat; -webkit-mask: var(--icon) center / contain no-repeat; width: 1rem; }
+.settings-icon { --icon: url('/static/img/settings.svg'); }
+.trash-icon { --icon: url('/static/img/trash.svg'); }
+.edit-icon { --icon: url('/static/img/edit.svg'); }
 .input { background: #020617; border: 1px solid #334155; border-radius: .65rem; color: #f8fafc; margin-top: .25rem; min-height: 2.5rem; padding: .5rem .7rem; width: 100%; }
 .badge { background: #064e3b; border: 1px solid #047857; border-radius: 999px; color: #d1fae5; padding: .35rem .7rem; }
 .view-delete-button { background: #f87171; border-radius: 999px; color: white; line-height: 1; padding: .15rem .35rem; }
 .view-delete-button:hover { background: #ef4444; }
-.view-delete-button svg { display: block; height: .85rem; width: .85rem; }
+.view-delete-button .icon { height: .85rem; width: .85rem; }
 .badge-live { background: #064e3b; border-color: #047857; color: #d1fae5; }
 .badge-snapshot { background: #334155; border-color: #64748b; color: #e2e8f0; }
 .badge-warning { background: #451a03; border-color: #b45309; color: #fed7aa; }
