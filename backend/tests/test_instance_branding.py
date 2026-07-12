@@ -267,8 +267,9 @@ def test_settings_page_renders_branding_section(instance_branding_db):
         app.dependency_overrides.clear()
 
     assert response.status_code == 200
-    assert 'action="/settings/branding"' in response.text
+    assert 'formaction="/settings/branding"' in response.text
     assert "logo.png" in response.text
     assert "favicon.png" in response.text
     assert "/instance/logo?v=" in response.text
     assert "/instance/favicon?v=" in response.text
+    assert response.text.index("General") < response.text.index("Instance Branding") < response.text.index("Notifications (Email)")
