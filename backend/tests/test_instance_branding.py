@@ -8,7 +8,7 @@ from sqlalchemy.orm import sessionmaker
 from app.database.base import Base
 from app.database.dependencies import get_db
 from app.main import app
-from app.models.settings import InstanceFile
+from app.models.settings import InstanceFile, Setting
 from app.core.template_context import get_setting_value
 from app.services import instance_branding
 
@@ -216,6 +216,43 @@ def test_settings_post_saves_instance_description_without_changing_domain(instan
     assert get_setting_value(instance_branding_db, "domain") == "homelab.example"
     assert get_setting_value(instance_branding_db, "instance_description") == "Test instance"
     assert 'value="Test instance"' in page.text
+
+
+def test_settings_post_validates_instance_accent_color(instance_branding_db):
+    app.dependency_overrides[get_db] = lambda: instance_branding_db
+    client = TestClient(app)
+    try:
+        green_response = client.post("/settings", data={"instance_accent_color": "green"}, follow_redirects=False)
+        green_value = get_setting_value(instance_branding_db, "instance_accent_color")
+        invalid_response = client.post("/settings", data={"instance_accent_color": "neon"}, follow_redirects=False)
+    finally:
+        client.close()
+        app.dependency_overrides.clear()
+
+    assert green_response.status_code == 303
+    assert green_value == "green"
+    assert invalid_response.status_code == 303
+    assert get_setting_value(instance_branding_db, "instance_accent_color") == "blue"
+
+
+def test_template_context_normalizes_instance_accent_color(instance_branding_db):
+    app.dependency_overrides[get_db] = lambda: instance_branding_db
+    client = TestClient(app)
+    try:
+        default_page = client.get("/settings")
+        instance_branding_db.add(Setting(key="instance_accent_color", value="red"))
+        instance_branding_db.commit()
+        red_page = client.get("/settings")
+        instance_branding_db.query(Setting).filter(Setting.key == "instance_accent_color").update({"value": "broken"})
+        instance_branding_db.commit()
+        invalid_page = client.get("/settings")
+    finally:
+        client.close()
+        app.dependency_overrides.clear()
+
+    assert 'data-accent="blue"' in default_page.text
+    assert 'data-accent="red"' in red_page.text
+    assert 'data-accent="blue"' in invalid_page.text
 
 
 def test_settings_page_renders_branding_section(instance_branding_db):

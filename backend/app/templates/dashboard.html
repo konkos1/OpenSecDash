@@ -47,7 +47,7 @@
   {% for widget in dashboard_widgets %}
     {% set type_break = loop.index0 > 0 and loop.previtem.type != widget.type %}
     {% if widget.type == "counter" %}
-      <a href="{{ widget.href }}" class="card dashboard-widget hover:border-blue-500 flex flex-col items-center text-center sm:col-span-1 lg:col-span-3{% if type_break %} lg:col-start-1{% endif %}">
+      <a href="{{ widget.href }}" class="card dashboard-widget flex flex-col items-center text-center sm:col-span-1 lg:col-span-3{% if type_break %} lg:col-start-1{% endif %}">
         <span class="text-slate-400 text-sm">{{ t(widget.title_key) }}</span>
         <strong class="text-3xl">{{ widget.value }}</strong>
         {% if widget.delta %}

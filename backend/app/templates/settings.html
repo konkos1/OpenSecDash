@@ -52,6 +52,15 @@
             </select>
         </label>
 
+        <label>{{ t("settings.accent_color") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.accent_color') }}">?</button>
+            <select class="input" name="instance_accent_color">
+                <option value="blue" {% if instance_accent_color == 'blue' %}selected{% endif %}>{{ t("settings.accent_blue") }}</option>
+                <option value="green" {% if instance_accent_color == 'green' %}selected{% endif %}>{{ t("settings.accent_green") }}</option>
+                <option value="orange" {% if instance_accent_color == 'orange' %}selected{% endif %}>{{ t("settings.accent_orange") }}</option>
+                <option value="red" {% if instance_accent_color == 'red' %}selected{% endif %}>{{ t("settings.accent_red") }}</option>
+            </select>
+        </label>
+
         <label>{{ t("settings.timezone") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.timezone') }}">?</button>
             <input class="input" name="timezone" value="{{ timezone }}" placeholder="auto / Europe/Berlin">
         </label>

@@ -14,6 +14,7 @@ def test_theme_dropdown_selects_saved_theme():
         request=SimpleNamespace(url=SimpleNamespace(path="/settings")),
         language="en",
         theme="light",
+        instance_accent_color="blue",
         timezone="auto",
         domain="homelab.example",
         enabled_plugins={},

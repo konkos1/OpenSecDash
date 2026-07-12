@@ -1619,6 +1619,7 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
         "settings.html",
         domain=get_setting_value(db, "domain", ""),
         instance_description=get_setting_value(db, "instance_description", ""),
+        instance_accent_color=get_setting_value(db, "instance_accent_color", "blue"),
         instance_logo=get_instance_file(db, "logo"),
         instance_favicon=get_instance_file(db, "favicon"),
         branding_error=request.query_params.get("branding_error", ""),
@@ -1661,6 +1662,7 @@ async def save_settings(
     retention_days: str = Form("30"),
     live_default: str = Form("true"),
     theme: str = Form("auto"),
+    instance_accent_color: str = Form("blue"),
     timezone: str = Form("auto"),
     log_timestamp_timezone: str = Form("UTC"),
     live_page_refresh: str = Form("true"),
@@ -1692,9 +1694,11 @@ async def save_settings(
     # every page for everyone whenever a background writer holds the write
     # lock - which is exactly when users go to Settings to disable a plugin.
     def _save() -> None:
-        nonlocal language, domain, asset_source, notifications_base_url
+        nonlocal language, domain, instance_accent_color, asset_source, notifications_base_url
         if language not in {"de", "en"}:
             language = "en"
+        if instance_accent_color not in {"blue", "green", "orange", "red"}:
+            instance_accent_color = "blue"
         domain = clean_url_value(domain)
         if asset_source_type == "url":
             asset_source = clean_url_value(asset_source)
@@ -1706,6 +1710,7 @@ async def save_settings(
             "retention_days": retention_days,
             "live_default": live_default,
             "theme": theme,
+            "instance_accent_color": instance_accent_color,
             "timezone": timezone,
             "log_timestamp_timezone": log_timestamp_timezone,
             "live_page_refresh": live_page_refresh,

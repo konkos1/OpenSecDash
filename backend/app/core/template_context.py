@@ -56,6 +56,7 @@ def build_template_context(db: Session) -> dict[str, object | Callable[[str], st
             "instance_description": "",
             "timezone": "auto",
             "theme": "auto",
+            "instance_accent_color": "blue",
             "live_page_refresh": "true",
             "update_check_enabled": "true",
             "update_check.latest_version": "",
@@ -66,6 +67,9 @@ def build_template_context(db: Session) -> dict[str, object | Callable[[str], st
     domain = values["domain"]
     timezone = values["timezone"]
     theme = values["theme"]
+    accent_color = values["instance_accent_color"]
+    if accent_color not in {"blue", "green", "orange", "red"}:
+        accent_color = "blue"
     file_versions = instance_file_versions(db)
     live_page_refresh = values["live_page_refresh"] == "true"
     enabled_plugins = {plugin_id: values[f"plugin.{plugin_id}.enabled"] == "true" for plugin_id in plugin_registry.plugin_ids()}
@@ -108,6 +112,7 @@ def build_template_context(db: Session) -> dict[str, object | Callable[[str], st
         "domain": domain,
         "timezone": timezone,
         "theme": theme,
+        "accent_color": accent_color,
         "instance_description": values["instance_description"],
         "instance_logo_version": file_versions["logo"],
         "instance_favicon_version": file_versions["favicon"],
