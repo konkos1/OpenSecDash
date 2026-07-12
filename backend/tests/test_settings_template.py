@@ -34,6 +34,15 @@ def test_theme_dropdown_selects_saved_theme():
         log_level="INFO",
         asset_updates_github_token="",
         asset_updates_github_interval="21600",
+        notifications_enabled="false",
+        notifications_base_url="",
+        notifications_smtp_host="",
+        notifications_smtp_port="587",
+        notifications_smtp_security="starttls",
+        notifications_smtp_user="",
+        notifications_smtp_password="",
+        notifications_smtp_sender="",
+        notifications_smtp_recipient="",
     )
 
     assert '<option value="light" selected>settings.theme_light</option>' in html

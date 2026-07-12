@@ -23,7 +23,7 @@ from app.core.time import utc_now
 from app.core.version import get_app_version
 from app.database.dependencies import get_db
 from app.models.assets import Asset
-from app.models.core import Action, AggregationDaily, AggregationMonthly, Datasource, Diagnostic, Insight, PluginRecord
+from app.models.core import Action, AggregationDaily, AggregationMonthly, Datasource, Diagnostic, Insight, Notification, NotificationRule, PluginRecord
 from app.models.events import Event
 from app.models.settings import Setting
 from app.models.systems import System
@@ -36,6 +36,8 @@ from app.services.dashboard_metrics import (
     dashboard_yesterday_summary as _dashboard_yesterday_summary,
 )
 from app.services.insight_rules import debug_summary as insight_rules_debug_summary
+from app.services.notification_channels import get_channel
+from app.services.notifications import invalidate_rules_cache
 from app.services.asset_updates import refresh_asset_update
 from app.plugins.manager import get_plugin_manager
 from app.services.asset_actions import (
@@ -44,7 +46,7 @@ from app.services.asset_actions import (
     refresh_asset_updates_action,
     run_asset_metadata_action,
 )
-from app.services.asset_hosts import matching_event_hostnames, normalize_asset_host, sync_asset_host_events
+from app.services.asset_hosts import asset_last_seen_stale, asset_stale_threshold, matching_event_hostnames, normalize_asset_host, sync_asset_host_events
 from app.services.events import apply_event_filters, is_local_ip_value, tokenize_search_expression
 from app.web.dashboard import DashboardWidget, apply_layout, collect_dashboard_widgets, load_dashboard_layout
 from app.web.guards import (
@@ -791,6 +793,41 @@ async def save_events_columns(request: Request, db: Session = Depends(get_db)):
     return RedirectResponse(url=column_redirect_url(request, "/events", str(form.get("snapshot_before") or "")), status_code=303)
 
 
+@router.post("/notifications/test")
+async def notification_test(db: Session = Depends(get_db)):
+    def _send() -> bool:
+        channel = get_channel("email")
+        notification = Notification(rule_id="core.test", channel="email", status="pending")
+        db.add(notification)
+        if channel is None or not channel.is_configured(db):
+            notification.status = "failed"
+            notification.error = "Email channel is not configured."
+            db.commit()
+            return False
+        try:
+            from app.core.i18n import translate
+
+            language = get_setting_value(db, "language", "en")
+            domain = get_setting_value(db, "domain", "").strip()
+            instance_label = f" {domain}" if domain else ""
+            subject = f"{translate('notification.email.subject_prefix', language)}{instance_label} · {translate('notification.email.test_subject', language)}"
+            body = translate("notification.email.test_body", language)
+            channel.send(db, subject, body)
+        except Exception as exc:
+            notification.status = "failed"
+            notification.error = str(exc)[:2000]
+            db.commit()
+            return False
+        notification.status = "sent"
+        notification.subject = subject
+        notification.sent_at = utc_now().replace(tzinfo=None)
+        db.commit()
+        return True
+
+    success = await asyncio.to_thread(_send)
+    return RedirectResponse(url="/notifications?test=ok" if success else "/notifications?test=failed", status_code=303)
+
+
 def _clean_ip_target(value: str | None) -> str:
     return unquote(str(value or "").strip())
 
@@ -917,19 +954,6 @@ def asset_system_matches_search(system: System, apps: list[Asset], query: str) -
     ]
     haystack = " ".join([system_blob, *app_blobs])
     return all(term in haystack for term in terms)
-
-
-def asset_stale_threshold(source_plugin: str | None) -> timedelta:
-    if source_plugin == "proxmox_assets":
-        return timedelta(hours=24)
-    return timedelta(days=7)
-
-
-def asset_last_seen_stale(last_seen: datetime | None, source_plugin: str | None, now: datetime | None = None) -> bool:
-    if last_seen is None:
-        return True
-    current = now or utc_now().replace(tzinfo=None)
-    return current - last_seen > asset_stale_threshold(source_plugin)
 
 
 def _assets_url(*, show_inactive: bool, updates: bool, q: str, source: str = "") -> str:
@@ -1386,6 +1410,49 @@ def diagnostics_page(request: Request, db: Session = Depends(get_db)):
     )
 
 
+@router.get("/notifications")
+def notifications_page(request: Request, test: str | None = None, db: Session = Depends(get_db)):
+    since = utc_now().replace(tzinfo=None) - timedelta(days=7)
+    counts = {
+        status: db.query(Notification).filter(Notification.status == status, Notification.created_at >= since).count()
+        for status in ("sent", "failed", "pending")
+    }
+    rules = db.query(NotificationRule).order_by(NotificationRule.name).all()
+    rule_names = {rule.rule_id: rule.name for rule in rules}
+    history = db.query(Notification).order_by(Notification.created_at.desc()).limit(50).all()
+    channel = get_channel("email")
+    configured = get_setting_value(db, "notifications.enabled", "false") == "true" and channel is not None and channel.is_configured(db)
+    return render(
+        request,
+        db,
+        "notifications.html",
+        counts=counts,
+        rules=rules,
+        history=history,
+        rule_names=rule_names,
+        configured=configured,
+        test_result=test if test in {"ok", "failed"} else None,
+    )
+
+
+@router.post("/notifications/rules")
+async def save_notification_rules(request: Request, db: Session = Depends(get_db)):
+    form = await request.form()
+    enabled_rule_ids = {str(value) for value in form.getlist("rule_id")}
+
+    def _save() -> None:
+        for rule in db.query(NotificationRule).all():
+            enabled = rule.rule_id in enabled_rule_ids
+            if rule.enabled != enabled:
+                rule.enabled = enabled
+                rule.updated_at = utc_now().replace(tzinfo=None)
+        db.commit()
+        invalidate_rules_cache()
+
+    await asyncio.to_thread(_save)
+    return RedirectResponse(url="/notifications", status_code=303)
+
+
 @router.get("/settings")
 def settings_page(request: Request, db: Session = Depends(get_db)):
     plugin_setting_groups = get_plugin_manager().plugin_settings(db, get_setting_value(db, "language", "en"))
@@ -1415,6 +1482,15 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
         log_level=get_setting_value(db, "log_level", "INFO"),
         asset_updates_github_token=get_setting_value(db, "asset_updates.github_token", ""),
         asset_updates_github_interval=get_setting_value(db, "asset_updates.github_interval", "21600"),
+        notifications_enabled=get_setting_value(db, "notifications.enabled", "false"),
+        notifications_base_url=get_setting_value(db, "notifications.base_url", ""),
+        notifications_smtp_host=get_setting_value(db, "notifications.smtp_host", ""),
+        notifications_smtp_port=get_setting_value(db, "notifications.smtp_port", "587"),
+        notifications_smtp_security=get_setting_value(db, "notifications.smtp_security", "starttls"),
+        notifications_smtp_user=get_setting_value(db, "notifications.smtp_user", ""),
+        notifications_smtp_password=get_setting_value(db, "notifications.smtp_password", ""),
+        notifications_smtp_sender=get_setting_value(db, "notifications.smtp_sender", ""),
+        notifications_smtp_recipient=get_setting_value(db, "notifications.smtp_recipient", ""),
         plugin_setting_groups=plugin_setting_groups,
         plugin_settings_state=plugin_settings_state,
     )
@@ -1440,6 +1516,15 @@ async def save_settings(
     log_level: str = Form("INFO"),
     asset_updates_github_token: str = Form(""),
     asset_updates_github_interval: str = Form("21600"),
+    notifications_enabled: str = Form("false"),
+    notifications_base_url: str = Form(""),
+    notifications_smtp_host: str = Form(""),
+    notifications_smtp_port: str = Form("587"),
+    notifications_smtp_security: str = Form("starttls"),
+    notifications_smtp_user: str = Form(""),
+    notifications_smtp_password: str = Form(""),
+    notifications_smtp_sender: str = Form(""),
+    notifications_smtp_recipient: str = Form(""),
     db: Session = Depends(get_db),
 ):
     form = await request.form()
@@ -1450,12 +1535,13 @@ async def save_settings(
     # every page for everyone whenever a background writer holds the write
     # lock - which is exactly when users go to Settings to disable a plugin.
     def _save() -> None:
-        nonlocal language, domain, asset_source
+        nonlocal language, domain, asset_source, notifications_base_url
         if language not in {"de", "en"}:
             language = "en"
         domain = clean_url_value(domain)
         if asset_source_type == "url":
             asset_source = clean_url_value(asset_source)
+        notifications_base_url = clean_url_value(notifications_base_url)
         for key, value in {
             "domain": domain,
             "language": language,
@@ -1474,6 +1560,15 @@ async def save_settings(
             "log_level": log_level if log_level in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"} else "INFO",
             "asset_updates.github_token": asset_updates_github_token,
             "asset_updates.github_interval": asset_updates_github_interval,
+            "notifications.enabled": notifications_enabled,
+            "notifications.base_url": notifications_base_url,
+            "notifications.smtp_host": notifications_smtp_host,
+            "notifications.smtp_port": notifications_smtp_port,
+            "notifications.smtp_security": notifications_smtp_security,
+            "notifications.smtp_user": notifications_smtp_user,
+            "notifications.smtp_password": notifications_smtp_password,
+            "notifications.smtp_sender": notifications_smtp_sender,
+            "notifications.smtp_recipient": notifications_smtp_recipient,
         }.items():
             save_setting(db, key, value)
 
@@ -1495,6 +1590,7 @@ async def save_settings(
                     text_value = clean_url_value(text_value)
                 save_setting(db, key, text_value)
         db.commit()
+        invalidate_rules_cache()
         get_plugin_manager().refresh_health_diagnostics(db)
         configure_logging_from_db(db)
 

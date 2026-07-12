@@ -8,7 +8,7 @@
 
     <h2 class="text-2xl font-semibold mb-5">{{ t("settings.title") }}</h2>
 
-    <form class="space-y-5" method="post" action="/settings" data-unsaved-warning="{{ t('settings.unsaved_changes') }}" x-data='{ settings: {{ plugin_settings_state | tojson }}, logFileEnabled: {{ log_file_enabled | tojson }} }'>
+    <form class="space-y-5" method="post" action="/settings" data-unsaved-warning="{{ t('settings.unsaved_changes') }}" x-data='{ settings: {{ plugin_settings_state | tojson }}, logFileEnabled: {{ log_file_enabled | tojson }}, notificationsEnabled: {{ notifications_enabled | tojson }} }'>
         <section class="card grid grid-cols-1 md:grid-cols-2 gap-4">
             <h3 class="font-semibold md:col-span-2">{{ t("settings.core") }}</h3>
             <label>{{ t("settings.domain") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.domain') }}">?</button>
@@ -109,6 +109,55 @@
             <label>{{ t("settings.asset_updates_github_interval") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.asset_updates_github_interval') }}">?</button>
                 <input class="input" type="number" min="0" name="asset_updates_github_interval" value="{{ asset_updates_github_interval }}" :readonly="!(settings['plugin.json_assets.enabled'] === 'true' || settings['plugin.proxmox_assets.enabled'] === 'true')">
             </label>
+        </section>
+
+        <section class="card grid grid-cols-1 md:grid-cols-2 gap-4">
+            <h3 class="font-semibold md:col-span-2">{{ t("settings.notifications_email") }}</h3>
+
+            <label>{{ t("settings.notifications_enabled") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.notifications_enabled') }}">?</button>
+                <select class="input" name="notifications_enabled" x-model="notificationsEnabled">
+                    <option value="true" {% if notifications_enabled == 'true' %}selected{% endif %}>{{ t("common.yes") }}</option>
+                    <option value="false" {% if notifications_enabled == 'false' %}selected{% endif %}>{{ t("common.no") }}</option>
+                </select>
+            </label>
+
+            <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4" :class="notificationsEnabled === 'true' ? '' : 'settings-disabled'">
+                <label>{{ t("settings.notifications_base_url") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.notifications_base_url') }}">?</button>
+                    <input class="input" type="url" name="notifications_base_url" value="{{ notifications_base_url }}" placeholder="http://192.168.1.10:8000">
+                </label>
+
+                <label>{{ t("settings.notifications_smtp_host") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.notifications_smtp_host') }}">?</button>
+                    <input class="input" type="text" name="notifications_smtp_host" value="{{ notifications_smtp_host }}" placeholder="smtp.example.net">
+                </label>
+
+                <label>{{ t("settings.notifications_smtp_port") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.notifications_smtp_port') }}">?</button>
+                    <input class="input" type="number" min="1" name="notifications_smtp_port" value="{{ notifications_smtp_port }}">
+                </label>
+
+                <label>{{ t("settings.notifications_smtp_security") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.notifications_smtp_security') }}">?</button>
+                    <select class="input" name="notifications_smtp_security">
+                        <option value="none" {% if notifications_smtp_security == 'none' %}selected{% endif %}>{{ t("settings.notifications_smtp_security_none") }}</option>
+                        <option value="starttls" {% if notifications_smtp_security == 'starttls' %}selected{% endif %}>STARTTLS</option>
+                        <option value="ssl" {% if notifications_smtp_security == 'ssl' %}selected{% endif %}>SSL/TLS</option>
+                    </select>
+                </label>
+
+                <label>{{ t("settings.notifications_smtp_user") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.notifications_smtp_user') }}">?</button>
+                    <input class="input" type="text" name="notifications_smtp_user" value="{{ notifications_smtp_user }}">
+                </label>
+
+                <label>{{ t("settings.notifications_smtp_password") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.notifications_smtp_password') }}">?</button>
+                    <input class="input" type="password" name="notifications_smtp_password" value="{{ notifications_smtp_password }}">
+                </label>
+
+                <label>{{ t("settings.notifications_smtp_sender") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.notifications_smtp_sender') }}">?</button>
+                    <input class="input" type="email" name="notifications_smtp_sender" value="{{ notifications_smtp_sender }}" placeholder="opensecdash@example.net">
+                </label>
+
+                <label>{{ t("settings.notifications_smtp_recipient") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.notifications_smtp_recipient') }}">?</button>
+                    <input class="input" type="email" name="notifications_smtp_recipient" value="{{ notifications_smtp_recipient }}" placeholder="admin@example.net">
+                </label>
+            </div>
         </section>
 
         {% for group in plugin_setting_groups %}

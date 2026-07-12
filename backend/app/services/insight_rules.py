@@ -14,6 +14,7 @@ from app.core.time import utc_now
 from app.models.core import Diagnostic, Insight, InsightRule as InsightRuleModel
 from app.models.events import Event
 from app.models.settings import Setting
+from app.services.notifications import handle_insight
 
 logger = logging.getLogger(__name__)
 
@@ -363,18 +364,18 @@ def apply_declarative_insight_rules(db: Session, event: Event) -> None:
         if _insight_exists(db, rule.id, related_ids, ip=insight_ip, window_start=window_start):
             continue
         asset_ids = {candidate.asset_id for candidate in matching_events}
-        db.add(
-            Insight(
-                type=rule.id,
-                confidence=rule.confidence,
-                level=rule.level,
-                title=rule.title,
-                description=f"{rule.description} Matched {len(matching_ids)} event(s) from {len(distinct_ips)} IP(s) within {rule.window_minutes} minutes.",
-                related_event_ids=related_ids,
-                ip=insight_ip,
-                asset_id=event.asset_id if rule.group_by == "ip" else asset_ids.pop() if len(asset_ids) == 1 else None,
-            )
+        insight = Insight(
+            type=rule.id,
+            confidence=rule.confidence,
+            level=rule.level,
+            title=rule.title,
+            description=f"{rule.description} Matched {len(matching_ids)} event(s) from {len(distinct_ips)} IP(s) within {rule.window_minutes} minutes.",
+            related_event_ids=related_ids,
+            ip=insight_ip,
+            asset_id=event.asset_id if rule.group_by == "ip" else asset_ids.pop() if len(asset_ids) == 1 else None,
         )
+        db.add(insight)
+        handle_insight(db, insight)
 
 
 def debug_summary(db: Session) -> list[str]:

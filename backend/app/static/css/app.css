@@ -15,13 +15,13 @@ td, th { border-bottom: 1px solid rgb(30 41 59); padding: .65rem; vertical-align
 tbody tr:hover { background: rgba(15, 23, 42, .65); }
 .nav { border-radius: .6rem; color: #e2e8f0; padding: .5rem .75rem; text-decoration: none; }
 .nav:hover, .nav-active { background: #1e293b; color: white; }
-/* Slightly earlier than Tailwind's default md (768px) breakpoint, so the nav
-   links don't end up cramped against the OpenSecDash branding right before
-   switching to the burger menu. */
+/* Keep the full navigation behind the burger until wide desktop space is
+   available. Localized labels and the growing core navigation otherwise get
+   clipped before the previous breakpoint could switch menus. */
 .nav-links-desktop { display: none; }
 .nav-menu-toggle { display: inline-flex; }
 .nav-links-mobile { display: none; }
-@media (min-width: 960px) {
+@media (min-width: 1200px) {
   .nav-links-desktop { display: flex; }
   .nav-menu-toggle { display: none; }
   .nav-links-mobile { display: none; }

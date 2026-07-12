@@ -16,6 +16,14 @@ OpenSecDash settings are available from the Settings page. Dependent settings us
 | Auto-refresh dashboard/CrowdSec/diagnostics/assets pages | Keeps those four pages updating in the background (scroll position is preserved) without a manual reload. Defaults to enabled. Disable it if OpenSecDash's own web UI is itself behind a reverse proxy whose access log OpenSecDash imports, since the periodic refresh requests would otherwise show up as `access.*` events about OpenSecDash itself. The Events/Access page has its own separate Live/Snapshot toggle and is unaffected by this setting. |
 | Check for OpenSecDash updates | Periodically asks GitHub for the latest OpenSecDash release (one small API request every few hours; no data about your instance is sent). When a newer version exists, a clearly visible hint with the version appears in the footer, linking to the release. Defaults to enabled. |
 
+## Notifications
+
+The **Notifications (Email)** section configures SMTP email alerts, including the
+master switch, the OpenSecDash base URL for email links, SMTP transport settings,
+sender, and recipient. The SMTP password is encrypted at rest like other sensitive
+settings. See [Notifications](./notifications.md) for setup, default rules, and
+delivery behavior.
+
 ## Storage is always UTC
 
 Every timestamp OpenSecDash stores is normalized to UTC. The `Timezone` setting only controls how timestamps are *displayed*; it never changes what's stored. This means changing the timezone setting later never leaves old data inconsistent with new data - everything in the database was already UTC, and only the display layer re-reads the current setting.
