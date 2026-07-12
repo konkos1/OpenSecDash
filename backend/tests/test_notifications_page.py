@@ -52,6 +52,8 @@ def test_notifications_page_shows_rules_history_and_configuration_hint(notificat
     assert "SMTP unavailable" in response.text
     assert "Notifications are disabled or SMTP is not configured." in response.text
     assert 'href="/notifications"' in response.text
+    assert 'action="/notifications/test" data-submit-busy' in response.text
+    assert 'data-busy-label="Processing…"' in response.text
 
 
 def test_notification_rule_toggle_invalidates_engine_cache(notifications_db):

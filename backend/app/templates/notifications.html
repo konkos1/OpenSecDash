@@ -45,7 +45,7 @@
     <section class="card mb-5">
         <h3 class="font-semibold mb-1">{{ t("notifications.test") }}</h3>
         <p class="muted text-sm mb-3">{{ t("notifications.test_help") }}</p>
-        <form method="post" action="/notifications/test"><button class="btn" type="submit">{{ t("notifications.send_test") }}</button></form>
+        <form method="post" action="/notifications/test" data-submit-busy><button class="btn" type="submit" data-busy-label="{{ t('common.processing') }}">{{ t("notifications.send_test") }}</button></form>
     </section>
 
     <section class="card overflow-x-auto responsive-table">
