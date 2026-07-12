@@ -102,7 +102,7 @@ def test_instance_file_routes_return_files_with_security_headers(instance_brandi
     app.dependency_overrides[get_db] = lambda: instance_branding_db
     client = TestClient(app)
     try:
-        missing = client.get(path)
+        missing = client.get(path, headers={"accept": "application/json"})
         instance_branding.save_instance_file(instance_branding_db, kind, filename, PNG_DATA)
         response = client.get(path)
     finally:
