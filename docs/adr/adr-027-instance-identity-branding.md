@@ -226,5 +226,5 @@ deliberately not implemented yet. Browser and PWA chrome colors remain unchanged
 
 ## Implementation notes (2026-07-13)
 
-Implemented according to `docs/internal/instance-branding/`. Custom branding
-always supplements the OpenSecDash name and icon; it never replaces them.
+Custom branding always supplements the OpenSecDash name and icon; it never replaces
+them.
