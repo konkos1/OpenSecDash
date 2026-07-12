@@ -41,10 +41,10 @@
     <div class="card">
       <h3 class="font-semibold mb-3">{{ t("crowdsec.top_scenarios") }} <button type="button" class="help" data-tooltip="{{ t('crowdsec.top_scenarios_help') }}">?</button></h3>
         {% for scenario,count in scenarios %}
-          <div class="row">
+          <a class="row" href="/events?event_type=security.ban*&q={{ (scenario or 'unknown')|urlencode }}">
             <span>{{ scenario or t("crowdsec.unknown") }}</span>
             <b>{{ count }}</b>
-          </div>
+          </a>
         {% else %}
           <p class="muted">{{ t("crowdsec.no_scenarios") }}</p>
         {% endfor %}
@@ -53,7 +53,7 @@
     <div class="card">
       <h3 class="font-semibold mb-3">{{ t("crowdsec.top_countries") }} <button type="button" class="help" data-tooltip="{{ t('crowdsec.top_countries_help') }}">?</button></h3>
       {% for country,count in countries %}
-        <a class="row" href="/events?country={{ country }}">
+        <a class="row" href="/events?event_type=security.ban*&country={{ country }}">
           <span>{{ country|country_name }}</span>
           <b>{{ count }}</b>
         </a>

@@ -13,7 +13,7 @@
           <td>
             {% if row.href %}<a href="{{ row.href }}">{{ row.label }}</a>{% else %}{{ row.label }}{% endif %}
           </td>
-          <td class="text-right"><strong>{{ row.value }}</strong></td>
+          <td class="text-right">{% if row.href %}<a href="{{ row.href }}"><strong>{{ row.value }}</strong></a>{% else %}<strong>{{ row.value }}</strong>{% endif %}</td>
           {% endif %}
         </tr>
       {% else %}
