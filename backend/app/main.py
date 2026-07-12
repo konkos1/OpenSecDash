@@ -26,6 +26,7 @@ from app.core.template_context import get_setting_value
 from app.models.events import Event
 from app.plugins.manager import get_plugin_manager
 from app.services.insight_rules import refresh_insight_rules
+from app.services.notifications import seed_default_notification_rules
 from app.web.guards import plugin_enabled_guard
 from app.web.templates import register_plugin_template_dirs, templates
 
@@ -59,6 +60,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             logger.info("Database migration: schema up to date: %s", migration_result.get("current"))
         update_migration_diagnostic(db)
         refresh_insight_rules(db)
+        seed_default_notification_rules(db)
+        db.commit()
         manager.seed_database(db)
     finally:
         db.close()

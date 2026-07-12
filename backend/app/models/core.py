@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, JSON, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, Index, JSON, String, Text, UniqueConstraint
 
 from app.core.time import utc_now
 from sqlalchemy.orm import Mapped, mapped_column
@@ -159,3 +159,39 @@ class Diagnostic(Base):
     status: Mapped[str] = mapped_column(String(20), default="healthy")
     last_run: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class NotificationRule(Base):
+    __tablename__ = "notification_rules"
+    __table_args__ = (UniqueConstraint("rule_id", name="uq_notification_rule_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    rule_id: Mapped[str] = mapped_column(String(120), index=True)
+    name: Mapped[str] = mapped_column(String(255))
+    source: Mapped[str] = mapped_column(String(20), default="event")
+    match_types: Mapped[list] = mapped_column(JSON, default=list)
+    min_severity: Mapped[str] = mapped_column(String(20), default="info")
+    countries: Mapped[list] = mapped_column(JSON, default=list)
+    asset_id: Mapped[int | None] = mapped_column(nullable=True)
+    channel: Mapped[str] = mapped_column(String(50), default="email")
+    min_count: Mapped[int] = mapped_column(default=1)
+    window_minutes: Mapped[int] = mapped_column(default=10)
+    cooldown_minutes: Mapped[int] = mapped_column(default=1)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    __table_args__ = (Index("ix_notifications_rule_created", "rule_id", "created_at"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, index=True)
+    rule_id: Mapped[str] = mapped_column(String(120), index=True)
+    channel: Mapped[str] = mapped_column(String(50), default="email")
+    status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
+    payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    subject: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

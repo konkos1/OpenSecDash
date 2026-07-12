@@ -1415,6 +1415,15 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
         log_level=get_setting_value(db, "log_level", "INFO"),
         asset_updates_github_token=get_setting_value(db, "asset_updates.github_token", ""),
         asset_updates_github_interval=get_setting_value(db, "asset_updates.github_interval", "21600"),
+        notifications_enabled=get_setting_value(db, "notifications.enabled", "false"),
+        notifications_base_url=get_setting_value(db, "notifications.base_url", ""),
+        notifications_smtp_host=get_setting_value(db, "notifications.smtp_host", ""),
+        notifications_smtp_port=get_setting_value(db, "notifications.smtp_port", "587"),
+        notifications_smtp_security=get_setting_value(db, "notifications.smtp_security", "starttls"),
+        notifications_smtp_user=get_setting_value(db, "notifications.smtp_user", ""),
+        notifications_smtp_password=get_setting_value(db, "notifications.smtp_password", ""),
+        notifications_smtp_sender=get_setting_value(db, "notifications.smtp_sender", ""),
+        notifications_smtp_recipient=get_setting_value(db, "notifications.smtp_recipient", ""),
         plugin_setting_groups=plugin_setting_groups,
         plugin_settings_state=plugin_settings_state,
     )
@@ -1440,6 +1449,15 @@ async def save_settings(
     log_level: str = Form("INFO"),
     asset_updates_github_token: str = Form(""),
     asset_updates_github_interval: str = Form("21600"),
+    notifications_enabled: str = Form("false"),
+    notifications_base_url: str = Form(""),
+    notifications_smtp_host: str = Form(""),
+    notifications_smtp_port: str = Form("587"),
+    notifications_smtp_security: str = Form("starttls"),
+    notifications_smtp_user: str = Form(""),
+    notifications_smtp_password: str = Form(""),
+    notifications_smtp_sender: str = Form(""),
+    notifications_smtp_recipient: str = Form(""),
     db: Session = Depends(get_db),
 ):
     form = await request.form()
@@ -1450,12 +1468,13 @@ async def save_settings(
     # every page for everyone whenever a background writer holds the write
     # lock - which is exactly when users go to Settings to disable a plugin.
     def _save() -> None:
-        nonlocal language, domain, asset_source
+        nonlocal language, domain, asset_source, notifications_base_url
         if language not in {"de", "en"}:
             language = "en"
         domain = clean_url_value(domain)
         if asset_source_type == "url":
             asset_source = clean_url_value(asset_source)
+        notifications_base_url = clean_url_value(notifications_base_url)
         for key, value in {
             "domain": domain,
             "language": language,
@@ -1474,6 +1493,15 @@ async def save_settings(
             "log_level": log_level if log_level in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"} else "INFO",
             "asset_updates.github_token": asset_updates_github_token,
             "asset_updates.github_interval": asset_updates_github_interval,
+            "notifications.enabled": notifications_enabled,
+            "notifications.base_url": notifications_base_url,
+            "notifications.smtp_host": notifications_smtp_host,
+            "notifications.smtp_port": notifications_smtp_port,
+            "notifications.smtp_security": notifications_smtp_security,
+            "notifications.smtp_user": notifications_smtp_user,
+            "notifications.smtp_password": notifications_smtp_password,
+            "notifications.smtp_sender": notifications_smtp_sender,
+            "notifications.smtp_recipient": notifications_smtp_recipient,
         }.items():
             save_setting(db, key, value)
 
