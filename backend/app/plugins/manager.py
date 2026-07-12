@@ -141,6 +141,16 @@ class PluginManager:
                 result.append((plugin.metadata.id, registration))
         return result
 
+    def default_views(self) -> list[dict[str, Any]]:
+        """Collect read-only saved-view descriptors from loaded plugins."""
+        result = []
+        for plugin_id, plugin in self.plugins.items():
+            try:
+                result.extend({**view, "plugin_id": plugin_id} for view in plugin.default_views() if isinstance(view, dict))
+            except Exception:
+                logger.exception("Failed to load default views from plugin %s", plugin_id)
+        return result
+
     def seed_database(self, db: Session) -> None:
         # Persist plugin metadata and default settings so the UI can render
         # plugin state even before a plugin has run successfully.

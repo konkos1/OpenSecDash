@@ -10,7 +10,7 @@ import platform
 from typing import Annotated
 import zipfile
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-from urllib.parse import quote, unquote, urlencode
+from urllib.parse import parse_qsl, quote, unquote, urlencode
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse, Response
@@ -26,6 +26,7 @@ from app.database.dependencies import get_db
 from app.models.assets import Asset
 from app.models.core import Action, AggregationDaily, AggregationMonthly, Datasource, Diagnostic, Insight, Notification, NotificationRule, PluginRecord
 from app.models.events import Event
+from app.models.saved_views import SavedView
 from app.models.settings import Setting
 from app.models.systems import System
 from app.services.dashboard_metrics import (
@@ -39,6 +40,7 @@ from app.services.dashboard_metrics import (
 from app.services.insight_rules import debug_summary as insight_rules_debug_summary
 from app.services.notification_channels import get_channel
 from app.services.notifications import invalidate_rules_cache
+from app.services.saved_views import VIEW_SCOPES, clean_view_name, plugin_views_for_scope, view_filters_from_query, view_to_query
 from app.services.asset_updates import refresh_asset_update
 from app.plugins.manager import get_plugin_manager
 from app.services.asset_actions import (
@@ -65,6 +67,7 @@ from app.web.tables import (
     clean_time_range,
     clean_url_value,
     column_redirect_url,
+    _safe_local_redirect_target,
     parse_snapshot_before,
     save_setting,
     save_table_columns,
@@ -104,6 +107,33 @@ def _has_asset_search_match(db: Session, query: str) -> bool:
         .first()
         or db.query(System.id).filter(System.hostname.contains(query)).first()
     )
+
+
+def _view_path(scope: str, filters: dict[str, object]) -> str:
+    path = "/events" if scope == "events" else "/access"
+    query = view_to_query(filters)
+    return f"{path}?{query}" if query else path
+
+
+def _saved_view_context(db: Session, scope: str, request: Request) -> dict[str, object]:
+    query_params = request.query_params
+    query_items = query_params.multi_items() if hasattr(query_params, "multi_items") else query_params.items()
+    plugin_views = plugin_views_for_scope(
+        [
+            view
+            for view in get_plugin_manager().default_views()
+            if is_plugin_enabled(db, str(view.get("plugin_id", "")))
+        ],
+        scope,
+    )
+    for view in plugin_views:
+        view["href"] = _view_path(scope, view["filter_json"])
+    user_views = db.query(SavedView).filter(SavedView.scope == scope).order_by(SavedView.created_at.desc()).all()
+    return {
+        "plugin_views": plugin_views,
+        "saved_views": user_views,
+        "current_view_query": view_to_query(view_filters_from_query(query_items)),
+    }
 
 
 COUNTRY_COORDINATES = {
@@ -547,6 +577,40 @@ def global_search(q: str = "", db: Session = Depends(get_db)):
     return RedirectResponse(url="/")
 
 
+@router.post("/views")
+def save_view(
+    request: Request,
+    scope: str = Form(""),
+    name: str = Form(""),
+    filters: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    if scope not in VIEW_SCOPES:
+        return RedirectResponse(url="/", status_code=303)
+    if not (view_name := clean_view_name(name)):
+        return RedirectResponse(url=_view_path(scope, {}), status_code=303)
+    filter_json = view_filters_from_query(parse_qsl(filters, keep_blank_values=True))
+    view = db.query(SavedView).filter(SavedView.scope == scope, SavedView.name == view_name).first()
+    if view is None:
+        view = SavedView(scope=scope, name=view_name, filter_json=filter_json)
+        db.add(view)
+    else:
+        view.filter_json = filter_json
+    db.commit()
+    return RedirectResponse(url=_view_path(scope, filter_json), status_code=303)
+
+
+@router.post("/views/{view_id}/delete")
+def delete_saved_view(request: Request, view_id: int, scope: str = Form(""), db: Session = Depends(get_db)):
+    if scope not in VIEW_SCOPES:
+        return RedirectResponse(url="/", status_code=303)
+    view = db.query(SavedView).filter(SavedView.id == view_id, SavedView.scope == scope).first()
+    if view is not None:
+        db.delete(view)
+        db.commit()
+    return RedirectResponse(url=_safe_local_redirect_target(request, request.headers.get("referer"), _view_path(scope, {})), status_code=303)
+
+
 @router.get("/")
 def dashboard_page(request: Request, db: Session = Depends(get_db)):
     timezone_name = get_setting_value(db, "timezone", "auto")
@@ -836,6 +900,7 @@ def events_page(
     events = apply_event_filters(db.query(Event), filters).order_by(Event.event_time.desc()).limit(200).all()
     column_options, active_columns = table_columns(db, "ui.events.visible_columns", DEFAULT_EVENTS_COLUMNS)
     event_asset_links = asset_links_for_events(db, events)
+    saved_view_context = _saved_view_context(db, "events", request)
     return render(
         request,
         db,
@@ -847,6 +912,8 @@ def events_page(
         active_columns=active_columns,
         columns_setting_action="/events/columns",
         live_default=get_setting_value(db, "live_default", "true"),
+        view_to_query=view_to_query,
+        **saved_view_context,
     )
 
 

@@ -8,7 +8,11 @@ from sqlalchemy.orm import Session
 from app.core.template_context import get_setting_value
 from app.database.dependencies import get_db
 from app.models.events import Event
+from app.models.saved_views import SavedView
+from app.plugins.manager import get_plugin_manager
 from app.services.events import apply_event_filters, tokenize_search_expression
+from app.services.saved_views import plugin_views_for_scope, view_filters_from_query, view_to_query
+from app.web.guards import is_plugin_enabled
 from app.web.render import render
 from app.web.tables import (
     DEFAULT_ACCESS_COLUMNS,
@@ -27,6 +31,28 @@ from app.web.tables import (
 
 # Enabled-gated by the plugin router mount (see app.main); no require_plugin_enabled here.
 router = APIRouter(tags=["traefik_log"])
+
+
+def _saved_view_context(db: Session, request: Request) -> dict[str, object]:
+    query_params = request.query_params
+    query_items = query_params.multi_items() if hasattr(query_params, "multi_items") else query_params.items()
+    plugin_views = plugin_views_for_scope(
+        [
+            view
+            for view in get_plugin_manager().default_views()
+            if is_plugin_enabled(db, str(view.get("plugin_id", "")))
+        ],
+        "access",
+    )
+    for view in plugin_views:
+        query = view_to_query(view["filter_json"])
+        view["href"] = f"/access?{query}" if query else "/access"
+    saved_views = db.query(SavedView).filter(SavedView.scope == "access").order_by(SavedView.created_at.desc()).all()
+    return {
+        "plugin_views": plugin_views,
+        "saved_views": saved_views,
+        "current_view_query": view_to_query(view_filters_from_query(query_items)),
+    }
 
 
 @router.get("/access")
@@ -89,6 +115,7 @@ def access_page(
     events = apply_event_filters(db.query(Event), filters).order_by(Event.event_time.desc()).limit(200).all()
     column_options, active_columns = table_columns(db, "ui.access.visible_columns", DEFAULT_ACCESS_COLUMNS)
     event_asset_links = asset_links_for_events(db, events)
+    saved_view_context = _saved_view_context(db, request)
     return render(
         request,
         db,
@@ -105,6 +132,8 @@ def access_page(
         range=range_value or "",
         snapshot_before=snapshot_before or "",
         live_default=get_setting_value(db, "live_default", "true"),
+        view_to_query=view_to_query,
+        **saved_view_context,
     )
 
 

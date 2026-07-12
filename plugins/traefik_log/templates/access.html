@@ -28,6 +28,29 @@
         </div>
     </div>
 
+    <div class="card flex flex-col gap-3 mb-5">
+        <div class="flex flex-wrap items-center gap-2">
+            <strong>{{ t("views.title") }}</strong>
+            {% for view in plugin_views %}
+                <a class="badge" href="{{ view.href }}">{{ view.name }}</a>
+                <span class="muted text-xs">{{ t("views.provided") }}</span>
+            {% endfor %}
+            {% for view in saved_views %}
+                <a class="badge" href="/access?{{ view_to_query(view.filter_json) }}">{{ view.name }}</a>
+                <form method="post" action="/views/{{ view.id }}/delete" class="inline">
+                    <input type="hidden" name="scope" value="access">
+                    <button class="btn-small" type="submit">{{ t("views.delete") }}</button>
+                </form>
+            {% endfor %}
+        </div>
+        <form method="post" action="/views" class="flex flex-col sm:flex-row gap-2">
+            <input type="hidden" name="scope" value="access">
+            <input type="hidden" name="filters" value="{{ current_view_query }}">
+            <input class="input flex-1" name="name" maxlength="120" placeholder="{{ t('views.name_placeholder') }}">
+            <button class="btn-small" type="submit">{{ t("views.save") }}</button>
+        </form>
+    </div>
+
     <form class="card grid grid-cols-1 md:grid-cols-6 gap-3 mb-5" method="get">
         <input type="hidden" name="snapshot_before" value="{{ snapshot_before or '' }}" data-snapshot-before>
         <input type="hidden" name="local_ip_filter" value="1">

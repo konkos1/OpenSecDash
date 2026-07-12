@@ -12,6 +12,7 @@ from app.models.core import (
     PluginRecord,
 )
 from app.models.events import Event
+from app.models.saved_views import SavedView
 from app.models.settings import Setting
 from app.models.systems import System
 
@@ -28,6 +29,7 @@ __all__ = [
     "Notification",
     "NotificationRule",
     "PluginRecord",
+    "SavedView",
     "Setting",
     "System",
 ]
