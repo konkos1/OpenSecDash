@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}
+    {{ t("app.name") }} · {{ t("notifications.title") }}
+{% endblock %}
+
+{% block content %}
+    <h2 class="text-2xl font-semibold mb-5">{{ t("notifications.title") }}</h2>
+
+    {% if not configured %}
+        <section class="card border border-amber-700 bg-amber-950/30 mb-5">
+            <p>{{ t("notifications.not_configured") }} <a class="underline" href="/settings">{{ t("notifications.open_settings") }}</a></p>
+        </section>
+    {% endif %}
+
+    {% if test_result == 'ok' %}<section class="card border border-emerald-700 mb-5">{{ t("notifications.test_ok") }}</section>{% endif %}
+    {% if test_result == 'failed' %}<section class="card border border-red-700 mb-5">{{ t("notifications.test_failed") }}</section>{% endif %}
+
+    <section class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+        {% for status in ['sent', 'failed', 'pending'] %}
+            <div class="card text-center"><span class="muted text-sm">{{ t('notifications.' ~ status) }}</span><strong class="block text-3xl">{{ counts[status] }}</strong></div>
+        {% endfor %}
+    </section>
+
+    <section class="card mb-5 overflow-x-auto responsive-table">
+        <h3 class="font-semibold mb-3">{{ t("notifications.rules") }}</h3>
+        <form method="post" action="/notifications/rules">
+            <table class="w-full text-sm table-middle">
+                <thead><tr><th>{{ t("notifications.rule") }}</th><th>{{ t("notifications.source") }}</th><th>{{ t("notifications.conditions") }}</th><th>{{ t("notifications.window") }}</th><th>{{ t("notifications.cooldown") }}</th><th>{{ t("notifications.enabled") }}</th></tr></thead>
+                <tbody>
+                    {% for rule in rules %}
+                        <tr>
+                            <td>{{ rule.name }}</td><td>{{ rule.source }}</td>
+                            <td>{{ rule.match_types|join(', ') }}{% if rule.min_count > 1 %} · {{ t("notifications.minimum_count") }} {{ rule.min_count }}{% endif %}</td>
+                            <td>{{ rule.window_minutes }} {{ t("notifications.minutes") }}</td><td>{{ rule.cooldown_minutes }} {{ t("notifications.minutes") }}</td>
+                            <td><input type="checkbox" name="rule_id" value="{{ rule.rule_id }}" {% if rule.enabled %}checked{% endif %}></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <button class="btn mt-4" type="submit">{{ t("common.save_button") }}</button>
+        </form>
+    </section>
+
+    <section class="card mb-5">
+        <h3 class="font-semibold mb-1">{{ t("notifications.test") }}</h3>
+        <p class="muted text-sm mb-3">{{ t("notifications.test_help") }}</p>
+        <form method="post" action="/notifications/test"><button class="btn" type="submit">{{ t("notifications.send_test") }}</button></form>
+    </section>
+
+    <section class="card overflow-x-auto responsive-table">
+        <h3 class="font-semibold mb-3">{{ t("notifications.history") }}</h3>
+        <table class="w-full text-sm table-middle">
+            <thead><tr><th>{{ t("common.time") }}</th><th>{{ t("notifications.rule") }}</th><th>{{ t("notifications.channel") }}</th><th>{{ t("common.status") }}</th><th>{{ t("notifications.subject_error") }}</th></tr></thead>
+            <tbody>
+                {% for item in history %}
+                    <tr>
+                        <td>{{ item.created_at|datetime }}</td>
+                        <td>{{ t("notifications.test_rule") if item.rule_id == 'core.test' else rule_names.get(item.rule_id, item.rule_id) }}</td>
+                        <td>{{ item.channel }}</td>
+                        <td><b class="status-badge status-{{ item.status }}">{{ t("notifications.status." ~ item.status) }}</b></td>
+                        <td>{{ (item.error[:200] if item.status == 'failed' and item.error else item.subject or '') }}</td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="5" class="muted">{{ t("notifications.no_history") }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+{% endblock %}

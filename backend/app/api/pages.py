@@ -23,7 +23,7 @@ from app.core.time import utc_now
 from app.core.version import get_app_version
 from app.database.dependencies import get_db
 from app.models.assets import Asset
-from app.models.core import Action, AggregationDaily, AggregationMonthly, Datasource, Diagnostic, Insight, Notification, PluginRecord
+from app.models.core import Action, AggregationDaily, AggregationMonthly, Datasource, Diagnostic, Insight, Notification, NotificationRule, PluginRecord
 from app.models.events import Event
 from app.models.settings import Setting
 from app.models.systems import System
@@ -1406,6 +1406,49 @@ def diagnostics_page(request: Request, db: Session = Depends(get_db)):
         diagnostic_rows=diagnostic_rows,
         actions=db.query(Action).order_by(Action.timestamp.desc()).limit(20).all(),
     )
+
+
+@router.get("/notifications")
+def notifications_page(request: Request, test: str | None = None, db: Session = Depends(get_db)):
+    since = utc_now().replace(tzinfo=None) - timedelta(days=7)
+    counts = {
+        status: db.query(Notification).filter(Notification.status == status, Notification.created_at >= since).count()
+        for status in ("sent", "failed", "pending")
+    }
+    rules = db.query(NotificationRule).order_by(NotificationRule.name).all()
+    rule_names = {rule.rule_id: rule.name for rule in rules}
+    history = db.query(Notification).order_by(Notification.created_at.desc()).limit(50).all()
+    channel = get_channel("email")
+    configured = get_setting_value(db, "notifications.enabled", "false") == "true" and channel is not None and channel.is_configured(db)
+    return render(
+        request,
+        db,
+        "notifications.html",
+        counts=counts,
+        rules=rules,
+        history=history,
+        rule_names=rule_names,
+        configured=configured,
+        test_result=test if test in {"ok", "failed"} else None,
+    )
+
+
+@router.post("/notifications/rules")
+async def save_notification_rules(request: Request, db: Session = Depends(get_db)):
+    form = await request.form()
+    enabled_rule_ids = {str(value) for value in form.getlist("rule_id")}
+
+    def _save() -> None:
+        for rule in db.query(NotificationRule).all():
+            enabled = rule.rule_id in enabled_rule_ids
+            if rule.enabled != enabled:
+                rule.enabled = enabled
+                rule.updated_at = utc_now().replace(tzinfo=None)
+        db.commit()
+        invalidate_rules_cache()
+
+    await asyncio.to_thread(_save)
+    return RedirectResponse(url="/notifications", status_code=303)
 
 
 @router.get("/settings")

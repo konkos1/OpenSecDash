@@ -38,6 +38,7 @@ class NotificationRuleSnapshot:
 _rules_cache: list[NotificationRuleSnapshot] | None = None
 _rules_loaded_at: float | None = None
 _notifications_enabled_cache: bool | None = None
+_smtp_configured_cache: bool | None = None
 _last_offline_state: dict[int, bool] = {}
 
 EVENT_SEVERITY_ORDER = {"info": 0, "warning": 1, "error": 2, "critical": 3}
@@ -98,14 +99,15 @@ def seed_default_notification_rules(db: Session) -> None:
 
 def invalidate_rules_cache() -> None:
     """Clear cached notification settings and rule snapshots."""
-    global _rules_cache, _rules_loaded_at, _notifications_enabled_cache
+    global _rules_cache, _rules_loaded_at, _notifications_enabled_cache, _smtp_configured_cache
     _rules_cache = None
     _rules_loaded_at = None
     _notifications_enabled_cache = None
+    _smtp_configured_cache = None
 
 
 def _active_rules(db: Session) -> tuple[list[NotificationRuleSnapshot], bool]:
-    global _rules_cache, _rules_loaded_at, _notifications_enabled_cache
+    global _rules_cache, _rules_loaded_at, _notifications_enabled_cache, _smtp_configured_cache
     now = time.monotonic()
     if _rules_cache is None or _rules_loaded_at is None or now - _rules_loaded_at >= RULE_CACHE_TTL_SECONDS:
         rows = db.query(NotificationRule).filter(NotificationRule.enabled == True).all()  # noqa: E712
@@ -124,8 +126,12 @@ def _active_rules(db: Session) -> tuple[list[NotificationRuleSnapshot], bool]:
             for row in rows
         ]
         _notifications_enabled_cache = get_setting_value(db, "notifications.enabled", "false").lower() == "true"
+        _smtp_configured_cache = all(
+            get_setting_value(db, key, "").strip()
+            for key in ("notifications.smtp_host", "notifications.smtp_sender", "notifications.smtp_recipient")
+        )
         _rules_loaded_at = now
-    return _rules_cache, _notifications_enabled_cache is True
+    return _rules_cache, _notifications_enabled_cache is True and _smtp_configured_cache is True
 
 
 def _type_matches(match_types: tuple[str, ...], value: str) -> bool:

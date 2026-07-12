@@ -16,6 +16,9 @@ def notification_rules(db_session, _test_secret_key):
     invalidate_rules_cache()
     seed_default_notification_rules(db_session)
     save_setting(db_session, "notifications.enabled", "true")
+    save_setting(db_session, "notifications.smtp_host", "smtp.example")
+    save_setting(db_session, "notifications.smtp_sender", "sender@example")
+    save_setting(db_session, "notifications.smtp_recipient", "admin@example")
     db_session.commit()
     yield
     invalidate_rules_cache()
