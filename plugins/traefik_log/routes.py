@@ -29,6 +29,13 @@ router = APIRouter(tags=["traefik_log"])
 def access_page(
     request: Request,
     q: str | None = None,
+    asn: str | None = None,
+    hostname: str | None = None,
+    asset: str | None = None,
+    status_min: str | None = None,
+    status_max: str | None = None,
+    country_not: str | None = None,
+    country_in: str | None = None,
     hide_local_ips: str | None = None,
     show_local_ips: str | None = None,
     today: str | None = None,
@@ -36,6 +43,7 @@ def access_page(
     db: Session = Depends(get_db),
 ):
     q_value = clean_filter_value(q)
+    country_in_values = [value for item in (country_in or "").split(",") if (value := clean_filter_value(item))]
     timezone_name = get_setting_value(db, "timezone", "auto")
     q_tokens = [token for token in tokenize_search_expression(q_value or "") if token not in {"&&", "||", "(", ")"}]
     q_utc_terms_by_term = {token: utc_search_terms_for_ui_time(token, timezone_name) for token in q_tokens}
@@ -50,6 +58,13 @@ def access_page(
         "q": q_value,
         "q_utc_terms": utc_search_terms_for_ui_time(q_value, timezone_name),
         "q_utc_terms_by_term": q_utc_terms_by_term,
+        "asn": clean_filter_value(asn),
+        "hostname": clean_filter_value(hostname),
+        "asset": clean_filter_value(asset),
+        "status_code_min": clean_filter_value(status_min),
+        "status_code_max": clean_filter_value(status_max),
+        "country_not": clean_filter_value(country_not),
+        "country_in": country_in_values,
         "plugins": ["traefik_log"],
         "hide_local_ips": hide_local_enabled,
         "show_local_ips": show_local_enabled,

@@ -703,7 +703,14 @@ def events_page(
     event_type: str | None = None,
     ip: str | None = None,
     country: str | None = None,
+    country_in: str | None = None,
+    country_not: str | None = None,
     status_code: str | None = None,
+    status_min: str | None = None,
+    status_max: str | None = None,
+    asn: str | None = None,
+    hostname: str | None = None,
+    asset: str | None = None,
     path: str | None = None,
     q: str | None = None,
     hide_local_ips: str | None = None,
@@ -718,6 +725,7 @@ def events_page(
     country_value = clean_filter_value(country)
     if country_value and country_value != "-":
         country_value = country_value[:2].upper()
+    country_in_values = [value for item in (country_in or "").split(",") if (value := clean_filter_value(item))]
     q_value = clean_filter_value(q)
     timezone_name = get_setting_value(db, "timezone", "auto")
     enabled_event_plugins = [
@@ -736,7 +744,14 @@ def events_page(
         "event_type": clean_filter_value(event_type),
         "ip": clean_filter_value(ip),
         "country": country_value,
+        "country_in": country_in_values,
+        "country_not": clean_filter_value(country_not),
         "status_code": int(status_code_value) if status_code_value and status_code_value.isdigit() else None,
+        "status_code_min": clean_filter_value(status_min),
+        "status_code_max": clean_filter_value(status_max),
+        "asn": clean_filter_value(asn),
+        "hostname": clean_filter_value(hostname),
+        "asset": clean_filter_value(asset),
         "path": clean_filter_value(path),
         "q": q_value,
         "q_utc_terms": utc_search_terms_for_ui_time(q_value, timezone_name),
@@ -751,7 +766,14 @@ def events_page(
         "event_type": event_type or "",
         "ip": ip or "",
         "country": country or "",
+        "country_in": country_in or "",
+        "country_not": country_not or "",
         "status_code": status_code or "",
+        "status_min": status_min or "",
+        "status_max": status_max or "",
+        "asn": asn or "",
+        "hostname": hostname or "",
+        "asset": asset or "",
         "path": path or "",
         "q": q or "",
         "hide_local_ips": hide_local_ips == "true",

@@ -45,6 +45,10 @@
       <button type="button" class="help" style="position:absolute;right:.45rem;top:.95rem;margin-left:0;z-index:5" data-tooltip="{{ t('events.country_help') }}">?</button>
     </div>
     <input class="input" name="status_code" value="{{ filters.status_code or '' }}" placeholder="{{ t('events.status_placeholder') }}">
+    <input class="input" name="status_min" value="{{ filters.status_min or '' }}" placeholder="{{ t('events.status_min') }}">
+    <input class="input" name="status_max" value="{{ filters.status_max or '' }}" placeholder="{{ t('events.status_max') }}">
+    <input class="input" name="asn" value="{{ filters.asn or '' }}" placeholder="{{ t('events.asn_placeholder') }}">
+    <input class="input" name="hostname" value="{{ filters.hostname or '' }}" placeholder="{{ t('events.hostname_placeholder') }}">
     <label class="flex items-center gap-2 text-sm lg:col-span-1">
       <input type="checkbox" name="hide_local_ips" value="true" {% if filters.hide_local_ips %}checked{% endif %}>
       <span>{{ t("events.hide_local_ips") }}</span>

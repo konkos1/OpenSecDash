@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -17,6 +18,7 @@ from sqlalchemy.orm import Session
 from app.core.net import is_local_ip_value  # noqa: F401
 from app.core.time import utc_now
 from app.models.core import AggregationDaily, AggregationMonthly, Insight
+from app.models.assets import Asset
 from app.models.events import Event
 from app.services.asset_hosts import find_asset_by_host
 from app.services.insight_rules import apply_declarative_insight_rules
@@ -639,11 +641,21 @@ def build_search_expression(tokens: list[str], extra_terms_by_term: dict[str, li
     return parse_or()
 
 
+def _normalize_asn_filter(value: object) -> str | None:
+    text = str(value).strip().upper()
+    if text.isdigit():
+        return f"AS{text}"
+    if re.fullmatch(r"AS\d+", text):
+        return text
+    return None
+
+
 def apply_event_filters(query, filters: dict[str, Any]):
     """Apply shared Events/Access filters to a SQLAlchemy query.
 
     Keep this function side-effect free. It is a good target for future unit
-    tests around boolean search, timezone terms, and local-IP filtering.
+    tests around boolean search, timezone terms, local-IP filtering, and the
+    inclusive status_code_min/status_code_max range.
     """
     if filters.get("event_type"):
         event_type = str(filters["event_type"]).strip()
@@ -668,8 +680,53 @@ def apply_event_filters(query, filters: dict[str, Any]):
         else:
             query = query.filter(Event.country == country)
 
+    country_in = filters.get("country_in")
+    if isinstance(country_in, list):
+        countries = [str(value).strip().upper() for value in country_in]
+        countries = [country for country in countries if re.fullmatch(r"[A-Z]{2}", country)]
+        if countries:
+            query = query.filter(Event.country.in_(countries))
+
+    if filters.get("country_not"):
+        country_not = str(filters["country_not"]).strip().upper()
+        if re.fullmatch(r"[A-Z]{2}", country_not):
+            query = query.filter(Event.country != country_not)
+
     if filters.get("status_code"):
         query = query.filter(Event.status_code == int(filters["status_code"]))
+    if filters.get("status_code_min"):
+        try:
+            query = query.filter(Event.status_code >= int(filters["status_code_min"]))
+        except (TypeError, ValueError):
+            pass
+    if filters.get("status_code_max"):
+        try:
+            query = query.filter(Event.status_code <= int(filters["status_code_max"]))
+        except (TypeError, ValueError):
+            pass
+    if filters.get("asn"):
+        asn = _normalize_asn_filter(filters["asn"])
+        if asn:
+            query = query.filter(Event.asn == asn)
+    if filters.get("hostname"):
+        hostname = str(filters["hostname"]).strip()
+        if hostname:
+            query = query.filter(Event.hostname.contains(hostname))
+    if filters.get("asset"):
+        asset = str(filters["asset"]).strip()
+        if asset:
+            try:
+                asset_id = int(asset)
+            except (TypeError, ValueError):
+                asset_ids = [
+                    value
+                    for (value,) in query.session.query(Asset.id)
+                    .filter(or_(Asset.name == asset, Asset.hostname == asset))
+                    .all()
+                ]
+                query = query.filter(Event.asset_id.in_(asset_ids) if asset_ids else Event.asset_id == -1)
+            else:
+                query = query.filter(Event.asset_id == asset_id)
     if filters.get("path"):
         query = query.filter(Event.path.contains(filters["path"]))
     if filters.get("event_time_from"):
