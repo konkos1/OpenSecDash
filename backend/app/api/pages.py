@@ -10,7 +10,7 @@ import platform
 from typing import Annotated
 import zipfile
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-from urllib.parse import unquote, urlencode
+from urllib.parse import quote, unquote, urlencode
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse, Response
@@ -81,6 +81,29 @@ logger = logging.getLogger(__name__)
 
 def _debug_line(label: str, value: object = "") -> str:
     return f"{label}: {redact_sensitive(value)}"
+
+
+def _is_ip_or_network(value: str) -> bool:
+    try:
+        ipaddress.ip_address(value)
+        return True
+    except ValueError:
+        try:
+            ipaddress.ip_network(value, strict=False)
+            return True
+        except ValueError:
+            return False
+
+
+def _has_asset_search_match(db: Session, query: str) -> bool:
+    if not query:
+        return False
+    return bool(
+        db.query(Asset.id)
+        .filter(or_(Asset.name.contains(query), Asset.hostname.contains(query)))
+        .first()
+        or db.query(System.id).filter(System.hostname.contains(query)).first()
+    )
 
 
 COUNTRY_COORDINATES = {
@@ -510,6 +533,18 @@ def backlog_banner_fragment(request: Request, db: Session = Depends(get_db)):
     # this tiny standalone fragment avoids re-running whatever (possibly
     # expensive) page happens to be open just to read the banner state.
     return render(request, db, "backlog_banner.html")
+
+
+@router.get("/search")
+def global_search(q: str = "", db: Session = Depends(get_db)):
+    search_text = q.strip()
+    if events_feature_enabled(db) and _is_ip_or_network(search_text):
+        return RedirectResponse(url=f"/ip/{quote(search_text, safe='')}")
+    if assets_feature_enabled(db) and _has_asset_search_match(db, search_text):
+        return RedirectResponse(url=f"/assets?q={quote(search_text, safe='')}")
+    if events_feature_enabled(db):
+        return RedirectResponse(url=f"/events?q={quote(search_text, safe='')}")
+    return RedirectResponse(url="/")
 
 
 @router.get("/")

@@ -190,6 +190,7 @@ DE = {
     "events.range_30d": "Letzte 30 Tage",
     "events.range_custom": "Benutzerdefiniert",
     "events.user_agent": "User-Agent",
+    "search.placeholder": "IP, Asset oder Events suchen",
     "events.router": "Router",
     "events.service": "Service",
     "events.asn": "ASN",
