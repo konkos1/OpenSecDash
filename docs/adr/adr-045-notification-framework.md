@@ -1,7 +1,19 @@
 # ADR-045: Notification Framework
 
-> **Implementation status (2026-07-09):** Planned / not implemented.
-> There is currently no implemented notification engine, notification rules table, notification history table, or SMTP/email channel in the codebase. Notification action types are only mentioned as future action categories in ADR-029.
+> **Implementation status (2026-07-12):** Implemented.
+>
+> V1 implements SMTP email only. The channel abstraction is ready for future
+> channels, but Telegram, Discord, Matrix, Gotify, ntfy, Slack, Teams and
+> Pushover remain intentionally unimplemented.
+>
+> Actions and system states enter the engine as events (`action.*`,
+> `system.plugin_error`, `system.asset_offline`). Anti-spam uses a per-rule
+> cooldown plus digest aggregation; events older than 15 minutes do not notify.
+> Notification history additionally stores `subject`, `error` and `sent_at`.
+>
+> Asset-offline detection keeps its previous state in memory, so a restart can
+> report an already-offline system again; the rule cooldown limits this. Failed
+> sends are not retried automatically in V1.
 
 ## Goal
 
