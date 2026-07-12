@@ -9,6 +9,7 @@
     <h2 class="text-2xl font-semibold mb-5">{{ t("settings.title") }}</h2>
 
     <form class="space-y-5" method="post" action="/settings" data-unsaved-warning="{{ t('settings.unsaved_changes') }}" x-data='{ settings: {{ plugin_settings_state | tojson }}, logFileEnabled: {{ log_file_enabled | tojson }}, notificationsEnabled: {{ notifications_enabled | tojson }} }'>
+        <button class="sr-only" type="submit" aria-hidden="true" tabindex="-1">{{ t("common.save_button") }}</button>
         <section class="card grid grid-cols-1 md:grid-cols-2 gap-4">
             <h3 class="font-semibold md:col-span-2">{{ t("settings.core") }}</h3>
             <label>{{ t("settings.domain") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.domain') }}">?</button>
