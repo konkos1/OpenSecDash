@@ -1,5 +1,5 @@
 """Shared HTTP authentication helpers and request gating."""
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Generator
 from urllib.parse import quote, urlparse
 
 from fastapi import Request
@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from starlette.responses import Response
 
 from app.core.template_context import build_template_context
+from app.database.dependencies import get_db
 from app.database.session import SessionLocal
 from app.services.auth import SESSION_LIFETIME_DAYS, auth_enabled, resolve_session
 from app.web.templates import templates
@@ -93,12 +94,24 @@ def required_role(method: str, path: str) -> str:
     return "operator"
 
 
+def _auth_database(request: Request) -> tuple[Session, Generator[Session, None, None] | None, bool]:
+    """Use a dependency override when tests provide one, otherwise open a DB session."""
+    override = request.app.dependency_overrides.get(get_db)
+    if override is not None:
+        provided = override()
+        if isinstance(provided, Generator):
+            return next(provided), provided, False
+        if isinstance(provided, Session):
+            return provided, None, False
+    return SessionLocal(), None, True
+
+
 async def auth_gating_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
     """Apply opt-in session authentication before core and plugin routes."""
     if _is_public_path(request.url.path):
         return await call_next(request)
 
-    db = SessionLocal()
+    db, dependency_generator, close_db = _auth_database(request)
     try:
         enabled = auth_enabled(db)
         request.state.auth_enabled = enabled
@@ -124,7 +137,10 @@ async def auth_gating_middleware(request: Request, call_next: Callable[[Request]
                     return JSONResponse(status_code=403, content={"detail": "Forbidden"})
                 return render_forbidden_page(request)
     finally:
-        db.close()
+        if dependency_generator is not None:
+            dependency_generator.close()
+        elif close_db:
+            db.close()
 
     response = await call_next(request)
     if getattr(request.state, "auth_enabled", False):

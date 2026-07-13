@@ -73,6 +73,16 @@ def test_auth_gating_keeps_required_paths_public_and_rejects_anonymous_requests(
     assert '<html lang="de">' in response.text
 
 
+def test_auth_gating_uses_the_application_database_override(auth_client, monkeypatch):
+    _, client = auth_client
+    empty_engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    monkeypatch.setattr(auth_web, "SessionLocal", sessionmaker(autocommit=False, autoflush=False, bind=empty_engine))
+    try:
+        assert client.get("/settings").status_code == 200
+    finally:
+        empty_engine.dispose()
+
+
 def test_login_logout_and_cookie_flags_gate_browser_requests(auth_client):
     db_session, client = auth_client
     enable_auth(db_session)
