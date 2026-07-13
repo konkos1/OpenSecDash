@@ -9,9 +9,10 @@ from app.database.base import Base
 
 class SavedView(Base):
     __tablename__ = "saved_views"
-    __table_args__ = (UniqueConstraint("scope", "name", name="uq_saved_view_scope_name"),)
+    __table_args__ = (UniqueConstraint("user_id", "scope", "name", name="uq_saved_view_user_scope_name"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(nullable=True, index=True)
     name: Mapped[str] = mapped_column(String(120))
     scope: Mapped[str] = mapped_column(String(20), index=True)
     filter_json: Mapped[dict] = mapped_column(JSON, default=dict)

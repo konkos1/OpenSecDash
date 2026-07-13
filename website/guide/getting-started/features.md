@@ -32,7 +32,9 @@ checkbox to hide it, use the up/down controls to change its order, and choose **
 layout**. **Reset layout** removes the saved customization and restores the default
 ordering and visibility. A widget from a disabled plugin disappears after reload; if
 the plugin is enabled again later, its widget is added back visibly. Widget links open
-the corresponding filtered Events or Assets view.
+the corresponding filtered Events or Assets view. With internal authentication
+enabled, each user has an independent dashboard layout; without it, the layout remains
+global to the instance.
 
 The Events page supports **Live** and **Snapshot** modes. Live mode keeps the UI fresh. Snapshot mode freezes the current view so you can filter and inspect without the table moving under your mouse.
 
@@ -84,7 +86,7 @@ The header has one global search box. An IP address or CIDR opens the IP Explore
 
 ### Saved views
 
-Both Events and Access have a **Saved views** area above their filters. Give the current filter set a name to save it as a reusable link; a view called **404 errors** can preserve `status_min=400` and `status_max=499` for a reverse-proxy investigation. Saved views are global to the instance, and saving the same name again in the same area replaces it. Plugins can also show read-only provided views alongside your own views.
+Both Events and Access have a **Saved views** area above their filters. Give the current filter set a name to save it as a reusable link; a view called **404 errors** can preserve `status_min=400` and `status_max=499` for a reverse-proxy investigation. With internal authentication enabled, saved views belong to the signed-in user, and saving the same name again in the same area replaces that user's view. Without internal authentication, saved views remain global to the instance. Plugins can also show read-only provided views alongside your own views.
 
 Long values such as paths, URLs, user agents, and ISP names are truncated in tables and can be opened in an overlay.
 

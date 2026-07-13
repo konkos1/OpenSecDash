@@ -126,9 +126,16 @@ def validate_widget(widget: DashboardWidget) -> bool:
     return True
 
 
-def load_dashboard_layout(db: Session) -> list[dict[str, object]]:
-    """Load valid layout entries from the migrations-free settings store."""
-    raw_layout = get_setting_value(db, "ui.dashboard_layout", "")
+def dashboard_layout_setting_key(user_id: int | None) -> str:
+    """Return the global or user-specific dashboard layout setting key."""
+    return "ui.dashboard_layout" if user_id is None else f"ui.dashboard_layout.user.{user_id}"
+
+
+def load_dashboard_layout(db: Session, user_id: int | None = None) -> list[dict[str, object]]:
+    """Load valid layout entries, using the legacy global layout as a first-use default."""
+    raw_layout = get_setting_value(db, dashboard_layout_setting_key(user_id), "")
+    if user_id is not None and not raw_layout:
+        raw_layout = get_setting_value(db, dashboard_layout_setting_key(None), "")
     if not raw_layout:
         return []
     try:
