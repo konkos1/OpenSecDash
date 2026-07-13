@@ -314,6 +314,17 @@ document.addEventListener("DOMContentLoaded", () => {
     }, true);
 });
 
+// PWA installability + offline fallback page. Feature-detected and
+// fault-tolerant: without HTTPS/localhost, or on older browsers, or if
+// registration fails, nothing happens and the app runs exactly as before.
+if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+        navigator.serviceWorker.register("/sw.js").catch(() => {
+            // No HTTPS/localhost or registration failed: app keeps working normally.
+        });
+    });
+}
+
 function localizeOpenSecDashCountries() {
     if (!Intl.DisplayNames) {
         return;

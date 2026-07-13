@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Offline · OpenSecDash</title>
+    <style>
+        /* Fully self-contained: this page is served from the Service Worker
+           cache when there is no network, so it must not reference app.css,
+           tailwind.css, fonts or images. Everything is inline. */
+        html, body {
+            margin: 0;
+            height: 100%;
+        }
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+            box-sizing: border-box;
+            background: #0f172a;
+            color: #e2e8f0;
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            line-height: 1.5;
+            text-align: center;
+        }
+        main {
+            max-width: 22rem;
+        }
+        h1 {
+            margin: 0 0 0.75rem;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        p {
+            margin: 0 0 0.5rem;
+            color: #94a3b8;
+        }
+        p.secondary {
+            margin-bottom: 1.75rem;
+        }
+        button {
+            display: inline-block;
+            min-height: 2.75rem;
+            padding: 0.75rem 1.5rem;
+            border: 0;
+            border-radius: 0.5rem;
+            background: #2563eb;
+            color: #fff;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #1d4ed8;
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>You are offline</h1>
+        <p>OpenSecDash needs a connection to show live data.</p>
+        <p class="secondary">OpenSecDash braucht eine Verbindung, um Live-Daten anzuzeigen.</p>
+        <button type="button" onclick="location.reload()">Retry / Erneut versuchen</button>
+    </main>
+</body>
+</html>

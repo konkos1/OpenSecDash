@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -121,6 +121,16 @@ register_plugin_template_dirs(
 )
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
+
+@app.get("/sw.js", include_in_schema=False)
+async def service_worker() -> FileResponse:
+    # Served from / (not /static/) so the worker's default scope covers the whole
+    # app and can control navigations. no-cache lets browsers pick up worker
+    # updates promptly - the ?v= busting used for /static/ assets doesn't apply
+    # here. /sw.js is allowlisted in _PUBLIC_PATHS so an unauthenticated update
+    # fetch gets the script, not a /login redirect.
+    return FileResponse("app/static/sw.js", media_type="application/javascript", headers={"Cache-Control": "no-cache"})
 
 
 @app.middleware("http")

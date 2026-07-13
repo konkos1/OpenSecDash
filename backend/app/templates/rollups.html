@@ -56,9 +56,9 @@
         <table class="w-full text-sm table-middle">
           <tbody>
             {% for row in event_type_rows %}
-              <tr><td>{{ row.key }}</td><td class="text-right"><strong>{{ row.value }}</strong></td></tr>
+              <tr><td data-label="{{ t('rollups.label_event_type') }}">{{ row.key }}</td><td class="text-right" data-label="{{ t('rollups.label_count') }}"><strong>{{ row.value }}</strong></td></tr>
             {% else %}
-              <tr><td>{{ t("dashboard.no_data") }}</td><td></td></tr>
+              <tr><td colspan="2">{{ t("dashboard.no_data") }}</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -68,9 +68,9 @@
         <table class="w-full text-sm table-middle">
           <tbody>
             {% for row in scenario_rows %}
-              <tr><td>{{ row.key }}</td><td class="text-right"><strong>{{ row.value }}</strong></td></tr>
+              <tr><td data-label="{{ t('rollups.label_scenario') }}">{{ row.key }}</td><td class="text-right" data-label="{{ t('rollups.label_count') }}"><strong>{{ row.value }}</strong></td></tr>
             {% else %}
-              <tr><td>{{ t("dashboard.no_data") }}</td><td></td></tr>
+              <tr><td colspan="2">{{ t("dashboard.no_data") }}</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -80,9 +80,9 @@
         <table class="w-full text-sm table-middle">
           <tbody>
             {% for row in country_rows %}
-              <tr><td>{{ row.key|country_name }}</td><td class="text-right"><strong>{{ row.value }}</strong></td></tr>
+              <tr><td data-label="{{ t('events.country') }}">{{ row.key|country_name }}</td><td class="text-right" data-label="{{ t('rollups.label_count') }}"><strong>{{ row.value }}</strong></td></tr>
             {% else %}
-              <tr><td>{{ t("dashboard.no_data") }}</td><td></td></tr>
+              <tr><td colspan="2">{{ t("dashboard.no_data") }}</td></tr>
             {% endfor %}
           </tbody>
         </table>
