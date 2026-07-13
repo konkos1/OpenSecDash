@@ -23,6 +23,7 @@ from app.models.events import Event
 from app.services.asset_hosts import find_asset_by_host
 from app.services.insight_rules import apply_declarative_insight_rules
 from app.services.notifications import handle_event, handle_insight
+from app.services.rollups import normalize_rollup_key
 
 
 logger = logging.getLogger(__name__)
@@ -302,7 +303,7 @@ def rollup_metrics_for_event(event: Event) -> list[tuple[str, str]]:
         metrics.append(("country", event.country))
     scenario = (event.data_json or {}).get("scenario") or (event.data_json or {}).get("crowdsec_scenario")
     if scenario:
-        metrics.append(("scenario", str(scenario)))
+        metrics.append(("scenario", normalize_rollup_key("scenario", scenario)))
     return metrics
 
 

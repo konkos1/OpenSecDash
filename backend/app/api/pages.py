@@ -42,6 +42,7 @@ from app.services.insight_rules import debug_summary as insight_rules_debug_summ
 from app.services.instance_branding import get_instance_file
 from app.services.notification_channels import get_channel
 from app.services.notifications import invalidate_rules_cache
+from app.services.rollups import combine_rollup_values
 from app.services.saved_views import VIEW_SCOPES, clean_view_name, plugin_views_for_scope, view_filters_from_query, view_query_state_from_query, view_to_query
 from app.services.auth import auth_enabled
 from app.services.asset_updates import refresh_asset_update
@@ -240,33 +241,35 @@ def rollup_rows(db: Session, period: str, value: str, metric: str, limit: int | 
         # row for the dashboard delta). Summing the leftovers in at read time
         # keeps the month exact at every moment - right after a month change
         # and for late-arriving events - instead of briefly missing them.
-        combined: dict[str, int] = {}
-        for key, row_value in (
+        stored_rows = list(
             db.query(AggregationMonthly.key, AggregationMonthly.value)
             .filter(AggregationMonthly.month == value, AggregationMonthly.metric == metric)
             .all()
-        ):
-            combined[str(key)] = combined.get(str(key), 0) + int(row_value or 0)
-        for key, row_value in (
+        )
+        stored_rows.extend(
             db.query(AggregationDaily.key, func.sum(AggregationDaily.value))
             .filter(AggregationDaily.date.like(f"{value}-%"), AggregationDaily.metric == metric)
             .group_by(AggregationDaily.key)
             .all()
-        ):
-            combined[str(key)] = combined.get(str(key), 0) + int(row_value or 0)
+        )
+        combined = combine_rollup_values(metric, ((key, row_value) for key, row_value in stored_rows))
         rows = sorted(combined.items(), key=lambda item: (-item[1], item[0]))
         if limit is not None:
             rows = rows[:limit]
         return [{"key": key, "value": row_value} for key, row_value in rows]
 
-    query = (
+    stored_rows = (
         db.query(AggregationDaily.key, AggregationDaily.value)
         .filter(AggregationDaily.date == value, AggregationDaily.metric == metric)
-        .order_by(AggregationDaily.value.desc(), AggregationDaily.key.asc())
+        .all()
+    )
+    rows = sorted(
+        combine_rollup_values(metric, ((key, row_value) for key, row_value in stored_rows)).items(),
+        key=lambda item: (-item[1], item[0]),
     )
     if limit is not None:
-        query = query.limit(limit)
-    return [{"key": str(key), "value": int(row_value or 0)} for key, row_value in query.all()]
+        rows = rows[:limit]
+    return [{"key": key, "value": row_value} for key, row_value in rows]
 
 
 def available_rollup_periods(db: Session) -> tuple[list[str], list[str]]:
