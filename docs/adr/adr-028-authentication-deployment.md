@@ -3,8 +3,9 @@
 > **Implementation status (2026-07-13):** Partially implemented.
 > Docker-oriented single-container deployment, SQLite, reverse-proxy trust model,
 > proxy-header middleware (X-Forwarded-For/-Proto/-Host from trusted proxies,
-> configured via OSD_TRUSTED_PROXIES), API-side actions, health/ready endpoints, and
-> update checks exist. Internal user management is not implemented.
+> configured via OSD_TRUSTED_PROXIES), API-side actions, health/ready endpoints,
+> update checks, and optional internal user management (admin/operator/viewer roles,
+> disabled by default) exist.
 
 
 
@@ -389,3 +390,11 @@ peer IPs. Loopback and private networks are trusted by default; the set is
 configurable or disableable with `OSD_TRUSTED_PROXIES`. Headers from untrusted
 sources are discarded. Reverse-proxy deployment remains the intended deployment
 model.
+
+## Implementation notes (2026-07-13)
+
+Optional internal sign-in is enabled with the `auth.enabled` setting and remains off by
+default; `OSD_AUTH_DISABLED` is the break-glass switch. It provides the `admin`,
+`operator`, and `viewer` roles described above, with server-side DB sessions whose
+tokens can be revoked. The `api_tokens` table prepares read, actions, and admin scopes;
+it has no endpoints or UI. The reverse-proxy trust model remains the documented default.

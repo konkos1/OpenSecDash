@@ -24,6 +24,8 @@ services:
     #   # Optional: restrict which reverse proxies may set X-Forwarded-* headers
     #   # (default: loopback + private ranges; empty value disables).
     #   - OSD_TRUSTED_PROXIES=192.168.1.10
+    #   # Emergency switch: disables the optional internal sign-in.
+    #   - OSD_AUTH_DISABLED=true
     #   - OSD_PLUGIN_MQTT_DISABLED=true
     #   - OSD_PLUGIN_PROXMOX_ASSETS_DISABLED=true
     #   - OSD_PLUGIN_CROWDSEC_DISABLED=true

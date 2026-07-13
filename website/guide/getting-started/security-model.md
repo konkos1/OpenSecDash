@@ -2,9 +2,11 @@
 
 OpenSecDash is designed as an internal homelab admin tool.
 
-## No built-in authentication yet
+## Optional internal sign-in
 
-OpenSecDash currently does not include built-in user management or authentication. Treat it like a sensitive internal dashboard.
+OpenSecDash includes optional internal sign-in with Viewer, Operator, and Admin roles.
+It is disabled by default, so treat the dashboard as sensitive even when internal
+sign-in is not enabled.
 
 Recommended placement:
 
@@ -13,6 +15,9 @@ Recommended placement:
 - behind Authentik, Authelia, Pocket ID, or another trusted forward-auth layer
 
 Do not expose it directly to the public internet.
+
+See [Authentication](../configuration/authentication.md) to enable internal sign-in and
+recover from an administrator lockout.
 
 ## Sensitive data
 

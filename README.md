@@ -85,9 +85,10 @@ saved settings are kept and return when the variable is removed.
 
 ## Security note
 
-OpenSecDash currently does **not** include built-in user management or authentication.
-
-Do **not** expose it directly to the public internet. Keep it on your LAN, behind a VPN, or behind a trusted auth reverse proxy such as Authentik, Authelia, Pocket ID, or another forward-auth solution.
+OpenSecDash includes optional built-in user management, disabled by default. Do **not**
+expose it directly to the public internet. Keep it on your LAN, behind a VPN, or behind
+a trusted auth reverse proxy such as Authentik, Authelia, Pocket ID, or another
+forward-auth solution. See the [authentication guide](https://opensecdash.app/guide/configuration/authentication) to enable internal sign-in.
 
 ## Support
 

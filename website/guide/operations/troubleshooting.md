@@ -19,6 +19,12 @@ Use **Diagnostics → Download debug report** and review the ZIP before sharing 
 docker compose logs opensecdash --tail=500
 ```
 
+## Locked out of the web UI
+
+If optional internal sign-in is enabled and no administrator can sign in, use the
+`OSD_AUTH_DISABLED=true` recovery switch to temporarily open the UI, reset access, and
+then remove the variable. See [Authentication](../configuration/authentication.md#locked-out-of-the-web-ui).
+
 ## First import of a large existing log
 
 Setting a log path (or enabling a log-based plugin) for the first time makes OpenSecDash read through the whole existing file, not just new lines going forward. A small/fresh log finishes almost instantly; a log that already has months of history can take a while to fully import. That import runs in bounded batches in the background instead of all at once, so the UI stays responsive and usable while it catches up.

@@ -318,3 +318,4 @@ without every plugin having to implement it again.
 - **Audit table:** The audit table is named `actions`, consistent with ADR-029 and ADR-036, rather than `action_log` as named in the original text.
 - **Action queue:** An asynchronous queue is not part of this ADR's text. Execution is synchronous and protected by in-process locks. The queue specified by ADR-029 remains open.
 - **Permissions:** Each action declares a `permission` value as specified by ADR-029, but permissions are always allowed in V1. User management is explicitly not V1 per ADR-035.
+- **Internal sign-in:** When optional internal sign-in is enabled, actions require at least the `operator` role; user attribution in the `actions` audit table remains an extension for later.

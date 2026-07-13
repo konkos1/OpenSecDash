@@ -49,4 +49,7 @@ This is the minimal setup. For plugin log mounts, host requirements, database si
 
 ## Security note
 
-OpenSecDash currently has no built-in user management or authentication. Do not expose it directly to the public internet. Put it behind a VPN or a trusted authentication reverse proxy.
+OpenSecDash includes optional built-in user management, disabled by default. Do not
+expose it directly to the public internet. Put it behind a VPN or a trusted
+authentication reverse proxy; see the [authentication guide](../configuration/authentication.md)
+when you want to enable internal sign-in.
