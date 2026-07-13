@@ -1,5 +1,8 @@
 import threading
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
+
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from app.api.pages import (
     available_rollup_periods,
@@ -15,6 +18,53 @@ from app.models.events import Event
 from app.models.settings import Setting
 import app.services.events as events_service
 from app.services.events import cleanup_events_by_retention, compact_completed_daily_rollups, update_rollups
+
+
+def test_rollups_page_renders_translated_data_labels():
+    env = Environment(loader=FileSystemLoader("app/templates"), autoescape=select_autoescape(["html"]))
+    env.filters["country_name"] = lambda value: str(value)
+    template = env.get_template("rollups.html")
+    translations = {
+        "rollups.label_event_type": "Event type",
+        "rollups.label_scenario": "Scenario",
+        "events.country": "Country",
+        "rollups.label_count": "Count",
+    }
+
+    html = template.render(
+        request=SimpleNamespace(url=SimpleNamespace(path="/rollups")),
+        language="en",
+        domain="",
+        timezone="auto",
+        theme="dark",
+        accent_color="blue",
+        instance_logo_version=None,
+        instance_favicon_version=None,
+        plugin_nav_items=[],
+        asset_plugins_enabled=False,
+        event_plugins_enabled=True,
+        app_version="test",
+        update_available_version=None,
+        live_page_refresh=False,
+        backlog_datasources=[],
+        current_user=None,
+        can_operate=True,
+        can_admin=True,
+        t=lambda key: translations.get(key, key),
+        period="month",
+        selected_value="2026-06",
+        available_days=[],
+        available_months=["2026-06"],
+        summary={},
+        event_type_rows=[{"key": "security.ban", "value": 1}],
+        scenario_rows=[{"key": "ssh-bf", "value": 1}],
+        country_rows=[{"key": "DE", "value": 1}],
+    )
+
+    assert 'data-label="Event type"' in html
+    assert 'data-label="Scenario"' in html
+    assert 'data-label="Country"' in html
+    assert 'data-label="Count"' in html
 
 
 def test_update_rollups_adds_summary_metrics(db_session):
