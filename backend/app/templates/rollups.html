@@ -41,6 +41,8 @@
       </label>
     </form>
 
+    <div id="rollups-results"{% if rollups_deferred %} hx-get="{{ request.url }}" hx-trigger="load" hx-target="#rollups-results" hx-select="#rollups-results" hx-swap="outerHTML"{% endif %}>
+    {% if rollups_deferred %}{% include "results_skeleton.html" %}{% else %}
     <section class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-5">
       {% for key in ["access_external_events", "access_internal_events", "security_events", "bans", "geoblocks", "total_events"] %}
         <div class="card flex flex-col items-center text-center">
@@ -88,6 +90,8 @@
         </table>
       </div>
     </section>
+    {% endif %}
+    </div>
   {% else %}
     <section class="card">
       <p class="muted">{{ t("rollups.no_periods") }}</p>

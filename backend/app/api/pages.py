@@ -848,23 +848,34 @@ def rollups_page(request: Request, db: Session = Depends(get_db)):
     requested_value = (request.query_params.get("value") or "").strip()
     selected_value = requested_value if requested_value in available_values else (available_values[0] if available_values else "")
 
-    summary_rows = rollup_rows(db, period, selected_value, "summary") if selected_value else []
-    event_type_rows = rollup_rows(db, period, selected_value, "event_type") if selected_value else []
-    summary = {str(row["key"]): int(row["value"]) for row in summary_rows}
-    if not summary and event_type_rows:
-        summary = summary_from_event_type_rows(event_type_rows)
+    # Progressive loading: the period/value selector stays in the shell so the
+    # user can switch immediately; the rollup tables load via HX-Request.
+    is_data_request = request.headers.get("HX-Request") == "true"
+    summary: dict[str, int] = {}
+    event_type_rows: list[dict[str, str | int]] = []
+    scenario_rows: list[dict[str, str | int]] = []
+    country_rows: list[dict[str, str | int]] = []
+    if is_data_request:
+        summary_rows = rollup_rows(db, period, selected_value, "summary") if selected_value else []
+        event_type_rows = rollup_rows(db, period, selected_value, "event_type") if selected_value else []
+        summary = {str(row["key"]): int(row["value"]) for row in summary_rows}
+        if not summary and event_type_rows:
+            summary = summary_from_event_type_rows(event_type_rows)
+        scenario_rows = rollup_rows(db, period, selected_value, "scenario") if selected_value else []
+        country_rows = rollup_rows(db, period, selected_value, "country", limit=20) if selected_value else []
     return render(
         request,
         db,
         "rollups.html",
+        rollups_deferred=not is_data_request,
         period=period,
         selected_value=selected_value,
         available_days=days,
         available_months=months,
         summary=summary,
         event_type_rows=event_type_rows,
-        scenario_rows=rollup_rows(db, period, selected_value, "scenario") if selected_value else [],
-        country_rows=rollup_rows(db, period, selected_value, "country", limit=20) if selected_value else [],
+        scenario_rows=scenario_rows,
+        country_rows=country_rows,
     )
 
 
@@ -966,14 +977,23 @@ def events_page(
         "hour": f"{hour_value:02d}" if hour_value is not None else "",
         "snapshot_before": snapshot_before or "",
     }
-    events = apply_event_filters(db.query(Event), filters).order_by(Event.event_time.desc()).limit(200).all()
+    # Progressive loading (docs/internal/progressive-widget-loading/): the shell
+    # paints filters/badges/views immediately; the heavy event query runs only
+    # for the HX-Request that the load trigger and the live-refresh send.
+    is_data_request = request.headers.get("HX-Request") == "true"
+    if is_data_request:
+        events = apply_event_filters(db.query(Event), filters).order_by(Event.event_time.desc()).limit(200).all()
+        event_asset_links = asset_links_for_events(db, events)
+    else:
+        events = []
+        event_asset_links = {}
     column_options, active_columns = table_columns(db, "ui.events.visible_columns", DEFAULT_EVENTS_COLUMNS)
-    event_asset_links = asset_links_for_events(db, events)
     saved_view_context = _saved_view_context(db, "events", request)
     return render(
         request,
         db,
         "events.html",
+        events_deferred=not is_data_request,
         events=events,
         filters=form_values,
         event_asset_links=event_asset_links,
@@ -1106,9 +1126,16 @@ def dedupe_insights_for_display(raw_insights: list[Insight], limit: int, *, incl
 @router.get("/ip/{ip:path}")
 def ip_explorer_page(ip: str, request: Request, db: Session = Depends(get_db)):
     require_events_feature_enabled(db)
-    events = _events_for_ip_target(db, ip, 200)
-    raw_insights = _insights_for_ip_target(db, ip, 100)
-    insights = dedupe_insights_for_display(raw_insights, 50)
+    # Progressive loading: the header, actions and plugin count widgets paint
+    # immediately; the expensive per-IP event/insight scans (worst case for
+    # network targets over a large DB) run only for the HX-Request.
+    is_data_request = request.headers.get("HX-Request") == "true"
+    events: list[Event] = []
+    insights: list[Insight] = []
+    if is_data_request:
+        events = _events_for_ip_target(db, ip, 200)
+        raw_insights = _insights_for_ip_target(db, ip, 100)
+        insights = dedupe_insights_for_display(raw_insights, 50)
     # Count cards, extra context and panels are all contributed by plugins, so
     # the IP explorer stays free of any per-plugin knowledge.
     manager = get_plugin_manager()
@@ -1127,6 +1154,7 @@ def ip_explorer_page(ip: str, request: Request, db: Session = Depends(get_db)):
         db,
         "ip.html",
         ip=ip,
+        ip_deferred=not is_data_request,
         events=events,
         insights=insights,
         count_widgets=count_widgets,
@@ -1264,75 +1292,83 @@ def asset_page(system_id: int, request: Request, show_inactive: bool = False, as
             continue
         host_apps.setdefault(normalized_host, []).append(app)
         host_labels.setdefault(normalized_host, app.host_url or normalized_host)
-    host_event_sections = []
-    # Match on DISTINCT hostnames (one per vhost) instead of scanning every
-    # event row: normalization needs Python, but the resulting hostname list
-    # lets SQL do the actual filtering regardless of table size.
-    hostnames_by_host: dict[str, list[str]] = {}
-    for (hostname,) in db.query(Event.hostname).filter(Event.hostname.isnot(None)).distinct().all():
-        normalized_event_host = normalize_asset_host(hostname)
-        if normalized_event_host in host_apps:
-            hostnames_by_host.setdefault(normalized_event_host, []).append(hostname)
-    for host, host_app_list in sorted(host_apps.items(), key=lambda item: item[0]):
-        host_app_ids = [app.id for app in host_app_list]
-        host_matched_hostnames = hostnames_by_host.get(host, [])
-        host_events_query = db.query(Event).filter(Event.asset_id.in_(host_app_ids))
-        if host_matched_hostnames:
-            host_events_query = db.query(Event).filter(or_(Event.asset_id.in_(host_app_ids), Event.hostname.in_(host_matched_hostnames)))
-        raw_host_insights = (
+    # Progressive loading (docs/internal/progressive-widget-loading/): the system
+    # header and app list paint immediately; the per-host event/insight sections
+    # (including the distinct-hostname scan) run only for the HX-Request. The 404
+    # for an unknown system id stays in the shell path above.
+    is_data_request = request.headers.get("HX-Request") == "true"
+    host_event_sections: list[dict[str, object]] = []
+    events: list[Event] = []
+    insights: list[Insight] = []
+    top_asset_insight = None
+    if is_data_request:
+        # Match on DISTINCT hostnames (one per vhost) instead of scanning every
+        # event row: normalization needs Python, but the resulting hostname list
+        # lets SQL do the actual filtering regardless of table size.
+        hostnames_by_host: dict[str, list[str]] = {}
+        for (hostname,) in db.query(Event.hostname).filter(Event.hostname.isnot(None)).distinct().all():
+            normalized_event_host = normalize_asset_host(hostname)
+            if normalized_event_host in host_apps:
+                hostnames_by_host.setdefault(normalized_event_host, []).append(hostname)
+        for host, host_app_list in sorted(host_apps.items(), key=lambda item: item[0]):
+            host_app_ids = [app.id for app in host_app_list]
+            host_matched_hostnames = hostnames_by_host.get(host, [])
+            host_events_query = db.query(Event).filter(Event.asset_id.in_(host_app_ids))
+            if host_matched_hostnames:
+                host_events_query = db.query(Event).filter(or_(Event.asset_id.in_(host_app_ids), Event.hostname.in_(host_matched_hostnames)))
+            raw_host_insights = (
+                db.query(Insight)
+                .filter(Insight.asset_id.in_(host_app_ids))
+                .order_by(Insight.timestamp.desc())
+                .limit(100)
+                .all()
+            )
+            host_insights = dedupe_insights_for_display(raw_host_insights, 25, include_ip=True)
+            host_event_sections.append(
+                {
+                    "host": host,
+                    "label": host_labels[host],
+                    "apps": host_app_list,
+                    "events": host_events_query.order_by(Event.event_time.desc()).limit(50).all(),
+                    "insights": host_insights,
+                }
+            )
+        if focused_asset is not None:
+            focused_host = normalize_asset_host(focused_asset.host_url)
+            events_query = db.query(Event).filter(Event.asset_id == focused_asset.id)
+            if focused_host:
+                focused_hostnames = matching_event_hostnames(db, focused_host)
+                if focused_hostnames:
+                    events_query = db.query(Event).filter(or_(Event.asset_id == focused_asset.id, Event.hostname.in_(focused_hostnames)))
+            events = events_query.order_by(Event.event_time.desc()).limit(100).all()
+        else:
+            events = (
+                db.query(Event)
+                .filter(Event.asset_id.in_(app_ids))
+                .order_by(Event.event_time.desc())
+                .limit(100)
+                .all()
+                if app_ids
+                else []
+            )
+        raw_insights = (
             db.query(Insight)
-            .filter(Insight.asset_id.in_(host_app_ids))
+            .filter(Insight.asset_id.in_(app_ids))
             .order_by(Insight.timestamp.desc())
-            .limit(100)
-            .all()
-        )
-        host_insights = dedupe_insights_for_display(raw_host_insights, 25, include_ip=True)
-        host_event_sections.append(
-            {
-                "host": host,
-                "label": host_labels[host],
-                "apps": host_app_list,
-                "events": host_events_query.order_by(Event.event_time.desc()).limit(50).all(),
-                "insights": host_insights,
-            }
-        )
-    if focused_asset is not None:
-        focused_host = normalize_asset_host(focused_asset.host_url)
-        events_query = db.query(Event).filter(Event.asset_id == focused_asset.id)
-        if focused_host:
-            focused_hostnames = matching_event_hostnames(db, focused_host)
-            if focused_hostnames:
-                events_query = db.query(Event).filter(or_(Event.asset_id == focused_asset.id, Event.hostname.in_(focused_hostnames)))
-        events = events_query.order_by(Event.event_time.desc()).limit(100).all()
-    else:
-        events = (
-            db.query(Event)
-            .filter(Event.asset_id.in_(app_ids))
-            .order_by(Event.event_time.desc())
             .limit(100)
             .all()
             if app_ids
             else []
         )
-    raw_insights = (
-        db.query(Insight)
-        .filter(Insight.asset_id.in_(app_ids))
-        .order_by(Insight.timestamp.desc())
-        .limit(100)
-        .all()
-        if app_ids
-        else []
-    )
-    insights = dedupe_insights_for_display(raw_insights, 50, include_ip=True)
-    top_asset_insight = None
-    if app_ids:
-        top_asset_insight = (
-            db.query(Insight.type, func.count(Insight.id), func.max(Insight.title))
-            .filter(Insight.asset_id.in_(app_ids))
-            .group_by(Insight.type)
-            .order_by(func.count(Insight.id).desc())
-            .first()
-        )
+        insights = dedupe_insights_for_display(raw_insights, 50, include_ip=True)
+        if app_ids:
+            top_asset_insight = (
+                db.query(Insight.type, func.count(Insight.id), func.max(Insight.title))
+                .filter(Insight.asset_id.in_(app_ids))
+                .group_by(Insight.type)
+                .order_by(func.count(Insight.id).desc())
+                .first()
+            )
     mqtt_plugin_enabled = (
         get_setting_value(db, "plugin.mqtt.enabled", get_setting_value(db, "plugin.mqtt-hass.enabled", "false")) == "true"
     )
@@ -1340,6 +1376,7 @@ def asset_page(system_id: int, request: Request, show_inactive: bool = False, as
         request,
         db,
         "asset.html",
+        asset_deferred=not is_data_request,
         system=system,
         apps=apps,
         events=events,

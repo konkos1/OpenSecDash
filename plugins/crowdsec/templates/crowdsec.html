@@ -8,7 +8,6 @@
 
   <h2 class="text-2xl font-semibold mb-5" x-data="openSecDashAutoRefresh('#crowdsec-results', {{ 'true' if live_page_refresh else 'false' }})" x-init="init()">{{ t("crowdsec.title") }}</h2>
 
-  <div id="crowdsec-results">
   <div class="card mb-5">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
       <div>
@@ -32,6 +31,8 @@
     </div>
   </div>
 
+  <div id="crowdsec-results"{% if crowdsec_deferred %} hx-get="{{ request.url }}" hx-trigger="load" hx-target="#crowdsec-results" hx-select="#crowdsec-results" hx-swap="outerHTML"{% endif %}>
+  {% if crowdsec_deferred %}{% include "results_skeleton.html" %}{% else %}
   <section class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
     <div class="card">
       <h3 class="font-semibold mb-3">{{ t("crowdsec.active_bans") }} <button type="button" class="help" data-tooltip="{{ t('crowdsec.active_bans_help') }}">?</button></h3>
@@ -107,6 +108,7 @@
       </tbody>
     </table>
   </div>
+  {% endif %}
   </div>
 
 {% endblock %}

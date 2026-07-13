@@ -12,7 +12,7 @@ from conftest import import_plugin_module
 
 
 def _request(query_params: dict[str, str] | None = None):
-    return SimpleNamespace(query_params=query_params or {}, url=SimpleNamespace(path="/events"))
+    return SimpleNamespace(query_params=query_params or {}, url=SimpleNamespace(path="/events"), headers={"HX-Request": "true"})
 
 
 @pytest.mark.parametrize(

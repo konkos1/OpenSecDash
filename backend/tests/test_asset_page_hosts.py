@@ -33,7 +33,7 @@ def test_asset_page_groups_events_by_configured_app_host(monkeypatch, db_session
 
     monkeypatch.setattr(pages, "render", fake_render)
 
-    pages.asset_page(system.id, cast(Any, SimpleNamespace(url=SimpleNamespace(path=f"/assets/system/{system.id}"))), db=db_session)
+    pages.asset_page(system.id, cast(Any, SimpleNamespace(url=SimpleNamespace(path=f"/assets/system/{system.id}"), headers={"HX-Request": "true"})), db=db_session)
 
     sections = captured["host_event_sections"]
     assert [section["host"] for section in sections] == ["cloud.example.com", "vault.example.com"]
