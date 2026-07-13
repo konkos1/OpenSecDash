@@ -666,103 +666,118 @@ def delete_saved_view(request: Request, view_id: int, scope: str = Form(""), db:
 
 @router.get("/")
 def dashboard_page(request: Request, db: Session = Depends(get_db)):
+    # Progressive loading (docs/internal/progressive-widget-loading/): a normal
+    # navigation gets a light shell that paints immediately with widget
+    # skeletons and defers the heavy queries; the shell's hx-trigger="load"
+    # fetch and the WebSocket live-refresh both send HX-Request, so that header
+    # is the discriminator selecting the data path below.
+    is_data_request = request.headers.get("HX-Request") == "true"
     timezone_name = get_setting_value(db, "timezone", "auto")
     since = today_start(db)
     country_data_plugins, enabled_plugins, security_data_plugins = dashboard_widget_plugin_state(db)
 
-    today_rollup_key = dashboard_today_rollup_key(since)
-    top_countries: list[tuple[str, int]] = []
-    attack_hours: list[dict[str, int | str]] = []
-    access_hours: list[dict[str, int | str]] = []
-    if country_data_plugins:
-        if today_rollup_key:
-            top_countries = [
-                (str(row["key"]), int(row["value"]))
-                for row in rollup_rows(db, "day", today_rollup_key, "country", limit=5)
-            ]
-        else:
-            top_countries = [
-                (str(country), int(count or 0))
-                for country, count in (
-                    db.query(Event.country, func.count(Event.id))
-                    .filter(
-                        Event.country.isnot(None),
-                        Event.event_time >= since,
-                        Event.plugin.in_(country_data_plugins),
-                    )
-                    .group_by(Event.country)
-                    .order_by(func.count(Event.id).desc())
-                    .limit(5)
-                    .all()
-                )
-            ]
     try:
         dashboard_timezone = ZoneInfo(timezone_name) if timezone_name and timezone_name != "auto" else ZoneInfo("UTC")
     except ZoneInfoNotFoundError:
         dashboard_timezone = ZoneInfo("UTC")
     dashboard_local_date = utc_now().astimezone(dashboard_timezone).strftime("%Y-%m-%d")
 
-    def top_hours_for_plugins(plugin_ids: list[str], event_type: str, rollup_metric: str) -> list[dict[str, int | str]]:
-        if not plugin_ids:
-            return []
-        if today_rollup_key:
-            return [
-                {"hour": int(row["key"]), "count": int(row["value"]), "href": f"/events?event_type={event_type}&today=true&hour={int(row['key']):02d}"}
-                for row in rollup_rows(db, "day", today_rollup_key, rollup_metric, limit=5)
-                if str(row["key"]).isdigit()
-            ]
-        # Fallback for non-UTC UI days: group by UTC minute bucket in SQL and
-        # convert only the buckets (at most 1440 for a day) to the display
-        # timezone, instead of streaming every single event_time through Python.
-        hour_counts: Counter[int] = Counter()
-        bucket = func.strftime("%Y-%m-%d %H:%M", Event.event_time)
-        for bucket_text, count in (
-            db.query(bucket, func.count(Event.id))
-            .filter(Event.event_time >= since, Event.plugin.in_(plugin_ids), Event.event_time.isnot(None))
-            .group_by(bucket)
-            .all()
-        ):
-            try:
-                bucket_start = datetime.strptime(str(bucket_text), "%Y-%m-%d %H:%M").replace(tzinfo=ZoneInfo("UTC"))
-            except (TypeError, ValueError):
-                continue
-            hour_counts[bucket_start.astimezone(dashboard_timezone).hour] += int(count or 0)
-        return [
-            {"hour": hour, "count": count, "href": f"/events?event_type={event_type}&today=true&hour={hour:02d}"}
-            for hour, count in hour_counts.most_common(5)
-        ]
-
-    attack_hours = top_hours_for_plugins(security_data_plugins, "security.*", "hour_security")
-    access_hours = top_hours_for_plugins(["traefik_log"] if enabled_plugins["traefik_log"] else [], "access.*", "hour_access")
+    top_countries: list[tuple[str, int]] = []
+    attack_hours: list[dict[str, int | str]] = []
+    access_hours: list[dict[str, int | str]] = []
     top_insights: list[dict[str, str | int]] = []
-    if country_data_plugins:
-        top_insights = [
-            {"type": str(insight_type), "count": int(count), "title": str(title)}
-            for insight_type, count, title in (
-                db.query(Insight.type, func.count(Insight.id), func.max(Insight.title))
-                .filter(Insight.timestamp >= since)
-                .group_by(Insight.type)
-                .order_by(func.count(Insight.id).desc())
-                .limit(5)
+    latest_security_events: list[Event] = []
+    country_heatmap: list[dict[str, object]] = []
+    # Shell mode keeps every list empty so the widget descriptors (set, order,
+    # titles, layout) are still built - the same empty-list trick as
+    # dashboard_layout_widget_ids - without running the heavy row queries.
+    trend_rows: list[dict[str, str | int]] | None = [] if security_data_plugins else None
+
+    if is_data_request:
+        today_rollup_key = dashboard_today_rollup_key(since)
+        if country_data_plugins:
+            if today_rollup_key:
+                top_countries = [
+                    (str(row["key"]), int(row["value"]))
+                    for row in rollup_rows(db, "day", today_rollup_key, "country", limit=5)
+                ]
+            else:
+                top_countries = [
+                    (str(country), int(count or 0))
+                    for country, count in (
+                        db.query(Event.country, func.count(Event.id))
+                        .filter(
+                            Event.country.isnot(None),
+                            Event.event_time >= since,
+                            Event.plugin.in_(country_data_plugins),
+                        )
+                        .group_by(Event.country)
+                        .order_by(func.count(Event.id).desc())
+                        .limit(5)
+                        .all()
+                    )
+                ]
+
+        def top_hours_for_plugins(plugin_ids: list[str], event_type: str, rollup_metric: str) -> list[dict[str, int | str]]:
+            if not plugin_ids:
+                return []
+            if today_rollup_key:
+                return [
+                    {"hour": int(row["key"]), "count": int(row["value"]), "href": f"/events?event_type={event_type}&today=true&hour={int(row['key']):02d}"}
+                    for row in rollup_rows(db, "day", today_rollup_key, rollup_metric, limit=5)
+                    if str(row["key"]).isdigit()
+                ]
+            # Fallback for non-UTC UI days: group by UTC minute bucket in SQL and
+            # convert only the buckets (at most 1440 for a day) to the display
+            # timezone, instead of streaming every single event_time through Python.
+            hour_counts: Counter[int] = Counter()
+            bucket = func.strftime("%Y-%m-%d %H:%M", Event.event_time)
+            for bucket_text, count in (
+                db.query(bucket, func.count(Event.id))
+                .filter(Event.event_time >= since, Event.plugin.in_(plugin_ids), Event.event_time.isnot(None))
+                .group_by(bucket)
+                .all()
+            ):
+                try:
+                    bucket_start = datetime.strptime(str(bucket_text), "%Y-%m-%d %H:%M").replace(tzinfo=ZoneInfo("UTC"))
+                except (TypeError, ValueError):
+                    continue
+                hour_counts[bucket_start.astimezone(dashboard_timezone).hour] += int(count or 0)
+            return [
+                {"hour": hour, "count": count, "href": f"/events?event_type={event_type}&today=true&hour={hour:02d}"}
+                for hour, count in hour_counts.most_common(5)
+            ]
+
+        attack_hours = top_hours_for_plugins(security_data_plugins, "security.*", "hour_security")
+        access_hours = top_hours_for_plugins(["traefik_log"] if enabled_plugins["traefik_log"] else [], "access.*", "hour_access")
+        if country_data_plugins:
+            top_insights = [
+                {"type": str(insight_type), "count": int(count), "title": str(title)}
+                for insight_type, count, title in (
+                    db.query(Insight.type, func.count(Insight.id), func.max(Insight.title))
+                    .filter(Insight.timestamp >= since)
+                    .group_by(Insight.type)
+                    .order_by(func.count(Insight.id).desc())
+                    .limit(5)
+                    .all()
+                )
+            ]
+        if security_data_plugins:
+            latest_security_events = (
+                db.query(Event)
+                .filter(Event.event_type.startswith("security."), Event.plugin.in_(security_data_plugins))
+                .order_by(Event.event_time.desc())
+                .limit(10)
                 .all()
             )
+        max_country_count = max((count for _, count in top_countries), default=0)
+        country_heatmap = [
+            point
+            for country, count in top_countries
+            if (point := country_map_point(country, count, max_country_count)) is not None
         ]
-    latest_security_events: list[Event] = []
-    if security_data_plugins:
-        latest_security_events = (
-            db.query(Event)
-            .filter(Event.event_type.startswith("security."), Event.plugin.in_(security_data_plugins))
-            .order_by(Event.event_time.desc())
-            .limit(10)
-            .all()
-        )
-    max_country_count = max((count for _, count in top_countries), default=0)
-    country_heatmap = [
-        point
-        for country, count in top_countries
-        if (point := country_map_point(country, count, max_country_count)) is not None
-    ]
-    trend_rows = dashboard_trend_rows(db, dashboard_local_date) if security_data_plugins else None
+        trend_rows = dashboard_trend_rows(db, dashboard_local_date) if security_data_plugins else None
+
     with dashboard_counts_cache():
         dashboard_widgets = collect_dashboard_widgets(
             db,
@@ -784,6 +799,7 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
         request,
         db,
         "dashboard.html",
+        dashboard_deferred=not is_data_request,
         dashboard_widgets=visible_dashboard_widgets,
         dashboard_layout_widgets=dashboard_layout_widgets,
         event_data_plugins_enabled=bool(country_data_plugins),

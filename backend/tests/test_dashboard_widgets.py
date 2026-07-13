@@ -113,7 +113,7 @@ def test_core_dashboard_counter_order_matches_previous_dashboard(db_session, mon
         return context
 
     monkeypatch.setattr("app.api.pages.render", fake_render)
-    dashboard_page(cast(Request, SimpleNamespace()), db_session)
+    dashboard_page(cast(Request, SimpleNamespace(headers={"HX-Request": "true"})), db_session)
 
     assert [widget.id for widget in captured["dashboard_widgets"] if widget.type == "counter"] == [
         "crowdsec.active_bans",
@@ -149,7 +149,7 @@ def test_dashboard_page_shares_counter_queries_across_plugin_widgets(db_session,
     monkeypatch.setattr(dashboard_metrics, "dashboard_yesterday_summary", yesterday_summary)
     monkeypatch.setattr("app.api.pages.render", lambda request, db, template, **context: context)
 
-    pages.dashboard_page(cast(Request, SimpleNamespace()), db_session)
+    pages.dashboard_page(cast(Request, SimpleNamespace(headers={"HX-Request": "true"})), db_session)
 
     assert calls == {"today": 1, "yesterday": 1}
 
@@ -169,7 +169,7 @@ def test_dashboard_core_widgets_include_tables_feed_and_trend(db_session, monkey
     from app.api.pages import dashboard_page
 
     monkeypatch.setattr("app.api.pages.render", lambda request, db, template, **context: context)
-    context = cast(dict[str, Any], dashboard_page(cast(Request, SimpleNamespace()), db_session))
+    context = cast(dict[str, Any], dashboard_page(cast(Request, SimpleNamespace(headers={"HX-Request": "true"})), db_session))
     ids = {widget.id for widget in context["dashboard_widgets"]}
     assert {"core.top_countries", "core.country_heatmap", "core.top_attack_hours", "core.top_access_hours", "core.latest_security_events", "core.security_events_trend"} <= ids
     assert {"core.top_countries", "core.country_heatmap", "core.top_attack_hours", "core.top_access_hours", "core.latest_security_events", "core.security_events_trend"} <= pages.dashboard_layout_widget_ids(db_session)
@@ -208,7 +208,7 @@ def test_dashboard_page_keeps_hidden_widgets_in_editor_context(db_session, monke
     monkeypatch.setattr("app.api.pages.render", fake_render)
     from app.api.pages import dashboard_page
 
-    dashboard_page(cast(Request, SimpleNamespace()), db_session)
+    dashboard_page(cast(Request, SimpleNamespace(headers={"HX-Request": "true"})), db_session)
 
     assert "crowdsec.active_bans" not in {widget.id for widget in captured["dashboard_widgets"]}
     editor_widgets = {widget.id: widget for widget in captured["dashboard_layout_widgets"]}

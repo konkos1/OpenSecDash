@@ -61,6 +61,7 @@ DE = {
     "notification.email.test_subject": "Benachrichtigungstest",
     "notification.email.test_body": "Dies ist eine Testbenachrichtigung von OpenSecDash.",
     "common.processing": "Wird ausgeführt…",
+    "common.loading": "Wird geladen…",
     "common.backlog_banner_title": "Log-Backlog wird noch aufgeholt:",
     "common.search": "Suchen",
     "common.clear": "Zurücksetzen",

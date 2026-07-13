@@ -84,6 +84,11 @@ tbody tr:hover { background: rgba(15, 23, 42, .65); }
 .btn:disabled:hover, .btn-small:disabled:hover { background: #475569; }
 .button-spinner { animation: osd-spin .8s linear infinite; border: 2px solid currentColor; border-right-color: transparent; border-radius: 999px; display: inline-block; height: 1rem; margin-right: .5rem; vertical-align: -.15rem; width: 1rem; }
 @keyframes osd-spin { to { transform: rotate(360deg); } }
+.skeleton { animation: osd-skeleton 1.4s ease-in-out infinite; background: rgb(30 41 59); border-radius: .5rem; display: block; }
+.skeleton-row { height: 1rem; margin-bottom: .75rem; }
+.skeleton-row:last-child { margin-bottom: 0; }
+@keyframes osd-skeleton { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
+@media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
 .btn-small { min-height: 2rem; padding: .35rem .65rem; font-size: .875rem; }
 .btn-secondary { background: #334155; color: #e2e8f0; }
 .btn-secondary:hover { background: #475569; }

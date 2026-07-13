@@ -231,7 +231,7 @@ def test_dashboard_local_date_uses_configured_timezone(db_session, monkeypatch):
     monkeypatch.setattr(pages, "render", fake_render)
     monkeypatch.setattr(pages, "utc_now", lambda: datetime(2026, 7, 28, 23, 30, tzinfo=timezone.utc))
 
-    pages.dashboard_page(cast(Request, SimpleNamespace()), db_session)
+    pages.dashboard_page(cast(Request, SimpleNamespace(headers={"HX-Request": "true"})), db_session)
 
     assert captured["dashboard_local_date"] == "2026-07-29"
 
@@ -247,7 +247,7 @@ def test_dashboard_treats_missing_today_rollup_metrics_as_zero(db_session, monke
     monkeypatch.setattr(pages, "rollup_summary", lambda db, period, value: {"bans": 1, "security_events": 1, "total_events": 1})
     monkeypatch.setattr(pages, "dashboard_today_rollup_key", lambda since: "2026-07-11")
 
-    pages.dashboard_page(cast(Request, SimpleNamespace()), db_session)
+    pages.dashboard_page(cast(Request, SimpleNamespace(headers={"HX-Request": "true"})), db_session)
 
     assert captured["dashboard_widgets"] == []
 
@@ -278,7 +278,7 @@ def test_dashboard_asset_widgets_show_for_proxmox_assets(db_session, monkeypatch
 
     monkeypatch.setattr(pages, "render", fake_render)
 
-    pages.dashboard_page(cast(Request, SimpleNamespace()), db_session)
+    pages.dashboard_page(cast(Request, SimpleNamespace(headers={"HX-Request": "true"})), db_session)
 
     widgets = captured["dashboard_widgets"]
     assert {widget.title_key for widget in widgets} == {"dashboard.assets", "dashboard.updates"}

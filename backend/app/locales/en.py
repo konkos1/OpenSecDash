@@ -61,6 +61,7 @@ EN = {
     "notification.email.test_subject": "Notification test",
     "notification.email.test_body": "This is a test notification from OpenSecDash.",
     "common.processing": "Processing…",
+    "common.loading": "Loading…",
     "common.backlog_banner_title": "Catching up on a log backlog:",
     "common.search": "Search",
     "common.clear": "Clear",
