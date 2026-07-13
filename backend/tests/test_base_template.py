@@ -49,6 +49,7 @@ def test_navigation_orders_core_and_plugin_links_consistently():
     assert "data-navigation-row" in html
     assert "data-navigation-brand" in html
     assert "data-navigation-primary" in html
+    assert '/static/css/app.css?v=test-stable-scrollbar-gutter' in html
     navigation_script = '<script src="/static/js/app.js?v=test-navigation-before-content"></script>'
     assert html.index("</header>") < html.index(navigation_script) < html.index("<main")
     assert html.count(navigation_script) == 1
@@ -61,3 +62,12 @@ def test_uploaded_instance_logo_stays_with_left_brand():
 
     assert instance_logo_rule is not None
     assert "margin-right: auto" in instance_logo_rule.group(1)
+
+
+def test_page_width_reserves_space_for_late_scrollbars():
+    css = Path("app/static/css/app.css").read_text()
+
+    html_rule = re.search(r"html\s*\{([^}]*)\}", css)
+
+    assert html_rule is not None
+    assert "scrollbar-gutter: stable" in html_rule.group(1)

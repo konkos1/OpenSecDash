@@ -1,4 +1,5 @@
 [x-cloak] { display: none !important; }
+html { scrollbar-gutter: stable; }
 :root {
   --accent-100: #dbeafe;
   --accent-200: #bfdbfe;
