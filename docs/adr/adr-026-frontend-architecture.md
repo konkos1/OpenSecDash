@@ -1,7 +1,13 @@
 # ADR-026: Frontend Architecture
 
-> **Implementation status (2026-07-09):** Implemented.
-> The app uses FastAPI, Jinja2, HTMX, Alpine.js, Tailwind CSS, WebSocket live notifications, and server-side rendering. PWA is only prepared, not fully offline-capable.
+> **Implementation status (2026-07-13):** Implemented.
+> The app uses FastAPI, Jinja2, HTMX, Alpine.js, Tailwind CSS, WebSocket live
+> notifications, and server-side rendering. PWA is implemented (installable, app icon,
+> standalone mode, offline fallback page); offline operation and push notifications
+> remain intentionally out of scope, as decided in this ADR.
+> Deviation: charts are rendered as server-side lists, bars, and an SVG world map
+> instead of Chart.js — in line with the "use as little JavaScript as possible"
+> principle.
 
 
 

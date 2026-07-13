@@ -67,6 +67,7 @@ export default defineConfig({
           { text: 'What is OpenSecDash?', link: '/guide/getting-started/what-is-opensecdash' },
           { text: 'Features', link: '/guide/getting-started/features' },
           { text: 'Quickstart', link: '/guide/getting-started/quickstart' },
+          { text: 'Mobile & PWA', link: '/guide/getting-started/mobile-pwa' },
           { text: 'Security model', link: '/guide/getting-started/security-model' }
         ]
       },

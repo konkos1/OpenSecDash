@@ -1,7 +1,17 @@
 # ADR-025: Mobile First UI
 
-> **Implementation status (2026-07-09):** Partially implemented.
-> Templates use responsive Tailwind/HTMX/Alpine patterns and mobile-friendly layouts. Full PWA/offline behavior is not implemented.
+> **Implementation status (2026-07-13):** Implemented.
+> Responsive templates (burger navigation, card views for tables, stacked dashboard
+> widgets, touch-friendly actions, visible live/snapshot indicator) and installable PWA
+> (manifest, icons, service worker with offline fallback page). As decided in this ADR,
+> there is no offline operation: the service worker never caches pages or data, it only
+> serves a static fallback page when the network is unavailable.
+> Deviation: pages render fully server-side and synchronously; progressive/deferred
+> widget loading with per-widget loading states (so a page appears immediately while its
+> widgets fetch their data) is not part of this work. On very large databases a page can
+> therefore block on the server render before it becomes usable.
+> Deviation: installability and the offline fallback were verified on desktop Chrome and
+> on `localhost`; they were not verified on a real iOS or Android device.
 
 
 
