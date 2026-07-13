@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 
 from app.core.time import utc_now
 from app.models.core import Insight, InsightRule
+from app.models.events import Event
 from app.services.events import store_event
 from app.services.insight_rules import import_ruleset
 
@@ -71,6 +72,34 @@ def test_path_pattern_rule_requires_minimum_distinct_ips(db_session):
     db_session.commit()
 
     assert db_session.query(Insight).filter_by(type="web.test_scanner_wave").count() == 0
+
+
+def test_pattern_rule_filters_irrelevant_paths_in_database(db_session):
+    import_ruleset(
+        db_session,
+        _ruleset(_pattern_rule(id="web.test_sql_filter", threshold=2, min_distinct_ips=1)),
+        source="test",
+    )
+    start = datetime(2026, 7, 11, 12, 0)
+    db_session.add_all(
+        Event(
+            event_time=start,
+            source="test",
+            plugin="traefik_log",
+            event_type="access.error",
+            severity="warning",
+            ip=f"192.0.2.{index}",
+            path="/irrelevant",
+        )
+        for index in range(1, 51)
+    )
+    db_session.flush()
+
+    _store_event(db_session, start + timedelta(minutes=1), "198.51.100.1")
+    _store_event(db_session, start + timedelta(minutes=2), "198.51.100.2")
+
+    insight = db_session.query(Insight).filter_by(type="web.test_sql_filter").one()
+    assert "Matched 2 event(s)" in insight.description
 
 
 def test_pattern_rule_cooldown_limits_backlog_and_allows_later_wave(db_session):
