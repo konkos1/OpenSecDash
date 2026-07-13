@@ -6,7 +6,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.database.dependencies import get_db
-from app.models.users import User, UserSession
+from app.models.users import User, UserPreference, UserSession
 from app.services.auth import (
     AUTH_DISABLED_ENV,
     PASSWORD_MIN_LENGTH,
@@ -144,6 +144,7 @@ def delete_managed_user(request: Request, user_id: int, db: Session = Depends(ge
     if user.is_active and user.role == "admin" and active_admin_count(db, exclude_user_id=user.id) == 0:
         return _settings_error("last_admin")
     delete_user_sessions(db, user.id)
+    db.query(UserPreference).filter(UserPreference.user_id == user.id).delete()
     db.delete(user)
     db.commit()
     return RedirectResponse("/settings", status_code=303)

@@ -964,7 +964,6 @@ def events_page(
         column_options=column_options,
         active_columns=active_columns,
         columns_setting_action="/events/columns",
-        live_default=get_setting_value(db, "live_default", "true"),
         view_to_query=view_to_query,
         **saved_view_context,
     )

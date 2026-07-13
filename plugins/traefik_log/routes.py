@@ -135,7 +135,6 @@ def access_page(
         today=today_enabled,
         range=range_value or "",
         snapshot_before=snapshot_before or "",
-        live_default=get_setting_value(db, "live_default", "true"),
         view_to_query=view_to_query,
         **saved_view_context,
     )

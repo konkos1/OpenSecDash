@@ -42,7 +42,7 @@ def render_forbidden_page(request: Request):
     """Render the standard localized forbidden page for browser requests."""
     db = SessionLocal()
     try:
-        context = build_template_context(db)
+        context = build_template_context(db, getattr(request.state, "user", None))
     finally:
         db.close()
     title = context["t"]("error.forbidden.title")  # type: ignore[index,operator]

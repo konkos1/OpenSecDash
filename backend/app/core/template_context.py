@@ -8,6 +8,8 @@ from app.core.version import get_app_version, is_newer_version
 from app.models.core import Datasource
 from app.models.settings import Setting
 from app.services.instance_branding import instance_file_versions
+from app.services.user_preferences import effective_preferences
+from app.models.users import User
 
 
 def get_setting_value(
@@ -47,31 +49,26 @@ def get_setting_values(db: Session, defaults: dict[str, str]) -> dict[str, str]:
     return values
 
 
-def build_template_context(db: Session) -> dict[str, object | Callable[[str], str]]:
+def build_template_context(db: Session, current_user: User | None = None) -> dict[str, object | Callable[[str], str]]:
     values = get_setting_values(
         db,
         {
-            "language": "en",
             "domain": "",
             "instance_description": "",
             "timezone": "auto",
-            "theme": "auto",
-            "instance_accent_color": "blue",
-            "live_page_refresh": "true",
             "update_check_enabled": "true",
             "update_check.latest_version": "",
             **{f"plugin.{plugin_id}.enabled": "false" for plugin_id in plugin_registry.plugin_ids()},
         },
     )
-    language = values["language"]
+    preferences = effective_preferences(db, current_user)
+    language = preferences["language"]
     domain = values["domain"]
     timezone = values["timezone"]
-    theme = values["theme"]
-    accent_color = values["instance_accent_color"]
-    if accent_color not in {"blue", "green", "orange", "red"}:
-        accent_color = "blue"
+    theme = preferences["theme"]
+    accent_color = preferences["accent_color"]
     file_versions = instance_file_versions(db)
-    live_page_refresh = values["live_page_refresh"] == "true"
+    live_page_refresh = preferences["live_page_refresh"] == "true"
     enabled_plugins = {plugin_id: values[f"plugin.{plugin_id}.enabled"] == "true" for plugin_id in plugin_registry.plugin_ids()}
     event_plugins_enabled = any(
         enabled_plugins.get(plugin_id)
@@ -113,6 +110,7 @@ def build_template_context(db: Session) -> dict[str, object | Callable[[str], st
         "timezone": timezone,
         "theme": theme,
         "accent_color": accent_color,
+        "live_default": preferences["live_default"],
         "instance_description": values["instance_description"],
         "instance_logo_version": file_versions["logo"],
         "instance_favicon_version": file_versions["favicon"],

@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.core.template_context import get_setting_value
 from app.core.time import utc_now
 from app.models.users import User, UserSession
+from app.services.user_preferences import create_user_preferences
 
 PASSWORD_MIN_LENGTH = 8
 SESSION_LIFETIME_DAYS = 30
@@ -73,6 +74,7 @@ def create_user(db: Session, username: str, password: str, role: str) -> User:
     )
     db.add(user)
     db.flush()
+    create_user_preferences(db, user.id)
     return user
 
 

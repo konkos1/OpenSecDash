@@ -10,7 +10,7 @@ from app.core.template_context import get_setting_value
 from app.database.base import Base
 from app.database.dependencies import get_db
 from app.main import app
-from app.models.users import User, UserSession
+from app.models.users import User, UserPreference, UserSession
 from app.services.auth import create_session, create_user
 from app.web import auth as auth_web
 
@@ -139,6 +139,7 @@ def test_last_admin_and_self_delete_protections(user_management_client):
     response = client.post(f"/settings/users/{second_admin.id}/delete", follow_redirects=False)
     assert response.status_code == 303
     assert db.query(User).filter(User.id == second_admin.id).first() is None
+    assert db.query(UserPreference).filter(UserPreference.user_id == second_admin.id).count() == 0
 
 
 def test_operator_and_viewer_cannot_manage_users(user_management_client):
