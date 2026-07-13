@@ -964,7 +964,6 @@ def events_page(
         column_options=column_options,
         active_columns=active_columns,
         columns_setting_action="/events/columns",
-        live_default=get_setting_value(db, "live_default", "true"),
         view_to_query=view_to_query,
         **saved_view_context,
     )
@@ -1660,7 +1659,6 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
         "settings.html",
         domain=get_setting_value(db, "domain", ""),
         instance_description=get_setting_value(db, "instance_description", ""),
-        instance_accent_color=get_setting_value(db, "instance_accent_color", "blue"),
         instance_logo=get_instance_file(db, "logo"),
         instance_favicon=get_instance_file(db, "favicon"),
         branding_error=request.query_params.get("branding_error", ""),
@@ -1668,13 +1666,9 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
         users=db.query(User).order_by(User.username).all(),
         auth_error=request.query_params.get("auth_error", ""),
         auth_notice=request.query_params.get("auth_notice", ""),
-        language_setting=get_setting_value(db, "language", "en"),
         retention_days=get_setting_value(db, "retention_days", "30"),
-        live_default=get_setting_value(db, "live_default", "true"),
-        theme=get_setting_value(db, "theme", "auto"),
         timezone=get_setting_value(db, "timezone", "auto"),
         log_timestamp_timezone=get_setting_value(db, "log_timestamp_timezone", "UTC"),
-        live_page_refresh=get_setting_value(db, "live_page_refresh", "true"),
         update_check_enabled=get_setting_value(db, "update_check_enabled", "true"),
         asset_source_type=get_setting_value(db, "asset_source_type", "file"),
         asset_source=get_setting_value(db, "asset_source", "/assets/assets.json"),
@@ -1698,28 +1692,36 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
     )
 
 
-@router.post("/settings")
-async def save_settings(
-    request: Request,
-    domain: str = Form(""),
-    instance_description: str = Form(""),
-    language: str = Form("en"),
+@router.post("/settings/core")
+def save_core_settings(
     retention_days: str = Form("30"),
-    live_default: str = Form("true"),
-    theme: str = Form("auto"),
-    instance_accent_color: str = Form("blue"),
     timezone: str = Form("auto"),
     log_timestamp_timezone: str = Form("UTC"),
-    live_page_refresh: str = Form("true"),
     update_check_enabled: str = Form("true"),
-    asset_source_type: str = Form("file"),
-    asset_source: str = Form(""),
     action_dry_run: str = Form("true"),
     log_file_enabled: str = Form("false"),
     log_file_path: str = Form("logs/opensecdash.log"),
     log_level: str = Form("INFO"),
-    asset_updates_github_token: str = Form(""),
-    asset_updates_github_interval: str = Form("21600"),
+    db: Session = Depends(get_db),
+):
+    for key, value in {
+            "retention_days": retention_days,
+            "timezone": timezone,
+            "log_timestamp_timezone": log_timestamp_timezone,
+            "update_check_enabled": update_check_enabled,
+            "action_dry_run": action_dry_run,
+            "log_file_enabled": log_file_enabled,
+            "log_file_path": log_file_path,
+            "log_level": log_level if log_level in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"} else "INFO",
+    }.items():
+        save_setting(db, key, value)
+    db.commit()
+    configure_logging_from_db(db)
+    return RedirectResponse(url="/settings", status_code=303)
+
+
+@router.post("/settings/notifications")
+def save_notification_settings(
     notifications_enabled: str = Form("false"),
     notifications_base_url: str = Form(""),
     notifications_smtp_host: str = Form(""),
@@ -1731,76 +1733,68 @@ async def save_settings(
     notifications_smtp_recipient: str = Form(""),
     db: Session = Depends(get_db),
 ):
+    for key, value in {
+        "notifications.enabled": notifications_enabled,
+        "notifications.base_url": clean_url_value(notifications_base_url),
+        "notifications.smtp_host": notifications_smtp_host,
+        "notifications.smtp_port": notifications_smtp_port,
+        "notifications.smtp_security": notifications_smtp_security,
+        "notifications.smtp_user": notifications_smtp_user,
+        "notifications.smtp_password": notifications_smtp_password,
+        "notifications.smtp_sender": notifications_smtp_sender,
+        "notifications.smtp_recipient": notifications_smtp_recipient,
+    }.items():
+        save_setting(db, key, value)
+    db.commit()
+    invalidate_rules_cache()
+    return RedirectResponse(url="/settings", status_code=303)
+
+
+@router.post("/settings/asset-updates")
+def save_asset_update_settings(
+    asset_updates_github_token: str = Form(""),
+    asset_updates_github_interval: str = Form("21600"),
+    db: Session = Depends(get_db),
+):
+    save_setting(db, "asset_updates.github_token", asset_updates_github_token)
+    save_setting(db, "asset_updates.github_interval", asset_updates_github_interval)
+    db.commit()
+    return RedirectResponse(url="/settings", status_code=303)
+
+
+@router.post("/settings/plugins/{plugin_id}")
+async def save_plugin_settings(plugin_id: str, request: Request, db: Session = Depends(get_db)):
     form = await request.form()
-
-    # In a thread: saving settings is the single most write-heavy request in
-    # the app (dozens of setting rows plus a commit). It must stay async for
-    # request.form(), but running the writes on the event loop would freeze
-    # every page for everyone whenever a background writer holds the write
-    # lock - which is exactly when users go to Settings to disable a plugin.
-    def _save() -> None:
-        nonlocal language, domain, instance_accent_color, asset_source, notifications_base_url
-        if language not in {"de", "en"}:
-            language = "en"
-        if instance_accent_color not in {"blue", "green", "orange", "red"}:
-            instance_accent_color = "blue"
-        domain = clean_url_value(domain)
-        if asset_source_type == "url":
-            asset_source = clean_url_value(asset_source)
-        notifications_base_url = clean_url_value(notifications_base_url)
-        for key, value in {
-            "domain": domain,
-            "instance_description": instance_description.strip()[:500],
-            "language": language,
-            "retention_days": retention_days,
-            "live_default": live_default,
-            "theme": theme,
-            "instance_accent_color": instance_accent_color,
-            "timezone": timezone,
-            "log_timestamp_timezone": log_timestamp_timezone,
-            "live_page_refresh": live_page_refresh,
-            "update_check_enabled": update_check_enabled,
-            "asset_source_type": asset_source_type,
-            "asset_source": asset_source,
-            "action_dry_run": action_dry_run,
-            "log_file_enabled": log_file_enabled,
-            "log_file_path": log_file_path,
-            "log_level": log_level if log_level in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"} else "INFO",
-            "asset_updates.github_token": asset_updates_github_token,
-            "asset_updates.github_interval": asset_updates_github_interval,
-            "notifications.enabled": notifications_enabled,
-            "notifications.base_url": notifications_base_url,
-            "notifications.smtp_host": notifications_smtp_host,
-            "notifications.smtp_port": notifications_smtp_port,
-            "notifications.smtp_security": notifications_smtp_security,
-            "notifications.smtp_user": notifications_smtp_user,
-            "notifications.smtp_password": notifications_smtp_password,
-            "notifications.smtp_sender": notifications_smtp_sender,
-            "notifications.smtp_recipient": notifications_smtp_recipient,
-        }.items():
-            save_setting(db, key, value)
-
-        plugin_setting_types = {
-            setting["key"]: setting["type"]
+    plugin_group = next(
+        (
+            group
             for group in get_plugin_manager().plugin_settings(db, get_setting_value(db, "language", "en"))
-            for setting in group["settings"]
-        }
-        plugin_source_types = {
-            key: str(value)
-            for key, value in form.items()
-            if key.startswith("plugin.") and key.endswith(".source_type")
-        }
+            if group["id"] == plugin_id
+        ),
+        None,
+    )
+    if plugin_group is None:
+        return RedirectResponse(url="/settings", status_code=303)
+    plugin_setting_types = {
+        str(setting["key"]): str(setting["type"])
+        for setting in plugin_group["settings"]
+    }
+    plugin_source_types = {
+        key: str(value)
+        for key, value in form.items()
+        if key in plugin_setting_types and key.endswith(".source_type")
+    }
+    def _save() -> None:
         for key, value in form.items():
-            if key.startswith("plugin."):
-                text_value = str(value)
-                source_type_key = key.removesuffix(".source") + ".source_type"
-                if plugin_setting_types.get(key) == "url" or (key.endswith(".source") and plugin_source_types.get(source_type_key) == "url"):
-                    text_value = clean_url_value(text_value)
-                save_setting(db, key, text_value)
+            if key not in plugin_setting_types:
+                continue
+            text_value = str(value)
+            source_type_key = key.removesuffix(".source") + ".source_type"
+            if plugin_setting_types[key] == "url" or (key.endswith(".source") and plugin_source_types.get(source_type_key) == "url"):
+                text_value = clean_url_value(text_value)
+            save_setting(db, key, text_value)
         db.commit()
-        invalidate_rules_cache()
         get_plugin_manager().refresh_health_diagnostics(db)
-        configure_logging_from_db(db)
 
     await asyncio.to_thread(_save)
     return RedirectResponse(url="/settings", status_code=303)

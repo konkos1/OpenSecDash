@@ -93,6 +93,52 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         });
 
+    const settingsRestoreKey = "opensecdash:settings-restore";
+    const settingsRestoreCookie = "opensecdash_settings_restore";
+    let settingsRestore = null;
+    try {
+        settingsRestore = sessionStorage.getItem(settingsRestoreKey);
+        sessionStorage.removeItem(settingsRestoreKey);
+    } catch {
+        // A browser may block session storage for this page; use the scoped
+        // cookie fallback below so settings saves still restore the viewport.
+    }
+    if (settingsRestore === null) {
+        settingsRestore = document.cookie
+            .split("; ")
+            .find(cookie => cookie.startsWith(`${settingsRestoreCookie}=`))
+            ?.split("=")[1] || null;
+    }
+    if (settingsRestore !== null) {
+        document.cookie = `${settingsRestoreCookie}=; Max-Age=0; Path=/settings; SameSite=Lax`;
+        try {
+            const { scrollY, openDetails } = JSON.parse(decodeURIComponent(settingsRestore));
+            const details = document.querySelectorAll("details");
+            details.forEach((details, index) => {
+                details.open = openDetails.includes(index);
+            });
+            setTimeout(() => window.scrollTo(0, Number(scrollY)), 500);
+        } catch {
+            // Ignore a stale or malformed browser-local restore value.
+        }
+    }
+
+    document.addEventListener("submit", event => {
+        const form = event.target;
+        if (!(form instanceof HTMLFormElement) || !form.matches('form[action^="/settings/"]') || event.defaultPrevented) {
+            return;
+        }
+        const openDetails = Array.from(document.querySelectorAll("details"))
+            .flatMap((details, index) => details.open ? [index] : []);
+        const settingsRestore = JSON.stringify({ scrollY: window.scrollY, openDetails });
+        try {
+            sessionStorage.setItem(settingsRestoreKey, settingsRestore);
+        } catch {
+            // The cookie below provides the fallback.
+        }
+        document.cookie = `${settingsRestoreCookie}=${encodeURIComponent(settingsRestore)}; Max-Age=30; Path=/settings; SameSite=Lax`;
+    });
+
     const dirtyForms = new Set();
     let skipBeforeUnloadWarning = false;
 

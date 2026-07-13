@@ -6,7 +6,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.database.dependencies import get_db
-from app.models.users import User, UserSession
+from app.models.users import User, UserPreference, UserSession
 from app.services.auth import (
     AUTH_DISABLED_ENV,
     PASSWORD_MIN_LENGTH,
@@ -119,6 +119,11 @@ def reset_user_password(user_id: int, password: str = Form(), db: Session = Depe
     return RedirectResponse("/settings", status_code=303)
 
 
+@router.post("/settings/users/password")
+def reset_selected_user_password(user_id: int = Form(), password: str = Form(), db: Session = Depends(get_db)):
+    return reset_user_password(user_id, password, db)
+
+
 @router.post("/settings/users/{user_id}/toggle")
 def toggle_user(user_id: int, db: Session = Depends(get_db)):
     user = _user_or_error(db, user_id)
@@ -144,6 +149,7 @@ def delete_managed_user(request: Request, user_id: int, db: Session = Depends(ge
     if user.is_active and user.role == "admin" and active_admin_count(db, exclude_user_id=user.id) == 0:
         return _settings_error("last_admin")
     delete_user_sessions(db, user.id)
+    db.query(UserPreference).filter(UserPreference.user_id == user.id).delete()
     db.delete(user)
     db.commit()
     return RedirectResponse("/settings", status_code=303)

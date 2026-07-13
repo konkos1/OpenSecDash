@@ -20,6 +20,18 @@ class User(Base):
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
+class UserPreference(Base):
+    __tablename__ = "user_preferences"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(unique=True, index=True)
+    language: Mapped[str] = mapped_column(String(2), default="en")
+    live_default: Mapped[str] = mapped_column(String(5), default="true")
+    theme: Mapped[str] = mapped_column(String(5), default="auto")
+    accent_color: Mapped[str] = mapped_column(String(6), default="blue")
+    live_page_refresh: Mapped[str] = mapped_column(String(5), default="true")
+
+
 class UserSession(Base):
     __tablename__ = "user_sessions"
 

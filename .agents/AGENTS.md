@@ -74,7 +74,20 @@ These rules apply to all AI assistants, coding agents, and automated tools worki
 - For any change that should land in `main`, create a feature branch instead.
 - If a task appears to require a direct commit to `main`, stop and ask instead of proceeding.
 
-## 11. Follow the code style
+## 11. Rebuild Tailwind after affecting changes
+
+- The UI uses a pre-generated stylesheet at `backend/app/static/css/tailwind.css`, not the Tailwind Play CDN.
+- Whenever a change affects this stylesheet — new or changed Tailwind utility classes in templates (`backend/app/templates/**/*.html`), `backend/app/static/js/app.js`, `backend/app/api/pages.py`, or edits to `backend/tailwind.config.js` / `backend/tailwind.input.css` — Tailwind must be rebuilt and the regenerated `tailwind.css` committed together with the change.
+- Rebuild from `backend/` with:
+
+  ```
+  npx -y tailwindcss@3.4.17 -c tailwind.config.js \
+    -i tailwind.input.css -o app/static/css/tailwind.css --minify
+  ```
+
+- Do not present such a change as complete without the corresponding stylesheet rebuild.
+
+## 12. Follow the code style
 
 - The project code style is documented in `website/guide/contributing/code-style.md` (published at https://opensecdash.app/guide/contributing/code-style) and applies to all contributions, human or AI.
 - Its baseline rule also applies when the guide is silent: write code that reads like the surrounding code.

@@ -6,25 +6,63 @@
 
 {% block content %}
     <h2 class="text-2xl font-semibold mb-5">{{ t("account.title") }}</h2>
-    <section class="card max-w-xl space-y-4">
+    <section class="card space-y-4">
         <dl class="grid grid-cols-2 gap-2 text-sm">
             <dt class="text-slate-400">{{ t("auth.username") }}</dt><dd>{{ account_user.username }}</dd>
             <dt class="text-slate-400">{{ t("settings.auth_role") }}</dt><dd>{{ t("auth.role." ~ account_user.role) }}</dd>
         </dl>
 
         {% if auth_error %}
-            <p class="text-red-400 text-sm">{{ t("settings.auth_error." ~ auth_error) }}</p>
+            <p class="text-red-400 text-sm">{{ t("account.preferences_invalid") if auth_error == "invalid_preferences" else t("settings.auth_error." ~ auth_error) }}</p>
         {% endif %}
         {% if auth_notice %}
-            <p class="text-green-400 text-sm">{{ t("auth.notice." ~ auth_notice) }}</p>
+            <p class="text-green-400 text-sm">{{ t("account.preferences_saved") if auth_notice == "preferences_saved" else t("auth.notice." ~ auth_notice) }}</p>
         {% endif %}
 
-        <form class="space-y-4" method="post" action="/auth/password">
-            <h3 class="font-semibold">{{ t("account.change_password") }}</h3>
+        <form class="grid grid-cols-1 md:grid-cols-2 gap-4" method="post" action="/account/preferences">
+            <h3 class="font-semibold md:col-span-2">{{ t("account.preferences") }}</h3>
+            <label>{{ t("settings.language") }} <button type="button" class="help" data-tooltip="{{ t('account.help.language') }}">?</button>
+                <select class="input" name="language">
+                    <option value="en" {% if language == 'en' %}selected{% endif %}>English</option>
+                    <option value="de" {% if language == 'de' %}selected{% endif %}>Deutsch</option>
+                </select>
+            </label>
+            <label>{{ t("settings.live_default") }} <button type="button" class="help" data-tooltip="{{ t('account.help.live_default') }}">?</button>
+                <select class="input" name="live_default">
+                    <option value="true" {% if live_default == 'true' %}selected{% endif %}>{{ t("settings.live_on") }}</option>
+                    <option value="false" {% if live_default == 'false' %}selected{% endif %}>{{ t("settings.snapshot") }}</option>
+                </select>
+            </label>
+            <label>{{ t("settings.theme") }} <button type="button" class="help" data-tooltip="{{ t('account.help.theme') }}">?</button>
+                <select class="input" name="theme">
+                    <option value="auto" {% if theme == 'auto' %}selected{% endif %}>{{ t("settings.theme_auto") }}</option>
+                    <option value="dark" {% if theme == 'dark' %}selected{% endif %}>{{ t("settings.theme_dark") }}</option>
+                    <option value="light" {% if theme == 'light' %}selected{% endif %}>{{ t("settings.theme_light") }}</option>
+                </select>
+            </label>
+            <label>{{ t("settings.accent_color") }} <button type="button" class="help" data-tooltip="{{ t('account.help.accent_color') }}">?</button>
+                <select class="input" name="accent_color">
+                    <option value="blue" {% if accent_color == 'blue' %}selected{% endif %}>{{ t("settings.accent_blue") }}</option>
+                    <option value="green" {% if accent_color == 'green' %}selected{% endif %}>{{ t("settings.accent_green") }}</option>
+                    <option value="orange" {% if accent_color == 'orange' %}selected{% endif %}>{{ t("settings.accent_orange") }}</option>
+                    <option value="red" {% if accent_color == 'red' %}selected{% endif %}>{{ t("settings.accent_red") }}</option>
+                </select>
+            </label>
+            <label>{{ t("settings.live_page_refresh") }} <button type="button" class="help" data-tooltip="{{ t('account.help.live_page_refresh') }}">?</button>
+                <select class="input" name="live_page_refresh">
+                    <option value="true" {% if live_page_refresh %}selected{% endif %}>{{ t("common.yes") }}</option>
+                    <option value="false" {% if not live_page_refresh %}selected{% endif %}>{{ t("common.no") }}</option>
+                </select>
+            </label>
+            <div class="flex items-end"><button class="btn" type="submit">{{ t("common.save_button") }}</button></div>
+        </form>
+
+        <form class="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-800 pt-4" method="post" action="/auth/password">
+            <h3 class="font-semibold md:col-span-2">{{ t("account.change_password") }}</h3>
             <label>{{ t("account.current_password") }}<input class="input" type="password" name="current_password" autocomplete="current-password"></label>
             <label>{{ t("account.new_password") }}<input class="input" type="password" name="new_password" autocomplete="new-password"></label>
             <label>{{ t("account.confirm_password") }}<input class="input" type="password" name="new_password_confirm" autocomplete="new-password"></label>
-            <button class="btn" type="submit">{{ t("account.change_password") }}</button>
+            <div class="flex items-end"><button class="btn" type="submit">{{ t("account.change_password") }}</button></div>
         </form>
     </section>
 {% endblock %}

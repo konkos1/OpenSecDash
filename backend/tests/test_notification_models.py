@@ -80,7 +80,7 @@ def test_notification_settings_post_persists_all_values(test_settings_db):
     client = TestClient(app)
     try:
         response = client.post(
-            "/settings",
+            "/settings/notifications",
             data={
                 "notifications_enabled": "true",
                 "notifications_base_url": "http://192.168.1.10:8000/",

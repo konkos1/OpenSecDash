@@ -29,7 +29,9 @@ them, or delete them. Resetting a password and deactivating a user revokes that 
 active sessions. OpenSecDash prevents removal, deactivation, or demotion of the last
 active administrator.
 
-Every signed-in user can change their own password from the account link in the header.
+Every signed-in user can change their own password and personal display preferences
+(language, live default, theme, accent color, and automatic page refresh) from the
+account link in the header.
 
 ## Locked out of the web UI
 

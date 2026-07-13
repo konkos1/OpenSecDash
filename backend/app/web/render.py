@@ -14,4 +14,4 @@ def render(request: Request, db: Session, template: str, **context):
     current_user = context["current_user"]
     context.setdefault("can_operate", current_user is None or current_user.role in ("operator", "admin"))
     context.setdefault("can_admin", current_user is None or current_user.role == "admin")
-    return templates.TemplateResponse(request=request, name=template, context={**build_template_context(db), **context})
+    return templates.TemplateResponse(request=request, name=template, context={**build_template_context(db, current_user), **context})

@@ -15,7 +15,7 @@ from app.models.events import Event
 from app.models.saved_views import SavedView
 from app.models.settings import InstanceFile, Setting
 from app.models.systems import System
-from app.models.users import ApiToken, User, UserSession
+from app.models.users import ApiToken, User, UserPreference, UserSession
 
 __all__ = [
     "Action",
@@ -36,5 +36,6 @@ __all__ = [
     "Setting",
     "System",
     "User",
+    "UserPreference",
     "UserSession",
 ]

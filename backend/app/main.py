@@ -149,7 +149,7 @@ def render_error_page(
 ):
     db = SessionLocal()
     try:
-        context = build_template_context(db)
+        context = build_template_context(db, getattr(request.state, "user", None))
     finally:
         db.close()
     title = context["t"](title_key)  # type: ignore[index,operator]
