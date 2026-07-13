@@ -1090,7 +1090,14 @@ def _events_for_ip_target(db: Session, ip: str, limit: int) -> list[Event]:
     if network is None:
         return db.query(Event).filter(Event.ip == _clean_ip_target(ip)).order_by(Event.event_time.desc()).limit(limit).all()
     events: list[Event] = []
-    for event in db.query(Event).filter(Event.ip.isnot(None), Event.ip != "").order_by(Event.event_time.desc()).all():
+    candidates = (
+        db.query(Event)
+        .filter(Event.ip.isnot(None), Event.ip != "")
+        .order_by(Event.event_time.desc())
+        .yield_per(500)
+        .execution_options(stream_results=True)
+    )
+    for event in candidates:
         if _ip_in_network(event.ip, network):
             events.append(event)
             if len(events) >= limit:
@@ -1103,7 +1110,14 @@ def _insights_for_ip_target(db: Session, ip: str, limit: int) -> list[Insight]:
     if network is None:
         return db.query(Insight).filter(Insight.ip == _clean_ip_target(ip)).order_by(Insight.timestamp.desc()).limit(limit).all()
     insights: list[Insight] = []
-    for insight in db.query(Insight).filter(Insight.ip.isnot(None), Insight.ip != "").order_by(Insight.timestamp.desc()).all():
+    candidates = (
+        db.query(Insight)
+        .filter(Insight.ip.isnot(None), Insight.ip != "")
+        .order_by(Insight.timestamp.desc())
+        .yield_per(500)
+        .execution_options(stream_results=True)
+    )
+    for insight in candidates:
         if _ip_in_network(insight.ip, network):
             insights.append(insight)
             if len(insights) >= limit:

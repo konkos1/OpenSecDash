@@ -121,6 +121,19 @@ def test_ip_explorer_encoded_path_passed_through(db_session):
     assert 'hx-get="http://testserver/ip/192.0.2.0%2F24"' in shell
 
 
+def test_ip_explorer_large_network_keeps_result_materialization_bounded(db_session):
+    _enable(db_session, "crowdsec")
+    db_session.add_all(
+        Event(event_time=datetime(2026, 7, 13, 12, index % 60), event_type="security.ipmarker", plugin="crowdsec", ip=f"203.0.113.{index % 255}")
+        for index in range(300)
+    )
+    db_session.commit()
+
+    events = pages._events_for_ip_target(db_session, "0.0.0.0/0", 200)
+
+    assert len(events) == 200
+
+
 def test_asset_page_shell_defers_and_data_loads(db_session):
     _enable(db_session, "json_assets")
     system = System(vmid="100", hostname="sys1", system_type="vm", source_plugin="json_assets", external_id="sys1")
