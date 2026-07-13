@@ -15,7 +15,7 @@ from app.web.templates import templates
 
 SESSION_COOKIE = "osd_session"
 ROLE_ORDER = {"viewer": 0, "operator": 1, "admin": 2}
-_PUBLIC_PATHS = {"/health", "/ready", "/login"}
+_PUBLIC_PATHS = {"/health", "/ready", "/login", "/sw.js"}
 _UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
 
