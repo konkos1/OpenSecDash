@@ -102,6 +102,11 @@
             </nav>
         </header>
 
+        {# Run the responsive navigation measurement before parsing potentially
+           large page tables, so the header reaches its final layout before
+           the browser can paint an intermediate collapsed state. #}
+        <script src="/static/js/app.js?v={{ app_version }}-navigation-before-content"></script>
+
         {% include "backlog_banner.html" %}
 
         <main class="max-w-7xl mx-auto px-4 py-6">
@@ -125,6 +130,5 @@
             <a class="hover:text-slate-300 underline underline-offset-2" href="https://opensecdash.app" target="_blank" rel="noopener noreferrer">{{ t("footer.documentation") }}</a>
         </footer>
         
-        <script src="/static/js/app.js?v={{ app_version }}-responsive-navigation"></script>
     </body>
 </html>
