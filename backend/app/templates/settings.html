@@ -1,344 +1,73 @@
 {% extends "base.html" %}
 
-{% block title %}
-    {{ t("app.name") }} · {{ t("settings.title") }}
-{% endblock %}
+{% block title %}{{ t("app.name") }} · {{ t("settings.title") }}{% endblock %}
 
 {% block content %}
-
     <h2 class="text-2xl font-semibold mb-5">{{ t("settings.title") }}</h2>
 
-    <form class="space-y-5" method="post" action="/settings" data-unsaved-warning="{{ t('settings.unsaved_changes') }}" x-data='{ settings: {{ plugin_settings_state | tojson }}, logFileEnabled: {{ log_file_enabled | tojson }}, notificationsEnabled: {{ notifications_enabled | tojson }} }'>
-        <button class="sr-only" type="submit" aria-hidden="true" tabindex="-1">{{ t("common.save_button") }}</button>
-        <section class="card grid grid-cols-1 md:grid-cols-2 gap-4">
-            <h3 class="font-semibold md:col-span-2">{{ t("settings.core") }}</h3>
-            <label>{{ t("settings.domain") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.domain') }}">?</button>
-                <input class="input" type="text" name="domain" value="{{ domain }}" placeholder="mydomain.com">
-            </label>
+    <details class="card mb-5" open>
+        <summary class="font-semibold cursor-pointer">{{ t("settings.core") }}</summary>
+        <form class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4" method="post" action="/settings/core" x-data='{ logFileEnabled: {{ log_file_enabled | tojson }} }'>
+            <label>{{ t("settings.domain") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.domain') }}">?</button><input class="input" name="domain" value="{{ domain }}" placeholder="mydomain.com"></label>
+            <label>{{ t("settings.instance_description") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.instance_description') }}">?</button><input class="input" name="instance_description" value="{{ instance_description }}"></label>
+            <label>{{ t("settings.retention_days") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.retention_days') }}">?</button><select class="input" name="retention_days">{% for value in ['7', '30', '90', '180', '365'] %}<option value="{{ value }}" {% if retention_days == value %}selected{% endif %}>{{ value }}</option>{% endfor %}<option value="0" {% if retention_days == '0' %}selected{% endif %}>{{ t("settings.unlimited") }}</option></select></label>
+            <label>{{ t("settings.timezone") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.timezone') }}">?</button><input class="input" name="timezone" value="{{ timezone }}" placeholder="auto / Europe/Berlin"></label>
+            <label>{{ t("settings.log_timestamp_timezone") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.log_timestamp_timezone') }}">?</button><input class="input" name="log_timestamp_timezone" value="{{ log_timestamp_timezone }}" placeholder="UTC / Europe/Berlin"></label>
+            <label>{{ t("settings.update_check_enabled") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.update_check_enabled') }}">?</button><select class="input" name="update_check_enabled"><option value="true" {% if update_check_enabled == 'true' %}selected{% endif %}>{{ t("common.yes") }}</option><option value="false" {% if update_check_enabled == 'false' %}selected{% endif %}>{{ t("common.no") }}</option></select></label>
+            <label>{{ t("settings.action_simulation") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.action_simulation') }}">?</button><select class="input" name="action_dry_run"><option value="true" {% if action_dry_run == 'true' %}selected{% endif %}>{{ t("settings.dry_run") }}</option><option value="false" {% if action_dry_run == 'false' %}selected{% endif %}>{{ t("settings.execute_via_plugin") }}</option></select></label>
+            <label>{{ t("settings.log_file_enabled") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.log_file_enabled') }}">?</button><select class="input" name="log_file_enabled" x-model="logFileEnabled"><option value="true" {% if log_file_enabled == 'true' %}selected{% endif %}>{{ t("common.yes") }}</option><option value="false" {% if log_file_enabled == 'false' %}selected{% endif %}>{{ t("common.no") }}</option></select></label>
+            <label>{{ t("settings.log_level") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.log_level') }}">?</button><select class="input" name="log_level">{% for level in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'] %}<option value="{{ level }}" {% if log_level == level %}selected{% endif %}>{{ level }}</option>{% endfor %}</select></label>
+            <label class="md:col-span-2" :class="logFileEnabled === 'true' ? '' : 'settings-disabled'">{{ t("settings.log_file_path") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.log_file_path') }}">?</button><input class="input" name="log_file_path" value="{{ log_file_path }}" :readonly="logFileEnabled !== 'true'"></label>
+            <div><button class="btn" type="submit">{{ t("common.save_button") }}</button></div>
+        </form>
+    </details>
 
-            <label>{{ t("settings.instance_description") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.instance_description') }}">?</button>
-                <input class="input" type="text" name="instance_description" value="{{ instance_description }}">
-            </label>
-
-        <label>{{ t("settings.language") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.language') }}">?</button>
-            <select class="input" name="language">
-                <option value="en" {% if language_setting == 'en' %}selected{% endif %}>English</option>
-                <option value="de" {% if language_setting == 'de' %}selected{% endif %}>Deutsch</option>
-            </select>
-        </label>
-
-        <label>{{ t("settings.retention_days") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.retention_days') }}">?</button>
-            <select class="input" name="retention_days">
-                <option>7</option>
-                <option {% if retention_days == '30' %}selected{% endif %}>30</option>
-                <option>90</option>
-                <option>180</option>
-                <option>365</option>
-                <option value="0">{{ t("settings.unlimited") }}</option>
-            </select>
-        </label>
-
-        <label>{{ t("settings.live_default") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.live_default') }}">?</button>
-            <select class="input" name="live_default">
-                <option value="true" {% if live_default == 'true' %}selected{% endif %}>{{ t("settings.live_on") }}</option>
-                <option value="false" {% if live_default == 'false' %}selected{% endif %}>{{ t("settings.snapshot") }}</option>
-            </select>
-        </label>
-
-        <label>{{ t("settings.theme") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.theme') }}">?</button>
-            <select class="input" name="theme">
-                <option value="auto" {% if theme == 'auto' %}selected{% endif %}>{{ t("settings.theme_auto") }}</option>
-                <option value="dark" {% if theme == 'dark' %}selected{% endif %}>{{ t("settings.theme_dark") }}</option>
-                <option value="light" {% if theme == 'light' %}selected{% endif %}>{{ t("settings.theme_light") }}</option>
-            </select>
-        </label>
-
-        <label>{{ t("settings.accent_color") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.accent_color') }}">?</button>
-            <select class="input" name="instance_accent_color">
-                <option value="blue" {% if instance_accent_color == 'blue' %}selected{% endif %}>{{ t("settings.accent_blue") }}</option>
-                <option value="green" {% if instance_accent_color == 'green' %}selected{% endif %}>{{ t("settings.accent_green") }}</option>
-                <option value="orange" {% if instance_accent_color == 'orange' %}selected{% endif %}>{{ t("settings.accent_orange") }}</option>
-                <option value="red" {% if instance_accent_color == 'red' %}selected{% endif %}>{{ t("settings.accent_red") }}</option>
-            </select>
-        </label>
-
-        <label>{{ t("settings.timezone") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.timezone') }}">?</button>
-            <input class="input" name="timezone" value="{{ timezone }}" placeholder="auto / Europe/Berlin">
-        </label>
-
-        <label>{{ t("settings.log_timestamp_timezone") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.log_timestamp_timezone') }}">?</button>
-            <input class="input" name="log_timestamp_timezone" value="{{ log_timestamp_timezone }}" placeholder="UTC / Europe/Berlin">
-        </label>
-
-        <label>{{ t("settings.live_page_refresh") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.live_page_refresh') }}">?</button>
-            <select class="input" name="live_page_refresh">
-                <option value="true" {% if live_page_refresh == 'true' %}selected{% endif %}>{{ t("common.yes") }}</option>
-                <option value="false" {% if live_page_refresh == 'false' %}selected{% endif %}>{{ t("common.no") }}</option>
-            </select>
-        </label>
-
-        <label>{{ t("settings.update_check_enabled") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.update_check_enabled') }}">?</button>
-            <select class="input" name="update_check_enabled">
-                <option value="true" {% if update_check_enabled == 'true' %}selected{% endif %}>{{ t("common.yes") }}</option>
-                <option value="false" {% if update_check_enabled == 'false' %}selected{% endif %}>{{ t("common.no") }}</option>
-            </select>
-        </label>
-
-        <label>{{ t("settings.action_simulation") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.action_simulation') }}">?</button>
-            <select class="input" name="action_dry_run">
-                <option value="true" {% if action_dry_run == 'true' %}selected{% endif %}>{{ t("settings.dry_run") }}</option>
-                <option value="false" {% if action_dry_run == 'false' %}selected{% endif %}>{{ t("settings.execute_via_plugin") }}</option>
-            </select>
-        </label>
-
-        <label>{{ t("settings.log_file_enabled") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.log_file_enabled') }}">?</button>
-            <select class="input" name="log_file_enabled" x-model="logFileEnabled">
-                <option value="true" {% if log_file_enabled == 'true' %}selected{% endif %}>{{ t("common.yes") }}</option>
-                <option value="false" {% if log_file_enabled == 'false' %}selected{% endif %}>{{ t("common.no") }}</option>
-            </select>
-        </label>
-
-        <label>{{ t("settings.log_level") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.log_level') }}">?</button>
-            <select class="input" name="log_level">
-                {% for level in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'] %}
-                    <option value="{{ level }}" {% if log_level == level %}selected{% endif %}>{{ level }}</option>
-                {% endfor %}
-            </select>
-        </label>
-
-        <label class="md:col-span-2" :class="logFileEnabled === 'true' ? '' : 'settings-disabled'">{{ t("settings.log_file_path") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.log_file_path') }}">?</button>
-            <input class="input" type="text" name="log_file_path" value="{{ log_file_path }}" placeholder="logs/opensecdash.log" :readonly="logFileEnabled !== 'true'">
-        </label>
-
-        </section>
-
-        <section class="card space-y-4">
-            <h3 class="font-semibold">{{ t("settings.branding") }}</h3>
+    <details class="card mb-5">
+        <summary class="font-semibold cursor-pointer">{{ t("settings.branding") }}</summary>
+        <div class="space-y-4 mt-4">
             <p class="muted text-sm">{{ t("settings.branding_help") }}</p>
-
-            {% if branding_error %}
-                <p class="text-red-400 text-sm">{{ t("settings.branding_error." ~ branding_error) }}</p>
-            {% endif %}
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <label>{{ t("settings.custom_logo") }}
-                    <input class="input" type="file" name="logo" accept=".png,.svg,.webp,.jpg,.jpeg">
-                </label>
-                <label>{{ t("settings.custom_favicon") }}
-                    <input class="input" type="file" name="favicon" accept=".png,.svg,.webp,.ico">
-                </label>
-                <div class="md:col-span-2">
-                    <button class="btn" type="submit" formaction="/settings/branding" formenctype="multipart/form-data">{{ t("settings.branding_upload") }}</button>
-                </div>
-            </div>
-
-            {% if instance_logo %}
-                <div class="flex items-center gap-3">
-                    <img src="/instance/logo?v={{ instance_logo.updated_at }}" alt="" class="branding-preview">
-                    <span class="text-sm">{{ instance_logo.filename }}</span>
-                    <button class="btn" type="submit" formaction="/settings/branding/remove" name="kind" value="logo">{{ t("settings.branding_remove") }}</button>
-                </div>
-            {% endif %}
-
-            {% if instance_favicon %}
-                <div class="flex items-center gap-3">
-                    <img src="/instance/favicon?v={{ instance_favicon.updated_at }}" alt="" class="branding-preview">
-                    <span class="text-sm">{{ instance_favicon.filename }}</span>
-                    <button class="btn" type="submit" formaction="/settings/branding/remove" name="kind" value="favicon">{{ t("settings.branding_remove") }}</button>
-                </div>
-            {% endif %}
-        </section>
-
-        <section class="card grid grid-cols-1 md:grid-cols-2 gap-4">
-            <h3 class="font-semibold md:col-span-2">{{ t("settings.notifications_email") }}</h3>
-
-            <label>{{ t("settings.notifications_enabled") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.notifications_enabled') }}">?</button>
-                <select class="input" name="notifications_enabled" x-model="notificationsEnabled">
-                    <option value="true" {% if notifications_enabled == 'true' %}selected{% endif %}>{{ t("common.yes") }}</option>
-                    <option value="false" {% if notifications_enabled == 'false' %}selected{% endif %}>{{ t("common.no") }}</option>
-                </select>
-            </label>
-
-            <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4" :class="notificationsEnabled === 'true' ? '' : 'settings-disabled'">
-                <label>{{ t("settings.notifications_base_url") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.notifications_base_url') }}">?</button>
-                    <input class="input" type="url" name="notifications_base_url" value="{{ notifications_base_url }}" placeholder="http://192.168.1.10:8000">
-                </label>
-
-                <label>{{ t("settings.notifications_smtp_host") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.notifications_smtp_host') }}">?</button>
-                    <input class="input" type="text" name="notifications_smtp_host" value="{{ notifications_smtp_host }}" placeholder="smtp.example.net">
-                </label>
-
-                <label>{{ t("settings.notifications_smtp_port") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.notifications_smtp_port') }}">?</button>
-                    <input class="input" type="number" min="1" name="notifications_smtp_port" value="{{ notifications_smtp_port }}">
-                </label>
-
-                <label>{{ t("settings.notifications_smtp_security") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.notifications_smtp_security') }}">?</button>
-                    <select class="input" name="notifications_smtp_security">
-                        <option value="none" {% if notifications_smtp_security == 'none' %}selected{% endif %}>{{ t("settings.notifications_smtp_security_none") }}</option>
-                        <option value="starttls" {% if notifications_smtp_security == 'starttls' %}selected{% endif %}>STARTTLS</option>
-                        <option value="ssl" {% if notifications_smtp_security == 'ssl' %}selected{% endif %}>SSL/TLS</option>
-                    </select>
-                </label>
-
-                <label>{{ t("settings.notifications_smtp_user") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.notifications_smtp_user') }}">?</button>
-                    <input class="input" type="text" name="notifications_smtp_user" value="{{ notifications_smtp_user }}">
-                </label>
-
-                <label>{{ t("settings.notifications_smtp_password") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.notifications_smtp_password') }}">?</button>
-                    <input class="input" type="password" name="notifications_smtp_password" value="{{ notifications_smtp_password }}">
-                </label>
-
-                <label>{{ t("settings.notifications_smtp_sender") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.notifications_smtp_sender') }}">?</button>
-                    <input class="input" type="email" name="notifications_smtp_sender" value="{{ notifications_smtp_sender }}" placeholder="opensecdash@example.net">
-                </label>
-
-                <label>{{ t("settings.notifications_smtp_recipient") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.notifications_smtp_recipient') }}">?</button>
-                    <input class="input" type="email" name="notifications_smtp_recipient" value="{{ notifications_smtp_recipient }}" placeholder="admin@example.net">
-                </label>
-            </div>
-        </section>
-
-        <section class="card grid grid-cols-1 md:grid-cols-2 gap-4" :class="(settings['plugin.json_assets.enabled'] === 'true' || settings['plugin.proxmox_assets.enabled'] === 'true') ? '' : 'settings-disabled'">
-            <h3 class="font-semibold md:col-span-2">{{ t("settings.asset_update_checks") }}</h3>
-            <p class="muted text-sm md:col-span-2">{{ t("settings.asset_update_checks_help") }}</p>
-
-            <label>{{ t("settings.asset_updates_github_token") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.asset_updates_github_token') }}">?</button>
-                <input class="input" type="password" name="asset_updates_github_token" value="{{ asset_updates_github_token }}" :readonly="!(settings['plugin.json_assets.enabled'] === 'true' || settings['plugin.proxmox_assets.enabled'] === 'true')">
-            </label>
-
-            <label>{{ t("settings.asset_updates_github_interval") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.asset_updates_github_interval') }}">?</button>
-                <input class="input" type="number" min="0" name="asset_updates_github_interval" value="{{ asset_updates_github_interval }}" :readonly="!(settings['plugin.json_assets.enabled'] === 'true' || settings['plugin.proxmox_assets.enabled'] === 'true')">
-            </label>
-        </section>
-
-        {% for group in plugin_setting_groups %}
-            <section class="card">
-                <h3 class="font-semibold mb-1">{{ group.name }}</h3>
-                <p class="muted text-sm mb-3">{{ t("settings.plugin_block_help") }}</p>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {% for setting in group.settings %}
-                        <label
-                            {% if setting.visible_if %}
-                                :class="settings['{{ setting.visible_if.key }}'] === '{{ setting.visible_if.value }}' ? '' : 'settings-disabled'"
-                            {% endif %}
-                        >
-                            {{ setting.label }} <button type="button" class="help" data-tooltip="{{ setting.help }}">?</button>
-                            {% if setting.type == 'select' or setting.type == 'boolean' %}
-                                <select class="input" name="{{ setting.key }}" x-model="settings['{{ setting.key }}']" {% if setting.visible_if %}:disabled="settings['{{ setting.visible_if.key }}'] !== '{{ setting.visible_if.value }}'"{% endif %}>
-                                    {% for value, label in setting.options %}
-                                        <option value="{{ value }}" {% if setting.value == value %}selected{% endif %}>{{ label }}</option>
-                                    {% endfor %}
-                                </select>
-                            {% else %}
-                                <input class="input {{ 'border-red-500' if setting.error else '' }}" type="{{ 'password' if setting.type == 'password' else 'text' }}" name="{{ setting.key }}" value="{{ setting.value }}" x-model="settings['{{ setting.key }}']" {% if setting.visible_if %}:readonly="settings['{{ setting.visible_if.key }}'] !== '{{ setting.visible_if.value }}'"{% endif %}>
-                            {% endif %}
-                            {% if setting.error %}
-                                <p class="text-red-400 text-sm mt-1">{{ setting.error }}</p>
-                            {% endif %}
-                        </label>
-                    {% endfor %}
-                </div>
-            </section>
-        {% endfor %}
-
-        <div>
-            <button class="btn" type="submit">{{ t("common.save_button") }}</button>
+            {% if branding_error %}<p class="text-red-400 text-sm">{{ t("settings.branding_error." ~ branding_error) }}</p>{% endif %}
+            <form class="grid grid-cols-1 md:grid-cols-2 gap-4" method="post" action="/settings/branding" enctype="multipart/form-data">
+                <label>{{ t("settings.custom_logo") }}<input class="input" type="file" name="logo" accept=".png,.svg,.webp,.jpg,.jpeg"></label>
+                <label>{{ t("settings.custom_favicon") }}<input class="input" type="file" name="favicon" accept=".png,.svg,.webp,.ico"></label>
+                <div><button class="btn" type="submit">{{ t("settings.branding_upload") }}</button></div>
+            </form>
+            {% for kind, file in [('logo', instance_logo), ('favicon', instance_favicon)] %}{% if file %}<div class="flex items-center gap-3"><img src="/instance/{{ kind }}?v={{ file.updated_at }}" alt="" class="branding-preview"><span class="text-sm">{{ file.filename }}</span><form method="post" action="/settings/branding/remove"><input type="hidden" name="kind" value="{{ kind }}"><button class="btn" type="submit">{{ t("settings.branding_remove") }}</button></form></div>{% endif %}{% endfor %}
         </div>
-    </form>
+    </details>
 
-    <section class="card space-y-4 mt-5">
-        <h3 class="font-semibold">{{ t("settings.auth_section") }}</h3>
-
-        {% if auth_error %}
-            <p class="text-red-400 text-sm">{{ t("settings.auth_error." ~ auth_error) }}</p>
-        {% endif %}
-
-        {% if not auth_enabled %}
-            <p class="muted text-sm">{{ t("settings.auth_intro") }}</p>
-            <form class="grid grid-cols-1 md:grid-cols-2 gap-4" method="post" action="/settings/auth/enable">
-                <label>{{ t("auth.username") }}
-                    <input class="input" name="username" autocomplete="username">
-                </label>
-                <label>{{ t("auth.password") }}
-                    <input class="input" type="password" name="password" autocomplete="new-password">
-                </label>
-                <label>{{ t("account.confirm_password") }}
-                    <input class="input" type="password" name="password_confirm" autocomplete="new-password">
-                </label>
-                <div class="md:col-span-2">
-                    <p class="text-amber-300 text-sm mb-3">{{ t("settings.auth_enable_warning") }}</p>
-                    <button class="btn" type="submit">{{ t("settings.auth_enable") }}</button>
-                </div>
-            </form>
-
-            {% if users %}
-                <div class="space-y-2">
-                    <p class="muted text-sm">{{ t("settings.auth_existing_users") }}</p>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <thead><tr class="text-left text-slate-400"><th class="p-2">{{ t("auth.username") }}</th><th class="p-2">{{ t("settings.auth_role") }}</th><th class="p-2">{{ t("common.status") }}</th></tr></thead>
-                            <tbody>
-                                {% for user in users %}
-                                    <tr class="border-t border-slate-800"><td class="p-2">{{ user.username }}</td><td class="p-2">{{ t("auth.role." ~ user.role) }}</td><td class="p-2">{{ t("common.yes") if user.is_active else t("common.no") }}</td></tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+    <details class="card mb-5">
+        <summary class="font-semibold cursor-pointer">{{ t("settings.auth_section") }}</summary>
+        <div class="space-y-4 mt-4">
+            {% if auth_error %}<p class="text-red-400 text-sm">{{ t("settings.auth_error." ~ auth_error) }}</p>{% endif %}
+            {% if not auth_enabled %}
+                <p class="muted text-sm">{{ t("settings.auth_intro") }}</p>
+                <form class="grid grid-cols-1 md:grid-cols-2 gap-4" method="post" action="/settings/auth/enable"><label>{{ t("auth.username") }}<input class="input" name="username"></label><label>{{ t("auth.password") }}<input class="input" type="password" name="password"></label><label>{{ t("account.confirm_password") }}<input class="input" type="password" name="password_confirm"></label><div><button class="btn" type="submit">{{ t("settings.auth_enable") }}</button></div></form>
+                {% if users %}<div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr><th>{{ t("auth.username") }}</th><th>{{ t("settings.auth_role") }}</th><th>{{ t("common.status") }}</th></tr></thead><tbody>{% for user in users %}<tr><td>{{ user.username }}</td><td>{{ t("auth.role." ~ user.role) }}</td><td>{{ t("common.yes") if user.is_active else t("common.no") }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+            {% else %}
+                <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr><th>{{ t("auth.username") }}</th><th>{{ t("settings.auth_role") }}</th><th>{{ t("common.status") }}</th><th>{{ t("settings.auth_last_login") }}</th><th>{{ t("common.actions") }}</th></tr></thead><tbody>{% for user in users %}<tr><td>{{ user.username }}</td><td><form method="post" action="/settings/users/{{ user.id }}/role"><select class="input" name="role">{% for role in ['viewer', 'operator', 'admin'] %}<option value="{{ role }}" {% if user.role == role %}selected{% endif %}>{{ t('auth.role.' ~ role) }}</option>{% endfor %}</select><button class="btn-small" type="submit">{{ t("common.save_button") }}</button></form></td><td>{{ t("common.yes") if user.is_active else t("common.no") }}</td><td>{{ user.last_login_at|datetime if user.last_login_at else t("common.none") }}</td><td><form class="inline" method="post" action="/settings/users/{{ user.id }}/toggle"><button class="btn-small" type="submit">{{ t("settings.auth_deactivate") if user.is_active else t("settings.auth_activate") }}</button></form><form class="inline" method="post" action="/settings/users/{{ user.id }}/delete" data-confirm="{{ t('settings.auth_delete_confirm').replace('{username}', user.username) }}"><button class="btn-small" type="submit">{{ t("settings.auth_delete") }}</button></form></td></tr>{% endfor %}</tbody></table></div>
+                <form class="grid grid-cols-1 md:grid-cols-3 gap-4" method="post" action="/settings/users/create"><h4 class="font-semibold md:col-span-3">{{ t("settings.auth_create_user") }}</h4><label>{{ t("auth.username") }}<input class="input" name="username"></label><label>{{ t("auth.password") }}<input class="input" type="password" name="password"></label><label>{{ t("settings.auth_role") }}<select class="input" name="role">{% for role in ['viewer', 'operator', 'admin'] %}<option value="{{ role }}" {% if role == 'viewer' %}selected{% endif %}>{{ t('auth.role.' ~ role) }}</option>{% endfor %}</select></label><div><button class="btn" type="submit">{{ t("settings.auth_create_user") }}</button></div></form>
+                {% for user in users %}<form class="flex gap-2" method="post" action="/settings/users/{{ user.id }}/password"><input class="input" type="password" name="password" placeholder="{{ t('account.new_password') }}"><button class="btn-small" type="submit">{{ t("settings.auth_reset_password") }}</button></form>{% endfor %}
+                <form method="post" action="/settings/auth/disable" data-confirm="{{ t('settings.auth_disable_warning') }}"><p class="text-amber-300 text-sm mb-3">{{ t("settings.auth_disable_warning") }}</p><button class="btn" type="submit">{{ t("settings.auth_disable") }}</button></form>
             {% endif %}
-        {% else %}
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead><tr class="text-left text-slate-400"><th class="p-2">{{ t("auth.username") }}</th><th class="p-2">{{ t("settings.auth_role") }}</th><th class="p-2">{{ t("common.status") }}</th><th class="p-2">{{ t("settings.auth_last_login") }}</th><th class="p-2">{{ t("common.action") }}</th></tr></thead>
-                    <tbody>
-                        {% for user in users %}
-                            <tr class="border-t border-slate-800 align-top">
-                                <td class="p-2">{{ user.username }}</td>
-                                <td class="p-2">
-                                    <form class="flex gap-2" method="post" action="/settings/users/{{ user.id }}/role">
-                                        <select class="input" name="role">
-                                            {% for role in ["viewer", "operator", "admin"] %}<option value="{{ role }}" {% if user.role == role %}selected{% endif %}>{{ t("auth.role." ~ role) }}</option>{% endfor %}
-                                        </select>
-                                        <button class="btn-small" type="submit">{{ t("common.save_button") }}</button>
-                                    </form>
-                                </td>
-                                <td class="p-2">{{ t("common.yes") if user.is_active else t("common.no") }}</td>
-                                <td class="p-2">{{ user.last_login_at|datetime if user.last_login_at else t("common.none") }}</td>
-                                <td class="p-2 space-y-2">
-                                    <form class="flex gap-2" method="post" action="/settings/users/{{ user.id }}/password">
-                                        <input class="input" type="password" name="password" placeholder="{{ t('account.new_password') }}" autocomplete="new-password">
-                                        <button class="btn-small" type="submit">{{ t("settings.auth_reset_password") }}</button>
-                                    </form>
-                                    <form class="inline" method="post" action="/settings/users/{{ user.id }}/toggle">
-                                        <button class="btn-small" type="submit">{{ t("settings.auth_deactivate") if user.is_active else t("settings.auth_activate") }}</button>
-                                    </form>
-                                    <form class="inline" method="post" action="/settings/users/{{ user.id }}/delete" data-confirm="{{ t('settings.auth_delete_confirm').replace('{username}', user.username) }}">
-                                        <button class="btn-small" type="submit">{{ t("settings.auth_delete") }}</button>
-                                    </form>
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+        </div>
+    </details>
 
-            <form class="grid grid-cols-1 md:grid-cols-3 gap-4" method="post" action="/settings/users/create">
-                <h4 class="font-semibold md:col-span-3">{{ t("settings.auth_create_user") }}</h4>
-                <label>{{ t("auth.username") }}<input class="input" name="username" autocomplete="username"></label>
-                <label>{{ t("auth.password") }}<input class="input" type="password" name="password" autocomplete="new-password"></label>
-                <label>{{ t("settings.auth_role") }}
-                    <select class="input" name="role">
-                        {% for role in ["viewer", "operator", "admin"] %}<option value="{{ role }}" {% if role == "viewer" %}selected{% endif %}>{{ t("auth.role." ~ role) }}</option>{% endfor %}
-                    </select>
-                </label>
-                <div><button class="btn" type="submit">{{ t("settings.auth_create_user") }}</button></div>
-            </form>
+    <details class="card mb-5">
+        <summary class="font-semibold cursor-pointer">{{ t("settings.notifications_email") }}</summary>
+        <form class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4" method="post" action="/settings/notifications" x-data='{ notificationsEnabled: {{ notifications_enabled | tojson }} }'>
+            <label>{{ t("settings.notifications_enabled") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.notifications_enabled') }}">?</button><select class="input" name="notifications_enabled" x-model="notificationsEnabled"><option value="true" {% if notifications_enabled == 'true' %}selected{% endif %}>{{ t("common.yes") }}</option><option value="false" {% if notifications_enabled == 'false' %}selected{% endif %}>{{ t("common.no") }}</option></select></label>
+            <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4" :class="notificationsEnabled === 'true' ? '' : 'settings-disabled'"><label>{{ t("settings.notifications_base_url") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.notifications_base_url') }}">?</button><input class="input" name="notifications_base_url" value="{{ notifications_base_url }}"></label><label>{{ t("settings.notifications_smtp_host") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.notifications_smtp_host') }}">?</button><input class="input" name="notifications_smtp_host" value="{{ notifications_smtp_host }}"></label><label>{{ t("settings.notifications_smtp_port") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.notifications_smtp_port') }}">?</button><input class="input" name="notifications_smtp_port" value="{{ notifications_smtp_port }}"></label><label>{{ t("settings.notifications_smtp_security") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.notifications_smtp_security') }}">?</button><select class="input" name="notifications_smtp_security"><option value="none" {% if notifications_smtp_security == 'none' %}selected{% endif %}>{{ t("settings.notifications_smtp_security_none") }}</option><option value="starttls" {% if notifications_smtp_security == 'starttls' %}selected{% endif %}>STARTTLS</option><option value="ssl" {% if notifications_smtp_security == 'ssl' %}selected{% endif %}>SSL/TLS</option></select></label><label>{{ t("settings.notifications_smtp_user") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.notifications_smtp_user') }}">?</button><input class="input" name="notifications_smtp_user" value="{{ notifications_smtp_user }}"></label><label>{{ t("settings.notifications_smtp_password") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.notifications_smtp_password') }}">?</button><input class="input" type="password" name="notifications_smtp_password" value="{{ notifications_smtp_password }}"></label><label>{{ t("settings.notifications_smtp_sender") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.notifications_smtp_sender') }}">?</button><input class="input" name="notifications_smtp_sender" value="{{ notifications_smtp_sender }}"></label><label>{{ t("settings.notifications_smtp_recipient") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.notifications_smtp_recipient') }}">?</button><input class="input" name="notifications_smtp_recipient" value="{{ notifications_smtp_recipient }}"></label></div>
+            <div><button class="btn" type="submit">{{ t("common.save_button") }}</button></div>
+        </form>
+    </details>
 
-            <form method="post" action="/settings/auth/disable" data-confirm="{{ t('settings.auth_disable_warning') }}">
-                <p class="text-amber-300 text-sm mb-3">{{ t("settings.auth_disable_warning") }}</p>
-                <button class="btn" type="submit">{{ t("settings.auth_disable") }}</button>
-            </form>
-        {% endif %}
-    </section>
+    <details class="card mb-5">
+        <summary class="font-semibold cursor-pointer">{{ t("settings.asset_update_checks") }}</summary>
+        <form class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4" method="post" action="/settings/asset-updates" x-data='{ settings: {{ plugin_settings_state | tojson }} }'><div class="contents" :class="settings['plugin.json_assets.enabled'] === 'true' || settings['plugin.proxmox_assets.enabled'] === 'true' ? '' : 'settings-disabled'"><label>{{ t("settings.asset_updates_github_token") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.asset_updates_github_token') }}">?</button><input class="input" type="password" name="asset_updates_github_token" value="{{ asset_updates_github_token }}" :readonly="!(settings['plugin.json_assets.enabled'] === 'true' || settings['plugin.proxmox_assets.enabled'] === 'true')"></label><label>{{ t("settings.asset_updates_github_interval") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.asset_updates_github_interval') }}">?</button><input class="input" name="asset_updates_github_interval" value="{{ asset_updates_github_interval }}" :readonly="!(settings['plugin.json_assets.enabled'] === 'true' || settings['plugin.proxmox_assets.enabled'] === 'true')"></label></div><div><button class="btn" type="submit">{{ t("common.save_button") }}</button></div></form>
+    </details>
 
+    {% for group in plugin_setting_groups %}
+        <details class="card mb-5"><summary class="font-semibold cursor-pointer">{{ group.name }}</summary><form class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4" method="post" action="/settings/plugins/{{ group.id }}" x-data='{ settings: {{ plugin_settings_state | tojson }} }'>{% for setting in group.settings %}<label {% if setting.visible_if %}:class="settings['{{ setting.visible_if.key }}'] === '{{ setting.visible_if.value }}' ? '' : 'settings-disabled'"{% endif %}>{{ setting.label }} <button type="button" class="help" data-tooltip="{{ setting.help }}">?</button>{% if setting.type == 'select' or setting.type == 'boolean' %}<select class="input" name="{{ setting.key }}" x-model="settings['{{ setting.key }}']" {% if setting.visible_if %}:disabled="settings['{{ setting.visible_if.key }}'] !== '{{ setting.visible_if.value }}'"{% endif %}>{% for value, label in setting.options %}<option value="{{ value }}" {% if setting.value == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>{% else %}<input class="input {{ 'border-red-500' if setting.error else '' }}" type="{{ 'password' if setting.type == 'password' else 'text' }}" name="{{ setting.key }}" value="{{ setting.value }}" x-model="settings['{{ setting.key }}']" {% if setting.visible_if %}:readonly="settings['{{ setting.visible_if.key }}'] !== '{{ setting.visible_if.value }}'"{% endif %}>{% endif %}{% if setting.error %}<p class="text-red-400 text-sm">{{ setting.error }}</p>{% endif %}</label>{% endfor %}<div><button class="btn" type="submit">{{ t("common.save_button") }}</button></div></form></details>
+    {% endfor %}
 {% endblock %}

@@ -113,7 +113,7 @@ def test_admin_can_access_and_save_settings(role_clients):
     admin = clients["admin"]
 
     assert admin.get("/settings").status_code == 200
-    assert admin.post("/settings", follow_redirects=False).status_code == 303
+    assert admin.post("/settings/core", follow_redirects=False).status_code == 303
 
 
 def test_settings_navigation_is_hidden_for_viewers(role_clients):

@@ -203,7 +203,7 @@ def test_settings_post_saves_instance_description_without_changing_domain(instan
     client = TestClient(app)
     try:
         response = client.post(
-            "/settings",
+            "/settings/core",
             data={"domain": "homelab.example", "instance_description": " Test instance "},
             follow_redirects=False,
         )
@@ -218,21 +218,21 @@ def test_settings_post_saves_instance_description_without_changing_domain(instan
     assert 'value="Test instance"' in page.text
 
 
-def test_settings_post_validates_instance_accent_color(instance_branding_db):
+def test_core_settings_do_not_change_personal_preference_defaults(instance_branding_db):
     app.dependency_overrides[get_db] = lambda: instance_branding_db
     client = TestClient(app)
     try:
-        green_response = client.post("/settings", data={"instance_accent_color": "green"}, follow_redirects=False)
-        green_value = get_setting_value(instance_branding_db, "instance_accent_color")
-        invalid_response = client.post("/settings", data={"instance_accent_color": "neon"}, follow_redirects=False)
+        green_response = client.post("/settings/core", data={"instance_accent_color": "green"}, follow_redirects=False)
+        green_value = get_setting_value(instance_branding_db, "instance_accent_color", "blue")
+        invalid_response = client.post("/settings/core", data={"instance_accent_color": "neon"}, follow_redirects=False)
     finally:
         client.close()
         app.dependency_overrides.clear()
 
     assert green_response.status_code == 303
-    assert green_value == "green"
+    assert green_value == "blue"
     assert invalid_response.status_code == 303
-    assert get_setting_value(instance_branding_db, "instance_accent_color") == "blue"
+    assert get_setting_value(instance_branding_db, "instance_accent_color", "blue") == "blue"
 
 
 def test_template_context_normalizes_instance_accent_color(instance_branding_db):
@@ -267,9 +267,9 @@ def test_settings_page_renders_branding_section(instance_branding_db):
         app.dependency_overrides.clear()
 
     assert response.status_code == 200
-    assert 'formaction="/settings/branding"' in response.text
+    assert 'action="/settings/branding"' in response.text
     assert "logo.png" in response.text
     assert "favicon.png" in response.text
     assert "/instance/logo?v=" in response.text
     assert "/instance/favicon?v=" in response.text
-    assert response.text.index("General") < response.text.index("Instance Branding") < response.text.index("Notifications (Email)")
+    assert response.text.index("General") < response.text.index("Instance Branding") < response.text.index("Sign-in &amp; users") < response.text.index("Notifications (Email)")

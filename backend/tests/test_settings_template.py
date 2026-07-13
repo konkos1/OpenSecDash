@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 
-def test_theme_dropdown_selects_saved_theme():
+def test_settings_template_uses_independent_details_forms():
     env = Environment(
         loader=FileSystemLoader("app/templates"),
         autoescape=select_autoescape(["html"]),
@@ -46,7 +46,8 @@ def test_theme_dropdown_selects_saved_theme():
         notifications_smtp_recipient="",
     )
 
-    assert '<option value="light" selected>settings.theme_light</option>' in html
-    assert '<option value="auto" selected>' not in html
-    assert '<button class="sr-only" type="submit" aria-hidden="true" tabindex="-1">common.save_button</button>' in html
-    assert html.index('class="sr-only"') < html.index('formaction="/settings/branding"')
+    assert 'action="/settings/core"' in html
+    assert 'action="/settings/notifications"' in html
+    assert 'action="/settings/asset-updates"' in html
+    assert 'name="theme"' not in html
+    assert '<details class="card mb-5" open>' in html
