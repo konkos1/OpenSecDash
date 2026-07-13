@@ -203,6 +203,5 @@ Torblock is listed in earlier V1 planning but is not currently implemented as a 
 
 Scope decision (2026-07-11): Torblock remains excluded from V1. The Torblock entries above (Dashboard "Torblocks today", IP Explorer "Torblocks") do not apply to V1; consistent with this, the V1 core plugin list above never included a Torblock datasource.
 
-On user request, optional internal user management and multi-user roles were added after
-this scope decision. The feature is disabled by default; see ADR-028 and
-`docs/internal/internal-user-management/` for its implementation plan.
+Optional internal user management and multi-user roles were added after this scope decision.
+The feature is disabled by default; see ADR-028.
