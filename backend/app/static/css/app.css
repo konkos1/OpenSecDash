@@ -45,7 +45,7 @@ a { color: inherit; }
 a.card, .brand-link { color: inherit; text-decoration: none; }
 .brand-title { align-items: center; display: inline-flex; gap: .55rem; }
 .app-icon { border-radius: .45rem; height: 1.65rem; width: 1.65rem; }
-.instance-logo { border-radius: .45rem; max-height: 2.25rem; max-width: 9rem; }
+.instance-logo { border-radius: .45rem; margin-right: auto; max-height: 2.25rem; max-width: 9rem; }
 .branding-preview { max-height: 3rem; max-width: 12rem; }
 thead { background: rgba(30, 41, 59, .75); }
 th { color: #f8fafc; font-size: .75rem; font-weight: 700; letter-spacing: .04em; text-align: left; text-transform: uppercase; }
@@ -57,17 +57,14 @@ td, th { border-bottom: 1px solid rgb(30 41 59); padding: .65rem; vertical-align
 tbody tr:hover { background: rgba(15, 23, 42, .65); }
 .nav { border-radius: .6rem; color: #e2e8f0; padding: .5rem .75rem; text-decoration: none; }
 .nav:hover, .nav-active { background: #1e293b; color: white; }
-/* Keep the full navigation behind the burger until wide desktop space is
-   available. Localized labels and the growing core navigation otherwise get
-   clipped before the previous breakpoint could switch menus. */
+/* The full navigation is enabled by app.js only after measuring the complete
+   header. A collapsed default prevents overlap while images and fonts load. */
 .nav-links-desktop { display: none; }
 .nav-menu-toggle { display: inline-flex; }
 .nav-links-mobile { display: none; }
-@media (min-width: 1200px) {
-  .nav-links-desktop { display: flex; }
-  .nav-menu-toggle { display: none; }
-  .nav-links-mobile { display: none; }
-}
+.navigation-expanded .nav-links-desktop { display: flex; }
+.navigation-expanded .nav-menu-toggle { display: none; }
+.navigation-expanded .nav-links-mobile { display: none !important; }
 .card { background: rgb(15 23 42); border: 1px solid rgb(30 41 59); border-radius: 1rem; padding: 1rem; }
 .dashboard-widget { min-height: 7rem; position: relative; }
 .dashboard-widget:hover { border-color: var(--accent-400); }

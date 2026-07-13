@@ -1,4 +1,62 @@
 document.addEventListener("DOMContentLoaded", () => {
+    const navigationHeader = document.querySelector("[data-navigation-header]");
+    const navigationRow = document.querySelector("[data-navigation-row]");
+    const navigationBrand = document.querySelector("[data-navigation-brand]");
+    const navigationPrimary = document.querySelector("[data-navigation-primary]");
+
+    if (navigationHeader && navigationRow && navigationBrand && navigationPrimary) {
+        const measureHiddenWidth = element => {
+            const previousStyle = element.getAttribute("style");
+            element.style.display = "flex";
+            element.style.position = "fixed";
+            element.style.visibility = "hidden";
+            element.style.width = "max-content";
+            const width = element.getBoundingClientRect().width;
+            if (previousStyle === null) {
+                element.removeAttribute("style");
+            } else {
+                element.setAttribute("style", previousStyle);
+            }
+            return width;
+        };
+
+        const updateNavigationLayout = () => {
+            navigationHeader.classList.remove("navigation-expanded");
+
+            const rowStyle = getComputedStyle(navigationRow);
+            const rowPadding = parseFloat(rowStyle.paddingLeft) + parseFloat(rowStyle.paddingRight);
+            const rowGap = parseFloat(rowStyle.columnGap) || 0;
+            const instanceLogo = navigationRow.querySelector(".instance-logo");
+            const visibleItems = instanceLogo ? 3 : 2;
+            const requiredWidth = navigationBrand.scrollWidth
+                + (instanceLogo ? instanceLogo.getBoundingClientRect().width : 0)
+                + measureHiddenWidth(navigationPrimary)
+                + rowGap * (visibleItems - 1);
+            const availableWidth = navigationRow.getBoundingClientRect().width - rowPadding;
+
+            // Leave a small buffer so fractional pixels and browser zoom do
+            // not make the layout oscillate at the exact fit boundary.
+            navigationHeader.classList.toggle("navigation-expanded", requiredWidth + 8 <= availableWidth);
+        };
+
+        const instanceLogo = navigationRow.querySelector(".instance-logo");
+        if ("ResizeObserver" in window) {
+            const navigationResizeObserver = new ResizeObserver(updateNavigationLayout);
+            navigationResizeObserver.observe(navigationRow);
+            navigationResizeObserver.observe(navigationBrand);
+            if (instanceLogo) {
+                navigationResizeObserver.observe(instanceLogo);
+            }
+        } else if (instanceLogo) {
+            instanceLogo.addEventListener("load", updateNavigationLayout);
+        }
+        window.addEventListener("resize", updateNavigationLayout);
+        if (document.fonts) {
+            document.fonts.ready.then(updateNavigationLayout);
+        }
+        updateNavigationLayout();
+    }
+
     localizeOpenSecDashDatetimes();
     localizeOpenSecDashCountries();
 
