@@ -9,7 +9,7 @@
 
     {% if not configured %}
         <section class="card border border-amber-700 bg-amber-950/30 mb-5">
-            <p>{{ t("notifications.not_configured") }} <a class="underline" href="/settings">{{ t("notifications.open_settings") }}</a></p>
+            <p>{{ t("notifications.not_configured") }}{% if can_admin %} <a class="underline" href="/settings">{{ t("notifications.open_settings") }}</a>{% endif %}</p>
         </section>
     {% endif %}
 
@@ -24,7 +24,7 @@
 
     <section class="card mb-5 overflow-x-auto responsive-table">
         <h3 class="font-semibold mb-3">{{ t("notifications.rules") }}</h3>
-        <form method="post" action="/notifications/rules">
+        {% if can_operate %}<form method="post" action="/notifications/rules">{% endif %}
             <table class="w-full text-sm table-middle">
                 <thead><tr><th>{{ t("notifications.rule") }}</th><th>{{ t("notifications.source") }}</th><th>{{ t("notifications.conditions") }}</th><th>{{ t("notifications.window") }}</th><th>{{ t("notifications.cooldown") }}</th><th>{{ t("notifications.enabled") }}</th></tr></thead>
                 <tbody>
@@ -33,20 +33,21 @@
                             <td>{{ rule.name }}</td><td>{{ rule.source }}</td>
                             <td>{{ rule.match_types|join(', ') }}{% if rule.min_count > 1 %} · {{ t("notifications.minimum_count") }} {{ rule.min_count }}{% endif %}</td>
                             <td>{{ rule.window_minutes }} {{ t("notifications.minutes") }}</td><td>{{ rule.cooldown_minutes }} {{ t("notifications.minutes") }}</td>
-                            <td><input type="checkbox" name="rule_id" value="{{ rule.rule_id }}" {% if rule.enabled %}checked{% endif %}></td>
+                            <td>{% if can_operate %}<input type="checkbox" name="rule_id" value="{{ rule.rule_id }}" {% if rule.enabled %}checked{% endif %}>{% else %}{{ t("common.yes") if rule.enabled else t("common.no") }}{% endif %}</td>
                         </tr>
                     {% endfor %}
                 </tbody>
             </table>
-            <button class="btn mt-4" type="submit">{{ t("common.save_button") }}</button>
-        </form>
+            {% if can_operate %}<button class="btn mt-4" type="submit">{{ t("common.save_button") }}</button></form>{% endif %}
     </section>
 
+    {% if can_operate %}
     <section class="card mb-5">
         <h3 class="font-semibold mb-1">{{ t("notifications.test") }}</h3>
         <p class="muted text-sm mb-3">{{ t("notifications.test_help") }}</p>
         <form method="post" action="/notifications/test" data-submit-busy><button class="btn" type="submit" data-busy-label="{{ t('common.processing') }}">{{ t("notifications.send_test") }}</button></form>
     </section>
+    {% endif %}
 
     <section class="card overflow-x-auto responsive-table">
         <h3 class="font-semibold mb-3">{{ t("notifications.history") }}</h3>

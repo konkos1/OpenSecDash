@@ -42,7 +42,7 @@
                     <th>{{ t("assets.status") }}</th>
                     <th>{{ t("assets.release") }}</th>
                     <th>{{ t("assets.last_seen") }}</th>
-                    {% if mqtt_plugin_enabled %}
+                    {% if mqtt_plugin_enabled and can_operate %}
                         <th>{{ t("asset.mqtt_publish") }}</th>
                     {% endif %}
                 </tr>
@@ -51,13 +51,13 @@
                 {% for app in apps %}
                     <tr>
                         <td class="font-semibold" data-label="{{ t('asset.app') }}">
-                            {% if apps_master == 'opensecdash' and app.is_active %}
+                            {% if apps_master == 'opensecdash' and app.is_active and can_operate %}
                                 <form id="asset-meta-{{ app.id }}" method="post" action="/assets/{{ app.id }}/metadata" data-show-submit-on-dirty data-submit-busy></form>
                             {% endif %}
                             {{ app.name }}
                         </td>
                         <td class="cell-stack" data-label="{{ t('asset.host_url') }}">
-                            {% if apps_master == 'opensecdash' and app.is_active %}
+                            {% if apps_master == 'opensecdash' and app.is_active and can_operate %}
                                 <button class="btn-small btn-icon" type="button" data-columns-open="asset-host-dialog-{{ app.id }}" title="{{ app.host_url or t('asset.edit_host_url') }}" aria-label="{{ t('asset.edit_host_url') }}"><span class="icon edit-icon" aria-hidden="true"></span></button>
                                 <dialog id="asset-host-dialog-{{ app.id }}" class="columns-dialog">
                                     <div class="columns-dialog-panel">
@@ -83,7 +83,7 @@
                             {% endif %}
                         </td>
                         <td class="cell-stack" data-label="{{ t('assets.version') }}">
-                            {% if apps_master == 'opensecdash' and app.is_active %}
+                            {% if apps_master == 'opensecdash' and app.is_active and can_operate %}
                                 <div class="flex flex-col sm:flex-row gap-2 sm:items-center min-w-40">
                                     <input class="input min-w-32" form="asset-meta-{{ app.id }}" name="version" value="{{ app.version or '' }}">
                                     <button class="btn-small shrink-0" form="asset-meta-{{ app.id }}" type="submit" data-busy-label="{{ t('common.saving') }}" hidden>{{ t("common.save_button") }}</button>
@@ -110,7 +110,7 @@
                         </td>
                         <td data-label="{{ t('assets.status') }}">{{ t("assets.active") if app.is_active else t("assets.inactive") }}</td>
                         <td class="cell-stack" data-label="{{ t('assets.release') }}">
-                            {% if apps_master == 'opensecdash' and app.is_active %}
+                            {% if apps_master == 'opensecdash' and app.is_active and can_operate %}
                                 <div class="flex gap-2 items-center">
                                     <button class="btn-small btn-icon" type="button" data-columns-open="asset-release-dialog-{{ app.id }}" title="{{ t('asset.edit_release_url') }}" aria-label="{{ t('asset.edit_release_url') }}"><span class="icon edit-icon" aria-hidden="true"></span></button>
                                 </div>
@@ -143,7 +143,7 @@
                             {% endif %}
                         </td>
                         <td class="time-cell" data-label="{{ t('assets.last_seen') }}">{{ app.last_seen|datetime }}</td>
-                        {% if mqtt_plugin_enabled %}
+                        {% if mqtt_plugin_enabled and can_operate %}
                             <td data-label="{{ t('asset.mqtt_publish') }}">
                                 {% if app.version and app.latest_version and app.release_url %}
                                     <form method="post" action="/assets/{{ app.id }}/mqtt">
@@ -160,7 +160,7 @@
                     </tr>
                 {% else %}
                     <tr>
-                        <td colspan="{{ 9 if mqtt_plugin_enabled else 8 }}">{{ t("asset.no_apps_in_system") }}</td>
+                            <td colspan="{{ 9 if mqtt_plugin_enabled and can_operate else 8 }}">{{ t("asset.no_apps_in_system") }}</td>
                     </tr>
                 {% endfor %}
             </tbody>

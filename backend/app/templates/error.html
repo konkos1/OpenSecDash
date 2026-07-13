@@ -24,7 +24,7 @@
         {{ t("common.back") }}
       </a>
       <a class="btn-small" href="/">{{ t("nav.dashboard") }}</a>
-      <a class="btn-small" href="/settings">{{ t("nav.settings") }}</a>
+      {% if can_admin|default(true) %}<a class="btn-small" href="/settings">{{ t("nav.settings") }}</a>{% endif %}
     </div>
   </section>
 {% endblock %}

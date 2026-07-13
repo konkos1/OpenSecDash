@@ -15,11 +15,13 @@ from app.models.events import Event
 from app.models.saved_views import SavedView
 from app.models.settings import InstanceFile, Setting
 from app.models.systems import System
+from app.models.users import ApiToken, User, UserSession
 
 __all__ = [
     "Action",
     "AggregationDaily",
     "AggregationMonthly",
+    "ApiToken",
     "Asset",
     "Datasource",
     "Diagnostic",
@@ -33,4 +35,6 @@ __all__ = [
     "SavedView",
     "Setting",
     "System",
+    "User",
+    "UserSession",
 ]

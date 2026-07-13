@@ -26,9 +26,9 @@
           <p class="muted text-sm">{{ t("crowdsec.cscli_unknown") }}</p>
         {% endif %}
       </div>
-      <form method="post" action="/crowdsec/decisions/refresh" data-submit-busy>
+      {% if can_operate %}<form method="post" action="/crowdsec/decisions/refresh" data-submit-busy>
         <button class="btn-small" data-busy-label="{{ t('common.processing') }}">{{ t("crowdsec.refresh_decisions") }}</button>
-      </form>
+      </form>{% endif %}
     </div>
   </div>
 
@@ -73,7 +73,7 @@
           <th>{{ t("common.ip") }}</th>
           <th>{{ t("crowdsec.scenario") }}</th>
           <th>{{ t("crowdsec.duration") }}</th>
-          <th>{{ t("common.action") }}</th>
+          {% if can_operate %}<th>{{ t("common.action") }}</th>{% endif %}
         </tr>
       </thead>
 
@@ -84,7 +84,7 @@
             <td data-label="{{ t('common.ip') }}"><a href="/ip/{{ ban.ip|url_path_quote }}">{{ ban.ip }}</a></td>
             <td data-label="{{ t('crowdsec.scenario') }}">{{ ban.data_json.scenario if ban.data_json and ban.data_json.scenario else '-' }}</td>
             <td data-label="{{ t('crowdsec.duration') }}">{{ (ban.data_json.duration if ban.data_json else None)|duration }}</td>
-            <td data-label="{{ t('common.action') }}">
+            {% if can_operate %}<td data-label="{{ t('common.action') }}">
               {% set active_decision = active_decisions.get(ban.ip) if ban.ip else None %}
               {% if active_decision or action_dry_run %}
                 <form method="post" action="/actions/ip" data-confirm="{{ t('crowdsec.confirm_unban') }} {{ ban.ip }}?" data-submit-busy>
@@ -97,11 +97,11 @@
               {% else %}
                 <span class="muted">{{ t("crowdsec.not_active") }}</span>
               {% endif %}
-            </td>
+            </td>{% endif %}
           </tr>
         {% else %}
           <tr>
-            <td colspan="5">{{ t("crowdsec.no_bans") }}</td>
+            <td colspan="{{ 5 if can_operate else 4 }}">{{ t("crowdsec.no_bans") }}</td>
           </tr>
         {% endfor %}
       </tbody>

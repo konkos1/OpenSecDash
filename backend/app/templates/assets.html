@@ -12,6 +12,7 @@
             <p class="muted mt-1">{{ t("assets.explorer_description") }}</p>
         </div>
 
+        {% if can_operate %}
         <div class="flex gap-2">
             {% if json_assets_enabled %}
                 <form method="post" action="/assets/import-source" data-submit-busy>
@@ -40,6 +41,7 @@
                 </form>
             {% endif %}
         </div>
+        {% endif %}
     </div>
 
     {% if proxmox_error %}

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="{{ language }}">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>{{ t("auth.login_title") }} · OpenSecDash</title>
+        <link rel="icon" href="/static/img/opensecdash-icon.svg" type="image/svg+xml">
+        <link rel="stylesheet" href="/static/css/app.css?v={{ app_version }}">
+        <link rel="stylesheet" href="/static/css/tailwind.css?v={{ app_version }}">
+    </head>
+    <body class="bg-slate-950 text-slate-100 min-h-screen flex items-center justify-center p-4">
+        <main class="card w-full max-w-md">
+            <div class="flex items-center gap-3 mb-6">
+                <img src="/static/img/opensecdash-icon.svg" alt="" class="app-icon" aria-hidden="true">
+                <span class="text-xl font-bold">OpenSecDash</span>
+            </div>
+            <h1 class="text-lg font-bold">{{ t("auth.login_title") }}</h1>
+            {% if error %}
+                <p class="alert-error" role="alert">{{ t(error_key) }}</p>
+            {% endif %}
+            <form method="post" action="/login" class="grid gap-4 mt-5">
+                <input type="hidden" name="next" value="{{ next }}">
+                <label class="grid gap-1">
+                    <span>{{ t("auth.username") }}</span>
+                    <input class="input" type="text" name="username" autocomplete="username" autofocus required>
+                </label>
+                <label class="grid gap-1">
+                    <span>{{ t("auth.password") }}</span>
+                    <input class="input" type="password" name="password" autocomplete="current-password" required>
+                </label>
+                <button class="btn" type="submit">{{ t("auth.login_button") }}</button>
+            </form>
+        </main>
+    </body>
+</html>

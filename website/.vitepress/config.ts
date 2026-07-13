@@ -82,6 +82,7 @@ export default defineConfig({
         text: 'Configuration',
         items: [
           { text: 'Settings', link: '/guide/configuration/settings' },
+          { text: 'Authentication', link: '/guide/configuration/authentication' },
           { text: 'Notifications', link: '/guide/configuration/notifications' },
           { text: 'Logging', link: '/guide/configuration/logging' },
           { text: 'Debug reports', link: '/guide/configuration/debug-reports' }

@@ -1,0 +1,158 @@
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from starlette.websockets import WebSocketDisconnect
+
+from app.api import auth as auth_api
+from app.database.dependencies import get_db
+from app.database.base import Base
+from app.main import app
+from app.models.settings import Setting
+from app.services.auth import create_user
+from app.web import auth as auth_web
+
+
+@pytest.fixture()
+def auth_client(tmp_path, monkeypatch):
+    engine = create_engine(f"sqlite:///{tmp_path / 'auth-gating.db'}", connect_args={"check_same_thread": False})
+    Base.metadata.create_all(bind=engine)
+    session_factory = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    db_session = session_factory()
+
+    def get_test_db():
+        db = session_factory()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    monkeypatch.setattr(auth_web, "SessionLocal", session_factory)
+    monkeypatch.setattr("app.main.SessionLocal", session_factory)
+    monkeypatch.setattr("app.main.init_db", lambda: None)
+    app.dependency_overrides[get_db] = get_test_db
+    auth_api.reset_login_backoff()
+    client = TestClient(app, base_url="https://testserver")
+    try:
+        yield db_session, client
+    finally:
+        client.close()
+        app.dependency_overrides.clear()
+        auth_api.reset_login_backoff()
+        db_session.close()
+        Base.metadata.drop_all(bind=engine)
+        engine.dispose()
+
+
+def enable_auth(db_session):
+    db_session.add(Setting(key="auth.enabled", value="true"))
+    user = create_user(db_session, "admin", "password123", "admin")
+    db_session.commit()
+    return user
+
+
+def test_auth_gating_keeps_required_paths_public_and_rejects_anonymous_requests(auth_client):
+    db_session, client = auth_client
+    enable_auth(db_session)
+    db_session.add(Setting(key="language", value="de"))
+    db_session.commit()
+
+    response = client.get("/", follow_redirects=False)
+    assert response.status_code == 303
+    assert response.headers["location"] == "/login?next=%2F"
+
+    response = client.get("/api/events")
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Not authenticated"}
+
+    assert client.get("/health").status_code == 200
+    assert client.get("/ready").status_code == 200
+    assert client.get("/static/css/app.css").status_code == 200
+    response = client.get("/login")
+    assert response.status_code == 200
+    assert '<html lang="de">' in response.text
+
+
+def test_auth_gating_uses_the_application_database_override(auth_client, monkeypatch):
+    _, client = auth_client
+    empty_engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    monkeypatch.setattr(auth_web, "SessionLocal", sessionmaker(autocommit=False, autoflush=False, bind=empty_engine))
+    try:
+        assert client.get("/settings").status_code == 200
+    finally:
+        empty_engine.dispose()
+
+
+def test_login_logout_and_cookie_flags_gate_browser_requests(auth_client):
+    db_session, client = auth_client
+    enable_auth(db_session)
+
+    response = client.post("/login", data={"username": "admin", "password": "password123", "next": "/"}, follow_redirects=False)
+    assert response.status_code == 303
+    assert response.headers["location"] == "/"
+    assert "HttpOnly" in response.headers["set-cookie"]
+    assert "SameSite=lax" in response.headers["set-cookie"]
+    assert "Secure" in response.headers["set-cookie"]
+
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "Cache-Control" in response.headers
+    assert "no-store" in response.headers["Cache-Control"]
+    assert "admin" in response.text
+
+    response = client.post("/auth/logout", follow_redirects=False)
+    assert response.status_code == 303
+    assert response.headers["location"] == "/login"
+    assert "osd_session=\"\"" in response.headers["set-cookie"]
+    assert client.get("/", follow_redirects=False).status_code == 303
+
+
+def test_login_backoff_and_open_redirect_protection(auth_client):
+    db_session, client = auth_client
+    enable_auth(db_session)
+
+    for _ in range(5):
+        response = client.post("/login", data={"username": "admin", "password": "wrong-password"}, follow_redirects=False)
+        assert response.status_code == 401
+        assert "Wrong username or password." in response.text
+
+    response = client.post("/login", data={"username": "admin", "password": "password123"}, follow_redirects=False)
+    assert response.status_code == 429
+    assert "Too many failed attempts." in response.text
+
+    auth_api.reset_login_backoff()
+    for target in ("https://evil.example", "//evil.example"):
+        response = client.post(
+            "/login",
+            data={"username": "admin", "password": "password123", "next": target},
+            follow_redirects=False,
+        )
+        assert response.status_code == 303
+        assert response.headers["location"] == "/"
+        client.post("/auth/logout", follow_redirects=False)
+
+
+def test_origin_check_and_break_glass(auth_client, monkeypatch):
+    db_session, client = auth_client
+    enable_auth(db_session)
+    client.post("/login", data={"username": "admin", "password": "password123"}, follow_redirects=False)
+
+    response = client.post("/settings", headers={"origin": "https://evil.example"}, follow_redirects=False)
+    assert response.status_code == 403
+    response = client.post("/settings", headers={"origin": "https://testserver"}, follow_redirects=False)
+    assert response.status_code != 403
+
+    client.post("/auth/logout", follow_redirects=False)
+    monkeypatch.setenv("OSD_AUTH_DISABLED", "true")
+    assert client.get("/", follow_redirects=False).status_code == 200
+
+
+def test_websocket_closes_anonymous_connections_when_auth_is_enabled(auth_client):
+    db_session, client = auth_client
+    enable_auth(db_session)
+
+    with pytest.raises(WebSocketDisconnect) as exc_info:
+        with client.websocket_connect("/ws/events"):
+            pass
+
+    assert exc_info.value.code == 1008

@@ -4,7 +4,8 @@
 > The dashboard is a descriptor-backed widget container with a core registry and
 > plugin-owned widgets supplied through `Plugin.dashboard_widgets()`.
 > Counter, table, feed, trend, and the core-only map widget are rendered by core templates,
-> while user-managed visibility and ordering are stored in SQLite as `ui.dashboard_layout`.
+> while user-managed visibility and ordering are stored in SQLite under
+> user-specific `ui.dashboard_layout.user.<id>` settings.
 > The heatmap is a separately managed core widget; layout V1 is a linear responsive list with
 > up/down movement, not a freely positioned WYSIWYG or drag-and-drop grid.
 
@@ -238,3 +239,6 @@ The dashboard is implemented as core-rendered server-side pages and templates wi
 metric cards, recent security context, top countries/hours, rollup comparisons, and
 responsive layout. Plugins contribute validated descriptors rather than HTML. The
 heatmap remains a fixed core block (Map is "later"), and no new metrics were added.
+Dashboard layout is stored per internal user when internal authentication is enabled;
+the legacy global layout remains the first-use default and is retained for deployments
+without internal authentication.

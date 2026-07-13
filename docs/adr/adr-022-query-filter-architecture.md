@@ -430,4 +430,10 @@ Time range remains:
 
 The shared `apply_event_filters` engine supports additive structured keys for country lists and exclusions, inclusive status-code bounds, ASN, hostname, and asset. ASN equality is indexed. Events and Access expose the same applicable URL filters and time-range presets (`1h`, `24h`, `7d`, `30d`, and custom `from`/`to` URLs); the selected range is retained when switching between those pages.
 
-Saved views are global and validated against the filter allowlist. They are available independently for Events and Access, preserve supported route state, replace an existing view with the same name in the same scope, and can be complemented by read-only plugin-provided defaults. Dashboard and CrowdSec drill-downs link generated event aggregates to matching filtered views; values without an equivalent Events/Access query are documented as intentional exceptions above.
+Saved views are validated against the filter allowlist. With internal authentication
+enabled, they belong to the signed-in user; without it, they remain global to the
+instance. They are available independently for Events and Access, preserve supported
+route state, replace an existing view with the same name in the same scope, and can be
+complemented by read-only plugin-provided defaults. Dashboard and CrowdSec drill-downs
+link generated event aggregates to matching filtered views; values without an
+equivalent Events/Access query are documented as intentional exceptions above.
