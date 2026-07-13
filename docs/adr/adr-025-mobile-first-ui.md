@@ -10,6 +10,16 @@
 > widget loading with per-widget loading states (so a page appears immediately while its
 > widgets fetch their data) is not part of this work. On very large databases a page can
 > therefore block on the server render before it becomes usable.
+> Update (2026-07-13): the synchronous-render limitation above is addressed by the
+> progressive-widget-loading effort.
+> The heavy pages (`/`, `/events`, `/rollups`, `/ip/{ip}`, `/assets/system/{id}`, and the
+> plugin pages `/access` and `/crowdsec`) now render an immediate shell and load their
+> expensive widgets/sections progressively via HTMX (`hx-trigger="load"`), each showing an
+> `aria-busy` skeleton while its data loads; the live WebSocket refresh is unaffected.
+> Scope: loading is at section granularity (a page's heavy block loads as one deferred
+> fetch, not each widget independently); a per-widget-independent variant and an explicit
+> fetch-error/retry state are not implemented. Widget query performance itself is tracked
+> separately.
 > Deviation: installability and the offline fallback were verified on desktop Chrome and
 > on `localhost`; they were not verified on a real iOS or Android device.
 

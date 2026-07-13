@@ -5,6 +5,11 @@
 > notifications, and server-side rendering. PWA is implemented (installable, app icon,
 > standalone mode, offline fallback page); offline operation and push notifications
 > remain intentionally out of scope, as decided in this ADR.
+> Update (2026-07-13): heavy pages load their expensive widgets/sections progressively —
+> an immediate server-rendered shell plus an HTMX `hx-trigger="load"` fetch of the results
+> block — so first paint is independent of database size. The fetch reuses the same route
+> (the `HX-Request` header selects the data path), so guards and the live WebSocket refresh
+> are unaffected.
 > Deviation: charts are rendered as server-side lists, bars, and an SVG world map
 > instead of Chart.js — in line with the "use as little JavaScript as possible"
 > principle.

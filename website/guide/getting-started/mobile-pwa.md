@@ -16,6 +16,19 @@ The interface adapts to the screen you are on:
   🟢 LIVE badge is shown; in snapshot mode you see ⚪ SNAPSHOT with the time the
   data is from.
 
+## Fast first paint on large databases
+
+On big installations some pages have to read a lot of data. So that you are not
+left staring at a blank screen, the page frame — header, filters, navigation —
+appears immediately, and each heavy widget or section shows a short loading
+placeholder while its data is fetched in the background. Once the data arrives,
+the placeholder is replaced with the real content.
+
+This is expected behaviour, and how long the placeholder is visible depends on
+how much data you have and how fast the server is. It does not change what you
+see: the data is still loaded live from the server on every visit — nothing is
+cached (see [No offline mode](#no-offline-mode) below).
+
 ## Install as an app (PWA)
 
 OpenSecDash ships a web app manifest and a service worker, so most modern
