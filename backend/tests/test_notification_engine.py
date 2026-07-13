@@ -162,6 +162,19 @@ def test_high_insight_queues_scanner_notification_but_medium_does_not(db_session
     assert notifications[0].payload["insight_id"] == high.id
 
 
+def test_pending_insight_is_flushed_before_notification_matching(db_session):
+    insight = Insight(type="scanner_detected", level="high", title="Scanner detected")
+    db_session.add(insight)
+
+    handle_insight(db_session, insight)
+
+    notifications = _notifications(db_session, "core.scanner_detected")
+    assert insight.id is not None
+    assert insight.timestamp is not None
+    assert len(notifications) == 1
+    assert notifications[0].payload["insight_id"] == insight.id
+
+
 def test_duplicate_event_does_not_queue_a_second_notification(db_session):
     values = {
         "source": "test",

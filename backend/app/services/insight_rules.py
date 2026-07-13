@@ -375,7 +375,7 @@ def apply_declarative_insight_rules(db: Session, event: Event) -> None:
             asset_id=event.asset_id if rule.group_by == "ip" else asset_ids.pop() if len(asset_ids) == 1 else None,
         )
         db.add(insight)
-        handle_insight(db, insight)
+        handle_insight(db, insight, event.event_time)
 
 
 def debug_summary(db: Session) -> list[str]:

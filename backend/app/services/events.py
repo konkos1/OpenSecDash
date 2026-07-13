@@ -463,7 +463,7 @@ def create_rule_based_insights(db: Session, event: Event) -> None:
             asset_id=event.asset_id,
         )
         db.add(insight)
-        handle_insight(db, insight)
+        handle_insight(db, insight, event.event_time)
 
     if event.event_type in {"security.ban", "security.ban.manual"}:
         insight_type = "manual_security_ban" if event.event_type == "security.ban.manual" else "security_ban_observed"
@@ -485,7 +485,7 @@ def create_rule_based_insights(db: Session, event: Event) -> None:
                 asset_id=event.asset_id,
             )
             db.add(insight)
-            handle_insight(db, insight)
+            handle_insight(db, insight, event.event_time)
 
     window_start = event.event_time - timedelta(seconds=60)
     window_end = event.event_time + timedelta(seconds=60)
@@ -519,7 +519,7 @@ def create_rule_based_insights(db: Session, event: Event) -> None:
                     asset_id=event.asset_id or access.asset_id,
                 )
                 db.add(insight)
-                handle_insight(db, insight)
+                handle_insight(db, insight, event.event_time)
 
     apply_declarative_insight_rules(db, event)
 
