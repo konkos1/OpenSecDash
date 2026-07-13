@@ -54,7 +54,7 @@
                     <option value="false" {% if not live_page_refresh %}selected{% endif %}>{{ t("common.no") }}</option>
                 </select>
             </label>
-            <div><button class="btn" type="submit">{{ t("common.save_button") }}</button></div>
+            <div class="flex items-end"><button class="btn" type="submit">{{ t("common.save_button") }}</button></div>
         </form>
 
         <form class="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-800 pt-4" method="post" action="/auth/password">
@@ -62,7 +62,7 @@
             <label>{{ t("account.current_password") }}<input class="input" type="password" name="current_password" autocomplete="current-password"></label>
             <label>{{ t("account.new_password") }}<input class="input" type="password" name="new_password" autocomplete="new-password"></label>
             <label>{{ t("account.confirm_password") }}<input class="input" type="password" name="new_password_confirm" autocomplete="new-password"></label>
-            <div><button class="btn" type="submit">{{ t("account.change_password") }}</button></div>
+            <div class="flex items-end"><button class="btn" type="submit">{{ t("account.change_password") }}</button></div>
         </form>
     </section>
 {% endblock %}
