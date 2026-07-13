@@ -1,3 +1,4 @@
+import asyncio
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -70,6 +71,23 @@ def test_crowdsec_decision_diagnostic_uses_lapi_component(db_session):
 
     rows = [(row.plugin, row.component, row.status, row.last_error) for row in db_session.query(Diagnostic).all()]
     assert rows == [("crowdsec", "lapi", "healthy", "lapi ok")]
+
+
+def test_crowdsec_plugin_diagnostic_reports_log_health_without_lapi(monkeypatch, tmp_path):
+    crowdsec = import_plugin_module("crowdsec", "plugin")
+    lapi = import_plugin_module("crowdsec", "services.lapi")
+    log_path = tmp_path / "crowdsec.log"
+    log_path.write_text("", encoding="utf-8")
+
+    def unexpected_lapi_login(*args, **kwargs):
+        raise AssertionError("plugin health must not check LAPI")
+
+    monkeypatch.setattr(lapi, "lapi_login", unexpected_lapi_login)
+    context = SimpleNamespace(get=lambda key, default="": {"log_path": str(log_path)}.get(key, default))
+
+    result = asyncio.run(crowdsec.Plugin().health(context))
+
+    assert result == {"status": "healthy", "message": f"CrowdSec log readable: {log_path}"}
 
 
 def test_refresh_health_diagnostics_updates_reenabled_plugin(db_session):
