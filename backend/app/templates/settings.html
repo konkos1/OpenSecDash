@@ -23,11 +23,11 @@
     <details class="card mb-5">
         <summary class="font-semibold cursor-pointer">{{ t("settings.branding") }}</summary>
         <div class="space-y-4 mt-4">
-            <p class="muted text-sm">{{ t("settings.branding_help") }}</p>
             {% if branding_error %}<p class="text-red-400 text-sm">{{ t("settings.branding_error." ~ branding_error) }}</p>{% endif %}
             <form class="grid grid-cols-1 md:grid-cols-2 gap-4" method="post" action="/settings/branding" enctype="multipart/form-data">
                 <label>{{ t("settings.domain") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.domain') }}">?</button><input class="input" name="domain" value="{{ domain }}" placeholder="mydomain.com"></label>
                 <label>{{ t("settings.instance_description") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.instance_description') }}">?</button><input class="input" name="instance_description" value="{{ instance_description }}"></label>
+                <p class="muted text-sm md:col-span-2">{{ t("settings.branding_help") }}</p>
                 <label>{{ t("settings.custom_logo") }}<input class="input" type="file" name="logo" accept=".png,.svg,.webp,.jpg,.jpeg"></label>
                 <label>{{ t("settings.custom_favicon") }}<input class="input" type="file" name="favicon" accept=".png,.svg,.webp,.ico"></label>
                 <div><button class="btn" type="submit">{{ t("common.save_button") }}</button></div>
