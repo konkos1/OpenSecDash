@@ -9,7 +9,7 @@ from app.models.core import CrowdSecDecision
 from app.models.events import Event
 from app.web.render import render
 
-from .services.decisions import crowdsec_cscli_status, sync_crowdsec_decisions
+from .services.decisions import crowdsec_lapi_status, sync_crowdsec_decisions
 from .services.rollups import _top_rollup_metric
 
 # Enabled-gated by the plugin router mount (see app.main); no require_plugin_enabled here.
@@ -18,7 +18,7 @@ router = APIRouter(tags=["crowdsec"])
 
 @router.get("/crowdsec")
 def crowdsec_page(request: Request, db: Session = Depends(get_db)):
-    # Progressive loading (docs/internal/progressive-widget-loading/): the cscli
+    # Progressive loading (docs/internal/progressive-widget-loading/): the LAPI
     # status card stays in the shell (one cheap indexed Diagnostic read); the
     # ban/scenario/country/decision panels load via the HX-Request that the load
     # trigger and the auto-refresh send.
@@ -48,7 +48,7 @@ def crowdsec_page(request: Request, db: Session = Depends(get_db)):
         scenarios=scenarios,
         countries=countries,
         active_decisions=active_decisions,
-        cscli_status=crowdsec_cscli_status(db),
+        lapi_status=crowdsec_lapi_status(db),
         action_dry_run=get_setting_value(db, "action_dry_run", "true").lower() == "true",
     )
 

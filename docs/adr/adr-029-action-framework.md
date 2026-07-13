@@ -272,7 +272,7 @@ Ban IP 1.2.3.4 for 4 hours?
 
 Not:
 
-`UI waits for cscli`
+`UI waits for the target API`
 
 But:
 

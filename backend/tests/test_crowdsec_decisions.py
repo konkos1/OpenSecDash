@@ -1,4 +1,3 @@
-import json
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -15,8 +14,6 @@ from app.services.actions import create_action
 decisions = import_plugin_module(Path(__file__).resolve().parents[2] / "plugins" / "crowdsec", "services.decisions")
 _parse_datetime = decisions._parse_datetime
 active_decision_for_ip = decisions.active_decision_for_ip
-crowdsec_cscli_status = decisions.crowdsec_cscli_status
-sync_crowdsec_decisions = decisions.sync_crowdsec_decisions
 
 
 def test_parse_datetime_converts_to_utc_regardless_of_offset():
@@ -24,76 +21,6 @@ def test_parse_datetime_converts_to_utc_regardless_of_offset():
     # UTC-equivalent instant, not shifted by the interpreter's local timezone.
     assert _parse_datetime("2026-06-29T14:00:00+02:00") == datetime(2026, 6, 29, 12, 0, 0)
     assert _parse_datetime("2026-06-29T12:00:00Z") == datetime(2026, 6, 29, 12, 0, 0)
-
-
-class Completed:
-    def __init__(self, returncode=0, stdout="", stderr=""):
-        self.returncode = returncode
-        self.stdout = stdout
-        self.stderr = stderr
-
-
-def _use_cscli_mode(db_session):
-    # The connection mode defaults to the LAPI; these tests cover the cscli
-    # subprocess path explicitly.
-    db_session.add(Setting(key="plugin.crowdsec.connection_mode", value="cscli"))
-    db_session.commit()
-
-
-def test_sync_crowdsec_decisions_stores_active_bans(monkeypatch, db_session):
-    _use_cscli_mode(db_session)
-    payload = [
-        {
-            "id": 42,
-            "scope": "Ip",
-            "value": "8.8.8.8",
-            "type": "ban",
-            "origin": "cscli",
-            "scenario": "manual",
-            "duration": "4h",
-            "until": "2026-06-29T12:00:00Z",
-        },
-        {"id": 43, "scope": "Ip", "value": "1.1.1.1", "type": "captcha"},
-    ]
-
-    def fake_run(cmd, capture_output, text, timeout):
-        assert cmd == ["/usr/local/bin/cscli", "decisions", "list", "-o", "json"]
-        return Completed(stdout=json.dumps(payload))
-
-    monkeypatch.setattr(decisions.subprocess, "run", fake_run)
-
-    ok, message = sync_crowdsec_decisions(db_session, force=True)
-    db_session.commit()
-
-    assert ok is True
-    assert "1 active" in message
-    decision = active_decision_for_ip(db_session, "8.8.8.8")
-    assert decision is not None
-    assert decision.decision_id == "42"
-    assert decision.scenario == "manual"
-    assert active_decision_for_ip(db_session, "1.1.1.1") is None
-    status = crowdsec_cscli_status(db_session)
-    assert status is not None
-    assert status.status == "healthy"
-
-
-def test_sync_crowdsec_decisions_records_cscli_error(monkeypatch, db_session):
-    _use_cscli_mode(db_session)
-
-    def fake_run(cmd, capture_output, text, timeout):
-        return Completed(returncode=1, stderr="cscli unavailable")
-
-    monkeypatch.setattr(decisions.subprocess, "run", fake_run)
-
-    ok, message = sync_crowdsec_decisions(db_session, force=True)
-    db_session.commit()
-
-    assert ok is False
-    assert message == "cscli unavailable"
-    status = crowdsec_cscli_status(db_session)
-    assert status is not None
-    assert status.status == "error"
-    assert status.last_error == "cscli unavailable"
 
 
 def test_unban_requires_active_crowdsec_decision(monkeypatch, db_session):

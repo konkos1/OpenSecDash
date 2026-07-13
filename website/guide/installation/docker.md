@@ -193,7 +193,7 @@ These container-side paths (`/logs/access.log`, `/logs/geoblock.log`, `/logs/cro
 
 `assets.json` is mounted under a dedicated `/assets` path rather than under `/data`: `/data` is owned and recursively chowned to the unprivileged `opensecdash` user on container startup, and a read-only file bind-mounted underneath it can't be chowned. Set the JSON Assets plugin's `Source` setting to `/assets/assets.json` to match this mount.
 
-For CrowdSec ban/unban actions and decision sync, the recommended way is the Local API connection - it needs no extra mounts, just dedicated credentials entered in Settings (plus `network_mode: "host"` when CrowdSec runs on the same host); see [CrowdSec plugin: Connecting via the Local API](../plugins/crowdsec.md#connecting-via-the-local-api-recommended). Running the `cscli` binary inside the container instead is documented as an [alternative](../plugins/crowdsec.md#alternative-cscli-binary-in-docker).
+CrowdSec ban/unban actions and decision sync use the Local API. It needs no extra mounts, just dedicated credentials entered in Settings (plus `network_mode: "host"` when CrowdSec runs on the same host); see [CrowdSec plugin: Connecting via the Local API](../plugins/crowdsec.md#connecting-via-the-local-api).
 
 ## Docker logging
 

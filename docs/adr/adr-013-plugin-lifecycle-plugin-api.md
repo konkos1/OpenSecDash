@@ -310,14 +310,14 @@ Example:
 
 or
 
-`CrowdSec needs cscli`
+`CrowdSec needs a reachable LAPI`
 
 Manifest:
 
 ```json
 {
   "requires": [
-    "cscli"
+    "crowdsec-lapi"
   ]
 }
 ```
@@ -330,7 +330,7 @@ OpenSecDash shows:
 ```none
 ⚠ CrowdSec plugin not available
 
-cscli was not found
+CrowdSec LAPI is not reachable
 ```
 
 

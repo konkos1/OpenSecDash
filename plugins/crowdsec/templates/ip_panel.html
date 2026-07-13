@@ -3,15 +3,15 @@
         <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
             <div>
                 {% if action_dry_run %}
-                    {% if cscli_status and cscli_status.status != 'healthy' %}
-                        <p class="muted text-sm">{{ t("crowdsec.cscli_ignored_dry_run") }}</p>
+                    {% if lapi_status and lapi_status.status != 'healthy' %}
+                        <p class="muted text-sm">{{ t("crowdsec.lapi_ignored_dry_run") }}</p>
                     {% endif %}
-                {% elif cscli_status and cscli_status.status == 'healthy' %}
-                    <p class="muted text-sm">{{ t("crowdsec.cscli_ok") }}{% if cscli_status.last_error %}: {{ cscli_status.last_error }}{% endif %}</p>
-                {% elif cscli_status %}
-                    <p class="alert-error text-sm">{{ t("crowdsec.cscli_error") }}: {{ cscli_status.last_error or '-' }}</p>
+                {% elif lapi_status and lapi_status.status == 'healthy' %}
+                    <p class="muted text-sm">{{ t("crowdsec.lapi_ok") }}{% if lapi_status.last_error %}: {{ lapi_status.last_error }}{% endif %}</p>
+                {% elif lapi_status %}
+                    <p class="alert-error text-sm">{{ t("crowdsec.lapi_error") }}: {{ lapi_status.last_error or '-' }}</p>
                 {% elif crowdsec_enabled %}
-                    <p class="muted text-sm">{{ t("crowdsec.cscli_unknown") }}</p>
+                    <p class="muted text-sm">{{ t("crowdsec.lapi_unknown") }}</p>
                 {% endif %}
             </div>
             {% if crowdsec_enabled and can_operate %}

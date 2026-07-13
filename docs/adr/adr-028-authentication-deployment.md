@@ -202,7 +202,7 @@ Backend
 ↓
 CrowdSec Plugin
 ↓
-cscli
+CrowdSec LAPI
 ```
 
 

@@ -149,7 +149,7 @@ Example:
 ```none
 Ban IP
 ↓
-cscli decisions add
+CrowdSec LAPI
 ```
 
 
