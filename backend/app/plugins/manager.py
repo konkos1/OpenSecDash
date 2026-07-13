@@ -563,11 +563,24 @@ class PluginManager:
         for plugin in self.plugins.values():
             try:
                 self._run_health_tick(db, plugin, commit=False)
+                self._refresh_extra_diagnostics(db, plugin)
             except Exception as exc:
                 logger.exception("Plugin %s health check failed after settings save", plugin.metadata.id)
                 db.rollback()
                 self._update_diagnostic(db, plugin.metadata.id, "error", str(exc))
         db.commit()
+
+    def _refresh_extra_diagnostics(self, db: Session, plugin: Plugin) -> None:
+        """Let an enabled plugin refresh its non-health diagnostic components.
+
+        Skipped while the plugin is disabled: its background loops aren't
+        running, so probing its backend (LAPI, cscli, ...) here would report a
+        state that doesn't correspond to anything actually running.
+        """
+        ctx = self.context(db, plugin)
+        if ctx.get("enabled", "false").lower() != "true":
+            return
+        plugin.refresh_diagnostics(db)
 
     def _run_health_tick(self, db: Session, plugin: Plugin, *, commit: bool = True) -> None:
         """Runs one health check synchronously. Called via ``asyncio.to_thread``."""

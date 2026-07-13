@@ -95,31 +95,20 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
         self._decision_sync_counter = 0
 
     async def health(self, context) -> dict[str, str]:
+        # This is the log-importer component (parallel to traefik_log): it only
+        # reports whether the CrowdSec log can be read. LAPI/cscli connectivity
+        # is a separate concern reported by the decision-sync diagnostic
+        # (crowdsec - lapi/cscli), refreshed in refresh_diagnostics().
         log_path = Path(context.get("log_path"))
         if not log_path.exists():
             return {"status": "error", "message": f"CrowdSec log not found: {log_path}"}
-        if context.get("connection_mode", "lapi") == "lapi":
-            from .services.lapi import LapiError, lapi_login
+        return {"status": "healthy", "message": f"CrowdSec log readable: {log_path}"}
 
-            url = context.get("lapi_url", "http://127.0.0.1:8080")
-            try:
-                lapi_login(url, context.get("lapi_login", ""), context.get("lapi_password", ""))
-            except LapiError as exc:
-                return {"status": "error", "message": str(exc)}
-            logger.debug("CrowdSec health OK: LAPI login at %s", url)
-            return {"status": "healthy", "message": f"CrowdSec LAPI reachable and credentials accepted: {url}"}
-        cscli = context.get("cscli_path", "/usr/local/bin/cscli")
-        try:
-            completed = subprocess.run([cscli, "version"], capture_output=True, text=True, timeout=10)
-        except FileNotFoundError:
-            return {"status": "error", "message": f"cscli not found: {cscli}"}
-        except Exception as exc:
-            return {"status": "error", "message": f"cscli check failed: {exc}"}
-        if completed.returncode != 0:
-            return {"status": "error", "message": (completed.stderr or completed.stdout or "cscli version failed").strip()}
-        version = (completed.stdout or completed.stderr or "cscli reachable").strip().splitlines()[0]
-        logger.debug("CrowdSec health OK: %s", version)
-        return {"status": "healthy", "message": f"cscli reachable: {version}"}
+    def refresh_diagnostics(self, db: Session) -> None:
+        # Validate the current connection mode/credentials immediately when
+        # settings are saved so the decision-sync component reflects the change
+        # right away, instead of waiting for the next periodic decision sync.
+        sync_crowdsec_decisions(db, force=True)
 
     async def tick(self, context) -> None:
         self._decision_sync_counter += 1
