@@ -85,6 +85,16 @@ EN = {
     "error.not_found.message": "The requested page or resource does not exist.",
     "error.generic.title": "Error",
     "error.generic.message": "Something went wrong. Please check your input or try again.",
+    "error.forbidden.title": "Access denied",
+    "error.forbidden.message": "You do not have permission for this action.",
+
+    "auth.login_title": "Sign in",
+    "auth.username": "Username",
+    "auth.password": "Password",
+    "auth.login_button": "Sign in",
+    "auth.login_failed": "Wrong username or password.",
+    "auth.login_locked": "Too many failed attempts. Please wait a minute and try again.",
+    "auth.logout": "Sign out",
 
     "dashboard.title": "Dashboard",
     "dashboard.ui_title": "Dashboard · Today's Events",

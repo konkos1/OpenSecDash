@@ -85,6 +85,16 @@ DE = {
     "error.not_found.message": "Die angeforderte Seite oder Ressource existiert nicht.",
     "error.generic.title": "Fehler",
     "error.generic.message": "Es ist ein Fehler aufgetreten. Bitte prüfe deine Eingaben oder versuche es erneut.",
+    "error.forbidden.title": "Zugriff verweigert",
+    "error.forbidden.message": "Du hast keine Berechtigung für diese Aktion.",
+
+    "auth.login_title": "Anmelden",
+    "auth.username": "Benutzername",
+    "auth.password": "Passwort",
+    "auth.login_button": "Anmelden",
+    "auth.login_failed": "Benutzername oder Passwort ist falsch.",
+    "auth.login_locked": "Zu viele fehlgeschlagene Versuche. Bitte warte eine Minute und versuche es erneut.",
+    "auth.logout": "Abmelden",
 
     "dashboard.title": "Dashboard",
     "dashboard.ui_title": "Dashboard · Heutige Ereignisse",

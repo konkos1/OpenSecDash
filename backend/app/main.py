@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -17,7 +18,7 @@ from app.core.version import get_app_version
 
 setup_service_logging()
 
-from app.api import action_forms_router, actions_router, assets_router, events_router, instance_router, pages_router, settings_router
+from app.api import action_forms_router, actions_router, assets_router, auth_router, events_router, instance_router, pages_router, settings_router
 from app.database.init_db import init_db
 from app.database.migrations import run_auto_migrations_if_enabled, update_migration_diagnostic
 from app.core.template_context import build_template_context
@@ -27,7 +28,9 @@ from app.models.events import Event
 from app.plugins.manager import get_plugin_manager
 from app.services.insight_rules import refresh_insight_rules
 from app.services.notifications import seed_default_notification_rules
+from app.services.auth import auth_enabled, resolve_session
 from app.web.guards import plugin_enabled_guard
+from app.web.auth import auth_gating_middleware, wants_json
 from app.web.proxy_headers import ProxyHeadersMiddleware
 from app.web.templates import register_plugin_template_dirs, templates
 
@@ -41,6 +44,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     db = SessionLocal()
     try:
         configure_logging_from_db(db)
+        if os.environ.get("OSD_AUTH_DISABLED", "").lower() in ("1", "true", "yes"):
+            logger.warning("Internal authentication is disabled by OSD_AUTH_DISABLED")
         logger.info("OpenSecDash %s starting...", get_app_version())
         # Already discovered at import time (routes are mounted then); this
         # returns the cached singleton.
@@ -91,6 +96,7 @@ app.include_router(actions_router)
 app.include_router(action_forms_router)
 app.include_router(assets_router)
 app.include_router(instance_router)
+app.include_router(auth_router)
 app.include_router(pages_router)
 
 # Plugin-provided routes and template dirs. Mounted after the core routers so
@@ -128,9 +134,9 @@ async def static_cache_headers(request: Request, call_next):
     return response
 
 
-def wants_json(request: Request) -> bool:
-    accept = request.headers.get("accept", "")
-    return request.url.path.startswith("/api/") or ("application/json" in accept and "text/html" not in accept)
+@app.middleware("http")
+async def auth_gating(request: Request, call_next):
+    return await auth_gating_middleware(request, call_next)
 
 
 def render_error_page(
@@ -213,8 +219,20 @@ def _websocket_poll_state() -> tuple[bool, int]:
         db.close()
 
 
+def _websocket_session_is_valid(token: str) -> bool:
+    """Return whether a websocket may connect under the current auth setting."""
+    db = SessionLocal()
+    try:
+        return not auth_enabled(db) or resolve_session(db, token) is not None
+    finally:
+        db.close()
+
+
 @app.websocket("/ws/events")
 async def events_websocket(websocket: WebSocket) -> None:
+    if not await asyncio.to_thread(_websocket_session_is_valid, websocket.cookies.get("osd_session", "")):
+        await websocket.close(code=1008)
+        return
     enabled, last_seen_id = await asyncio.to_thread(_websocket_poll_state)
     if not enabled:
         await websocket.close(code=1008)

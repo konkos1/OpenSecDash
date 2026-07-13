@@ -62,6 +62,10 @@
                     <a class="nav {{ 'nav-active' if current_path.startswith('/notifications') else '' }}" href="/notifications">{{ t("nav.notifications") }}</a>
                     <a class="nav {{ 'nav-active' if current_path.startswith('/diagnostics') else '' }}" href="/diagnostics">{{ t("nav.diagnostics") }}</a>
                     <a class="nav {{ 'nav-active' if current_path.startswith('/settings') else '' }}" href="/settings">{{ t("nav.settings") }}</a>
+                    {% if current_user %}
+                        <span class="text-slate-400 px-2">{{ current_user.username }}</span>
+                        <form method="post" action="/auth/logout"><button class="nav" type="submit">{{ t("auth.logout") }}</button></form>
+                    {% endif %}
                 </nav>
             </div>
 
@@ -85,6 +89,10 @@
                 <a class="nav {{ 'nav-active' if current_path.startswith('/notifications') else '' }}" href="/notifications">{{ t("nav.notifications") }}</a>
                 <a class="nav {{ 'nav-active' if current_path.startswith('/diagnostics') else '' }}" href="/diagnostics">{{ t("nav.diagnostics") }}</a>
                 <a class="nav {{ 'nav-active' if current_path.startswith('/settings') else '' }}" href="/settings">{{ t("nav.settings") }}</a>
+                {% if current_user %}
+                    <span class="text-slate-400 px-2">{{ current_user.username }}</span>
+                    <form method="post" action="/auth/logout"><button class="nav" type="submit">{{ t("auth.logout") }}</button></form>
+                {% endif %}
                 {% if event_plugins_enabled or asset_plugins_enabled %}
                     <form method="get" action="/search" class="flex gap-2">
                         <input class="input flex-1" name="q" placeholder="{{ t('search.placeholder') }}">
