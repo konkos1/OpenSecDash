@@ -29,6 +29,9 @@ def test_navigation_orders_core_and_plugin_links_consistently():
         update_available_version=None,
         live_page_refresh=False,
         backlog_datasources=[],
+        current_user=None,
+        can_operate=True,
+        can_admin=True,
         t=lambda key: key,
     )
 

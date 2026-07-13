@@ -153,11 +153,19 @@ def render_error_page(
         db.close()
     title = context["t"](title_key)  # type: ignore[index,operator]
     message = context["t"](message_key)  # type: ignore[index,operator]
+    current_user = getattr(request.state, "user", None)
     return templates.TemplateResponse(
         request=request,
         name="error.html",
         status_code=status_code,
-        context={**context, "title": title, "message": message, "details": details or []},
+        context={
+            **context,
+            "title": title,
+            "message": message,
+            "details": details or [],
+            "current_user": current_user,
+            "can_admin": current_user is None or current_user.role == "admin",
+        },
     )
 
 

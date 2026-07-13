@@ -14,7 +14,7 @@
                     <p class="muted text-sm">{{ t("crowdsec.cscli_unknown") }}</p>
                 {% endif %}
             </div>
-            {% if crowdsec_enabled %}
+            {% if crowdsec_enabled and can_operate %}
                 <form method="post" action="/crowdsec/decisions/refresh?next=/ip/{{ ip|url_path_quote }}" data-submit-busy>
                     <button class="btn-small" data-busy-label="{{ t('common.processing') }}">{{ t("crowdsec.refresh_decisions") }}</button>
                 </form>

@@ -61,7 +61,7 @@
                     {% if asset_plugins_enabled %}<a class="nav {{ 'nav-active' if current_path.startswith('/assets') else '' }}" href="/assets">{{ t("nav.assets") }}</a>{% endif %}
                     <a class="nav {{ 'nav-active' if current_path.startswith('/notifications') else '' }}" href="/notifications">{{ t("nav.notifications") }}</a>
                     <a class="nav {{ 'nav-active' if current_path.startswith('/diagnostics') else '' }}" href="/diagnostics">{{ t("nav.diagnostics") }}</a>
-                    <a class="nav {{ 'nav-active' if current_path.startswith('/settings') else '' }}" href="/settings">{{ t("nav.settings") }}</a>
+                    {% if can_admin %}<a class="nav {{ 'nav-active' if current_path.startswith('/settings') else '' }}" href="/settings">{{ t("nav.settings") }}</a>{% endif %}
                     {% if current_user %}
                         <span class="text-slate-400 px-2">{{ current_user.username }}</span>
                         <form method="post" action="/auth/logout"><button class="nav" type="submit">{{ t("auth.logout") }}</button></form>
@@ -88,7 +88,7 @@
                 {% if asset_plugins_enabled %}<a class="nav {{ 'nav-active' if current_path.startswith('/assets') else '' }}" href="/assets">{{ t("nav.assets") }}</a>{% endif %}
                 <a class="nav {{ 'nav-active' if current_path.startswith('/notifications') else '' }}" href="/notifications">{{ t("nav.notifications") }}</a>
                 <a class="nav {{ 'nav-active' if current_path.startswith('/diagnostics') else '' }}" href="/diagnostics">{{ t("nav.diagnostics") }}</a>
-                <a class="nav {{ 'nav-active' if current_path.startswith('/settings') else '' }}" href="/settings">{{ t("nav.settings") }}</a>
+                {% if can_admin %}<a class="nav {{ 'nav-active' if current_path.startswith('/settings') else '' }}" href="/settings">{{ t("nav.settings") }}</a>{% endif %}
                 {% if current_user %}
                     <span class="text-slate-400 px-2">{{ current_user.username }}</span>
                     <form method="post" action="/auth/logout"><button class="nav" type="submit">{{ t("auth.logout") }}</button></form>
