@@ -132,6 +132,17 @@ def test_login_backoff_and_open_redirect_protection(auth_client):
         client.post("/auth/logout", follow_redirects=False)
 
 
+def test_login_backoff_state_is_bounded_and_uses_fixed_size_keys(monkeypatch):
+    auth_api.reset_login_backoff()
+    monkeypatch.setattr(auth_api, "_MAX_LOGIN_BACKOFF_ENTRIES", 3)
+
+    for index in range(4):
+        auth_api._record_failed_login("x" * 10_000 + str(index), "192.0.2.1")
+
+    assert len(auth_api._LOGIN_BACKOFF) == 3
+    assert all(len(key) == 64 for key in auth_api._LOGIN_BACKOFF)
+
+
 def test_origin_check_and_break_glass(auth_client, monkeypatch):
     db_session, client = auth_client
     enable_auth(db_session)

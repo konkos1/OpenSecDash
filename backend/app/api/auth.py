@@ -1,5 +1,8 @@
 """Login and logout routes for optional internal authentication."""
 import time
+import hashlib
+from collections import OrderedDict
+from threading import Lock
 from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, Form, Request
@@ -32,31 +35,57 @@ from app.web.templates import templates
 
 router = APIRouter(tags=["auth"])
 
-_LOGIN_BACKOFF: dict[str, tuple[int, float]] = {}
+_LOGIN_BACKOFF: OrderedDict[str, tuple[int, float, float]] = OrderedDict()
+_LOGIN_BACKOFF_LOCK = Lock()
 _MAX_LOGIN_FAILURES = 5
 _LOGIN_LOCK_SECONDS = 60
+_LOGIN_BACKOFF_TTL_SECONDS = 300
+_MAX_LOGIN_BACKOFF_ENTRIES = 4096
+
+
+def _login_backoff_key(username: str, client_id: str) -> str:
+    normalized = f"{normalize_username(username)}\0{client_id}"
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
+def _client_id(request: Request) -> str:
+    return request.client.host if request.client is not None else "unknown"
 
 
 def reset_login_backoff() -> None:
     """Clear the in-memory login backoff state for tests."""
-    _LOGIN_BACKOFF.clear()
+    with _LOGIN_BACKOFF_LOCK:
+        _LOGIN_BACKOFF.clear()
 
 
-def _login_locked(username: str) -> bool:
-    attempt = _LOGIN_BACKOFF.get(normalize_username(username))
-    return attempt is not None and attempt[1] > time.monotonic()
+def _login_locked(username: str, client_id: str) -> bool:
+    key = _login_backoff_key(username, client_id)
+    with _LOGIN_BACKOFF_LOCK:
+        attempt = _LOGIN_BACKOFF.get(key)
+        return attempt is not None and attempt[1] > time.monotonic()
 
 
-def _record_failed_login(username: str) -> None:
-    normalized_username = normalize_username(username)
-    failures, locked_until = _LOGIN_BACKOFF.get(normalized_username, (0, 0.0))
-    if locked_until and locked_until <= time.monotonic():
-        failures = 0
-    failures += 1
-    _LOGIN_BACKOFF[normalized_username] = (
-        failures,
-        time.monotonic() + _LOGIN_LOCK_SECONDS if failures >= _MAX_LOGIN_FAILURES else 0.0,
-    )
+def _record_failed_login(username: str, client_id: str) -> None:
+    key = _login_backoff_key(username, client_id)
+    now = time.monotonic()
+    with _LOGIN_BACKOFF_LOCK:
+        while _LOGIN_BACKOFF:
+            _oldest_key, (_failures, _locked_until, last_seen) = next(iter(_LOGIN_BACKOFF.items()))
+            if last_seen > now - _LOGIN_BACKOFF_TTL_SECONDS:
+                break
+            _LOGIN_BACKOFF.popitem(last=False)
+        failures, locked_until, _last_seen = _LOGIN_BACKOFF.get(key, (0, 0.0, 0.0))
+        if locked_until and locked_until <= now:
+            failures = 0
+        failures += 1
+        _LOGIN_BACKOFF[key] = (
+            failures,
+            now + _LOGIN_LOCK_SECONDS if failures >= _MAX_LOGIN_FAILURES else 0.0,
+            now,
+        )
+        _LOGIN_BACKOFF.move_to_end(key)
+        while len(_LOGIN_BACKOFF) > _MAX_LOGIN_BACKOFF_ENTRIES:
+            _LOGIN_BACKOFF.popitem(last=False)
 
 
 def _safe_next(value: str | None) -> str:
@@ -102,15 +131,17 @@ def login(
 ):
     if not auth_enabled(db):
         return RedirectResponse("/", status_code=303)
-    if _login_locked(username):
+    client_id = _client_id(request)
+    if _login_locked(username, client_id):
         return _login_response(request, db, next, error=True, error_key="auth.login_locked", status_code=429)
 
     user = authenticate(db, username, password)
     if user is None:
-        _record_failed_login(username)
+        _record_failed_login(username, client_id)
         return _login_response(request, db, next, error=True, status_code=401)
 
-    _LOGIN_BACKOFF.pop(normalize_username(username), None)
+    with _LOGIN_BACKOFF_LOCK:
+        _LOGIN_BACKOFF.pop(_login_backoff_key(username, client_id), None)
     cleanup_expired_sessions(db)
     user.last_login_at = utc_now().replace(tzinfo=None)
     token = create_session(db, user)
