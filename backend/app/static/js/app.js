@@ -112,11 +112,13 @@ document.addEventListener("DOMContentLoaded", () => {
     if (settingsRestore !== null) {
         document.cookie = `${settingsRestoreCookie}=; Max-Age=0; Path=/settings; SameSite=Lax`;
         try {
-            const { scrollY, detailsIndex } = JSON.parse(decodeURIComponent(settingsRestore));
-            const details = document.querySelectorAll("details")[detailsIndex];
-            if (details) {
-                details.open = true;
-            }
+            const { scrollY, openDetails } = JSON.parse(decodeURIComponent(settingsRestore));
+            const details = document.querySelectorAll("details");
+            openDetails.forEach(index => {
+                if (details[index]) {
+                    details[index].open = true;
+                }
+            });
             setTimeout(() => window.scrollTo(0, Number(scrollY)), 500);
         } catch {
             // Ignore a stale or malformed browser-local restore value.
@@ -128,8 +130,9 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!(form instanceof HTMLFormElement) || !form.matches('form[action^="/settings/"]') || event.defaultPrevented) {
             return;
         }
-        const detailsIndex = Array.from(document.querySelectorAll("details")).indexOf(form.closest("details"));
-        const settingsRestore = JSON.stringify({ scrollY: window.scrollY, detailsIndex });
+        const openDetails = Array.from(document.querySelectorAll("details"))
+            .flatMap((details, index) => details.open ? [index] : []);
+        const settingsRestore = JSON.stringify({ scrollY: window.scrollY, openDetails });
         try {
             sessionStorage.setItem(settingsRestoreKey, settingsRestore);
         } catch {
