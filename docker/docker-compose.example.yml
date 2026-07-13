@@ -21,6 +21,9 @@ services:
     # variable is removed. Variable name: OSD_PLUGIN_<PLUGIN>_DISABLED (plugin
     # dir name or id, uppercased, "-" -> "_"), value 1/true/yes/on.
     # environment:
+    #   # Optional: restrict which reverse proxies may set X-Forwarded-* headers
+    #   # (default: loopback + private ranges; empty value disables).
+    #   - OSD_TRUSTED_PROXIES=192.168.1.10
     #   - OSD_PLUGIN_MQTT_DISABLED=true
     #   - OSD_PLUGIN_PROXMOX_ASSETS_DISABLED=true
     #   - OSD_PLUGIN_CROWDSEC_DISABLED=true

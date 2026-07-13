@@ -28,6 +28,7 @@ from app.plugins.manager import get_plugin_manager
 from app.services.insight_rules import refresh_insight_rules
 from app.services.notifications import seed_default_notification_rules
 from app.web.guards import plugin_enabled_guard
+from app.web.proxy_headers import ProxyHeadersMiddleware
 from app.web.templates import register_plugin_template_dirs, templates
 
 logger = logging.getLogger(__name__)
@@ -79,6 +80,10 @@ app = FastAPI(title="OpenSecDash", version=get_app_version(), lifespan=lifespan)
 # typically cuts that by ~90%, which is what page-switch speed feels like on
 # anything slower than a LAN.
 app.add_middleware(GZipMiddleware, minimum_size=1024)
+
+# Reverse proxies provide the real client metadata; only peers configured via
+# OSD_TRUSTED_PROXIES may supply it (ADR-028).
+app.add_middleware(ProxyHeadersMiddleware)
 
 app.include_router(settings_router)
 app.include_router(events_router)

@@ -159,6 +159,7 @@ You normally do not need to set these values in `docker-compose.yml`.
 | `LOG_LEVEL` | `INFO` | Use `DEBUG` temporarily for troubleshooting; it can create much more output. |
 | `OSD_HOST` | `0.0.0.0` | Internal bind address for uvicorn. Usually leave unchanged in Docker. |
 | `OSD_PORT` | `8000` | Internal uvicorn port. Usually leave unchanged and only change the host-side port mapping. |
+| `OSD_TRUSTED_PROXIES` | loopback + private ranges | Comma-separated IPs/CIDRs of reverse proxies whose `X-Forwarded-*` headers are trusted. Empty disables processing; `*` trusts all. See the [reverse proxy guide](reverse-proxy.md). |
 
 Logging settings are stored in the app database after initial setup. Changing `LOG_FILE_ENABLED`, `LOG_FILE_PATH`, or `LOG_LEVEL` later may not override an already-saved Settings value; use the Settings page for runtime logging changes.
 

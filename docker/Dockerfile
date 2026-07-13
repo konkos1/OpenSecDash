@@ -35,4 +35,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD python -c "import os, urllib.request; urllib.request.urlopen(f'http://127.0.0.1:{os.getenv(\"OSD_PORT\", \"8000\")}/health', timeout=3).read()"
 
 ENTRYPOINT ["docker-entrypoint.sh"]
-CMD ["uvicorn app.main:app --host ${OSD_HOST} --port ${OSD_PORT}"]
+CMD ["uvicorn app.main:app --host ${OSD_HOST} --port ${OSD_PORT} --no-proxy-headers"]

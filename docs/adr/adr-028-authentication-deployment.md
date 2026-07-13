@@ -1,7 +1,10 @@
 # ADR-028: Authentication & Deployment
 
-> **Implementation status (2026-07-09):** Partially implemented.
-> Docker-oriented single-container deployment, SQLite, reverse-proxy trust model, API-side actions, health/ready endpoints, and update checks exist. Dedicated proxy-header middleware and internal user management are not implemented.
+> **Implementation status (2026-07-13):** Partially implemented.
+> Docker-oriented single-container deployment, SQLite, reverse-proxy trust model,
+> proxy-header middleware (X-Forwarded-For/-Proto/-Host from trusted proxies,
+> configured via OSD_TRUSTED_PROXIES), API-side actions, health/ready endpoints, and
+> update checks exist. Internal user management is not implemented.
 
 
 
@@ -380,5 +383,9 @@ optionally e.g. Pocket-ID/Authentik/Authelia in front
 
 The current implementation follows the V1 trust model without internal user management. It provides API-side action execution and health/ready-style operational endpoints.
 
-Dedicated proxy-header middleware is not currently present. Reverse-proxy deployment remains the intended deployment model.
-
+Dedicated proxy-header middleware is present in `app/web/proxy_headers.py`. It accepts
+`X-Forwarded-For`, `X-Forwarded-Proto`, and `X-Forwarded-Host` only from trusted
+peer IPs. Loopback and private networks are trusted by default; the set is
+configurable or disableable with `OSD_TRUSTED_PROXIES`. Headers from untrusted
+sources are discarded. Reverse-proxy deployment remains the intended deployment
+model.
