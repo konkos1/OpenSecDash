@@ -54,6 +54,8 @@ def enable_auth(db_session):
 def test_auth_gating_keeps_required_paths_public_and_rejects_anonymous_requests(auth_client):
     db_session, client = auth_client
     enable_auth(db_session)
+    db_session.add(Setting(key="language", value="de"))
+    db_session.commit()
 
     response = client.get("/", follow_redirects=False)
     assert response.status_code == 303
@@ -66,7 +68,9 @@ def test_auth_gating_keeps_required_paths_public_and_rejects_anonymous_requests(
     assert client.get("/health").status_code == 200
     assert client.get("/ready").status_code == 200
     assert client.get("/static/css/app.css").status_code == 200
-    assert client.get("/login").status_code == 200
+    response = client.get("/login")
+    assert response.status_code == 200
+    assert '<html lang="de">' in response.text
 
 
 def test_login_logout_and_cookie_flags_gate_browser_requests(auth_client):

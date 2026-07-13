@@ -68,6 +68,7 @@ def _login_response(request: Request, db: Session, next_path: str, *, error: boo
         name="login.html",
         status_code=status_code,
         context={
+            "language": language,
             "t": lambda key: translate(key, language),
             "next": _safe_next(next_path),
             "error": error,
