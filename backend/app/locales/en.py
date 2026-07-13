@@ -436,6 +436,8 @@ EN = {
     "settings.auth_role": "Role",
     "settings.auth_last_login": "Last sign-in",
     "settings.auth_reset_password": "Reset password",
+    "settings.auth_active": "Active",
+    "settings.auth_inactive": "Inactive",
     "settings.auth_deactivate": "Deactivate",
     "settings.auth_activate": "Activate",
     "settings.auth_delete": "Delete",
