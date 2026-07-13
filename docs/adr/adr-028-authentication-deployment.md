@@ -4,8 +4,7 @@
 > Docker-oriented single-container deployment, SQLite, reverse-proxy trust model,
 > proxy-header middleware (X-Forwarded-For/-Proto/-Host from trusted proxies,
 > configured via OSD_TRUSTED_PROXIES), API-side actions, health/ready endpoints, and
-> update checks exist. Internal user management is not implemented (separate plan:
-> docs/internal/internal-user-management/).
+> update checks exist. Internal user management is not implemented.
 
 
 
