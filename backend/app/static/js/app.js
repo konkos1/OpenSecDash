@@ -114,10 +114,8 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
             const { scrollY, openDetails } = JSON.parse(decodeURIComponent(settingsRestore));
             const details = document.querySelectorAll("details");
-            openDetails.forEach(index => {
-                if (details[index]) {
-                    details[index].open = true;
-                }
+            details.forEach((details, index) => {
+                details.open = openDetails.includes(index);
             });
             setTimeout(() => window.scrollTo(0, Number(scrollY)), 500);
         } catch {
