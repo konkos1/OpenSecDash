@@ -9,9 +9,11 @@ from app.core.template_context import get_setting_value
 from app.services.instance_branding import (
     KIND_FAVICON,
     KIND_LOGO,
+    MAX_BYTES,
     delete_instance_file,
     get_instance_file,
     save_instance_file,
+    validate_upload,
 )
 from app.web.tables import clean_url_value, save_setting
 
@@ -68,13 +70,15 @@ async def save_instance_branding(
     for kind, upload in ((KIND_LOGO, logo), (KIND_FAVICON, favicon)):
         if upload is None:
             continue
-        data = await upload.read()
+        data = await upload.read(MAX_BYTES[kind] + 1)
         if upload.filename and data:
             uploads.append((kind, upload.filename, data))
 
     def _save() -> None:
+        for kind, _filename, data in uploads:
+            validate_upload(kind, data)
         for kind, filename, data in uploads:
-            save_instance_file(db, kind, filename, data)
+            save_instance_file(db, kind, filename, data, commit=False)
         if domain is not None:
             save_setting(db, "domain", clean_url_value(domain))
         if instance_description is not None:
@@ -84,6 +88,7 @@ async def save_instance_branding(
     try:
         await asyncio.to_thread(_save)
     except ValueError as exc:
+        await asyncio.to_thread(db.rollback)
         return RedirectResponse(url=f"/settings?branding_error={exc}", status_code=303)
     return RedirectResponse(url="/settings", status_code=303)
 
@@ -91,5 +96,9 @@ async def save_instance_branding(
 @router.post("/settings/branding/remove")
 async def remove_instance_branding(kind: str = Form(...), db: Session = Depends(get_db)) -> RedirectResponse:
     if kind in {KIND_LOGO, KIND_FAVICON}:
-        await asyncio.to_thread(delete_instance_file, db, kind)
+        def _delete() -> None:
+            delete_instance_file(db, kind, commit=False)
+            db.commit()
+
+        await asyncio.to_thread(_delete)
     return RedirectResponse(url="/settings", status_code=303)

@@ -52,7 +52,7 @@ def validate_upload(kind: str, data: bytes) -> str:
     return content_type
 
 
-def save_instance_file(db: Session, kind: str, filename: str, data: bytes) -> None:
+def save_instance_file(db: Session, kind: str, filename: str, data: bytes, *, commit: bool = True) -> None:
     """Store one validated file for an instance branding kind."""
     content_type = validate_upload(kind, data)
     row = get_instance_file(db, kind)
@@ -70,7 +70,8 @@ def save_instance_file(db: Session, kind: str, filename: str, data: bytes) -> No
         row.content_type = content_type
         row.data = data
         row.updated_at = int(time.time())
-    db.commit()
+    if commit:
+        db.commit()
 
 
 def get_instance_file(db: Session, kind: str) -> InstanceFile | None:
@@ -78,12 +79,13 @@ def get_instance_file(db: Session, kind: str) -> InstanceFile | None:
     return db.query(InstanceFile).filter(InstanceFile.kind == kind).first()
 
 
-def delete_instance_file(db: Session, kind: str) -> None:
+def delete_instance_file(db: Session, kind: str, *, commit: bool = True) -> None:
     """Remove a branding file when one has been stored."""
     row = get_instance_file(db, kind)
     if row is not None:
         db.delete(row)
-        db.commit()
+        if commit:
+            db.commit()
 
 
 def instance_file_versions(db: Session) -> dict[str, int | None]:
