@@ -11,7 +11,7 @@ from app.core.template_context import get_setting_value
 from app.core.time import utc_now
 from app.core.version import get_app_version
 from app.database.dependencies import get_db
-from app.models.users import User
+from app.models.users import User, UserPreference
 from app.services.auth import (
     PASSWORD_MIN_LENGTH,
     auth_enabled,
@@ -25,6 +25,7 @@ from app.services.auth import (
     resolve_session,
     verify_password,
 )
+from app.services.user_preferences import normalize_preferences
 from app.web.auth import SESSION_COOKIE, set_session_cookie
 from app.web.render import render
 from app.web.templates import templates
@@ -145,6 +146,41 @@ def account_page(request: Request, db: Session = Depends(get_db)):
         auth_error=request.query_params.get("auth_error", ""),
         auth_notice=request.query_params.get("auth_notice", ""),
     )
+
+
+@router.post("/account/preferences")
+def change_preferences(
+    request: Request,
+    language: str = Form(),
+    live_default: str = Form(),
+    theme: str = Form(),
+    accent_color: str = Form(),
+    live_page_refresh: str = Form(),
+    db: Session = Depends(get_db),
+):
+    user = getattr(request.state, "user", None)
+    if user is None:
+        return RedirectResponse("/login", status_code=303)
+    submitted_preferences = {
+        "language": language,
+        "live_default": live_default,
+        "theme": theme,
+        "accent_color": accent_color,
+        "live_page_refresh": live_page_refresh,
+    }
+    preferences = normalize_preferences(submitted_preferences)
+    if preferences != submitted_preferences:
+        return RedirectResponse("/account?auth_error=invalid_preferences", status_code=303)
+    user_preferences = db.query(UserPreference).filter(UserPreference.user_id == user.id).first()
+    if user_preferences is None:
+        return RedirectResponse("/account?auth_error=invalid_preferences", status_code=303)
+    user_preferences.language = preferences["language"]
+    user_preferences.live_default = preferences["live_default"]
+    user_preferences.theme = preferences["theme"]
+    user_preferences.accent_color = preferences["accent_color"]
+    user_preferences.live_page_refresh = preferences["live_page_refresh"]
+    db.commit()
+    return RedirectResponse("/account?auth_notice=preferences_saved", status_code=303)
 
 
 @router.post("/auth/password")

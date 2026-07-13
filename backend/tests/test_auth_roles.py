@@ -74,6 +74,7 @@ def role_clients(tmp_path: Path, monkeypatch):
         ("GET", "/api/settings", "admin"),
         ("GET", "/diagnostics/debug-report", "admin"),
         ("POST", "/auth/password", "viewer"),
+        ("POST", "/account/preferences", "viewer"),
         ("POST", "/irgendwas/neues", "operator"),
         ("POST", "/views", "viewer"),
         ("POST", "/dashboard/layout", "viewer"),

@@ -10,6 +10,7 @@ from app.core.template_context import get_setting_value
 from app.database.base import Base
 from app.database.dependencies import get_db
 from app.main import app
+from app.models.settings import Setting
 from app.models.users import User, UserPreference, UserSession
 from app.services.auth import create_session, create_user
 from app.web import auth as auth_web
@@ -221,3 +222,103 @@ def test_account_redirects_to_dashboard_when_auth_is_disabled(user_management_cl
 
     assert response.status_code == 303
     assert response.headers["location"] == "/"
+
+
+def test_every_role_can_update_only_its_own_preferences(user_management_client):
+    db, admin_client = user_management_client
+    _enable_auth(admin_client)
+    account_html = admin_client.get("/account").text
+    assert account_html.count('class="help" data-tooltip=') == 5
+    assert "Changes the language shown in your interface." in account_html
+    operator = create_user(db, "operator", "password123", "operator")
+    viewer = create_user(db, "viewer", "password123", "viewer")
+    db.add_all(
+        [
+            Setting(key="language", value="en"),
+            Setting(key="live_default", value="true"),
+            Setting(key="theme", value="auto"),
+            Setting(key="instance_accent_color", value="blue"),
+            Setting(key="live_page_refresh", value="true"),
+        ]
+    )
+    db.commit()
+    clients = {
+        "admin": admin_client,
+        "operator": TestClient(app, base_url="https://testserver"),
+        "viewer": TestClient(app, base_url="https://testserver"),
+    }
+    try:
+        _login(clients["operator"], "operator", "password123")
+        _login(clients["viewer"], "viewer", "password123")
+        for role, client in clients.items():
+            response = client.post(
+                "/account/preferences",
+                data={
+                    "language": "de" if role != "viewer" else "en",
+                    "live_default": "false",
+                    "theme": "dark" if role != "viewer" else "light",
+                    "accent_color": "red" if role != "viewer" else "green",
+                    "live_page_refresh": "false",
+                },
+                follow_redirects=False,
+            )
+            assert response.headers["location"] == "/account?auth_notice=preferences_saved"
+
+        admin = db.query(User).filter(User.username == "admin").one()
+        admin_preferences = db.query(UserPreference).filter(UserPreference.user_id == admin.id).one()
+        operator_preferences = db.query(UserPreference).filter(UserPreference.user_id == operator.id).one()
+        viewer_preferences = db.query(UserPreference).filter(UserPreference.user_id == viewer.id).one()
+        assert (admin_preferences.language, admin_preferences.theme, admin_preferences.accent_color) == ("de", "dark", "red")
+        assert (operator_preferences.language, operator_preferences.theme, operator_preferences.accent_color) == ("de", "dark", "red")
+        assert (viewer_preferences.language, viewer_preferences.theme, viewer_preferences.accent_color) == ("en", "light", "green")
+        assert db.query(Setting).filter(Setting.key == "theme", Setting.value == "auto").count() == 1
+        assert 'data-theme="dark"' in clients["operator"].get("/account").text
+        assert 'data-theme="light"' in clients["viewer"].get("/account").text
+    finally:
+        clients["operator"].close()
+        clients["viewer"].close()
+
+
+def test_preferences_reject_invalid_values_without_partial_update(user_management_client):
+    db, client = user_management_client
+    _enable_auth(client)
+    admin = db.query(User).filter(User.username == "admin").one()
+    preferences = db.query(UserPreference).filter(UserPreference.user_id == admin.id).one()
+    original_values = (preferences.language, preferences.live_default, preferences.theme, preferences.accent_color, preferences.live_page_refresh)
+
+    response = client.post(
+        "/account/preferences",
+        data={
+            "language": "invalid",
+            "live_default": "false",
+            "theme": "dark",
+            "accent_color": "red",
+            "live_page_refresh": "false",
+        },
+        follow_redirects=False,
+    )
+
+    assert response.headers["location"] == "/account?auth_error=invalid_preferences"
+    db.refresh(preferences)
+    assert (preferences.language, preferences.live_default, preferences.theme, preferences.accent_color, preferences.live_page_refresh) == original_values
+
+
+def test_preferences_require_an_authenticated_session(user_management_client):
+    _, client = user_management_client
+    _enable_auth(client)
+    client.cookies.clear()
+
+    response = client.post(
+        "/account/preferences",
+        data={
+            "language": "en",
+            "live_default": "true",
+            "theme": "auto",
+            "accent_color": "blue",
+            "live_page_refresh": "true",
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/login?next=%2Faccount%2Fpreferences"

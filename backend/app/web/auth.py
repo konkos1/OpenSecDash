@@ -87,7 +87,7 @@ def required_role(method: str, path: str) -> str:
         return "viewer"
     if (
         path.endswith("/columns")
-        or path in ("/auth/logout", "/auth/password", "/views", "/dashboard/layout", "/dashboard/layout/reset")
+        or path in ("/auth/logout", "/auth/password", "/account/preferences", "/views", "/dashboard/layout", "/dashboard/layout/reset")
         or path.startswith("/views/")
     ):
         return "viewer"
