@@ -21,8 +21,6 @@ document.addEventListener("DOMContentLoaded", () => {
         };
 
         const updateNavigationLayout = () => {
-            navigationHeader.classList.remove("navigation-expanded");
-
             const rowStyle = getComputedStyle(navigationRow);
             const rowPadding = parseFloat(rowStyle.paddingLeft) + parseFloat(rowStyle.paddingRight);
             const rowGap = parseFloat(rowStyle.columnGap) || 0;
