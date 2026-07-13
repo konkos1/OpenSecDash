@@ -8,7 +8,7 @@ Current plugins include:
 
 | Plugin | Purpose |
 | --- | --- |
-| [CrowdSec](./crowdsec.md) | Import ban history and execute ban/unban actions via `cscli` |
+| [CrowdSec](./crowdsec.md) | Import ban history and execute ban/unban actions through CrowdSec's Local API |
 | [Traefik Access Log](./traefik.md) | Import and classify reverse proxy access log entries |
 | [GeoBlock Log](./geoblock.md) | Import geoblock events |
 | [GeoIP / ASN / ISP / City](./geoip.md) | Enrich public IP events |

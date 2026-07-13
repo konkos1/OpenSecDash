@@ -27,7 +27,7 @@ Examples:
 
 ```none
 CrowdSec active
-Path to cscli
+CrowdSec LAPI URL and credentials
 
 Traefik log
 

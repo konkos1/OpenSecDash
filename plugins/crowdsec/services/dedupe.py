@@ -20,9 +20,9 @@ CROWDSEC_BAN_EVENT_TYPES = ("security.ban", "security.ban.manual")
 # The Action framework embeds its own action id into the ban reason it hands
 # to CrowdSec (e.g. "Manual ban via OpenSecDash (action #42)", see
 # actions.create_action), and CrowdSec echoes that text verbatim into its own
-# log line for API/cscli-created decisions - confirmed against a real
+# log line for API-created decisions - confirmed against a real
 # CrowdSec instance:
-#   msg="(<machine>/cscli) Manual ban via OpenSecDash (action #42) by ip X : 1m ban on Ip X"
+#   msg="(<machine>/opensecdash) Manual ban via OpenSecDash (action #42) by ip X : 1m ban on Ip X"
 # Matching on this id is exact regardless of timing, unlike a time-window
 # heuristic: a ban, followed by an unban, followed by a fresh re-ban of the
 # same IP within seconds would otherwise risk merging the re-ban's log line

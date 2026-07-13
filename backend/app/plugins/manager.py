@@ -522,8 +522,8 @@ class PluginManager:
     async def _health_loop(self, plugin: Plugin) -> None:
         # Health checks are separate from datasource/periodic work on purpose:
         # diagnostics should still update when a collector is idle or disabled.
-        # Runs in a thread: health checks block on real I/O (cscli subprocess
-        # up to 10s, Proxmox API requests, MQTT socket connects up to 5s) and
+        # Runs in a thread: health checks block on real I/O (LAPI and Proxmox
+        # API requests, MQTT socket connects up to 5s) and
         # must not freeze the event loop for that long.
         while True:
             db = SessionLocal()
@@ -714,8 +714,8 @@ class PluginManager:
         return max(interval, 1)
 
     async def _periodic_loop(self, plugin: PeriodicPlugin) -> None:
-        # Runs in a thread: periodic ticks block on real I/O (cscli subprocess
-        # up to 30s for decision sync, Proxmox API requests, MQTT publishes,
+        # Runs in a thread: periodic ticks block on real I/O (LAPI requests for
+        # decision sync, Proxmox API requests, MQTT publishes,
         # JSON source fetches) and must not freeze the event loop for that
         # long - a slow tick used to make every page view hang with it.
         while True:

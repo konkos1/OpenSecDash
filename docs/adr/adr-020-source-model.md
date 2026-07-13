@@ -118,7 +118,7 @@ Example:
 
 Example:
 
-`cscli decisions list`
+`CrowdSec LAPI active decisions`
 
 
 ---
@@ -274,7 +274,7 @@ Examples:
 ---
 
 ```none
-🔴 CrowdSec cscli missing
+🔴 CrowdSec LAPI unavailable
 ```
 
 
@@ -345,4 +345,3 @@ Insight
 `Datasource` records are implemented with plugin id, source type, JSON config, enabled flag, status, last run/event timestamps, last error, event counters, and backlog state.
 
 The current implementation is driven by concrete plugins and periodic collection hooks. The model supports multiple sources per plugin, but not every planned generic source type is exposed as a generic user-facing source builder.
-

@@ -319,7 +319,7 @@ EN = {
 
     "ip.title": "IP Explorer",
     "ip.actions": "Actions",
-    "ip.actions_dry_run": "Action simulation is enabled. Buttons are shown without requiring a live cscli decision.",
+    "ip.actions_dry_run": "Action simulation is enabled. Buttons are shown without requiring a live LAPI decision.",
     "action.confirm": "Run \"{label}\" for {target}?",
     "ip.active_ban": "This IP currently has an active CrowdSec ban decision",
     "ip.local_ban_disabled": "Local, private or reserved IPs/IP ranges are not banned via CrowdSec to avoid accidental blocks of internal networks.",

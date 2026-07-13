@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import logging
 import re
-import subprocess
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
@@ -18,7 +17,7 @@ from app.services.events import normalize_event_time
 from app.web.dashboard import DashboardWidget
 
 from .locales import LOCALES
-from .services.decisions import active_decision_for_ip, crowdsec_cscli_status, sync_crowdsec_decisions
+from .services.decisions import active_decision_for_ip, crowdsec_lapi_status, sync_crowdsec_decisions
 from .services.rollups import _top_daily_rollup_metric, _top_rollup_metric
 
 
@@ -69,23 +68,14 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
         version="1.0.0",
         api_version="2",
         capabilities=["datasource", "action", "page", "widget"],
-        description="CrowdSec log datasource and cscli ban/unban actions."
+        description="CrowdSec log datasource and LAPI ban/unban actions."
     )
     settings = [
         PluginSetting("enabled", "crowdsec.settings.enabled", "crowdsec.settings.enabled.help", "boolean", "false", [("false", "common.no"), ("true", "common.yes")]),
         PluginSetting("log_path", "crowdsec.settings.log_path", "crowdsec.settings.log_path.help", "file", "/logs/crowdsec.log"),
-        PluginSetting(
-            "connection_mode",
-            "crowdsec.settings.connection_mode",
-            "crowdsec.settings.connection_mode.help",
-            "select",
-            "lapi",
-            [("lapi", "crowdsec.settings.connection_mode.lapi"), ("cscli", "crowdsec.settings.connection_mode.cscli")],
-        ),
-        PluginSetting("lapi_url", "crowdsec.settings.lapi_url", "crowdsec.settings.lapi_url.help", "url", "http://127.0.0.1:8080", visible_if=("connection_mode", "lapi")),
-        PluginSetting("lapi_login", "crowdsec.settings.lapi_login", "crowdsec.settings.lapi_login.help", "text", "", visible_if=("connection_mode", "lapi")),
-        PluginSetting("lapi_password", "crowdsec.settings.lapi_password", "crowdsec.settings.lapi_password.help", "password", "", visible_if=("connection_mode", "lapi")),
-        PluginSetting("cscli_path", "crowdsec.settings.cscli_path", "crowdsec.settings.cscli_path.help", "text", "/usr/local/bin/cscli", visible_if=("connection_mode", "cscli")),
+        PluginSetting("lapi_url", "crowdsec.settings.lapi_url", "crowdsec.settings.lapi_url.help", "url", "http://127.0.0.1:8080"),
+        PluginSetting("lapi_login", "crowdsec.settings.lapi_login", "crowdsec.settings.lapi_login.help", "text", ""),
+        PluginSetting("lapi_password", "crowdsec.settings.lapi_password", "crowdsec.settings.lapi_password.help", "password", ""),
         PluginSetting("poll_interval", "crowdsec.settings.poll_interval", "crowdsec.settings.poll_interval.help", "number", "10"),
     ]
     locales = LOCALES
@@ -95,25 +85,28 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
         self._decision_sync_counter = 0
 
     async def health(self, context) -> dict[str, str]:
-        # This is the log-importer component (parallel to traefik_log): it only
-        # reports whether the CrowdSec log can be read. LAPI/cscli connectivity
-        # is a separate concern reported by the decision-sync diagnostic
-        # (crowdsec - lapi/cscli), refreshed in refresh_diagnostics().
         log_path = Path(context.get("log_path"))
         if not log_path.exists():
             return {"status": "error", "message": f"CrowdSec log not found: {log_path}"}
-        return {"status": "healthy", "message": f"CrowdSec log readable: {log_path}"}
+        from .services.lapi import LapiError, lapi_login
+
+        url = context.get("lapi_url", "http://127.0.0.1:8080")
+        try:
+            lapi_login(url, context.get("lapi_login", ""), context.get("lapi_password", ""))
+        except LapiError as exc:
+            return {"status": "error", "message": str(exc)}
+        logger.debug("CrowdSec health OK: LAPI login at %s", url)
+        return {"status": "healthy", "message": f"CrowdSec LAPI reachable and credentials accepted: {url}"}
 
     def refresh_diagnostics(self, db: Session) -> None:
-        # Validate the current connection mode/credentials immediately when
-        # settings are saved so the decision-sync component reflects the change
-        # right away, instead of waiting for the next periodic decision sync.
+        # Validate the credentials immediately when settings are saved so the
+        # decision-sync diagnostic reflects the change before the next tick.
         sync_crowdsec_decisions(db, force=True)
 
     async def tick(self, context) -> None:
         self._decision_sync_counter += 1
         # The manager ticks roughly once per minute. Sync every second tick to
-        # keep cscli usage low while still keeping active bans reasonably fresh.
+        # keep LAPI usage low while still keeping active bans reasonably fresh.
         if self._decision_sync_counter % 2 == 1:
             return
         ok, message = sync_crowdsec_decisions(context.db)
@@ -187,30 +180,16 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
         if not is_ban and not decision_id:
             raise RuntimeError("Missing active CrowdSec decision id for unban")
 
-        if context.get("connection_mode", "lapi") == "lapi":
-            from .services.lapi import lapi_add_ban, lapi_delete_decision, lapi_login
+        from .services.lapi import lapi_add_ban, lapi_delete_decision, lapi_login
 
-            url = context.get("lapi_url", "http://127.0.0.1:8080")
-            logger.info("Executing CrowdSec action via LAPI type=%s target=%s", action_type, target)
-            token = lapi_login(url, context.get("lapi_login", ""), context.get("lapi_password", ""))
-            if is_ban:
-                lapi_add_ban(url, token, target, parameters.get("duration", "4h"), parameters.get("reason", "OpenSecDash manual ban"))
-                return {"status": "completed", "result": f"LAPI ban created for {target}"}
-            lapi_delete_decision(url, token, decision_id)
-            return {"status": "completed", "result": f"LAPI decision {decision_id} deleted"}
-
-        cscli = context.get("cscli_path", "/usr/local/bin/cscli")
+        url = context.get("lapi_url", "http://127.0.0.1:8080")
+        logger.info("Executing CrowdSec action via LAPI type=%s target=%s", action_type, target)
+        token = lapi_login(url, context.get("lapi_login", ""), context.get("lapi_password", ""))
         if is_ban:
-            duration = parameters.get("duration", "4h")
-            cmd = [cscli, "decisions", "add", "--ip", target, "--duration", duration, "--reason", parameters.get("reason", "OpenSecDash manual ban")]
-        else:
-            cmd = [cscli, "decisions", "delete", "--id", decision_id]
-        logger.info("Executing CrowdSec action type=%s target=%s", action_type, target)
-        completed = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-        if completed.returncode != 0:
-            raise RuntimeError(completed.stderr or completed.stdout or "cscli failed")
-        logger.info("CrowdSec action completed type=%s target=%s", action_type, target)
-        return {"status": "completed", "result": completed.stdout.strip() or "cscli action completed"}
+            lapi_add_ban(url, token, target, parameters.get("duration", "4h"), parameters.get("reason", "OpenSecDash manual ban"))
+            return {"status": "completed", "result": f"LAPI ban created for {target}"}
+        lapi_delete_decision(url, token, decision_id)
+        return {"status": "completed", "result": f"LAPI decision {decision_id} deleted"}
 
     # --- Action framework hooks (see app.plugins.base.ActionPlugin) ---
 
@@ -293,7 +272,7 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
         return {
             "crowdsec_enabled": enabled,
             "active_decision": active_decision_for_ip(db, ip) if enabled else None,
-            "cscli_status": crowdsec_cscli_status(db) if enabled else None,
+            "lapi_status": crowdsec_lapi_status(db) if enabled else None,
         }
 
     def ip_page_count_widgets(self, db: Session, ip: str) -> list[dict[str, Any]]:
