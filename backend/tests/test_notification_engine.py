@@ -172,6 +172,7 @@ def test_pending_insight_is_flushed_before_notification_matching(db_session):
     assert insight.id is not None
     assert insight.timestamp is not None
     assert len(notifications) == 1
+    assert notifications[0].payload is not None
     assert notifications[0].payload["insight_id"] == insight.id
 
 
