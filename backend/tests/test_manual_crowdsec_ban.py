@@ -132,9 +132,9 @@ def test_log_tailed_ban_fills_in_missing_duration_without_overwriting_scenario(d
 
 
 def test_log_line_with_action_id_correlates_regardless_of_delay(db_session):
-    # Confirmed against a real CrowdSec instance: cscli/LAPI-created decisions
+    # Confirmed against a real CrowdSec instance: LAPI-created decisions
     # echo the given reason verbatim into crowdsec.log, e.g.
-    #   msg="(<machine>/cscli) Manual ban via OpenSecDash (action #42) by ip X : 1m ban on Ip X"
+    #   msg="(<machine>/opensecdash) Manual ban via OpenSecDash (action #42) by ip X : 1m ban on Ip X"
     # Correlating on this id must work even far outside the time-window
     # fallback, since it doesn't depend on timing at all.
     action = create_action(db_session, "security.ban", "45.33.32.156", "ip", {"duration": "4h", "reason": "Manual ban via OpenSecDash"}, confirmed=True)
@@ -153,7 +153,7 @@ def test_log_line_with_action_id_correlates_regardless_of_delay(db_session):
         event_time=manual.event_time + timedelta(minutes=10),  # well outside the 30s fallback window
         data_json={"duration": "4h", "message": "raw log line"},
         raw_data=(
-            f'time="2026-07-06T16:49:14+02:00" level=info msg="(machine/cscli) '
+            f'time="2026-07-06T16:49:14+02:00" level=info msg="(machine/opensecdash) '
             f"Manual ban via OpenSecDash (action #{action.id}) by ip 45.33.32.156 : 4h ban on Ip 45.33.32.156\" module=db"
         ),
     )
@@ -209,7 +209,7 @@ def test_ban_unban_reban_within_window_keeps_both_bans_as_distinct_events(db_ses
         ip=ip,
         event_time=second_manual.event_time + timedelta(seconds=5),
         data_json={"duration": "4h"},
-        raw_data=f"(machine/cscli) Manual ban via OpenSecDash (action #{second_ban.id}) by ip {ip} : 4h ban on Ip {ip}",
+        raw_data=f"(machine/opensecdash) Manual ban via OpenSecDash (action #{second_ban.id}) by ip {ip} : 4h ban on Ip {ip}",
     )
     db_session.commit()
 

@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import json
 import logging
-import subprocess
 from datetime import datetime
 from typing import Any
 
@@ -14,7 +12,6 @@ from app.models.core import CrowdSecDecision, Diagnostic
 
 logger = logging.getLogger(__name__)
 
-CSCLI_COMPONENT = "cscli"
 LAPI_COMPONENT = "lapi"
 DECISION_SYNC_INTERVAL_SECONDS = 120
 
@@ -49,22 +46,18 @@ def _decision_id(item: dict[str, Any]) -> str | None:
     return str(value) if value is not None and str(value).strip() else None
 
 
-def _decision_diagnostic_component(db: Session) -> str:
-    return LAPI_COMPONENT if crowdsec_connection_mode(db) == "lapi" else CSCLI_COMPONENT
-
-
 def _update_decision_diagnostic(db: Session, status: str, message: str | None) -> None:
-    diagnostic = db.query(Diagnostic).filter(Diagnostic.plugin == "crowdsec", Diagnostic.component == _decision_diagnostic_component(db)).first()
+    diagnostic = db.query(Diagnostic).filter(Diagnostic.plugin == "crowdsec", Diagnostic.component == LAPI_COMPONENT).first()
     if diagnostic is None:
-        diagnostic = Diagnostic(plugin="crowdsec", component=_decision_diagnostic_component(db))
+        diagnostic = Diagnostic(plugin="crowdsec", component=LAPI_COMPONENT)
         db.add(diagnostic)
     diagnostic.status = status
     diagnostic.last_error = message
     diagnostic.last_run = utc_now().replace(tzinfo=None)
 
 
-def crowdsec_cscli_status(db: Session) -> Diagnostic | None:
-    return db.query(Diagnostic).filter(Diagnostic.plugin == "crowdsec", Diagnostic.component == _decision_diagnostic_component(db)).first()
+def crowdsec_lapi_status(db: Session) -> Diagnostic | None:
+    return db.query(Diagnostic).filter(Diagnostic.plugin == "crowdsec", Diagnostic.component == LAPI_COMPONENT).first()
 
 
 def active_decision_for_ip(db: Session, ip: str) -> CrowdSecDecision | None:
@@ -74,31 +67,6 @@ def active_decision_for_ip(db: Session, ip: str) -> CrowdSecDecision | None:
         .order_by(CrowdSecDecision.synced_at.desc())
         .first()
     )
-
-
-def crowdsec_connection_mode(db: Session) -> str:
-    return get_setting_value(db, "plugin.crowdsec.connection_mode", "lapi")
-
-
-def _fetch_decisions_via_cscli(db: Session) -> tuple[bool, str, list[Any]]:
-    cscli = get_setting_value(db, "plugin.crowdsec.cscli_path", "/usr/local/bin/cscli")
-    try:
-        completed = subprocess.run([cscli, "decisions", "list", "-o", "json"], capture_output=True, text=True, timeout=30)
-    except FileNotFoundError:
-        return False, f"cscli not found: {cscli}", []
-    except Exception as exc:
-        return False, f"cscli decisions list failed: {exc}", []
-
-    if completed.returncode != 0:
-        return False, (completed.stderr or completed.stdout or "cscli decisions list failed").strip(), []
-
-    try:
-        payload = json.loads(completed.stdout or "[]")
-    except json.JSONDecodeError as exc:
-        return False, f"cscli returned invalid JSON: {exc}", []
-
-    items = payload if isinstance(payload, list) else payload.get("decisions", []) if isinstance(payload, dict) else []
-    return True, "", items
 
 
 def _fetch_decisions_via_lapi(db: Session) -> tuple[bool, str, list[Any]]:
@@ -120,10 +88,7 @@ def sync_crowdsec_decisions(db: Session, *, force: bool = False) -> tuple[bool, 
     if not force and latest and (now - latest[0]).total_seconds() < DECISION_SYNC_INTERVAL_SECONDS:
         return True, "CrowdSec decisions are fresh."
 
-    if crowdsec_connection_mode(db) == "cscli":
-        ok, message, items = _fetch_decisions_via_cscli(db)
-    else:
-        ok, message, items = _fetch_decisions_via_lapi(db)
+    ok, message, items = _fetch_decisions_via_lapi(db)
     if not ok:
         _update_decision_diagnostic(db, "error", message)
         return False, message

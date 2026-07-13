@@ -74,7 +74,7 @@ Source:
 
 Examples:
 
-`cscli decisions list`
+`CrowdSec LAPI active decisions`
 
 or:
 
@@ -404,7 +404,7 @@ and ignore it.
 
 ## CrowdSec
 
-* cscli
+* CrowdSec LAPI
 * crowdsec.log
 
 
@@ -455,4 +455,3 @@ This defines how practically every data source in OpenSecDash works.
 The current implementation uses plugin collection and periodic ticks through the plugin manager. Datasource state, health, counters, backlog flags, resilient event storage, and deduplication exist.
 
 The implemented source behavior is concrete-plugin based. A fully generic UI for all planned source types is still planned.
-

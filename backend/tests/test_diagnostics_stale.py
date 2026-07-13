@@ -38,12 +38,11 @@ def test_enabled_plugin_diagnostic_no_longer_shows_stale_disabled(monkeypatch, d
     assert row["message"] == "Plugin was re-enabled; waiting for the next health check."
 
 
-def test_crowdsec_diagnostics_hide_stale_cscli_when_lapi_is_selected(monkeypatch, db_session):
+def test_crowdsec_diagnostics_hide_obsolete_components(monkeypatch, db_session):
     _set(db_session, "plugin.crowdsec.enabled", "true")
-    _set(db_session, "plugin.crowdsec.connection_mode", "lapi")
     db_session.add(PluginRecord(id="crowdsec", name="CrowdSec", capabilities=["datasource", "action"]))
     db_session.add(Diagnostic(plugin="crowdsec", component="plugin", status="healthy", last_error="ok"))
-    db_session.add(Diagnostic(plugin="crowdsec", component="cscli", status="error", last_error="old cscli error"))
+    db_session.add(Diagnostic(plugin="crowdsec", component="obsolete", status="error", last_error="old error"))
     db_session.add(Diagnostic(plugin="crowdsec", component="lapi", status="healthy", last_error="lapi ok"))
     db_session.commit()
     captured = {}
@@ -58,12 +57,11 @@ def test_crowdsec_diagnostics_hide_stale_cscli_when_lapi_is_selected(monkeypatch
 
     components = {(row["item"].plugin, row["item"].component) for row in captured["diagnostic_rows"]}
     assert ("crowdsec", "lapi") in components
-    assert ("crowdsec", "cscli") not in components
+    assert ("crowdsec", "obsolete") not in components
 
 
-def test_crowdsec_decision_diagnostic_uses_current_connection_mode(db_session):
+def test_crowdsec_decision_diagnostic_uses_lapi_component(db_session):
     decisions = import_plugin_module("crowdsec", "services.decisions")
-    _set(db_session, "plugin.crowdsec.connection_mode", "lapi")
 
     assert decisions.Diagnostic is Diagnostic
 

@@ -142,7 +142,7 @@ Usually keep these unchanged:
 - plugin IDs: `traefik_log`, `json_assets`
 - setting keys: `plugin.traefik_log.enabled`
 - file paths and commands
-- API names such as `cscli`, `MQTT`, `GeoIP`, `Proxmox`
+- API and product names such as `LAPI`, `MQTT`, `GeoIP`, `Proxmox`
 
 ## Tone and wording
 

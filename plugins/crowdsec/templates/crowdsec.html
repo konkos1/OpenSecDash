@@ -11,18 +11,18 @@
   <div class="card mb-5">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
       <div>
-        <h3 class="font-semibold">{{ t("crowdsec.cscli_status") }}</h3>
+        <h3 class="font-semibold">{{ t("crowdsec.lapi_status") }}</h3>
         {% if action_dry_run %}
           <p class="muted text-sm">{{ t("crowdsec.actions_dry_run") }}</p>
-          {% if cscli_status and cscli_status.status != 'healthy' %}
-            <p class="muted text-sm">{{ t("crowdsec.cscli_ignored_dry_run") }}</p>
+          {% if lapi_status and lapi_status.status != 'healthy' %}
+            <p class="muted text-sm">{{ t("crowdsec.lapi_ignored_dry_run") }}</p>
           {% endif %}
-        {% elif cscli_status and cscli_status.status == 'healthy' %}
-          <p class="muted text-sm">{{ t("crowdsec.cscli_ok") }}{% if cscli_status.last_error %}: {{ cscli_status.last_error }}{% endif %}</p>
-        {% elif cscli_status %}
-          <p class="alert-error text-sm">{{ t("crowdsec.cscli_error") }}: {{ cscli_status.last_error or '-' }}</p>
+        {% elif lapi_status and lapi_status.status == 'healthy' %}
+          <p class="muted text-sm">{{ t("crowdsec.lapi_ok") }}{% if lapi_status.last_error %}: {{ lapi_status.last_error }}{% endif %}</p>
+        {% elif lapi_status %}
+          <p class="alert-error text-sm">{{ t("crowdsec.lapi_error") }}: {{ lapi_status.last_error or '-' }}</p>
         {% else %}
-          <p class="muted text-sm">{{ t("crowdsec.cscli_unknown") }}</p>
+          <p class="muted text-sm">{{ t("crowdsec.lapi_unknown") }}</p>
         {% endif %}
       </div>
       {% if can_operate %}<form method="post" action="/crowdsec/decisions/refresh" data-submit-busy>

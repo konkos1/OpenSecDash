@@ -445,6 +445,6 @@ Useful built-in examples:
 | --- | --- |
 | `plugins/traefik_log/plugin.py` + `routes.py` + `templates/` | JSON log parsing, page registration, and access event UI. |
 | `plugins/geoblock_log/plugin.py` | Simple line-based log parser. |
-| `plugins/crowdsec/plugin.py` + `services/` + `routes.py` | Log import, action execution via `cscli`, and plugin-owned UI/services. |
+| `plugins/crowdsec/plugin.py` + `services/` + `routes.py` | Log import, action execution through LAPI, and plugin-owned UI/services. |
 | `plugins/proxmox_assets/plugin.py` + `services/sync.py` | API-based periodic sync and plugin-owned service module. |
 | `plugins/mqtt/plugin.py` + `routes.py` | Export plugin behavior and an ungated route with legacy setting fallback. |
