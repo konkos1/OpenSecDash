@@ -130,8 +130,7 @@
     </form>
   </dialog>
 
-  <div id="events-results"{% if events_deferred %} hx-get="{{ request.url }}" hx-trigger="load" hx-target="#events-results" hx-select="#events-results" hx-swap="outerHTML"{% endif %}>
-  {% if events_deferred %}{% include "results_skeleton.html" %}{% else %}
+  <div id="events-results">
   <div class="hidden md:block card overflow-x-auto">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
       <p class="muted text-sm">{{ t("table.limit.events") }}</p>
@@ -215,7 +214,6 @@
       </article>
     {% endfor %}
   </div>
-  {% endif %}
   </div>
 
 {% endblock %}

@@ -116,23 +116,16 @@ def access_page(
         "event_time_from": max([value for value in [today_start(db) if today_enabled else None, range_start] if value is not None], default=None),
         "event_time_to": min([value for value in [snapshot_cutoff, custom_to] if value is not None], default=None),
     }
-    # Progressive loading (docs/internal/progressive-widget-loading/): mirrors
-    # /events - the filter/badge shell paints first; the event query runs only
-    # for the HX-Request that the load trigger and the live-refresh send.
-    is_data_request = request.headers.get("HX-Request") == "true"
-    if is_data_request:
-        events = apply_event_filters(db.query(Event), filters).order_by(Event.event_time.desc()).limit(200).all()
-        event_asset_links = asset_links_for_events(db, events)
-    else:
-        events = []
-        event_asset_links = {}
+    # Access renders its bounded table immediately. Its shared live-mode code
+    # already replaces only #access-results for later event notifications.
+    events = apply_event_filters(db.query(Event), filters).order_by(Event.event_time.desc()).limit(200).all()
+    event_asset_links = asset_links_for_events(db, events)
     column_options, active_columns = table_columns(db, "ui.access.visible_columns", DEFAULT_ACCESS_COLUMNS)
     saved_view_context = _saved_view_context(db, request)
     return render(
         request,
         db,
         "traefik_log/access.html",
-        access_deferred=not is_data_request,
         events=events,
         event_asset_links=event_asset_links,
         column_options=column_options,

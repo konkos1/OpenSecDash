@@ -979,23 +979,18 @@ def events_page(
         "hour": f"{hour_value:02d}" if hour_value is not None else "",
         "snapshot_before": snapshot_before or "",
     }
-    # Progressive loading (docs/internal/progressive-widget-loading/): the shell
-    # paints filters/badges/views immediately; the heavy event query runs only
-    # for the HX-Request that the load trigger and the live-refresh send.
-    is_data_request = request.headers.get("HX-Request") == "true"
-    if is_data_request:
-        events = apply_event_filters(db.query(Event), filters).order_by(Event.event_time.desc()).limit(200).all()
-        event_asset_links = asset_links_for_events(db, events)
-    else:
-        events = []
-        event_asset_links = {}
+    # Events renders its bounded table on the initial navigation. Live mode
+    # already refreshes only #events-results via HTMX, so a separate skeleton
+    # request here would add a round trip and a visible flash without reducing
+    # the cost of subsequent updates.
+    events = apply_event_filters(db.query(Event), filters).order_by(Event.event_time.desc()).limit(200).all()
+    event_asset_links = asset_links_for_events(db, events)
     column_options, active_columns = table_columns(db, "ui.events.visible_columns", DEFAULT_EVENTS_COLUMNS)
     saved_view_context = _saved_view_context(db, "events", request)
     return render(
         request,
         db,
         "events.html",
-        events_deferred=not is_data_request,
         events=events,
         filters=form_values,
         event_asset_links=event_asset_links,
