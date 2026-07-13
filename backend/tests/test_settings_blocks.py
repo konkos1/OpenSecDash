@@ -73,7 +73,8 @@ def test_settings_blocks_are_independent_and_use_non_nested_forms(settings_clien
     )
     db.commit()
     page = client.get("/settings")
-    core_response = client.post("/settings/core", data={"domain": "after.example"}, follow_redirects=False)
+    core_response = client.post("/settings/core", data={"timezone": "Europe/Berlin"}, follow_redirects=False)
+    branding_response = client.post("/settings/branding", data={"domain": "after.example"}, follow_redirects=False)
     notification_response = client.post("/settings/notifications", data={"notifications_enabled": "true"}, follow_redirects=False)
     asset_response = client.post("/settings/asset-updates", data={"asset_updates_github_interval": "7200"}, follow_redirects=False)
 
@@ -81,9 +82,11 @@ def test_settings_blocks_are_independent_and_use_non_nested_forms(settings_clien
     parser.feed(page.text)
     assert parser.has_nested_form is False
     assert core_response.status_code == 303
+    assert branding_response.status_code == 303
     assert notification_response.status_code == 303
     assert asset_response.status_code == 303
     assert db.query(Setting).filter_by(key="domain").one().value == "after.example"
+    assert db.query(Setting).filter_by(key="timezone").one().value == "Europe/Berlin"
     assert db.query(Setting).filter_by(key="notifications.enabled").one().value == "true"
     assert db.query(Setting).filter_by(key="asset_updates.github_interval").one().value == "7200"
     assert db.query(Setting).filter_by(key="plugin.crowdsec.enabled").one().value == "true"

@@ -13,6 +13,7 @@ from app.services.instance_branding import (
     get_instance_file,
     save_instance_file,
 )
+from app.web.tables import clean_url_value, save_setting
 
 router = APIRouter(tags=["instance"])
 
@@ -57,6 +58,8 @@ def instance_manifest(db: Session = Depends(get_db)) -> JSONResponse:
 
 @router.post("/settings/branding")
 async def save_instance_branding(
+    domain: str | None = Form(None),
+    instance_description: str | None = Form(None),
     logo: UploadFile | None = File(None),
     favicon: UploadFile | None = File(None),
     db: Session = Depends(get_db),
@@ -72,6 +75,11 @@ async def save_instance_branding(
     def _save() -> None:
         for kind, filename, data in uploads:
             save_instance_file(db, kind, filename, data)
+        if domain is not None:
+            save_setting(db, "domain", clean_url_value(domain))
+        if instance_description is not None:
+            save_setting(db, "instance_description", instance_description.strip()[:500])
+        db.commit()
 
     try:
         await asyncio.to_thread(_save)

@@ -47,7 +47,9 @@ def test_settings_template_uses_independent_details_forms():
     )
 
     assert 'action="/settings/core"' in html
+    assert 'action="/settings/branding"' in html
     assert 'action="/settings/notifications"' in html
     assert 'action="/settings/asset-updates"' in html
     assert 'name="theme"' not in html
+    assert html.index('name="domain"') > html.index('action="/settings/branding"')
     assert '<details class="card mb-5" open>' in html

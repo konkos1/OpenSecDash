@@ -459,6 +459,8 @@ EN = {
     "settings.custom_favicon": "Custom favicon (PNG, SVG, WEBP, ICO — max. 512 KB)",
     "settings.branding_upload": "Upload",
     "settings.branding_remove": "Remove",
+    "settings.branding_logo": "Used as logo",
+    "settings.branding_favicon": "Used as favicon",
     "settings.branding_error.empty": "The selected file is empty.",
     "settings.branding_error.too_large": "The file is too large.",
     "settings.branding_error.invalid_type": "This file type is not supported.",

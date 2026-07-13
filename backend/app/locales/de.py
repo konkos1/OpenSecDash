@@ -459,6 +459,8 @@ DE = {
     "settings.custom_favicon": "Eigenes Favicon (PNG, SVG, WEBP, ICO — max. 512 KB)",
     "settings.branding_upload": "Hochladen",
     "settings.branding_remove": "Entfernen",
+    "settings.branding_logo": "Verwendet als Logo",
+    "settings.branding_favicon": "Verwendet als Favicon",
     "settings.branding_error.empty": "Die ausgewählte Datei ist leer.",
     "settings.branding_error.too_large": "Die Datei ist zu groß.",
     "settings.branding_error.invalid_type": "Dieser Dateityp wird nicht unterstützt.",

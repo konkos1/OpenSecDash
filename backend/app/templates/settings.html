@@ -8,8 +8,6 @@
     <details class="card mb-5" open>
         <summary class="font-semibold cursor-pointer">{{ t("settings.core") }}</summary>
         <form class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4" method="post" action="/settings/core" x-data='{ logFileEnabled: {{ log_file_enabled | tojson }} }'>
-            <label>{{ t("settings.domain") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.domain') }}">?</button><input class="input" name="domain" value="{{ domain }}" placeholder="mydomain.com"></label>
-            <label>{{ t("settings.instance_description") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.instance_description') }}">?</button><input class="input" name="instance_description" value="{{ instance_description }}"></label>
             <label>{{ t("settings.retention_days") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.retention_days') }}">?</button><select class="input" name="retention_days">{% for value in ['7', '30', '90', '180', '365'] %}<option value="{{ value }}" {% if retention_days == value %}selected{% endif %}>{{ value }}</option>{% endfor %}<option value="0" {% if retention_days == '0' %}selected{% endif %}>{{ t("settings.unlimited") }}</option></select></label>
             <label>{{ t("settings.timezone") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.timezone') }}">?</button><input class="input" name="timezone" value="{{ timezone }}" placeholder="auto / Europe/Berlin"></label>
             <label>{{ t("settings.log_timestamp_timezone") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.log_timestamp_timezone') }}">?</button><input class="input" name="log_timestamp_timezone" value="{{ log_timestamp_timezone }}" placeholder="UTC / Europe/Berlin"></label>
@@ -28,11 +26,13 @@
             <p class="muted text-sm">{{ t("settings.branding_help") }}</p>
             {% if branding_error %}<p class="text-red-400 text-sm">{{ t("settings.branding_error." ~ branding_error) }}</p>{% endif %}
             <form class="grid grid-cols-1 md:grid-cols-2 gap-4" method="post" action="/settings/branding" enctype="multipart/form-data">
+                <label>{{ t("settings.domain") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.domain') }}">?</button><input class="input" name="domain" value="{{ domain }}" placeholder="mydomain.com"></label>
+                <label>{{ t("settings.instance_description") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.instance_description') }}">?</button><input class="input" name="instance_description" value="{{ instance_description }}"></label>
                 <label>{{ t("settings.custom_logo") }}<input class="input" type="file" name="logo" accept=".png,.svg,.webp,.jpg,.jpeg"></label>
                 <label>{{ t("settings.custom_favicon") }}<input class="input" type="file" name="favicon" accept=".png,.svg,.webp,.ico"></label>
-                <div><button class="btn" type="submit">{{ t("settings.branding_upload") }}</button></div>
+                <div><button class="btn" type="submit">{{ t("common.save_button") }}</button></div>
             </form>
-            {% for kind, file in [('logo', instance_logo), ('favicon', instance_favicon)] %}{% if file %}<div class="flex items-center gap-3"><img src="/instance/{{ kind }}?v={{ file.updated_at }}" alt="" class="branding-preview"><span class="text-sm">{{ file.filename }}</span><form method="post" action="/settings/branding/remove"><input type="hidden" name="kind" value="{{ kind }}"><button class="btn" type="submit">{{ t("settings.branding_remove") }}</button></form></div>{% endif %}{% endfor %}
+            {% for kind, label, file in [('logo', t('settings.branding_logo'), instance_logo), ('favicon', t('settings.branding_favicon'), instance_favicon)] %}{% if file %}<div class="flex items-center gap-3"><img src="/instance/{{ kind }}?v={{ file.updated_at }}" alt="{{ label }}" class="branding-preview"><span class="text-sm">{{ label }}: {{ file.filename }}</span><form method="post" action="/settings/branding/remove"><input type="hidden" name="kind" value="{{ kind }}"><button class="btn" type="submit">{{ t("settings.branding_remove") }}</button></form></div>{% endif %}{% endfor %}
         </div>
     </details>
 

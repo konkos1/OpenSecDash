@@ -1694,8 +1694,6 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
 
 @router.post("/settings/core")
 def save_core_settings(
-    domain: str = Form(""),
-    instance_description: str = Form(""),
     retention_days: str = Form("30"),
     timezone: str = Form("auto"),
     log_timestamp_timezone: str = Form("UTC"),
@@ -1706,10 +1704,7 @@ def save_core_settings(
     log_level: str = Form("INFO"),
     db: Session = Depends(get_db),
 ):
-    domain = clean_url_value(domain)
     for key, value in {
-            "domain": domain,
-            "instance_description": instance_description.strip()[:500],
             "retention_days": retention_days,
             "timezone": timezone,
             "log_timestamp_timezone": log_timestamp_timezone,

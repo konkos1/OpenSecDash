@@ -93,6 +93,41 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         });
 
+    const settingsScrollKey = "opensecdash:settings-scroll-y";
+    const settingsScrollCookie = "opensecdash_settings_scroll_y";
+    let settingsScrollY = null;
+    try {
+        settingsScrollY = sessionStorage.getItem(settingsScrollKey);
+        sessionStorage.removeItem(settingsScrollKey);
+    } catch {
+        // A browser may block session storage for this page; use the scoped
+        // cookie fallback below so settings saves still restore the viewport.
+    }
+    if (settingsScrollY === null) {
+        settingsScrollY = document.cookie
+            .split("; ")
+            .find(cookie => cookie.startsWith(`${settingsScrollCookie}=`))
+            ?.split("=")[1] || null;
+    }
+    if (settingsScrollY !== null) {
+        document.cookie = `${settingsScrollCookie}=; Max-Age=0; Path=/settings; SameSite=Lax`;
+        setTimeout(() => window.scrollTo(0, Number(settingsScrollY)), 500);
+    }
+
+    document.addEventListener("submit", event => {
+        const form = event.target;
+        if (!(form instanceof HTMLFormElement) || !form.matches('form[action^="/settings/"]') || event.defaultPrevented) {
+            return;
+        }
+        const scrollY = String(window.scrollY);
+        try {
+            sessionStorage.setItem(settingsScrollKey, scrollY);
+        } catch {
+            // The cookie below provides the fallback.
+        }
+        document.cookie = `${settingsScrollCookie}=${scrollY}; Max-Age=30; Path=/settings; SameSite=Lax`;
+    });
+
     const dirtyForms = new Set();
     let skipBeforeUnloadWarning = false;
 
