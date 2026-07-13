@@ -43,7 +43,13 @@
     </form>
   </dialog>
 
-  <div id="dashboard-results" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4">
+  {# Shell mode (normal navigation) paints skeletons and defers the heavy
+     widget queries: a single hx-trigger="load" on this container re-fetches the
+     same URL as an HX-Request, which hits the data path and swaps in the real
+     #dashboard-results. The data response carries no defer attributes, so it
+     neither loops nor interferes with the WebSocket live-refresh, which also
+     re-requests this container via HX-Request. #}
+  <div id="dashboard-results" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4"{% if dashboard_deferred %} hx-get="{{ request.url }}" hx-trigger="load" hx-target="#dashboard-results" hx-select="#dashboard-results" hx-swap="outerHTML"{% endif %}>
   {% for widget in dashboard_widgets %}
     {% set type_break = loop.index0 > 0 and loop.previtem.type != widget.type %}
     {% if widget.type == "counter" %}
@@ -56,19 +62,19 @@
       </a>
     {% elif widget.type == "table" %}
       <div class="sm:col-span-2 lg:col-span-4{% if type_break %} lg:col-start-1{% endif %}">
-        {% include "dashboard_table.html" %}
+        {% if dashboard_deferred %}{% include "dashboard_widget_skeleton.html" %}{% else %}{% include "dashboard_table.html" %}{% endif %}
       </div>
     {% elif widget.type == "map" %}
       <div class="sm:col-span-2 lg:col-span-12{% if type_break %} lg:col-start-1{% endif %}">
-        {% include "dashboard_map.html" %}
+        {% if dashboard_deferred %}{% include "dashboard_widget_skeleton.html" %}{% else %}{% include "dashboard_map.html" %}{% endif %}
       </div>
     {% elif widget.type == "trend" %}
       <div class="sm:col-span-2 lg:col-span-12{% if type_break %} lg:col-start-1{% endif %}">
-        {% include "dashboard_trend.html" %}
+        {% if dashboard_deferred %}{% include "dashboard_widget_skeleton.html" %}{% else %}{% include "dashboard_trend.html" %}{% endif %}
       </div>
     {% elif widget.type == "feed" %}
       <div class="sm:col-span-2 lg:col-span-12{% if type_break %} lg:col-start-1{% endif %}">
-        {% include "dashboard_feed.html" %}
+        {% if dashboard_deferred %}{% include "dashboard_widget_skeleton.html" %}{% else %}{% include "dashboard_feed.html" %}{% endif %}
       </div>
     {% endif %}
   {% endfor %}

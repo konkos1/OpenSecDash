@@ -12,7 +12,7 @@ def _set(db_session, key: str, value: str) -> None:
 
 
 def _request(query_params: dict[str, str] | None = None):
-    return SimpleNamespace(query_params=query_params or {}, url=SimpleNamespace(path="/access"))
+    return SimpleNamespace(query_params=query_params or {}, url=SimpleNamespace(path="/access"), headers={"HX-Request": "true"})
 
 
 def test_access_page_hides_local_ips_by_default_when_traefik_setting_enabled(monkeypatch, db_session):

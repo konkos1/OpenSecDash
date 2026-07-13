@@ -167,6 +167,8 @@
         </table>
     </div>
 
+    <div id="asset-results"{% if asset_deferred %} hx-get="{{ request.url }}" hx-trigger="load" hx-target="#asset-results" hx-select="#asset-results" hx-swap="outerHTML"{% endif %}>
+    {% if asset_deferred %}{% include "results_skeleton.html" %}{% else %}
     <section id="asset-events" class="space-y-4" x-data="{ selectedHost: 'combined' }">
         {% if host_event_sections and not focused_asset %}
             <div class="card">
@@ -286,5 +288,7 @@
             </div>
         {% endfor %}
     </section>
+    {% endif %}
+    </div>
 
 {% endblock %}

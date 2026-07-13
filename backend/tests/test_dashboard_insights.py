@@ -34,7 +34,7 @@ def test_dashboard_top_insights_groups_limits_and_filters_to_today(db_session, m
     )
     monkeypatch.setattr(pages, "render", lambda request, db, template, **context: captured.update(context) or context)
 
-    pages.dashboard_page(cast(Request, SimpleNamespace()), db_session)
+    pages.dashboard_page(cast(Request, SimpleNamespace(headers={"HX-Request": "true"})), db_session)
 
     widgets = {widget.id: widget for widget in captured["dashboard_widgets"]}
     top_insights = widgets["core.top_insights"].rows
@@ -57,7 +57,7 @@ def test_dashboard_top_insights_widget_respects_saved_layout_visibility(db_sessi
     )
     monkeypatch.setattr(pages, "render", lambda request, db, template, **context: captured.update(context) or context)
 
-    pages.dashboard_page(cast(Request, SimpleNamespace()), db_session)
+    pages.dashboard_page(cast(Request, SimpleNamespace(headers={"HX-Request": "true"})), db_session)
 
     assert "core.top_insights" not in {widget.id for widget in captured["dashboard_widgets"]}
     assert {widget.id: widget for widget in captured["dashboard_layout_widgets"]}["core.top_insights"].visible is False

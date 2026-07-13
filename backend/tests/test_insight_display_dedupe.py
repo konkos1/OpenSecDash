@@ -11,7 +11,7 @@ from app.models.systems import System
 
 
 def _request(path: str):
-    return SimpleNamespace(url=SimpleNamespace(path=path))
+    return SimpleNamespace(url=SimpleNamespace(path=path), headers={"HX-Request": "true"})
 
 
 def test_ip_explorer_dedupes_insights_by_type(monkeypatch, db_session):

@@ -1,0 +1,14 @@
+{# Generic page-section skeleton for progressive loading (see
+   docs/internal/progressive-widget-loading/). Unlike dashboard_widget_skeleton.html
+   it needs no `widget`, so any deferred results block - core or plugin - can
+   include it. Uses only global app.css classes (.card/.skeleton) plus the
+   already-compiled sr-only utility, so no Tailwind rebuild is required. #}
+<div class="card" aria-busy="true">
+  <span class="sr-only">{{ t("common.loading") }}</span>
+  <span class="skeleton skeleton-row"></span>
+  <span class="skeleton skeleton-row"></span>
+  <span class="skeleton skeleton-row"></span>
+  <span class="skeleton skeleton-row"></span>
+  <span class="skeleton skeleton-row"></span>
+  <span class="skeleton skeleton-row"></span>
+</div>

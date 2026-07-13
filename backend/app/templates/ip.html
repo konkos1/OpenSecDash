@@ -23,6 +23,8 @@
 
     {% for panel in plugin_ip_panels %}{% include panel %}{% endfor %}
 
+    <div id="ip-results"{% if ip_deferred %} hx-get="{{ request.url }}" hx-trigger="load" hx-target="#ip-results" hx-select="#ip-results" hx-swap="outerHTML"{% endif %}>
+    {% if ip_deferred %}{% include "results_skeleton.html" %}{% else %}
     <div class="card mb-5">
         <h3 class="font-semibold mb-1">{{ t("ip.insights") }} <button type="button" class="help" data-tooltip="{{ t('ip.insights_help') }}">?</button></h3>
         <p class="muted text-sm mb-3">{{ t("table.limit.ip_insights") }}</p>
@@ -77,6 +79,8 @@
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+    {% endif %}
     </div>
 
 {% endblock %}
