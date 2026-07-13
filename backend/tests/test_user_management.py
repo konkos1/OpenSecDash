@@ -109,7 +109,7 @@ def test_admin_can_manage_users_and_revokes_target_sessions(user_management_clie
         _login(viewer_client, "viewer", "password123")
         _login(operator_client, "operator", "password123")
         assert client.post(f"/settings/users/{viewer.id}/role", data={"role": "operator"}, follow_redirects=False).status_code == 303
-        assert client.post(f"/settings/users/{viewer.id}/password", data={"password": "newpassword123"}, follow_redirects=False).status_code == 303
+        assert client.post("/settings/users/password", data={"user_id": viewer.id, "password": "newpassword123"}, follow_redirects=False).status_code == 303
         assert viewer_client.get("/", follow_redirects=False).status_code == 303
 
         assert client.post(f"/settings/users/{operator.id}/toggle", follow_redirects=False).status_code == 303

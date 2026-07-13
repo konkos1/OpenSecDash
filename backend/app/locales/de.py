@@ -75,6 +75,7 @@ DE = {
     "common.path": "Pfad",
     "common.url": "URL",
     "common.action": "Aktion",
+    "common.actions": "Aktionen",
     "common.close": "Schließen",
     "table.columns": "Spalten",
     "table.columns_help": "Wähle aus, welche Spalten in dieser Tabelle angezeigt werden.",

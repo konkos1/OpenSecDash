@@ -75,6 +75,7 @@ EN = {
     "common.path": "Path",
     "common.url": "URL",
     "common.action": "Action",
+    "common.actions": "Actions",
     "common.close": "Close",
     "table.columns": "Columns",
     "table.columns_help": "Choose which columns are shown in this table.",
