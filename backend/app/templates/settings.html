@@ -246,4 +246,99 @@
         </div>
     </form>
 
+    <section class="card space-y-4 mt-5">
+        <h3 class="font-semibold">{{ t("settings.auth_section") }}</h3>
+
+        {% if auth_error %}
+            <p class="text-red-400 text-sm">{{ t("settings.auth_error." ~ auth_error) }}</p>
+        {% endif %}
+
+        {% if not auth_enabled %}
+            <p class="muted text-sm">{{ t("settings.auth_intro") }}</p>
+            <form class="grid grid-cols-1 md:grid-cols-2 gap-4" method="post" action="/settings/auth/enable">
+                <label>{{ t("auth.username") }}
+                    <input class="input" name="username" autocomplete="username">
+                </label>
+                <label>{{ t("auth.password") }}
+                    <input class="input" type="password" name="password" autocomplete="new-password">
+                </label>
+                <label>{{ t("account.confirm_password") }}
+                    <input class="input" type="password" name="password_confirm" autocomplete="new-password">
+                </label>
+                <div class="md:col-span-2">
+                    <p class="text-amber-300 text-sm mb-3">{{ t("settings.auth_enable_warning") }}</p>
+                    <button class="btn" type="submit">{{ t("settings.auth_enable") }}</button>
+                </div>
+            </form>
+
+            {% if users %}
+                <div class="space-y-2">
+                    <p class="muted text-sm">{{ t("settings.auth_existing_users") }}</p>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead><tr class="text-left text-slate-400"><th class="p-2">{{ t("auth.username") }}</th><th class="p-2">{{ t("settings.auth_role") }}</th><th class="p-2">{{ t("common.status") }}</th></tr></thead>
+                            <tbody>
+                                {% for user in users %}
+                                    <tr class="border-t border-slate-800"><td class="p-2">{{ user.username }}</td><td class="p-2">{{ t("auth.role." ~ user.role) }}</td><td class="p-2">{{ t("common.yes") if user.is_active else t("common.no") }}</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            {% endif %}
+        {% else %}
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead><tr class="text-left text-slate-400"><th class="p-2">{{ t("auth.username") }}</th><th class="p-2">{{ t("settings.auth_role") }}</th><th class="p-2">{{ t("common.status") }}</th><th class="p-2">{{ t("settings.auth_last_login") }}</th><th class="p-2">{{ t("common.action") }}</th></tr></thead>
+                    <tbody>
+                        {% for user in users %}
+                            <tr class="border-t border-slate-800 align-top">
+                                <td class="p-2">{{ user.username }}</td>
+                                <td class="p-2">
+                                    <form class="flex gap-2" method="post" action="/settings/users/{{ user.id }}/role">
+                                        <select class="input" name="role">
+                                            {% for role in ["viewer", "operator", "admin"] %}<option value="{{ role }}" {% if user.role == role %}selected{% endif %}>{{ t("auth.role." ~ role) }}</option>{% endfor %}
+                                        </select>
+                                        <button class="btn-small" type="submit">{{ t("common.save_button") }}</button>
+                                    </form>
+                                </td>
+                                <td class="p-2">{{ t("common.yes") if user.is_active else t("common.no") }}</td>
+                                <td class="p-2">{{ user.last_login_at|datetime if user.last_login_at else t("common.none") }}</td>
+                                <td class="p-2 space-y-2">
+                                    <form class="flex gap-2" method="post" action="/settings/users/{{ user.id }}/password">
+                                        <input class="input" type="password" name="password" placeholder="{{ t('account.new_password') }}" autocomplete="new-password">
+                                        <button class="btn-small" type="submit">{{ t("settings.auth_reset_password") }}</button>
+                                    </form>
+                                    <form class="inline" method="post" action="/settings/users/{{ user.id }}/toggle">
+                                        <button class="btn-small" type="submit">{{ t("settings.auth_deactivate") if user.is_active else t("settings.auth_activate") }}</button>
+                                    </form>
+                                    <form class="inline" method="post" action="/settings/users/{{ user.id }}/delete" data-confirm="{{ t('settings.auth_delete_confirm').replace('{username}', user.username) }}">
+                                        <button class="btn-small" type="submit">{{ t("settings.auth_delete") }}</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <form class="grid grid-cols-1 md:grid-cols-3 gap-4" method="post" action="/settings/users/create">
+                <h4 class="font-semibold md:col-span-3">{{ t("settings.auth_create_user") }}</h4>
+                <label>{{ t("auth.username") }}<input class="input" name="username" autocomplete="username"></label>
+                <label>{{ t("auth.password") }}<input class="input" type="password" name="password" autocomplete="new-password"></label>
+                <label>{{ t("settings.auth_role") }}
+                    <select class="input" name="role">
+                        {% for role in ["viewer", "operator", "admin"] %}<option value="{{ role }}" {% if role == "viewer" %}selected{% endif %}>{{ t("auth.role." ~ role) }}</option>{% endfor %}
+                    </select>
+                </label>
+                <div><button class="btn" type="submit">{{ t("settings.auth_create_user") }}</button></div>
+            </form>
+
+            <form method="post" action="/settings/auth/disable" data-confirm="{{ t('settings.auth_disable_warning') }}">
+                <p class="text-amber-300 text-sm mb-3">{{ t("settings.auth_disable_warning") }}</p>
+                <button class="btn" type="submit">{{ t("settings.auth_disable") }}</button>
+            </form>
+        {% endif %}
+    </section>
+
 {% endblock %}

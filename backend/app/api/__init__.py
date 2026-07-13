@@ -6,6 +6,7 @@ from app.api.events import router as events_router
 from app.api.instance import router as instance_router
 from app.api.pages import router as pages_router
 from app.api.settings import router as settings_router
+from app.api.users import router as users_router
 
 __all__ = [
     "actions_router",
@@ -16,4 +17,5 @@ __all__ = [
     "instance_router",
     "pages_router",
     "settings_router",
+    "users_router",
 ]

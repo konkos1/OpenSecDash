@@ -11,16 +11,22 @@ from app.core.template_context import get_setting_value
 from app.core.time import utc_now
 from app.core.version import get_app_version
 from app.database.dependencies import get_db
+from app.models.users import User
 from app.services.auth import (
+    PASSWORD_MIN_LENGTH,
     auth_enabled,
     authenticate,
     cleanup_expired_sessions,
     create_session,
     delete_session,
+    delete_user_sessions,
+    hash_password,
     normalize_username,
     resolve_session,
+    verify_password,
 )
 from app.web.auth import SESSION_COOKIE, set_session_cookie
+from app.web.render import render
 from app.web.templates import templates
 
 router = APIRouter(tags=["auth"])
@@ -121,4 +127,49 @@ def logout(request: Request, db: Session = Depends(get_db)):
         db.commit()
     response = RedirectResponse("/login", status_code=303)
     response.delete_cookie(SESSION_COOKIE, path="/")
+    return response
+
+
+@router.get("/account")
+def account_page(request: Request, db: Session = Depends(get_db)):
+    if not auth_enabled(db):
+        return RedirectResponse("/", status_code=303)
+    user = getattr(request.state, "user", None)
+    if user is None:
+        return RedirectResponse("/login", status_code=303)
+    return render(
+        request,
+        db,
+        "account.html",
+        account_user=user,
+        auth_error=request.query_params.get("auth_error", ""),
+        auth_notice=request.query_params.get("auth_notice", ""),
+    )
+
+
+@router.post("/auth/password")
+def change_password(
+    request: Request,
+    current_password: str = Form(),
+    new_password: str = Form(),
+    new_password_confirm: str = Form(),
+    db: Session = Depends(get_db),
+):
+    session_user = getattr(request.state, "user", None)
+    if session_user is None:
+        return RedirectResponse("/login", status_code=303)
+    user = db.query(User).filter(User.id == session_user.id).first()
+    if user is None or not verify_password(current_password, user.password_hash):
+        return RedirectResponse("/account?auth_error=wrong_password", status_code=303)
+    if len(new_password) < PASSWORD_MIN_LENGTH:
+        return RedirectResponse("/account?auth_error=password_too_short", status_code=303)
+    if new_password != new_password_confirm:
+        return RedirectResponse("/account?auth_error=password_mismatch", status_code=303)
+
+    user.password_hash = hash_password(new_password)
+    delete_user_sessions(db, user.id)
+    token = create_session(db, user)
+    db.commit()
+    response = RedirectResponse("/account?auth_notice=password_changed", status_code=303)
+    set_session_cookie(response, request, token)
     return response

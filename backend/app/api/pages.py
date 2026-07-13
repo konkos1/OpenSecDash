@@ -29,6 +29,7 @@ from app.models.events import Event
 from app.models.saved_views import SavedView
 from app.models.settings import Setting
 from app.models.systems import System
+from app.models.users import User
 from app.services.dashboard_metrics import (
     dashboard_counts_cache,
     dashboard_delta as _dashboard_delta,
@@ -42,6 +43,7 @@ from app.services.instance_branding import get_instance_file
 from app.services.notification_channels import get_channel
 from app.services.notifications import invalidate_rules_cache
 from app.services.saved_views import VIEW_SCOPES, clean_view_name, plugin_views_for_scope, view_filters_from_query, view_query_state_from_query, view_to_query
+from app.services.auth import auth_enabled
 from app.services.asset_updates import refresh_asset_update
 from app.plugins.manager import get_plugin_manager
 from app.services.asset_actions import (
@@ -1662,6 +1664,10 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
         instance_logo=get_instance_file(db, "logo"),
         instance_favicon=get_instance_file(db, "favicon"),
         branding_error=request.query_params.get("branding_error", ""),
+        auth_enabled=auth_enabled(db),
+        users=db.query(User).order_by(User.username).all(),
+        auth_error=request.query_params.get("auth_error", ""),
+        auth_notice=request.query_params.get("auth_notice", ""),
         language_setting=get_setting_value(db, "language", "en"),
         retention_days=get_setting_value(db, "retention_days", "30"),
         live_default=get_setting_value(db, "live_default", "true"),
