@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import requests
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.core.time import utc_now
@@ -320,14 +321,16 @@ def refresh_insight_rules(db: Session, *, force: bool = False) -> dict[str, Any]
         return {"status": "failed", "source": "database", "version": last_known_version or str(bundled["version"]), "count": active_count, "error": str(exc)}
 
 
-def _insight_exists(db: Session, insight_type: str, event_ids: list[int], *, ip: str | None, window_start: datetime) -> bool:
+def _insight_in_cooldown(db: Session, insight_type: str, *, ip: str | None, window_start: datetime) -> bool:
     cooldown = db.query(Insight).filter(Insight.type == insight_type, Insight.timestamp >= window_start)
     if ip is None:
         cooldown = cooldown.filter(Insight.ip.is_(None))
     else:
         cooldown = cooldown.filter(Insight.ip == ip)
-    if cooldown.first() is not None:
-        return True
+    return cooldown.first() is not None
+
+
+def _insight_exists(db: Session, insight_type: str, event_ids: list[int]) -> bool:
     return db.query(Insight).filter(Insight.type == insight_type, Insight.related_event_ids == event_ids).first() is not None
 
 
@@ -341,29 +344,32 @@ def apply_declarative_insight_rules(db: Session, event: Event) -> None:
         if not any(pattern.lower() in path for pattern in rule.path_contains_any):
             continue
         window_start = event.event_time - timedelta(minutes=rule.window_minutes)
-        matching_query = db.query(Event).filter(
+        insight_ip = event.ip if rule.group_by == "ip" else None
+        if _insight_in_cooldown(db, rule.id, ip=insight_ip, window_start=window_start):
+            continue
+        path_matches = or_(
+            *(func.lower(Event.path).contains(pattern.lower(), autoescape=True) for pattern in rule.path_contains_any)
+        )
+        matching_query = db.query(Event.id, Event.ip, Event.asset_id).filter(
             Event.event_type.in_(rule.event_types),
             Event.event_time >= window_start,
             Event.event_time <= event.event_time,
+            Event.path.isnot(None),
+            path_matches,
         )
         if rule.group_by == "ip":
             matching_query = matching_query.filter(Event.ip == event.ip)
-        matching_events = [
-            candidate
-            for candidate in matching_query.all()
-            if candidate.path and any(pattern.lower() in candidate.path.lower() for pattern in rule.path_contains_any)
-        ]
-        matching_ids = [candidate.id for candidate in matching_events]
-        distinct_ips = {candidate.ip for candidate in matching_events if candidate.ip}
+        matching_events = matching_query.all()
+        matching_ids = [candidate_id for candidate_id, _candidate_ip, _asset_id in matching_events]
+        distinct_ips = {candidate_ip for _candidate_id, candidate_ip, _asset_id in matching_events if candidate_ip}
         if len(matching_ids) < rule.threshold:
             continue
         if len(distinct_ips) < rule.min_distinct_ips:
             continue
         related_ids = sorted(set(matching_ids))[-20:]
-        insight_ip = event.ip if rule.group_by == "ip" else None
-        if _insight_exists(db, rule.id, related_ids, ip=insight_ip, window_start=window_start):
+        if _insight_exists(db, rule.id, related_ids):
             continue
-        asset_ids = {candidate.asset_id for candidate in matching_events}
+        asset_ids = {asset_id for _candidate_id, _candidate_ip, asset_id in matching_events}
         insight = Insight(
             type=rule.id,
             confidence=rule.confidence,
@@ -375,7 +381,7 @@ def apply_declarative_insight_rules(db: Session, event: Event) -> None:
             asset_id=event.asset_id if rule.group_by == "ip" else asset_ids.pop() if len(asset_ids) == 1 else None,
         )
         db.add(insight)
-        handle_insight(db, insight)
+        handle_insight(db, insight, event.event_time)
 
 
 def debug_summary(db: Session) -> list[str]:

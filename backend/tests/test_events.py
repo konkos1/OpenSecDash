@@ -10,6 +10,7 @@ from app.services.events import (
     normalize_event_time,
     store_event,
     tokenize_search_expression,
+    update_rollups,
 )
 
 
@@ -98,6 +99,22 @@ def test_store_event_deduplicates_and_updates_rollups_and_insights(db_session):
     assert db_session.query(AggregationDaily).filter_by(date="2026-01-02", metric="country", key="US").one().value == 1
     assert db_session.query(AggregationDaily).filter_by(date="2026-01-02", metric="summary", key="bans").one().value == 1
     assert db_session.query(Insight).filter_by(type="security_ban_observed", ip="8.8.8.8").count() == 1
+
+
+def test_manual_ban_action_id_is_not_part_of_scenario_rollup_key(db_session):
+    event = Event(
+        event_time=datetime(2026, 1, 2, 3, 4, 5),
+        event_type="security.ban.manual",
+        plugin="crowdsec",
+        data_json={"scenario": "Manual ban via OpenSecDash (action #42)"},
+    )
+
+    update_rollups(db_session, event)
+    db_session.commit()
+
+    row = db_session.query(AggregationDaily).filter_by(date="2026-01-02", metric="scenario").one()
+    assert row.key == "Manual ban via OpenSecDash"
+    assert row.value == 1
 
 
 def test_event_filters_support_taxonomy_wildcards_local_ips_and_boolean_search(db_session):

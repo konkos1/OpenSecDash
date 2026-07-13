@@ -8,8 +8,10 @@ installed like a native app.
 
 The interface adapts to the screen you are on:
 
-- On phones and tablets the navigation collapses into a burger menu (☰), and the
-  dashboard widgets stack into a single column.
+- When the header does not have enough room for every active navigation link,
+  it collapses into a burger menu (☰). This also covers smaller laptops, long
+  translated labels, custom logos, and installations with many active plugins.
+- On phones and tablets the dashboard widgets stack into a single column.
 - Wide tables (events, rollups, assets) turn into labelled cards on narrow
   screens, so you never have to scroll a table sideways to read a row.
 - On the **Events** page, the live/snapshot switch stays visible. In live mode a

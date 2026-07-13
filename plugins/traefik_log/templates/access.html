@@ -112,8 +112,7 @@
         </form>
     </dialog>
 
-    <div id="access-results"{% if access_deferred %} hx-get="{{ request.url }}" hx-trigger="load" hx-target="#access-results" hx-select="#access-results" hx-swap="outerHTML"{% endif %}>
-    {% if access_deferred %}{% include "results_skeleton.html" %}{% else %}
+    <div id="access-results">
     <div class="card overflow-x-auto responsive-table">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
             <p class="muted text-sm">{{ t("table.limit.access") }}</p>
@@ -168,7 +167,6 @@
             </tbody>
         </table>
     </div>
-    {% endif %}
     </div>
 
 {% endblock %}

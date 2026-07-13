@@ -84,6 +84,24 @@ def test_update_rollups_adds_summary_metrics(db_session):
     assert rollup_rows(db_session, "day", "2026-07-02", "scenario") == [{"key": "ssh-bf", "value": 1}]
 
 
+def test_rollup_rows_combines_existing_manual_ban_scenario_action_ids(db_session):
+    db_session.add_all(
+        [
+            AggregationDaily(date="2026-07-02", metric="scenario", key="Manual ban via OpenSecDash (action #7)", value=2),
+            AggregationDaily(date="2026-07-02", metric="scenario", key="Manual ban via OpenSecDash (action #8)", value=3),
+            AggregationMonthly(month="2026-07", metric="scenario", key="Manual ban via OpenSecDash (action #6)", value=4),
+        ]
+    )
+    db_session.commit()
+
+    assert rollup_rows(db_session, "day", "2026-07-02", "scenario") == [
+        {"key": "Manual ban via OpenSecDash", "value": 5}
+    ]
+    assert rollup_rows(db_session, "month", "2026-07", "scenario") == [
+        {"key": "Manual ban via OpenSecDash", "value": 9}
+    ]
+
+
 def test_update_rollups_updates_monthly_for_historical_completed_month_events(db_session, monkeypatch):
     monkeypatch.setattr(events_service, "utc_now", lambda: datetime(2026, 7, 2, 12))
 

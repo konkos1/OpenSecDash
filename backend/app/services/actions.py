@@ -71,6 +71,18 @@ def create_action(
         # OSD_PLUGIN_<NAME>_DISABLED. Reject instead (POST /api/actions maps
         # ValueError to HTTP 400).
         raise ValueError(f"Unknown action type: {action_type}")
+    definition = next(
+        (
+            definition
+            for _plugin_id, definition in manager.action_definitions()
+            if action_type == definition.action_type or action_type in definition.aliases
+        ),
+        None,
+    )
+    if definition is None:
+        raise ValueError(f"Unknown action type: {action_type}")
+    if target_type not in definition.target_types:
+        raise ValueError(f"Unsupported target type for {action_type}: {target_type}")
     critical = manager.critical_action_types()
     requires_confirmation = action_type in critical
     if requires_confirmation and not confirmed:

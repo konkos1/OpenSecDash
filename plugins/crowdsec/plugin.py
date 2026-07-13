@@ -85,18 +85,17 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
         self._decision_sync_counter = 0
 
     async def health(self, context) -> dict[str, str]:
+        # This component reports the crowdsec.log datasource. LAPI health is
+        # tracked independently by the decision-sync diagnostic below.
         log_path = Path(context.get("log_path"))
         if not log_path.exists():
             return {"status": "error", "message": f"CrowdSec log not found: {log_path}"}
-        from .services.lapi import LapiError, lapi_login
+        return {"status": "healthy", "message": f"CrowdSec log readable: {log_path}"}
 
-        url = context.get("lapi_url", "http://127.0.0.1:8080")
-        try:
-            lapi_login(url, context.get("lapi_login", ""), context.get("lapi_password", ""))
-        except LapiError as exc:
-            return {"status": "error", "message": str(exc)}
-        logger.debug("CrowdSec health OK: LAPI login at %s", url)
-        return {"status": "healthy", "message": f"CrowdSec LAPI reachable and credentials accepted: {url}"}
+    def refresh_diagnostics(self, db: Session) -> None:
+        # Validate the credentials immediately when settings are saved so the
+        # decision-sync diagnostic reflects the change before the next tick.
+        sync_crowdsec_decisions(db, force=True)
 
     async def tick(self, context) -> None:
         self._decision_sync_counter += 1

@@ -21,6 +21,13 @@ Before contributing, read the repository files:
 - `SECURITY.md`
 - `docs/CLA.md`
 
+### Using AI tools
+
+If you use an AI assistant or coding agent for a contribution, read
+[`.agents/AGENTS.md`](https://github.com/konkos1/OpenSecDash/blob/main/.agents/AGENTS.md)
+and make sure the AI tool receives and follows those instructions. They apply to all
+AI-assisted work in this repository in addition to the other contribution guidelines.
+
 ## Contributor License Agreement
 
 The project uses a Contributor License Agreement (CLA). Pull requests should confirm that the contributor agrees to the CLA. The CLA text lives in `docs/CLA.md` in the repository.
@@ -39,7 +46,18 @@ Release notes are generated from pull requests associated with the tagged change
 
 ## Code style and review
 
-There is no heavy style process yet. Prefer readable Python, type hints where helpful, small testable functions, explicit settings/capabilities, and tests for important decisions or bug fixes.
+Follow the [Code style](./code-style.md) guide for all contributions. Match the
+surrounding code, keep changes focused, use type hints, and add regression tests for bug
+fixes. Before opening a pull request, run the required checks:
+
+```bash
+cd backend
+uv run pytest -q
+uv run pyright ../backend/app ../backend/tests ../plugins
+```
+
+Both checks must pass without errors. If a check was not run, state that clearly in the
+pull request description.
 
 Maintainers may ask for changes to keep the project maintainable, safe for homelabs, and aligned with the plugin-first architecture. Please do not take review comments personally; they are part of keeping a security-focused project healthy.
 

@@ -44,6 +44,9 @@ class FakeManager:
     def critical_action_types(self) -> frozenset[str]:
         return self._plugin.critical_action_types if self._plugin is not None else frozenset()
 
+    def action_definitions(self):
+        return [(self._plugin_id, definition) for definition in self._plugin.action_definitions] if self._plugin is not None else []
+
     def plugin_id_for_action(self, action_type: str) -> str:
         return self._plugin_id if self.action_plugin_for(action_type) is not None else "core"
 
@@ -82,6 +85,15 @@ def test_validate_action_rejection_propagates(monkeypatch, db_session):
 
     with pytest.raises(ValueError, match="dummy rejected"):
         create_action(db_session, "dummy.do", "1.2.3.4", "ip", {"reject": True}, confirmed=True)
+
+
+def test_action_rejects_unsupported_target_type(monkeypatch, db_session):
+    _install(monkeypatch, DummyActionPlugin())
+
+    with pytest.raises(ValueError, match="Unsupported target type for dummy.do: hostname"):
+        create_action(db_session, "dummy.do", "192.168.1.10", "hostname", {}, confirmed=True)
+
+    assert db_session.query(Event).count() == 0
 
 
 def test_unknown_action_type_is_rejected(monkeypatch, db_session):

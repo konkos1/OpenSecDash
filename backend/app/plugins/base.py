@@ -186,6 +186,17 @@ class Plugin:
     async def health(self, context: PluginContext) -> dict[str, str]:
         return {"status": "healthy"}
 
+    def refresh_diagnostics(self, db: Session) -> None:
+        """Refresh extra diagnostic components after settings are saved.
+
+        Called synchronously (only while the plugin is enabled) alongside the
+        health check when plugin settings change, so plugins that publish
+        components beyond their own ``health()`` one - e.g. CrowdSec's
+        decision-sync ``lapi``/``cscli`` component - can reflect the new
+        settings immediately instead of waiting for their next background tick.
+        """
+        return None
+
     def web(self) -> "PluginWebRegistration | None":  # noqa: F821 - see app.plugins.web
         """Optional web surface (router, templates, nav). See app.plugins.web."""
         return None

@@ -206,14 +206,17 @@ def handle_event(db: Session, event: Event) -> None:
         logger.exception("Notification engine failed while handling event id=%s", event.id)
 
 
-def handle_insight(db: Session, insight: Insight) -> None:
+def handle_insight(db: Session, insight: Insight, occurred_at: datetime | None = None) -> None:
     """Queue matching notification records without interrupting insight creation."""
     try:
+        if insight.id is None or insight.timestamp is None:
+            db.flush([insight])
         rules, notifications_enabled = _active_rules(db)
         if not notifications_enabled:
             return
         now = utc_now().replace(tzinfo=None)
-        if insight.timestamp is None or _as_naive_utc(insight.timestamp) < now - BACKLOG_PROTECTION_WINDOW:
+        notification_time = occurred_at or insight.timestamp
+        if notification_time is None or _as_naive_utc(notification_time) < now - BACKLOG_PROTECTION_WINDOW:
             return
         for rule in rules:
             if rule.source != "insight" or not _type_matches(rule.match_types, insight.type):

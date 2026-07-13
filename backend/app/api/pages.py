@@ -42,6 +42,7 @@ from app.services.insight_rules import debug_summary as insight_rules_debug_summ
 from app.services.instance_branding import get_instance_file
 from app.services.notification_channels import get_channel
 from app.services.notifications import invalidate_rules_cache
+from app.services.rollups import combine_rollup_values
 from app.services.saved_views import VIEW_SCOPES, clean_view_name, plugin_views_for_scope, view_filters_from_query, view_query_state_from_query, view_to_query
 from app.services.auth import auth_enabled
 from app.services.asset_updates import refresh_asset_update
@@ -239,33 +240,35 @@ def rollup_rows(db: Session, period: str, value: str, metric: str, limit: int | 
         # row for the dashboard delta). Summing the leftovers in at read time
         # keeps the month exact at every moment - right after a month change
         # and for late-arriving events - instead of briefly missing them.
-        combined: dict[str, int] = {}
-        for key, row_value in (
+        stored_rows = list(
             db.query(AggregationMonthly.key, AggregationMonthly.value)
             .filter(AggregationMonthly.month == value, AggregationMonthly.metric == metric)
             .all()
-        ):
-            combined[str(key)] = combined.get(str(key), 0) + int(row_value or 0)
-        for key, row_value in (
+        )
+        stored_rows.extend(
             db.query(AggregationDaily.key, func.sum(AggregationDaily.value))
             .filter(AggregationDaily.date.like(f"{value}-%"), AggregationDaily.metric == metric)
             .group_by(AggregationDaily.key)
             .all()
-        ):
-            combined[str(key)] = combined.get(str(key), 0) + int(row_value or 0)
+        )
+        combined = combine_rollup_values(metric, ((key, row_value) for key, row_value in stored_rows))
         rows = sorted(combined.items(), key=lambda item: (-item[1], item[0]))
         if limit is not None:
             rows = rows[:limit]
         return [{"key": key, "value": row_value} for key, row_value in rows]
 
-    query = (
+    stored_rows = (
         db.query(AggregationDaily.key, AggregationDaily.value)
         .filter(AggregationDaily.date == value, AggregationDaily.metric == metric)
-        .order_by(AggregationDaily.value.desc(), AggregationDaily.key.asc())
+        .all()
+    )
+    rows = sorted(
+        combine_rollup_values(metric, ((key, row_value) for key, row_value in stored_rows)).items(),
+        key=lambda item: (-item[1], item[0]),
     )
     if limit is not None:
-        query = query.limit(limit)
-    return [{"key": str(key), "value": int(row_value or 0)} for key, row_value in query.all()]
+        rows = rows[:limit]
+    return [{"key": key, "value": row_value} for key, row_value in rows]
 
 
 def available_rollup_periods(db: Session) -> tuple[list[str], list[str]]:
@@ -976,23 +979,18 @@ def events_page(
         "hour": f"{hour_value:02d}" if hour_value is not None else "",
         "snapshot_before": snapshot_before or "",
     }
-    # Progressive loading (docs/internal/progressive-widget-loading/): the shell
-    # paints filters/badges/views immediately; the heavy event query runs only
-    # for the HX-Request that the load trigger and the live-refresh send.
-    is_data_request = request.headers.get("HX-Request") == "true"
-    if is_data_request:
-        events = apply_event_filters(db.query(Event), filters).order_by(Event.event_time.desc()).limit(200).all()
-        event_asset_links = asset_links_for_events(db, events)
-    else:
-        events = []
-        event_asset_links = {}
+    # Events renders its bounded table on the initial navigation. Live mode
+    # already refreshes only #events-results via HTMX, so a separate skeleton
+    # request here would add a round trip and a visible flash without reducing
+    # the cost of subsequent updates.
+    events = apply_event_filters(db.query(Event), filters).order_by(Event.event_time.desc()).limit(200).all()
+    event_asset_links = asset_links_for_events(db, events)
     column_options, active_columns = table_columns(db, "ui.events.visible_columns", DEFAULT_EVENTS_COLUMNS)
     saved_view_context = _saved_view_context(db, "events", request)
     return render(
         request,
         db,
         "events.html",
-        events_deferred=not is_data_request,
         events=events,
         filters=form_values,
         event_asset_links=event_asset_links,
@@ -1087,7 +1085,14 @@ def _events_for_ip_target(db: Session, ip: str, limit: int) -> list[Event]:
     if network is None:
         return db.query(Event).filter(Event.ip == _clean_ip_target(ip)).order_by(Event.event_time.desc()).limit(limit).all()
     events: list[Event] = []
-    for event in db.query(Event).filter(Event.ip.isnot(None), Event.ip != "").order_by(Event.event_time.desc()).all():
+    candidates = (
+        db.query(Event)
+        .filter(Event.ip.isnot(None), Event.ip != "")
+        .order_by(Event.event_time.desc())
+        .yield_per(500)
+        .execution_options(stream_results=True)
+    )
+    for event in candidates:
         if _ip_in_network(event.ip, network):
             events.append(event)
             if len(events) >= limit:
@@ -1100,7 +1105,14 @@ def _insights_for_ip_target(db: Session, ip: str, limit: int) -> list[Insight]:
     if network is None:
         return db.query(Insight).filter(Insight.ip == _clean_ip_target(ip)).order_by(Insight.timestamp.desc()).limit(limit).all()
     insights: list[Insight] = []
-    for insight in db.query(Insight).filter(Insight.ip.isnot(None), Insight.ip != "").order_by(Insight.timestamp.desc()).all():
+    candidates = (
+        db.query(Insight)
+        .filter(Insight.ip.isnot(None), Insight.ip != "")
+        .order_by(Insight.timestamp.desc())
+        .yield_per(500)
+        .execution_options(stream_results=True)
+    )
+    for insight in candidates:
         if _ip_in_network(insight.ip, network):
             insights.append(insight)
             if len(insights) >= limit:

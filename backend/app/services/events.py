@@ -23,6 +23,7 @@ from app.models.events import Event
 from app.services.asset_hosts import find_asset_by_host
 from app.services.insight_rules import apply_declarative_insight_rules
 from app.services.notifications import handle_event, handle_insight
+from app.services.rollups import normalize_rollup_key
 
 
 logger = logging.getLogger(__name__)
@@ -302,7 +303,7 @@ def rollup_metrics_for_event(event: Event) -> list[tuple[str, str]]:
         metrics.append(("country", event.country))
     scenario = (event.data_json or {}).get("scenario") or (event.data_json or {}).get("crowdsec_scenario")
     if scenario:
-        metrics.append(("scenario", str(scenario)))
+        metrics.append(("scenario", normalize_rollup_key("scenario", scenario)))
     return metrics
 
 
@@ -462,7 +463,7 @@ def create_rule_based_insights(db: Session, event: Event) -> None:
             asset_id=event.asset_id,
         )
         db.add(insight)
-        handle_insight(db, insight)
+        handle_insight(db, insight, event.event_time)
 
     if event.event_type in {"security.ban", "security.ban.manual"}:
         insight_type = "manual_security_ban" if event.event_type == "security.ban.manual" else "security_ban_observed"
@@ -484,7 +485,7 @@ def create_rule_based_insights(db: Session, event: Event) -> None:
                 asset_id=event.asset_id,
             )
             db.add(insight)
-            handle_insight(db, insight)
+            handle_insight(db, insight, event.event_time)
 
     window_start = event.event_time - timedelta(seconds=60)
     window_end = event.event_time + timedelta(seconds=60)
@@ -518,7 +519,7 @@ def create_rule_based_insights(db: Session, event: Event) -> None:
                     asset_id=event.asset_id or access.asset_id,
                 )
                 db.add(insight)
-                handle_insight(db, insight)
+                handle_insight(db, insight, event.event_time)
 
     apply_declarative_insight_rules(db, event)
 

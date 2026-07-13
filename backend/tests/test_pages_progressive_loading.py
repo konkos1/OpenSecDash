@@ -62,7 +62,7 @@ def _assert_data(html: str, *, marker: str) -> None:
     assert marker in html
 
 
-def test_events_shell_defers_and_data_loads(db_session):
+def test_events_renders_data_on_initial_and_htmx_requests(db_session):
     _enable(db_session, "crowdsec")
     db_session.add(Event(event_time=datetime(2026, 7, 13, 12), event_type="security.ban", plugin="crowdsec", ip="203.0.113.77", country="ZZ", hostname="h"))
     db_session.commit()
@@ -70,16 +70,15 @@ def test_events_shell_defers_and_data_loads(db_session):
     shell = _html(pages.events_page(_req("/events", hx=False), db=db_session))
     data = _html(pages.events_page(_req("/events", hx=True), db=db_session))
 
-    _assert_shell(shell, marker="203.0.113.77")
+    _assert_data(shell, marker="203.0.113.77")
     _assert_data(data, marker="203.0.113.77")
 
 
-def test_events_query_state_passed_through(db_session):
+def test_events_initial_request_has_no_deferred_fetch(db_session):
     _enable(db_session, "crowdsec")
     shell = _html(pages.events_page(_req("/events", hx=False, query_string=b"country=ZZ&ip=203.0.113.77"), db=db_session))
-    # The deferred fetch targets the same URL incl. querystring, so filters
-    # survive into the data path (guardrail 5).
-    assert 'hx-get="http://testserver/events?country=ZZ&amp;ip=203.0.113.77"' in shell
+    assert 'hx-get="http://testserver/events' not in shell
+    assert 'id="events-results"' in shell
 
 
 def test_events_guard_applies_in_shell(db_session):
@@ -121,6 +120,19 @@ def test_ip_explorer_encoded_path_passed_through(db_session):
     assert 'hx-get="http://testserver/ip/192.0.2.0%2F24"' in shell
 
 
+def test_ip_explorer_large_network_keeps_result_materialization_bounded(db_session):
+    _enable(db_session, "crowdsec")
+    db_session.add_all(
+        Event(event_time=datetime(2026, 7, 13, 12, index % 60), event_type="security.ipmarker", plugin="crowdsec", ip=f"203.0.113.{index % 255}")
+        for index in range(300)
+    )
+    db_session.commit()
+
+    events = pages._events_for_ip_target(db_session, "0.0.0.0/0", 200)
+
+    assert len(events) == 200
+
+
 def test_asset_page_shell_defers_and_data_loads(db_session):
     _enable(db_session, "json_assets")
     system = System(vmid="100", hostname="sys1", system_type="vm", source_plugin="json_assets", external_id="sys1")
@@ -146,7 +158,7 @@ def test_asset_page_unknown_system_404_in_shell(db_session):
     assert getattr(exc_info.value, "status_code", None) == 404
 
 
-def test_access_shell_defers_and_data_loads(db_session):
+def test_access_renders_data_on_initial_and_htmx_requests(db_session):
     _enable(db_session, "traefik_log")
     routes = import_plugin_module("traefik_log", "routes")
     db_session.add(Event(event_time=datetime(2026, 7, 13, 12), event_type="access.log", plugin="traefik_log", ip="198.51.100.5", is_local_ip=False))
@@ -155,7 +167,7 @@ def test_access_shell_defers_and_data_loads(db_session):
     shell = _html(routes.access_page(_req("/access", hx=False), db=db_session))
     data = _html(routes.access_page(_req("/access", hx=True), db=db_session))
 
-    _assert_shell(shell, marker="198.51.100.5")
+    _assert_data(shell, marker="198.51.100.5")
     _assert_data(data, marker="198.51.100.5")
 
 

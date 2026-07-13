@@ -190,6 +190,45 @@ def test_branding_upload_rejects_unsupported_logo(instance_branding_db):
     assert instance_branding.get_instance_file(instance_branding_db, instance_branding.KIND_LOGO) is None
 
 
+def test_branding_upload_is_atomic_when_one_file_is_invalid(instance_branding_db):
+    app.dependency_overrides[get_db] = lambda: instance_branding_db
+    client = TestClient(app)
+    try:
+        response = client.post(
+            "/settings/branding",
+            files={
+                "logo": ("logo.png", PNG_DATA, "image/png"),
+                "favicon": ("favicon.gif", b"GIF89a", "image/gif"),
+            },
+            follow_redirects=False,
+        )
+    finally:
+        client.close()
+        app.dependency_overrides.clear()
+
+    assert response.headers["location"] == "/settings?branding_error=invalid_type"
+    assert instance_branding.get_instance_file(instance_branding_db, instance_branding.KIND_LOGO) is None
+    assert instance_branding.get_instance_file(instance_branding_db, instance_branding.KIND_FAVICON) is None
+
+
+def test_branding_upload_rejects_data_beyond_read_limit(instance_branding_db):
+    app.dependency_overrides[get_db] = lambda: instance_branding_db
+    client = TestClient(app)
+    oversized = PNG_DATA + b"x" * instance_branding.MAX_BYTES[instance_branding.KIND_FAVICON]
+    try:
+        response = client.post(
+            "/settings/branding",
+            files={"favicon": ("favicon.png", oversized, "image/png")},
+            follow_redirects=False,
+        )
+    finally:
+        client.close()
+        app.dependency_overrides.clear()
+
+    assert response.headers["location"] == "/settings?branding_error=too_large"
+    assert instance_branding.get_instance_file(instance_branding_db, instance_branding.KIND_FAVICON) is None
+
+
 @pytest.mark.parametrize(
     ("kind", "filename"),
     [

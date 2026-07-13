@@ -222,8 +222,11 @@ def test_crowdsec_dashboard_top_scenarios_uses_only_today_daily_rollup(db_sessio
         [
             Setting(key="plugin.crowdsec.enabled", value="true"),
             AggregationDaily(date="2026-07-11", metric="scenario", key="crowdsecurity/ssh-bf", value=4),
+            AggregationDaily(date="2026-07-11", metric="scenario", key="Manual ban via OpenSecDash (action #41)", value=2),
+            AggregationDaily(date="2026-07-11", metric="scenario", key="Manual ban via OpenSecDash (action #42)", value=3),
             AggregationDaily(date="2026-07-10", metric="scenario", key="crowdsecurity/old-daily", value=20),
             AggregationMonthly(month="2026-06", metric="scenario", key="crowdsecurity/old-monthly", value=30),
+            AggregationMonthly(month="2026-06", metric="scenario", key="Manual ban via OpenSecDash (action #40)", value=6),
         ]
     )
     db_session.commit()
@@ -234,11 +237,14 @@ def test_crowdsec_dashboard_top_scenarios_uses_only_today_daily_rollup(db_sessio
     scenario_widget = widgets["crowdsec.top_scenarios"]
     assert scenario_widget.type == "table"
     assert scenario_widget.title_key == "crowdsec.dashboard_top_scenarios"
-    assert scenario_widget.rows[0]["label"] == "crowdsecurity/ssh-bf"
-    assert scenario_widget.rows[0]["value"] == 4
+    assert scenario_widget.rows[0]["label"] == "Manual ban via OpenSecDash"
+    assert scenario_widget.rows[0]["value"] == 5
     assert scenario_widget.rows[0]["href"].startswith("/events?")
     assert "security.ban" in scenario_widget.rows[0]["href"]
-    assert [row["label"] for row in scenario_widget.rows] == ["crowdsecurity/ssh-bf"]
+    assert [row["label"] for row in scenario_widget.rows] == ["Manual ban via OpenSecDash", "crowdsecurity/ssh-bf"]
+
+    all_time_scenarios = dict(rollups._top_rollup_metric(db_session, "scenario", 10))
+    assert all_time_scenarios["Manual ban via OpenSecDash"] == 11
 
 
 def test_collect_dashboard_widgets_includes_plugin_widgets_and_isolates_failures(monkeypatch):
