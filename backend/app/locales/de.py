@@ -209,6 +209,7 @@ DE = {
     "events.today_only": "Nur heute",
     "events.hour_filter": "Stundenfilter",
     "events.clear_hour_filter": "Stundenfilter entfernen",
+    "events.insight_filter": "Insight-Filter",
     "events.status_placeholder": "HTTP-Status",
     "events.status_min": "Min. HTTP-Status",
     "events.status_max": "Max. HTTP-Status",

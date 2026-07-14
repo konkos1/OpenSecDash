@@ -667,6 +667,10 @@ def apply_event_filters(query, filters: dict[str, Any]):
         else:
             query = query.filter(Event.event_type.contains(event_type))
 
+    event_ids = filters.get("event_ids")
+    if event_ids is not None:
+        query = query.filter(Event.id.in_(event_ids) if event_ids else Event.id == -1)
+
     for field in ["ip", "severity", "source", "plugin"]:
         if filters.get(field):
             query = query.filter(getattr(Event, field) == filters[field])

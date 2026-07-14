@@ -209,6 +209,7 @@ EN = {
     "events.today_only": "Today only",
     "events.hour_filter": "Hour filter",
     "events.clear_hour_filter": "Clear hour filter",
+    "events.insight_filter": "Insight filter",
     "events.status_placeholder": "HTTP status",
     "events.status_min": "Min. HTTP status",
     "events.status_max": "Max. HTTP status",

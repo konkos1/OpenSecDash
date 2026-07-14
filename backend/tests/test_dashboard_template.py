@@ -21,7 +21,7 @@ def render_dashboard(*, event_plugins_enabled: bool, dashboard_widgets: list[Das
     env.filters["url_path_quote"] = lambda value: str(value)
     env.filters["datetime"] = lambda value: str(value)
     env.filters["country_or_local"] = lambda value, ip=None: str(value or "")
-    env.filters["country_name"] = lambda value: str(value or "")
+    env.filters["country_name"] = lambda value: f"Country {value}" if value else "-"
     template = env.get_template("dashboard.html")
 
     return template.render(
@@ -147,7 +147,7 @@ def test_dashboard_renders_table_feed_trend_and_empty_states():
         event_plugins_enabled=True,
         dashboard_widgets=[
             DashboardWidget(
-                id="core.table",
+                id="core.top_countries",
                 type="table",
                 section="trends",
                 title_key="dashboard.top_countries",
@@ -185,6 +185,7 @@ def test_dashboard_renders_table_feed_trend_and_empty_states():
     )
 
     assert "dashboard.top_countries" in html
+    assert "Country DE" in html
     assert "dashboard.no_data" in html
     assert "world-map" in html
     assert "security.ban" in html

@@ -458,7 +458,7 @@ def core_dashboard_widgets(
                         "label": str(insight["title"]),
                         "insight_type": str(insight["type"]),
                         "value": int(insight["count"]),
-                        "href": "/events?today=true",
+                        "href": f"/events?{urlencode({'insight_type': str(insight['type']), 'today': 'true'})}",
                     }
                     for insight in top_insights
                 ),
@@ -885,6 +885,7 @@ def rollups_page(request: Request, db: Session = Depends(get_db)):
 def events_page(
     request: Request,
     event_type: str | None = None,
+    insight_type: str | None = None,
     ip: str | None = None,
     country: str | None = None,
     country_in: str | None = None,
@@ -936,8 +937,25 @@ def events_page(
     custom_to = parse_snapshot_before(to) if range_value == "custom" else None
     event_time_from = max([value for value in [hour_start, today_start(db) if today_enabled else None, range_start] if value is not None], default=None)
     event_time_to = min([value for value in [hour_end, snapshot_cutoff, custom_to] if value is not None], default=None)
+    insight_type_value = clean_filter_value(insight_type)
+    if insight_type_value and len(insight_type_value) <= 100:
+        insight_rows = db.query(Insight.related_event_ids).filter(Insight.type == insight_type_value)
+        if event_time_from is not None:
+            insight_rows = insight_rows.filter(Insight.timestamp >= event_time_from)
+        if event_time_to is not None:
+            insight_rows = insight_rows.filter(Insight.timestamp < event_time_to)
+        related_event_ids = {
+            int(event_id)
+            for (event_ids,) in insight_rows.order_by(Insight.timestamp.desc()).limit(200).all()
+            for event_id in (event_ids or [])
+            if isinstance(event_id, int) or str(event_id).isdigit()
+        }
+    else:
+        insight_type_value = None
+        related_event_ids = None
     filters = {
         "event_type": clean_filter_value(event_type),
+        "event_ids": related_event_ids,
         "ip": clean_filter_value(ip),
         "country": country_value,
         "country_in": country_in_values,
@@ -960,6 +978,7 @@ def events_page(
     }
     form_values = {
         "event_type": event_type or "",
+        "insight_type": insight_type_value or "",
         "ip": ip or "",
         "country": country or "",
         "country_in": country_in or "",
