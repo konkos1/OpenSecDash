@@ -63,4 +63,4 @@ Maintainers may ask for changes to keep the project maintainable, safe for homel
 
 ## Project status
 
-OpenSecDash is an early-stage OSS/homelab project. APIs, plugin behavior, and UI details may still change before a stable release.
+OpenSecDash now contains the feature scope planned for its first stable v1 release. It remains an independently maintained OSS/homelab project, and APIs, plugin behavior, or UI details can still change until a stable v1 tag is published. Later-scope work is intentionally tracked separately instead of expanding the v1 target indefinitely.

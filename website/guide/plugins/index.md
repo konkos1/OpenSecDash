@@ -1,6 +1,6 @@
 # Plugins
 
-OpenSecDash is plugin-first. The core app provides storage, UI, settings, diagnostics, actions, and helper services. Plugins provide integrations.
+OpenSecDash is plugin-first. The core app provides storage, UI, settings, diagnostics, the Action Framework, notification services, and safe extension points. Plugins provide integrations and can contribute datasource events, actions, dashboard widgets, IP Explorer panels, saved views, and validated declarative Insight rules.
 
 ![OpenSecDash plugin system](/assets/readme/plugin-system.svg)
 
@@ -17,4 +17,4 @@ Current plugins include:
 | [Asset update checks](./asset-update-checks.md) | Check known asset release URLs for updates |
 | [MQTT to Home Assistant](./mqtt.md) | Publish app update status to Home Assistant |
 
-Plugins define their own settings and translations. OpenSecDash renders them automatically on the Settings page.
+Plugins define their own settings and translations. OpenSecDash renders them automatically on the Settings page. Plugin-provided UI data is validated and rendered by core templates; plugins do not inject arbitrary dashboard HTML or remote executable rules.

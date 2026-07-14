@@ -13,7 +13,7 @@ function canonicalUrl(relativePath: string) {
 
 export default defineConfig({
   title: 'OpenSecDash',
-  description: 'A security dashboard for homelabs',
+  description: 'A self-hosted homelab security dashboard for events, insights, notifications, assets, and controlled actions',
   cleanUrls: true,
   lastUpdated: true,
   // Repo-internal docs living inside website/ that must not become site
@@ -29,7 +29,7 @@ export default defineConfig({
     ['meta', { property: 'og:type', content: 'website' }],
     ['meta', { property: 'og:site_name', content: 'OpenSecDash' }],
     ['meta', { property: 'og:title', content: 'OpenSecDash' }],
-    ['meta', { property: 'og:description', content: 'A security dashboard for homelabs' }],
+    ['meta', { property: 'og:description', content: 'A self-hosted homelab security dashboard for events, insights, notifications, assets, and controlled actions' }],
     ['meta', { property: 'og:image', content: `${hostname}/og-image.png` }],
     ['meta', { property: 'og:image:type', content: 'image/png' }],
     ['meta', { property: 'og:image:width', content: '1200' }],
@@ -107,7 +107,9 @@ export default defineConfig({
         text: 'Operations',
         items: [
           { text: 'Updating', link: '/guide/operations/updating' },
+          { text: 'Dashboard', link: '/guide/operations/dashboard' },
           { text: 'Dashboard rollups', link: '/guide/operations/dashboard-rollups' },
+          { text: 'Actions and safety', link: '/guide/operations/actions' },
           { text: 'Insights engine', link: '/guide/operations/insight-rules' },
           { text: 'Troubleshooting', link: '/guide/operations/troubleshooting' }
         ]

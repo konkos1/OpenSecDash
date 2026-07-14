@@ -4,7 +4,7 @@ layout: home
 hero:
   name: OpenSecDash
   text: A security dashboard for homelabs
-  tagline: Turn reverse proxy logs, CrowdSec decisions, Proxmox inventory, app update signals, and heuristic insights into a practical live-first security UI.
+  tagline: Turn homelab events, access logs, CrowdSec decisions, asset inventory, and update signals into correlated insights, notifications, and controlled actions.
   image:
     src: /favicon.svg
     alt: OpenSecDash logo
@@ -25,37 +25,49 @@ hero:
 
 features:
   - icon: 🛡️
-    title: Security-first homelab visibility
-    details: See access logs, security events, blocked requests, IP context, and CrowdSec actions in one focused dashboard.
+    title: Live security dashboard
+    details: Arrange plugin-driven widgets for bans, geoblocks, access activity, assets, updates, insights, and historical trends.
   - icon: 🔎
-    title: Insights engine
-    details: "Surface useful security context from noisy events: web probes, bans, geoblocks, correlations, and remotely updated declarative rules."
+    title: Investigate and correlate
+    details: Filter Events and Access, save investigation views, and connect IPs, assets, paths, bans, geoblocks, and web probes.
   - icon: 🧭
-    title: IP Explorer
-    details: Investigate what happened around a specific IP address and correlate access, block, ban, and insight activity.
+    title: Insights engine
+    details: Turn noisy traffic into deterministic findings with validated declarative rules—never remotely executed code.
+  - icon: ⚡
+    title: Controlled actions
+    details: Ban or unban public IPs through CrowdSec LAPI with confirmations, permissions, dry-run simulation, and audit history.
+  - icon: 🔔
+    title: Useful notifications
+    details: Send SMTP alerts for matching events, insights, offline assets, and plugin errors with cooldowns and digest aggregation.
   - icon: 🧩
-    title: Plugin-based
-    details: Start with CrowdSec, Traefik, GeoIP, Proxmox Assets, JSON Assets, MQTT, and extend from there.
+    title: Plugin-first architecture
+    details: Start with CrowdSec, Traefik, GeoIP, Proxmox Assets, JSON Assets, GeoBlock, MQTT, and extend from there.
   - icon: 📦
     title: Assets and updates
-    details: Track apps running in your homelab, check GitHub releases, and keep imported sources separate and safe.
-  - icon: 🏠
-    title: Built for homelabs
-    details: Docker-first deployment, responsive UI, sensible defaults, and no need to build a full observability stack first.
-  - icon: 🧰
-    title: Debuggable
-    details: Diagnostics and debug ZIP exports help understand plugin health, datasource state, and recent actions.
+    details: Track systems and apps, link hosts to security events, check GitHub releases, and publish update states to Home Assistant.
+  - icon: 👥
+    title: Optional sign-in and roles
+    details: Enable internal Viewer, Operator, and Admin accounts, personal preferences, saved views, and per-user dashboard layouts.
+  - icon: 📱
+    title: Responsive and installable
+    details: Use every workflow on phones, tablets, and desktops, or install OpenSecDash as a PWA behind HTTPS.
 ---
 
-## Live-first, not Grafana-shaped
+## From signals to response
 
-OpenSecDash is not a Grafana replacement. It focuses on security-oriented context: IP-centric investigations, event taxonomy, access-log correlation, the Insights engine, asset inventory, update signals, plugin health, and controlled actions such as CrowdSec ban/unban.
+OpenSecDash brings the complete planned v1 workflow into one understandable, self-hosted UI:
+
+```text
+Datasources → Enrichment → Events → Insights → Dashboard / Explorer → Notifications / Actions
+```
+
+It is not a Grafana replacement. Instead of asking you to build a general-purpose observability stack, OpenSecDash focuses on security-oriented homelab workflows: IP-centric investigations, structured event filters, access-log correlation, deterministic insights, asset inventory, update signals, plugin health, notifications, and controlled CrowdSec actions.
 
 ![OpenSecDash dashboard](/assets/screenshots/dashboard.png)
 
 ## A closer look
 
-Filter security events, investigate a single IP with one click, and keep an eye on your apps and their updates:
+Filter and save security investigations, inspect one IP with a click, and keep an eye on your apps and their updates:
 
 ![Security events with filters](/assets/screenshots/events.png)
 
@@ -72,4 +84,4 @@ cp docker/docker-compose.example.yml docker-compose.yml
 docker compose up -d
 ```
 
-OpenSecDash does not include built-in authentication yet. Keep it internal, behind a VPN, or behind a trusted auth reverse proxy.
+OpenSecDash includes optional internal sign-in with Viewer, Operator, and Admin roles. It is disabled by default so existing deployments keep their current access model. Even with internal sign-in enabled, keep the dashboard internal, behind a VPN, or behind a trusted HTTPS reverse proxy.
