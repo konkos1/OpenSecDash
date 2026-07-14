@@ -57,6 +57,7 @@ def test_notifications_page_shows_rules_history_and_configuration_hint(notificat
     assert 'id="notification-rules-form"' in response.text
     assert 'hx-select="#notification-rules-form"' in response.text
     assert 'data-unsaved-warning="Discard unsaved settings changes?"' in response.text
+    assert "data-save-feedback" in response.text
 
 
 def test_notification_rule_toggle_invalidates_engine_cache(notifications_db):

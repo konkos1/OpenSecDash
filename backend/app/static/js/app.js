@@ -64,6 +64,25 @@ document.addEventListener("DOMContentLoaded", () => {
     localizeOpenSecDashDatetimes();
     localizeOpenSecDashCountries();
 
+    let saveFeedbackTimeout = null;
+    const showSaveFeedback = () => {
+        const banner = document.getElementById("save-feedback-banner");
+        const message = banner && banner.querySelector("[data-save-feedback-message]");
+        if (!banner || !message) {
+            return;
+        }
+
+        message.textContent = banner.dataset.message;
+        banner.hidden = false;
+        if (saveFeedbackTimeout !== null) {
+            clearTimeout(saveFeedbackTimeout);
+        }
+        saveFeedbackTimeout = setTimeout(() => {
+            banner.hidden = true;
+            saveFeedbackTimeout = null;
+        }, 3500);
+    };
+
     // Every periodically/live-refreshed region on any page (Events/Access,
     // Dashboard, CrowdSec, Diagnostics, Assets) goes through an htmx outerHTML
     // swap. That replaces the DOM node, which would otherwise silently reset
@@ -94,6 +113,12 @@ document.addEventListener("DOMContentLoaded", () => {
     document.body.addEventListener("htmx:afterSwap", event => {
         localizeOpenSecDashDatetimes();
         localizeOpenSecDashCountries();
+
+        const swappedTarget = event.detail && event.detail.target;
+        const swappedElement = swappedTarget && swappedTarget.id ? document.getElementById(swappedTarget.id) : swappedTarget;
+        if (swappedElement && swappedElement.matches("form[data-save-feedback]") && !swappedElement.querySelector("[data-save-error]")) {
+            showSaveFeedback();
+        }
 
         if (event.detail && event.detail.target && event.detail.target.id === "account-preferences-form") {
             const preferencesForm = document.getElementById("account-preferences-form");

@@ -17,6 +17,7 @@ DE = {
     "common.saving": "Speichert…",
     "common.cancel": "Abbrechen",
     "common.close": "Schließen",
+    "common.settings_saved": "Einstellungen gespeichert.",
     "notifications.title": "Benachrichtigungen",
     "notifications.sent": "Gesendet",
     "notifications.failed": "Fehlgeschlagen",

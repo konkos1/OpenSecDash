@@ -105,6 +105,7 @@ def test_settings_blocks_are_independent_and_use_non_nested_forms(settings_clien
     assert 'id="settings-plugin-crowdsec-form"' in page.text
     assert 'hx-select="#settings-plugin-crowdsec-form"' in page.text
     assert page.text.count('data-unsaved-warning="Discard unsaved settings changes?"') >= 4
+    assert page.text.count("data-save-feedback") >= 4
 
 
 def test_settings_details_open_only_core_and_place_users_after_branding(settings_client):

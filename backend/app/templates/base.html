@@ -29,7 +29,7 @@
             <link rel="apple-touch-icon" href="/static/img/pwa/icon-192.png">
         {% endif %}
         <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials">
-        <link rel="stylesheet" href="/static/css/app.css?v={{ app_version }}-stable-scrollbar-gutter">
+        <link rel="stylesheet" href="/static/css/app.css?v={{ app_version }}-save-feedback-banner">
         {# tailwind.css must come AFTER app.css: the Play CDN used to inject
            its styles at runtime (i.e. last), so utilities like .grid always
            won equal-specificity fights against app.css rules - e.g. the
@@ -105,9 +105,10 @@
         {# Run the responsive navigation measurement before parsing potentially
            large page tables, so the header reaches its final layout before
            the browser can paint an intermediate collapsed state. #}
-        <script src="/static/js/app.js?v={{ app_version }}-navigation-before-content"></script>
+        <script src="/static/js/app.js?v={{ app_version }}-settings-save-feedback"></script>
 
         {% include "backlog_banner.html" %}
+        {% include "save_feedback_banner.html" %}
 
         <main class="max-w-7xl mx-auto px-4 py-6">
             {% if current_path not in top_level_paths %}

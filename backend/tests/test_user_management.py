@@ -235,6 +235,7 @@ def test_every_role_can_update_only_its_own_preferences(user_management_client):
     assert 'id="account-password-form"' in account_html
     assert 'hx-select="#account-password-form"' in account_html
     assert account_html.count('data-unsaved-warning="Discard unsaved settings changes?"') == 2
+    assert account_html.count(" data-save-feedback ") == 2
     operator = create_user(db, "operator", "password123", "operator")
     viewer = create_user(db, "viewer", "password123", "viewer")
     db.add_all(
