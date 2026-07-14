@@ -20,6 +20,14 @@ WEBP_DATA = b"RIFF\x00\x00\x00\x00WEBP" + b"\x00" * 16
 SVG_DATA = b'<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg"></svg>'
 
 
+def png_header(width: int, height: int) -> bytes:
+    return b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR" + width.to_bytes(4, "big") + height.to_bytes(4, "big")
+
+
+def webp_vp8x_header(width: int, height: int) -> bytes:
+    return b"RIFF\x00\x00\x00\x00WEBPVP8X" + b"\x00" * 8 + (width - 1).to_bytes(3, "little") + (height - 1).to_bytes(3, "little")
+
+
 @pytest.fixture()
 def instance_branding_db(tmp_path: Path):
     engine = create_engine(f"sqlite:///{tmp_path / 'instance-branding.db'}", connect_args={"check_same_thread": False})
@@ -62,6 +70,23 @@ def test_validate_upload_enforces_size_and_allowed_types():
         instance_branding.validate_upload(instance_branding.KIND_LOGO, ICO_DATA)
 
     assert instance_branding.validate_upload(instance_branding.KIND_FAVICON, ICO_DATA) == "image/x-icon"
+
+
+@pytest.mark.parametrize(
+    ("data", "content_type", "size"),
+    [
+        (png_header(512, 512), "image/png", "512x512"),
+        (png_header(1024, 1024), "image/png", "1024x1024"),
+        (png_header(192, 192), "image/png", None),
+        (png_header(512, 256), "image/png", None),
+        (webp_vp8x_header(512, 512), "image/webp", "512x512"),
+        (webp_vp8x_header(512, 256), "image/webp", None),
+        (SVG_DATA, "image/svg+xml", "512x512"),
+        (ICO_DATA, "image/x-icon", None),
+    ],
+)
+def test_pwa_icon_size_accepts_only_scalable_or_large_square_favicons(data, content_type, size):
+    assert instance_branding.pwa_icon_size(data, content_type) == size
 
 
 def test_instance_file_roundtrip_versions_and_deletion(db_session, monkeypatch):

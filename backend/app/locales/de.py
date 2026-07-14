@@ -463,7 +463,7 @@ DE = {
     "settings.branding": "Instanz-Branding",
     "settings.branding_help": "Füge ein eigenes Logo und Favicon für diese Instanz hinzu. Name und Icon von OpenSecDash bleiben immer sichtbar — dein Logo ergänzt sie, es ersetzt sie nicht.",
     "settings.custom_logo": "Logo hinzufügen (PNG, SVG, WEBP, JPEG — max. 1 MB)",
-    "settings.custom_favicon": "Eigenes Favicon (PNG, SVG, WEBP, ICO — max. 512 KB)",
+    "settings.custom_favicon": "Eigenes Favicon (PNG, SVG, WEBP, ICO — max. 512 KB; für die installierte App quadratisch und mindestens 512×512 oder SVG)",
     "settings.branding_upload": "Hochladen",
     "settings.branding_remove": "Entfernen",
     "settings.branding_logo": "Verwendet als Logo",

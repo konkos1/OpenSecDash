@@ -463,7 +463,7 @@ EN = {
     "settings.branding": "Instance Branding",
     "settings.branding_help": "Add a custom logo and favicon for this instance. The OpenSecDash name and icon always stay visible — your logo is added, it does not replace them.",
     "settings.custom_logo": "Add logo (PNG, SVG, WEBP, JPEG — max. 1 MB)",
-    "settings.custom_favicon": "Custom favicon (PNG, SVG, WEBP, ICO — max. 512 KB)",
+    "settings.custom_favicon": "Custom favicon (PNG, SVG, WEBP, ICO — max. 512 KB; for the installed app use a square image of at least 512×512 or SVG)",
     "settings.branding_upload": "Upload",
     "settings.branding_remove": "Remove",
     "settings.branding_logo": "Used as logo",

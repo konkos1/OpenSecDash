@@ -12,6 +12,7 @@ from app.services.instance_branding import (
     MAX_BYTES,
     delete_instance_file,
     get_instance_file,
+    pwa_icon_size,
     save_instance_file,
     validate_upload,
 )
@@ -51,11 +52,12 @@ def instance_manifest(db: Session = Depends(get_db)) -> JSONResponse:
         {"src": "/static/img/pwa/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
         {"src": "/static/img/pwa/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
         {"src": "/static/img/pwa/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
-        {"src": "/static/img/opensecdash-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"},
     ]
     if favicon is not None and favicon.content_type in {"image/png", "image/webp", "image/svg+xml"}:
-        icons.insert(0, {"src": f"/instance/favicon?v={favicon.updated_at}", "sizes": "any", "type": favicon.content_type, "purpose": "any"})
-    return JSONResponse({"name": f"OpenSecDash · {domain}" if domain else "OpenSecDash", "short_name": "OpenSecDash", "description": get_setting_value(db, "instance_description", "") or "A security dashboard for homelabs.", "start_url": "/", "scope": "/", "display": "standalone", "background_color": "#0f172a", "theme_color": "#0f172a", "icons": icons}, media_type="application/manifest+json", headers={"Cache-Control": "no-cache"})
+        custom_size = pwa_icon_size(favicon.data, favicon.content_type)
+        if custom_size is not None:
+            icons.insert(0, {"src": f"/instance/favicon?v={favicon.updated_at}", "sizes": custom_size, "type": favicon.content_type, "purpose": "any"})
+    return JSONResponse({"id": "/", "name": f"OpenSecDash · {domain}" if domain else "OpenSecDash", "short_name": "OpenSecDash", "description": get_setting_value(db, "instance_description", "") or "A security dashboard for homelabs.", "start_url": "/", "scope": "/", "display": "standalone", "background_color": "#0f172a", "theme_color": "#0f172a", "icons": icons}, media_type="application/manifest+json", headers={"Cache-Control": "no-cache"})
 
 
 @router.post("/settings/branding")
