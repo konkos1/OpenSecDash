@@ -11,7 +11,8 @@
           </td>
           {% else %}
           <td>
-            {% if row.href %}<a href="{{ row.href }}">{{ row.label }}</a>{% else %}{{ row.label }}{% endif %}
+            {% set row_label = row.label|country_name if widget.id == "core.top_countries" else row.label %}
+            {% if row.href %}<a href="{{ row.href }}">{{ row_label }}</a>{% else %}{{ row_label }}{% endif %}
           </td>
           <td class="text-right">{% if row.href %}<a href="{{ row.href }}"><strong>{{ row.value }}</strong></a>{% else %}<strong>{{ row.value }}</strong>{% endif %}</td>
           {% endif %}
