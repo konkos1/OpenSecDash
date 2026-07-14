@@ -57,4 +57,4 @@ def test_manifest_available(client):
 def test_base_page_links_manifest(client):
     response = client.get("/")
     assert response.status_code == 200
-    assert "manifest.webmanifest" in response.text
+    assert '<link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials">' in response.text

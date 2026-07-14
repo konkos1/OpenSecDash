@@ -28,7 +28,7 @@
             <link rel="icon" href="/static/img/pwa/icon-192.png" sizes="192x192" type="image/png">
             <link rel="apple-touch-icon" href="/static/img/pwa/icon-192.png">
         {% endif %}
-        <link rel="manifest" href="/manifest.webmanifest">
+        <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials">
         <link rel="stylesheet" href="/static/css/app.css?v={{ app_version }}-stable-scrollbar-gutter">
         {# tailwind.css must come AFTER app.css: the Play CDN used to inject
            its styles at runtime (i.e. last), so utilities like .grid always
