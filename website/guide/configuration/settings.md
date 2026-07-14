@@ -25,7 +25,10 @@ OpenSecDash name and icon always remain visible; a custom logo does not replace
 them.
 
 You can also upload a custom favicon. Favicons support PNG, SVG, WEBP, and ICO
-up to 512 KB. They are used for the browser tab, bookmarks, and the PWA icon.
+up to 512 KB. They are used for the browser tab and bookmarks. The same upload
+is used for the installed PWA when it is an SVG or a square PNG/WEBP image of
+at least 512 x 512 pixels; smaller images remain browser favicons and the PWA
+uses the OpenSecDash fallback icon.
 ICO works in the browser tab only; use PNG, SVG, or WEBP when you also want the
 custom icon in the installed PWA. Logos support PNG, SVG, WEBP, and JPEG up to
 1 MB.

@@ -39,6 +39,36 @@ def detect_image_type(data: bytes) -> str | None:
     return None
 
 
+def pwa_icon_size(data: bytes, content_type: str) -> str | None:
+    """Return a usable manifest size for a scalable or large square favicon."""
+    if content_type == "image/svg+xml":
+        # Chromium accepts SVG manifest icons when a concrete target size is
+        # advertised. The vector remains suitable at other rendered sizes.
+        return "512x512"
+
+    width: int | None = None
+    height: int | None = None
+    if content_type == "image/png" and len(data) >= 24 and data.startswith(b"\x89PNG\r\n\x1a\n"):
+        width = int.from_bytes(data[16:20], "big")
+        height = int.from_bytes(data[20:24], "big")
+    elif content_type == "image/webp" and len(data) >= 30 and data.startswith(b"RIFF") and data[8:12] == b"WEBP":
+        chunk = data[12:16]
+        if chunk == b"VP8X":
+            width = int.from_bytes(data[24:27], "little") + 1
+            height = int.from_bytes(data[27:30], "little") + 1
+        elif chunk == b"VP8 " and data[23:26] == b"\x9d\x01\x2a":
+            width = int.from_bytes(data[26:28], "little") & 0x3FFF
+            height = int.from_bytes(data[28:30], "little") & 0x3FFF
+        elif chunk == b"VP8L" and data[20] == 0x2F:
+            dimensions = int.from_bytes(data[21:25], "little")
+            width = (dimensions & 0x3FFF) + 1
+            height = ((dimensions >> 14) & 0x3FFF) + 1
+
+    if width is None or height is None or width != height or width < 512:
+        return None
+    return f"{width}x{height}"
+
+
 def validate_upload(kind: str, data: bytes) -> str:
     """Validate an uploaded instance image and return its detected type."""
     if not data:
