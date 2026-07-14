@@ -5,6 +5,7 @@ import io
 import ipaddress
 import json
 import logging
+import os
 from pathlib import Path
 import platform
 from typing import Annotated
@@ -19,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from app.core import plugin_registry
 from app.core.logging import configure_logging_from_db, redact_sensitive, redacted_setting_value
+from app.core.settings import settings as runtime_settings
 from app.core.template_context import get_setting_value
 from app.core.time import utc_now
 from app.core.version import get_app_version
@@ -27,9 +29,9 @@ from app.models.assets import Asset
 from app.models.core import Action, AggregationDaily, AggregationMonthly, Datasource, Diagnostic, Insight, Notification, NotificationRule, PluginRecord
 from app.models.events import Event
 from app.models.saved_views import SavedView
-from app.models.settings import Setting
+from app.models.settings import InstanceFile, Setting
 from app.models.systems import System
-from app.models.users import User
+from app.models.users import User, UserPreference, UserSession
 from app.services.dashboard_metrics import (
     dashboard_counts_cache,
     dashboard_delta as _dashboard_delta,
@@ -44,7 +46,7 @@ from app.services.notification_channels import get_channel
 from app.services.notifications import invalidate_rules_cache
 from app.services.rollups import combine_rollup_values
 from app.services.saved_views import VIEW_SCOPES, clean_view_name, plugin_views_for_scope, view_filters_from_query, view_query_state_from_query, view_to_query
-from app.services.auth import auth_enabled
+from app.services.auth import AUTH_DISABLED_ENV, auth_enabled
 from app.services.asset_updates import refresh_asset_update
 from app.plugins.manager import get_plugin_manager
 from app.services.asset_actions import (
@@ -64,6 +66,7 @@ from app.web.guards import (
     require_events_feature_enabled,
 )
 from app.web.render import render
+from app.web.proxy_headers import TRUSTED_PROXIES_ENV
 from app.web.tables import (
     DEFAULT_EVENTS_COLUMNS,
     asset_links_for_events,
@@ -1519,6 +1522,103 @@ def _debug_file(title: str, lines: list[str]) -> str:
     return "\n".join([title, "=" * len(title), *lines, ""])
 
 
+def _proxy_trust_summary() -> str:
+    raw_value = os.environ.get(TRUSTED_PROXIES_ENV)
+    if raw_value is None:
+        return "default"
+    if not raw_value.strip():
+        return "disabled"
+    if raw_value.strip() == "*":
+        return "trust-all"
+
+    valid_entries = 0
+    invalid_entries = 0
+    for value in raw_value.split(","):
+        try:
+            ipaddress.ip_network(value.strip(), strict=False)
+            valid_entries += 1
+        except ValueError:
+            invalid_entries += 1
+    return f"custom; valid_entries={valid_entries}; invalid_entries={invalid_entries}"
+
+
+def _debug_runtime_lines(db: Session) -> list[str]:
+    migration = db.query(Diagnostic).filter(Diagnostic.plugin == "system", Diagnostic.component == "database_migrations").first()
+    return [
+        _debug_line("Database backend", runtime_settings.database_url.partition(":")[0]),
+        _debug_line("Automatic migrations", runtime_settings.auto_migrate),
+        _debug_line("Migration diagnostic", migration.status if migration is not None else "not available"),
+        _debug_line("Migration detail", migration.last_error if migration is not None else ""),
+        _debug_line("Trusted proxy mode", _proxy_trust_summary()),
+    ]
+
+
+def _debug_authentication_lines(db: Session) -> list[str]:
+    break_glass = os.environ.get(AUTH_DISABLED_ENV, "").lower() in ("1", "true", "yes")
+    lines = [
+        _debug_line("Effective authentication", "enabled" if auth_enabled(db) else "disabled"),
+        _debug_line("Break-glass override", "active" if break_glass else "inactive"),
+        _debug_line("Users total", db.query(User).count()),
+        _debug_line("Users active", db.query(User).filter(User.is_active == True).count()),  # noqa: E712
+        _debug_line(
+            "Active sessions",
+            db.query(UserSession).filter(UserSession.expires_at > utc_now().replace(tzinfo=None)).count(),
+        ),
+    ]
+    for role in ("admin", "operator", "viewer"):
+        lines.append(_debug_line(f"Users role {role}", db.query(User).filter(User.role == role).count()))
+    return lines
+
+
+def _debug_notification_lines(db: Session) -> list[str]:
+    channel = get_channel("email")
+    lines = [
+        _debug_line("Notifications enabled", get_setting_value(db, "notifications.enabled", "false").lower() == "true"),
+        _debug_line("Email channel configured", channel is not None and channel.is_configured(db)),
+        _debug_line("Rules total", db.query(NotificationRule).count()),
+        _debug_line("Rules enabled", db.query(NotificationRule).filter(NotificationRule.enabled == True).count()),  # noqa: E712
+    ]
+    for status in ("pending", "sent", "failed", "skipped"):
+        lines.append(_debug_line(f"Deliveries {status}", db.query(Notification).filter(Notification.status == status).count()))
+
+    lines.extend(["", "Recent delivery failures", "------------------------"])
+    failures = db.query(Notification).filter(Notification.status == "failed").order_by(Notification.created_at.desc()).limit(20).all()
+    if not failures:
+        lines.append("No failed deliveries.")
+    for notification in failures:
+        lines.append(
+            _debug_line(
+                f"notification#{notification.id}",
+                f"time={notification.created_at}; rule={notification.rule_id}; channel={notification.channel}; error={notification.error or ''}",
+            )
+        )
+    return lines
+
+
+def _debug_branding_lines(db: Session) -> list[str]:
+    files = {item.kind: item for item in db.query(InstanceFile).all()}
+    lines: list[str] = []
+    for kind in ("logo", "favicon"):
+        item = files.get(kind)
+        lines.append(
+            _debug_line(
+                kind.capitalize(),
+                "not configured" if item is None else f"configured; content_type={item.content_type}; bytes={len(item.data)}",
+            )
+        )
+    return lines
+
+
+def _debug_ui_state_lines(db: Session) -> list[str]:
+    return [
+        _debug_line("Saved views total", db.query(SavedView).count()),
+        _debug_line("Saved views events", db.query(SavedView).filter(SavedView.scope == "events").count()),
+        _debug_line("Saved views access", db.query(SavedView).filter(SavedView.scope == "access").count()),
+        _debug_line("User preference records", db.query(UserPreference).count()),
+        _debug_line("Dashboard layouts", db.query(Setting).filter(Setting.key.like("ui.dashboard_layout%")).count()),
+    ]
+
+
 def build_debug_report_files(db: Session) -> dict[str, str]:
     generated_at = utc_now().isoformat()
     log_text, log_status = _read_debug_log_tail(db)
@@ -1536,7 +1636,7 @@ def build_debug_report_files(db: Session) -> dict[str, str]:
                 "Redaction notice",
                 "----------------",
                 "OpenSecDash has already redacted known sensitive values in this package, including passwords, tokens, API keys, access keys, bearer credentials, URL usernames, and sensitive URL query parameters.",
-                "Please still review every file before attaching the ZIP to a public GitHub issue. Internal hostnames, public IPs, asset names, and log-specific payloads may still be meaningful in your environment.",
+                "Please still review every file before attaching the ZIP to a public GitHub issue. Internal hostnames, public IPs, email addresses, asset names, and log-specific payloads may still be meaningful in your environment.",
             ],
         ),
         "settings.txt": _debug_file(
@@ -1581,8 +1681,19 @@ def build_debug_report_files(db: Session) -> dict[str, str]:
                 _debug_line("systems", db.query(System).count()),
                 _debug_line("insights", db.query(Insight).count()),
                 _debug_line("actions", db.query(Action).count()),
+                _debug_line("notification_rules", db.query(NotificationRule).count()),
+                _debug_line("notifications", db.query(Notification).count()),
+                _debug_line("users", db.query(User).count()),
+                _debug_line("user_sessions", db.query(UserSession).count()),
+                _debug_line("user_preferences", db.query(UserPreference).count()),
+                _debug_line("saved_views", db.query(SavedView).count()),
             ],
         ),
+        "runtime-environment.txt": _debug_file("Runtime environment", _debug_runtime_lines(db)),
+        "authentication.txt": _debug_file("Authentication", _debug_authentication_lines(db)),
+        "notifications.txt": _debug_file("Notifications", _debug_notification_lines(db)),
+        "branding-pwa.txt": _debug_file("Branding and PWA", _debug_branding_lines(db)),
+        "ui-state.txt": _debug_file("UI state", _debug_ui_state_lines(db)),
         "insight-rules.txt": _debug_file("Insights Engine Rules", insight_rules_debug_summary(db)),
         "recent-actions.txt": _debug_file(
             "Recent actions",
