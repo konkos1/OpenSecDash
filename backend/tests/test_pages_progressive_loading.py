@@ -81,6 +81,41 @@ def test_events_initial_request_has_no_deferred_fetch(db_session):
     assert 'id="events-results"' in shell
 
 
+def test_events_mobile_rows_match_access_layout_and_open_long_user_agent(db_session):
+    _enable(db_session, "crowdsec")
+    db_session.add(Setting(key="ui.events.visible_columns", value="time,type,path,url,user_agent"))
+    db_session.add(
+        Event(
+            event_time=datetime(2026, 7, 13, 12),
+            event_type="security.mobilemarker",
+            plugin="crowdsec",
+            path="/a/very/long/path",
+            data_json={"user_agent": "Long Mobile User Agent / 1.0"},
+        )
+    )
+    db_session.add(
+        Event(
+            event_time=datetime(2026, 7, 13, 11),
+            event_type="security.mobileempty",
+            plugin="crowdsec",
+        )
+    )
+    db_session.commit()
+
+    html = _html(pages.events_page(_req("/events", hx=False), db=db_session))
+
+    assert 'class="card overflow-x-auto responsive-table"' in html
+    assert 'data-label="Time"' in html
+    assert 'data-label="Type"' in html
+    assert 'class="path-cell cell-stack" data-label="Path"' in html
+    assert 'class="path-cell cell-stack" data-label="URL"' in html
+    assert 'class="path-cell cell-stack" data-label="User-Agent"' in html
+    assert 'class="path-truncate text-action" data-full-text="Long Mobile User Agent / 1.0"' in html
+    assert 'class="path-cell" data-label="Path">-</td>' in html
+    assert 'class="path-cell" data-label="URL">-</td>' in html
+    assert 'class="path-cell" data-label="User-Agent">-</td>' in html
+
+
 def test_events_guard_applies_in_shell(db_session):
     # No datasource plugin enabled: the guard must fire on the shell request,
     # not only on the data path.
