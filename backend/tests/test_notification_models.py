@@ -123,7 +123,7 @@ def test_notification_test_email_subject_includes_primary_domain(test_settings_d
         def is_configured(self, db):
             return True
 
-        def send(self, db, subject, body):
+        def send(self, db, subject, body, html_body=None):
             self.subject = subject
 
     channel = FakeChannel()

@@ -25,7 +25,10 @@ mail server:
 5. Enter an SMTP user and password when your server requires authentication.
    For a provider account, use an app password rather than your normal login
    password when the provider supports it.
-6. Set a sender address and the recipient address for alerts.
+6. Set a sender address and the recipient address for alerts. The sender also
+   accepts a display name in standard mailbox format, for example
+   `OpenSecDash <notifications@example.com>`. Your SMTP provider may require the
+   address or alias to be approved for the authenticated account.
 
 For a homelab, the SMTP host might be a local relay such as
 `mail.home.arpa`, or the SMTP server from your email provider. Do not put real
@@ -73,3 +76,7 @@ not notify either.
 OpenSecDash sends email in a background loop, never while an event is being
 stored. Failed deliveries are recorded in history and are not retried
 automatically in V1; the next matching event can create a new delivery.
+
+Each message contains a branded HTML version with clickable links and a plain
+text fallback. The OpenSecDash logo is embedded in the message; mail clients do
+not need to load it from an external server.

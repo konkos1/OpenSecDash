@@ -496,7 +496,7 @@ DE = {
     "settings.help.notifications_smtp_security": "Die vom SMTP-Server geforderte Transportsicherheit auswählen.",
     "settings.help.notifications_smtp_user": "Optionaler SMTP-Benutzername. Leer lassen, wenn der Mailserver keine Anmeldung verlangt.",
     "settings.help.notifications_smtp_password": "Passwort oder App-Passwort für das SMTP-Konto. Es wird verschlüsselt in der Datenbank gespeichert.",
-    "settings.help.notifications_smtp_sender": "E-Mail-Adresse, die als Absender der Benachrichtigungen erscheint.",
+    "settings.help.notifications_smtp_sender": "Absender der Benachrichtigungen. Für einen Anzeigenamen das Format OpenSecDash <mail@example.com> verwenden.",
     "settings.help.notifications_smtp_recipient": "E-Mail-Adresse, die Benachrichtigungen empfängt.",
 
 }
