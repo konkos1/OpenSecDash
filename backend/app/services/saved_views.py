@@ -63,6 +63,7 @@ def validate_view_filters(filters: Mapping[str, object]) -> dict[str, Any]:
     result: dict[str, Any] = {}
     for key, max_length in {
         "event_type": 50,
+        "insight_type": 100,
         "ip": 64,
         "severity": 20,
         "source": 100,
@@ -142,7 +143,7 @@ def view_to_query(filters: Mapping[str, object], query_state: Mapping[str, objec
     """Serialize validated saved-view filters and route state into a page query string."""
     validated = validate_view_filters(filters)
     params: list[tuple[str, str]] = []
-    for key in ["event_type", "ip", "severity", "source", "plugin", "country", "country_not", "asn", "hostname", "asset", "path", "q"]:
+    for key in ["event_type", "insight_type", "ip", "severity", "source", "plugin", "country", "country_not", "asn", "hostname", "asset", "path", "q"]:
         if key in validated:
             params.append((key, str(validated[key])))
     if "country_in" in validated:

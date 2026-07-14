@@ -57,6 +57,7 @@
 
   <form class="card grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 mb-5" method="get">
     {% if filters.hour %}<input type="hidden" name="hour" value="{{ filters.hour }}">{% endif %}
+    {% if filters.insight_type %}<input type="hidden" name="insight_type" value="{{ filters.insight_type }}">{% endif %}
     <input type="hidden" name="snapshot_before" value="{{ filters.snapshot_before or '' }}" data-snapshot-before>
     <div class="field-help sm:col-span-2 lg:col-span-2" style="position:relative">
       <input class="input" name="q" value="{{ filters.q or '' }}" placeholder="{{ t('events.search_placeholder') }}">
@@ -99,6 +100,13 @@
       <input type="checkbox" name="today" value="true" {% if filters.today %}checked{% endif %}>
       <span>{{ t("events.today_only") }}</span>
     </label>
+    {% if filters.insight_type %}
+      {% set insight_title_key = "insight.title." ~ filters.insight_type %}
+      {% set insight_label = t(insight_title_key) if t(insight_title_key) != insight_title_key else filters.insight_type %}
+      <div class="muted text-sm sm:col-span-2 lg:col-span-5">
+        {{ t("events.insight_filter") }}: <strong>{{ insight_label }}</strong> · <a href="/events{% if filters.today %}?today=true{% endif %}">{{ t("common.clear") }}</a>
+      </div>
+    {% endif %}
     {% if filters.hour %}
       <div class="muted text-sm lg:col-span-5">{{ t("events.hour_filter") }}: {{ filters.hour }}:00–{{ "%02d"|format((filters.hour|int + 1) % 24) }}:00 · <a href="/events?today=true">{{ t("events.clear_hour_filter") }}</a></div>
     {% endif %}
