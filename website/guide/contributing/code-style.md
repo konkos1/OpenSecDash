@@ -137,6 +137,6 @@ The app runs a single event loop for every visitor. **No blocking I/O on the eve
 ## For AI coding agents
 
 Everything above applies. Additionally, follow the behavior rules in
-[`.agents/AGENTS.md`](https://github.com/konkos1/OpenSecDash/blob/main/.agents/AGENTS.md)
+[`agents/AGENTS.md`](https://github.com/konkos1/OpenSecDash/blob/main/agents/AGENTS.md)
 — they govern how agents work in this repository (questions before changes, ADR
 compliance, minimal diffs, honest test reporting).

@@ -24,7 +24,7 @@ Before contributing, read the repository files:
 ### Using AI tools
 
 If you use an AI assistant or coding agent for a contribution, read
-[`.agents/AGENTS.md`](https://github.com/konkos1/OpenSecDash/blob/main/.agents/AGENTS.md)
+[`agents/AGENTS.md`](https://github.com/konkos1/OpenSecDash/blob/main/agents/AGENTS.md)
 and make sure the AI tool receives and follows those instructions. They apply to all
 AI-assisted work in this repository in addition to the other contribution guidelines.
 
