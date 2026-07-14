@@ -307,7 +307,7 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
                     {
                         "label": scenario or "unknown",
                         "value": count,
-                        "href": f"/events?{urlencode({'event_type': 'security.ban*', 'q': scenario or 'unknown'})}",
+                        "href": f"/events?{urlencode({'event_type': 'security.ban*', 'q': scenario or 'unknown', 'today': 'true'})}",
                     }
                     for scenario, count in _top_daily_rollup_metric(db, "scenario", 10)
                 ),

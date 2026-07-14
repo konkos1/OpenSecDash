@@ -3,6 +3,7 @@ from importlib import import_module
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
+from urllib.parse import parse_qs, urlparse
 
 from fastapi import Request
 from sqlalchemy.orm import Session
@@ -241,6 +242,7 @@ def test_crowdsec_dashboard_top_scenarios_uses_only_today_daily_rollup(db_sessio
     assert scenario_widget.rows[0]["value"] == 5
     assert scenario_widget.rows[0]["href"].startswith("/events?")
     assert "security.ban" in scenario_widget.rows[0]["href"]
+    assert parse_qs(urlparse(scenario_widget.rows[0]["href"]).query)["today"] == ["true"]
     assert [row["label"] for row in scenario_widget.rows] == ["Manual ban via OpenSecDash", "crowdsecurity/ssh-bf"]
 
     all_time_scenarios = dict(rollups._top_rollup_metric(db_session, "scenario", 10))
