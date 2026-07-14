@@ -230,6 +230,11 @@ def test_every_role_can_update_only_its_own_preferences(user_management_client):
     account_html = admin_client.get("/account").text
     assert account_html.count('class="help" data-tooltip=') == 5
     assert "Changes the language shown in your interface." in account_html
+    assert 'id="account-preferences-form"' in account_html
+    assert 'hx-select="#account-preferences-form"' in account_html
+    assert 'id="account-password-form"' in account_html
+    assert 'hx-select="#account-password-form"' in account_html
+    assert account_html.count('data-unsaved-warning="Discard unsaved settings changes?"') == 2
     operator = create_user(db, "operator", "password123", "operator")
     viewer = create_user(db, "viewer", "password123", "viewer")
     db.add_all(

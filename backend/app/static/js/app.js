@@ -91,9 +91,18 @@ document.addEventListener("DOMContentLoaded", () => {
     document.body.addEventListener("htmx:swapError", () => { pendingScrollRestore = null; });
     document.body.addEventListener("htmx:responseError", () => { pendingScrollRestore = null; });
 
-    document.body.addEventListener("htmx:afterSwap", () => {
+    document.body.addEventListener("htmx:afterSwap", event => {
         localizeOpenSecDashDatetimes();
         localizeOpenSecDashCountries();
+
+        if (event.detail && event.detail.target && event.detail.target.id === "account-preferences-form") {
+            const preferencesForm = document.getElementById("account-preferences-form");
+            if (preferencesForm) {
+                document.documentElement.lang = preferencesForm.elements.language.value;
+                document.body.dataset.theme = preferencesForm.elements.theme.value;
+                document.body.dataset.accent = preferencesForm.elements.accent_color.value;
+            }
+        }
 
         if (!pendingScrollRestore) {
             return;
@@ -187,7 +196,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     document.addEventListener("submit", event => {
         const form = event.target;
-        if (!(form instanceof HTMLFormElement) || !form.matches('form[action^="/settings/"]') || event.defaultPrevented) {
+        if (!(form instanceof HTMLFormElement) || !form.matches('form[action^="/settings/"]') || form.hasAttribute("hx-post") || event.defaultPrevented) {
             return;
         }
         const openDetails = Array.from(document.querySelectorAll("details"))
@@ -204,15 +213,25 @@ document.addEventListener("DOMContentLoaded", () => {
     const dirtyForms = new Set();
     let skipBeforeUnloadWarning = false;
 
-    document.querySelectorAll("form[data-unsaved-warning]")
-        .forEach(form => {
-            const markDirty = () => dirtyForms.add(form);
-            const markClean = () => dirtyForms.delete(form);
-
-            form.addEventListener("input", markDirty);
-            form.addEventListener("change", markDirty);
-            form.addEventListener("submit", markClean);
-        });
+    const changedForm = event => event.target.closest("form[data-unsaved-warning]");
+    document.addEventListener("input", event => {
+        const form = changedForm(event);
+        if (form) {
+            dirtyForms.add(form);
+        }
+    });
+    document.addEventListener("change", event => {
+        const form = changedForm(event);
+        if (form) {
+            dirtyForms.add(form);
+        }
+    });
+    document.addEventListener("submit", event => {
+        const form = changedForm(event);
+        if (form) {
+            dirtyForms.delete(form);
+        }
+    });
 
     document.querySelectorAll("form[data-show-submit-on-dirty]")
         .forEach(form => {
