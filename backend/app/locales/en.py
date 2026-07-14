@@ -17,6 +17,7 @@ EN = {
     "common.saving": "Saving…",
     "common.cancel": "Cancel",
     "common.close": "Close",
+    "common.settings_saved": "Settings saved.",
     "notifications.title": "Notifications",
     "notifications.sent": "Sent",
     "notifications.failed": "Failed",

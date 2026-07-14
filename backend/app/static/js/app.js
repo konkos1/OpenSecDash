@@ -64,6 +64,25 @@ document.addEventListener("DOMContentLoaded", () => {
     localizeOpenSecDashDatetimes();
     localizeOpenSecDashCountries();
 
+    let saveFeedbackTimeout = null;
+    const showSaveFeedback = () => {
+        const banner = document.getElementById("save-feedback-banner");
+        const message = banner && banner.querySelector("[data-save-feedback-message]");
+        if (!banner || !message) {
+            return;
+        }
+
+        message.textContent = banner.dataset.message;
+        banner.hidden = false;
+        if (saveFeedbackTimeout !== null) {
+            clearTimeout(saveFeedbackTimeout);
+        }
+        saveFeedbackTimeout = setTimeout(() => {
+            banner.hidden = true;
+            saveFeedbackTimeout = null;
+        }, 3500);
+    };
+
     // Every periodically/live-refreshed region on any page (Events/Access,
     // Dashboard, CrowdSec, Diagnostics, Assets) goes through an htmx outerHTML
     // swap. That replaces the DOM node, which would otherwise silently reset
@@ -91,9 +110,24 @@ document.addEventListener("DOMContentLoaded", () => {
     document.body.addEventListener("htmx:swapError", () => { pendingScrollRestore = null; });
     document.body.addEventListener("htmx:responseError", () => { pendingScrollRestore = null; });
 
-    document.body.addEventListener("htmx:afterSwap", () => {
+    document.body.addEventListener("htmx:afterSwap", event => {
         localizeOpenSecDashDatetimes();
         localizeOpenSecDashCountries();
+
+        const swappedTarget = event.detail && event.detail.target;
+        const swappedElement = swappedTarget && swappedTarget.id ? document.getElementById(swappedTarget.id) : swappedTarget;
+        if (swappedElement && swappedElement.matches("form[data-save-feedback]") && !swappedElement.querySelector("[data-save-error]")) {
+            showSaveFeedback();
+        }
+
+        if (event.detail && event.detail.target && event.detail.target.id === "account-preferences-form") {
+            const preferencesForm = document.getElementById("account-preferences-form");
+            if (preferencesForm) {
+                document.documentElement.lang = preferencesForm.elements.language.value;
+                document.body.dataset.theme = preferencesForm.elements.theme.value;
+                document.body.dataset.accent = preferencesForm.elements.accent_color.value;
+            }
+        }
 
         if (!pendingScrollRestore) {
             return;
@@ -187,7 +221,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     document.addEventListener("submit", event => {
         const form = event.target;
-        if (!(form instanceof HTMLFormElement) || !form.matches('form[action^="/settings/"]') || event.defaultPrevented) {
+        if (!(form instanceof HTMLFormElement) || !form.matches('form[action^="/settings/"]') || form.hasAttribute("hx-post") || event.defaultPrevented) {
             return;
         }
         const openDetails = Array.from(document.querySelectorAll("details"))
@@ -204,15 +238,25 @@ document.addEventListener("DOMContentLoaded", () => {
     const dirtyForms = new Set();
     let skipBeforeUnloadWarning = false;
 
-    document.querySelectorAll("form[data-unsaved-warning]")
-        .forEach(form => {
-            const markDirty = () => dirtyForms.add(form);
-            const markClean = () => dirtyForms.delete(form);
-
-            form.addEventListener("input", markDirty);
-            form.addEventListener("change", markDirty);
-            form.addEventListener("submit", markClean);
-        });
+    const changedForm = event => event.target.closest("form[data-unsaved-warning]");
+    document.addEventListener("input", event => {
+        const form = changedForm(event);
+        if (form) {
+            dirtyForms.add(form);
+        }
+    });
+    document.addEventListener("change", event => {
+        const form = changedForm(event);
+        if (form) {
+            dirtyForms.add(form);
+        }
+    });
+    document.addEventListener("submit", event => {
+        const form = changedForm(event);
+        if (form) {
+            dirtyForms.delete(form);
+        }
+    });
 
     document.querySelectorAll("form[data-show-submit-on-dirty]")
         .forEach(form => {

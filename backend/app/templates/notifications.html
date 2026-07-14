@@ -24,7 +24,7 @@
 
     <section class="card mb-5 overflow-x-auto responsive-table">
         <h3 class="font-semibold mb-3">{{ t("notifications.rules") }}</h3>
-        {% if can_operate %}<form method="post" action="/notifications/rules">{% endif %}
+        {% if can_operate %}<form id="notification-rules-form" method="post" action="/notifications/rules" hx-post="/notifications/rules" hx-target="this" hx-select="#notification-rules-form" hx-swap="outerHTML" data-save-feedback data-unsaved-warning="{{ t('settings.unsaved_changes') }}">{% endif %}
             <table class="w-full text-sm table-middle">
                 <thead><tr><th>{{ t("notifications.rule") }}</th><th>{{ t("notifications.source") }}</th><th>{{ t("notifications.conditions") }}</th><th>{{ t("notifications.window") }}</th><th>{{ t("notifications.cooldown") }}</th><th>{{ t("notifications.enabled") }}</th></tr></thead>
                 <tbody>

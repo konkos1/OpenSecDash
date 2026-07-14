@@ -96,6 +96,16 @@ def test_settings_blocks_are_independent_and_use_non_nested_forms(settings_clien
     assert 'name="theme"' not in page.text
     assert 'name="instance_accent_color"' not in page.text
     assert 'name="live_page_refresh"' not in page.text
+    assert 'id="settings-core-form"' in page.text
+    assert 'hx-select="#settings-core-form"' in page.text
+    assert 'id="settings-notifications-form"' in page.text
+    assert 'hx-select="#settings-notifications-form"' in page.text
+    assert 'id="settings-asset-updates-form"' in page.text
+    assert 'hx-select="#settings-asset-updates-form"' in page.text
+    assert 'id="settings-plugin-crowdsec-form"' in page.text
+    assert 'hx-select="#settings-plugin-crowdsec-form"' in page.text
+    assert page.text.count('data-unsaved-warning="Discard unsaved settings changes?"') >= 4
+    assert page.text.count("data-save-feedback") >= 4
 
 
 def test_settings_details_open_only_core_and_place_users_after_branding(settings_client):
