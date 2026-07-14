@@ -2,6 +2,10 @@
 
 The CrowdSec plugin imports CrowdSec ban history, synchronizes active decisions, and executes ban/unban actions through CrowdSec's Local API (LAPI).
 
+::: danger Breaking change for former `cscli` mode
+OpenSecDash no longer mounts or executes `cscli`. Existing connection-mode and executable-path settings are ignored. Configure an LAPI URL and dedicated CrowdSec machine credentials after upgrading.
+:::
+
 ## Settings
 
 | Setting | What it does |
@@ -51,7 +55,15 @@ The printed file contains the three values you need: `url`, `login`, and `passwo
 
 Why this is also the safer option: the credentials belong to a dedicated, revocable machine account. If they ever leak, `sudo cscli machines delete opensecdash` on the CrowdSec host invalidates them immediately - the host's own CrowdSec credentials never leave `/etc/crowdsec`.
 
+The `cscli` commands in this guide run only on the CrowdSec host to create or revoke LAPI credentials. OpenSecDash itself does not execute `cscli`.
+
 The LAPI URL must use `http://` or `https://`, include a host, and must not contain embedded credentials, a query, or a fragment. OpenSecDash does not follow redirects for LAPI requests, so credentials and bearer tokens stay on the configured endpoint.
+
+## Why the subprocess integration was removed
+
+The previous integration could launch a configurable `cscli` path inside the OpenSecDash container. That required mounting a host executable and CrowdSec configuration into the container. It also created an unnecessary code-execution primitive if an attacker gained settings access together with a way to place or select a suitable executable.
+
+LAPI exposes all functionality OpenSecDash needs without host-binary or CrowdSec-configuration mounts. Its machine credentials are dedicated to OpenSecDash, can be revoked independently, and are stored encrypted at rest. The LAPI client also rejects embedded URL credentials, query strings, fragments, invalid ports, and redirects.
 
 ## Actions and dry run
 
@@ -59,6 +71,13 @@ OpenSecDash has an action simulation mode. While dry run is enabled, ban/unban a
 
 When dry run is disabled, unban buttons are shown only when OpenSecDash knows about an active CrowdSec ban decision. Decisions are synchronized from the LAPI.
 
+See [Actions and safety](../operations/actions.md) for central target validation, permissions, confirmations, and audit history.
+
 ## Connection diagnostics
 
 The CrowdSec page and IP Explorer show LAPI reachability and authentication status. In dry-run mode, connection errors are not shown as prominent action errors because real actions are not executed.
+
+Diagnostics separates the two CrowdSec responsibilities:
+
+- `plugin · crowdsec` reports whether the configured `crowdsec.log` datasource is available.
+- `crowdsec · lapi` reports LAPI authentication and active-decision synchronization.

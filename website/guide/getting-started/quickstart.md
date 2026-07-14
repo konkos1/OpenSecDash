@@ -45,7 +45,10 @@ This is the minimal setup. For plugin log mounts, host requirements, database si
 2. Enable the plugins you want to use.
 3. Configure datasource paths or API credentials.
 4. Open **Diagnostics** to check plugin health.
-5. Use **Events**, **IP Explorer**, and **Assets** depending on enabled plugins.
+5. Leave **Action simulation** enabled while testing CrowdSec actions.
+6. Optionally configure SMTP notifications and send a test message.
+7. Optionally enable internal sign-in by creating the first Admin account.
+8. Use **Dashboard**, **Events**, **IP Explorer**, and **Assets** depending on enabled plugins.
 
 ## Security note
 

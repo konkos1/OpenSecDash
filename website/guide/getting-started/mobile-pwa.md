@@ -21,10 +21,15 @@ The interface adapts to the screen you are on:
 ## Fast first paint on large databases
 
 On big installations some pages have to read a lot of data. So that you are not
-left staring at a blank screen, the page frame — header, filters, navigation —
-appears immediately, and each heavy widget or section shows a short loading
-placeholder while its data is fetched in the background. Once the data arrives,
-the placeholder is replaced with the real content.
+left staring at a blank screen, pages such as Dashboard, Rollups, CrowdSec, and
+detail explorers can show their frame — header, filters, navigation — before a
+heavy widget or result section is fetched in the background. Once the data
+arrives, the short loading placeholder is replaced with server-rendered content.
+
+Events and Access are intentionally different: their bounded initial tables are
+rendered immediately because both pages support Live mode. This avoids flashing
+a loading placeholder immediately before the same region starts receiving live
+updates.
 
 This is expected behaviour, and how long the placeholder is visible depends on
 how much data you have and how fast the server is. It does not change what you

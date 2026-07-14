@@ -82,6 +82,8 @@ Two honest limitations to be aware of:
 
 When dry-run is enabled, action buttons may still be visible so you can test workflows without changing external systems.
 
+See [Actions and safety](../operations/actions.md) for validation, permissions, audit events, and CrowdSec troubleshooting.
+
 ## Logging
 
 | Setting | What it does |

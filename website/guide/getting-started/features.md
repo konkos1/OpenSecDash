@@ -8,6 +8,8 @@ Datasources → Enrichment → Event Store → Correlation → Dashboard / Explo
 
 ![OpenSecDash event pipeline](/assets/readme/event-pipeline.svg)
 
+The current feature set covers the complete workflow planned for the first stable v1 release. Later extensions such as additional notification channels, an asynchronous action queue, advanced Level 2 correlation chains, and full offline operation remain deliberately outside this scope.
+
 ## Live-first dashboard
 
 The dashboard gives you a quick overview of current homelab security activity:
@@ -39,6 +41,8 @@ global to the instance.
 The Events page supports **Live** and **Snapshot** modes. Live mode keeps the UI fresh. Snapshot mode freezes the current view so you can filter and inspect without the table moving under your mouse.
 
 Historical rollups live in the [Rollup Explorer](../operations/dashboard-rollups.md), while the Dashboard stays focused on today's activity.
+
+See [Dashboard](../operations/dashboard.md) for widget customization, per-user layouts, live refresh, and historical drill-downs.
 
 ## Events and access logs
 
@@ -102,6 +106,21 @@ The IP Explorer is the “what happened with this address?” view. It combines:
 
 For local/private IPs, destructive actions such as bans are intentionally disabled.
 
+## Controlled actions
+
+OpenSecDash routes external changes through its central Action Framework. The current built-in workflow supports CrowdSec ban and unban through LAPI.
+
+Safety controls are applied before a plugin runs:
+
+- action types and accepted target types come from the plugin registry
+- critical actions require explicit confirmation
+- private, loopback, reserved, and otherwise non-global IPs cannot be banned
+- Viewer accounts cannot execute actions; Operator or Admin access is required
+- dry-run simulation is enabled by default
+- results are written to action history and normalized events
+
+See [Actions and safety](../operations/actions.md) for the execution model and troubleshooting guidance.
+
 ## Responsive UI
 
 OpenSecDash is designed to work on phones, tablets, and desktops:
@@ -113,11 +132,31 @@ OpenSecDash is designed to work on phones, tablets, and desktops:
 - actions are sized for touch input
 - navigation stays easy to reach
 
+Large data areas use progressive server rendering where it improves first paint: the page frame and controls appear first, followed by bounded result sections loaded through HTMX. Events and Access render their live-capable result tables immediately so their first live refresh does not flash an unnecessary skeleton.
+
 ## Install from your browser
 
 OpenSecDash includes a web app manifest, so modern browsers can add it as an app-like shortcut. This does not require an app store.
 
 For the best install experience, serve OpenSecDash through HTTPS via your reverse proxy.
+
+## Optional sign-in and personal workspace
+
+Internal authentication is optional and disabled by default. When enabled, OpenSecDash provides Viewer, Operator, and Admin roles with revocable server-side sessions. Administrators can create users, reset passwords, change roles, and deactivate accounts.
+
+Each signed-in user can keep their own:
+
+- language, theme, accent color, live-mode, and automatic-refresh preferences
+- dashboard widget visibility and ordering
+- Events and Access saved views
+
+Existing installations that leave internal sign-in disabled retain the global instance behavior. See [Authentication](../configuration/authentication.md).
+
+## Instance identity and branding
+
+An instance can show its domain, a short PWA description, a custom logo, a custom favicon, and a selectable accent color. OpenSecDash's own name and icon remain visible so screenshots and installed apps still identify the product clearly. Branding files are stored in the database and follow the normal `/data` backup.
+
+See [Instance branding](../configuration/settings.md#instance-branding).
 
 ## Insights engine and correlation
 
@@ -169,3 +208,9 @@ The Notifications page can turn matching events and insights into SMTP email
 alerts. It keeps delivery history, supports a test email, and uses cooldowns
 and digest aggregation to avoid alert floods. See [Notifications](../configuration/notifications.md)
 for setup and the built-in rules.
+
+## Trust-aware deployment
+
+OpenSecDash understands `X-Forwarded-For`, `X-Forwarded-Proto`, and `X-Forwarded-Host` only from configured trusted proxy addresses. This preserves the real client IP and external HTTPS context without accepting spoofed forwarding headers from arbitrary peers.
+
+The default trust set covers typical loopback and private homelab networks and can be narrowed—or disabled entirely—with `OSD_TRUSTED_PROXIES`. See the [reverse proxy guide](../installation/reverse-proxy.md).
