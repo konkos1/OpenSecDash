@@ -12,7 +12,7 @@ from app.models.core import Insight, Notification, NotificationRule
 from app.models.events import Event
 from app.models.systems import System
 from app.services.asset_hosts import asset_last_seen_stale
-from app.services.notification_channels import get_channel
+from app.services.notification_channels import get_channel, render_email_html
 
 
 logger = logging.getLogger(__name__)
@@ -246,8 +246,8 @@ def _notification_name(rule: NotificationRule) -> str:
     return rule.name
 
 
-def render_notification(db: Session, rule: NotificationRule, pending: list[Notification]) -> tuple[str, str]:
-    """Render one plain-text notification or digest in the configured language."""
+def render_notification(db: Session, rule: NotificationRule, pending: list[Notification]) -> tuple[str, str, str]:
+    """Render one multipart notification or digest in the configured language."""
     language = get_setting_value(db, "language", "en")
     text = lambda key: translate(key, language)
     name = _notification_name(rule)
@@ -255,22 +255,34 @@ def render_notification(db: Session, rule: NotificationRule, pending: list[Notif
     instance_label = f" {domain}" if domain else ""
     subject = f"{text('notification.email.subject_prefix')}{instance_label} · {name}"
     base_url = get_setting_value(db, "notifications.base_url", "").rstrip("/")
+    details: list[tuple[str, str]] = []
+    items: list[str] = []
+    more_text: str | None = None
+    links: list[tuple[str, str]] = []
     if len(pending) > 1:
-        lines = [text("notification.email.digest_title").format(count=len(pending), name=name, minutes=rule.window_minutes), ""]
+        heading = text("notification.email.digest_title").format(count=len(pending), name=name, minutes=rule.window_minutes)
+        lines = [heading, ""]
         for item in pending[:5]:
             payload = item.payload or {}
             parts = [str(payload[key]) for key in ("ip", "country", "path") if payload.get(key)]
             if parts:
-                lines.append(" · ".join(parts))
+                summary = " · ".join(parts)
+                lines.append(summary)
+                items.append(summary)
         if len(pending) > 5:
-            lines.extend(["", text("notification.email.and_more").format(count=len(pending) - 5)])
+            more_text = text("notification.email.and_more").format(count=len(pending) - 5)
+            lines.extend(["", more_text])
     else:
         payload = pending[0].payload or {}
+        heading = name
         lines = [name]
         fields = (("ip", "notification.email.ip"), ("country", "notification.email.country"), ("path", "notification.email.path"), ("severity", "notification.email.severity"), ("level", "notification.email.level"))
         for key, label in fields:
             if payload.get(key):
-                lines.append(f"{text(label)}: {payload[key]}")
+                label_text = text(label)
+                value_text = str(payload[key])
+                details.append((label_text, value_text))
+                lines.append(f"{label_text}: {value_text}")
     if base_url:
         payload = pending[0].payload or {}
         event_type = str(payload.get("type") or "")
@@ -282,10 +294,24 @@ def render_notification(db: Session, rule: NotificationRule, pending: list[Notif
             link_path, link_label = f"/ip/{payload['ip']}", "notification.email.open_ip"
         else:
             link_path, link_label = "/events", "notification.email.show_events"
-        lines.extend(["", f"{text(link_label)}: {base_url}{link_path}"])
-        if event_type not in {"system.plugin_error", "system.asset_offline"}:
-            lines.append(f"{text('notification.email.show_events')}: {base_url}/events")
-    return subject, "\n".join(lines)
+        primary_link = (text(link_label), f"{base_url}{link_path}")
+        links.append(primary_link)
+        lines.extend(["", f"{primary_link[0]}: {primary_link[1]}"])
+        if event_type not in {"system.plugin_error", "system.asset_offline"} and link_path != "/events":
+            events_link = (text("notification.email.show_events"), f"{base_url}/events")
+            links.append(events_link)
+            lines.append(f"{events_link[0]}: {events_link[1]}")
+    plain_body = "\n".join(lines)
+    html_body = render_email_html(
+        subject=subject,
+        heading=heading,
+        language=language,
+        details=details,
+        items=items,
+        more_text=more_text,
+        links=links,
+    )
+    return subject, plain_body, html_body
 
 
 def _detect_offline_systems(db: Session) -> None:
@@ -343,9 +369,9 @@ def dispatch_pending_notifications(db: Session) -> int:
             continue
         if not pending:
             continue
-        subject, body = render_notification(db, rule, pending)
+        subject, body, html_body = render_notification(db, rule, pending)
         try:
-            channel.send(db, subject, body)
+            channel.send(db, subject, body, html_body)
         except Exception as exc:
             for item in pending:
                 item.status = "failed"

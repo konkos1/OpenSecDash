@@ -496,7 +496,7 @@ EN = {
     "settings.help.notifications_smtp_security": "Choose the transport security required by your SMTP server.",
     "settings.help.notifications_smtp_user": "Optional SMTP account name. Leave empty if your mail server does not require login.",
     "settings.help.notifications_smtp_password": "Password or app password for the SMTP account. It is encrypted in the database.",
-    "settings.help.notifications_smtp_sender": "Email address shown as the sender of notification emails.",
+    "settings.help.notifications_smtp_sender": "Notification sender. To include a display name, use the format OpenSecDash <mail@example.com>.",
     "settings.help.notifications_smtp_recipient": "Email address that receives notification emails.",
 
 }

@@ -18,15 +18,15 @@ class FakeChannel:
 
     def __init__(self, fail: bool = False):
         self.fail = fail
-        self.messages: list[tuple[str, str]] = []
+        self.messages: list[tuple[str, str, str | None]] = []
 
     def is_configured(self, db) -> bool:
         return True
 
-    def send(self, db, subject: str, body: str) -> None:
+    def send(self, db, subject: str, body: str, html_body: str | None = None) -> None:
         if self.fail:
             raise RuntimeError("SMTP unavailable")
-        self.messages.append((subject, body))
+        self.messages.append((subject, body, html_body))
 
 
 @pytest.fixture(autouse=True)
@@ -62,6 +62,8 @@ def test_dispatch_sends_pending_event_with_deep_link(db_session, monkeypatch):
     assert item.sent_at is not None
     assert "IP: 1.2.3.4" in channel.messages[0][1]
     assert "http://dashboard.example/ip/1.2.3.4" in channel.messages[0][1]
+    assert '<a href="http://dashboard.example/ip/1.2.3.4"' in (channel.messages[0][2] or "")
+    assert "cid:opensecdash-logo" in (channel.messages[0][2] or "")
 
 
 def test_dispatch_omits_links_without_base_url(db_session, monkeypatch):
@@ -152,6 +154,7 @@ def test_email_channel_uses_starttls_ssl_and_plain_smtp(db_session, monkeypatch)
     monkeypatch.setattr("app.services.notification_channels.smtplib.SMTP", smtp)
     monkeypatch.setattr("app.services.notification_channels.smtplib.SMTP_SSL", smtp_ssl)
     channel = EmailChannel()
+    save_setting(db_session, "notifications.smtp_sender", "OpenSecDash <sender@example>")
     for security in ("starttls", "none", "ssl"):
         save_setting(db_session, "notifications.smtp_security", security)
         db_session.commit()
@@ -159,3 +162,10 @@ def test_email_channel_uses_starttls_ssl_and_plain_smtp(db_session, monkeypatch)
     assert smtp.call_count == 2
     smtp_instance.starttls.assert_called_once()
     smtp_ssl.assert_called_once()
+    message = smtp_instance.send_message.call_args_list[0].args[0]
+    assert message["From"] == "OpenSecDash <sender@example>"
+    assert message.get_body(preferencelist=("plain",)).get_content().strip() == "Body"
+    assert "<title>Subject</title>" in message.get_body(preferencelist=("html",)).get_content()
+    logo_parts = [part for part in message.walk() if part.get_content_type() == "image/png"]
+    assert len(logo_parts) == 1
+    assert logo_parts[0]["Content-ID"] == "<opensecdash-logo>"

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="{{ language }}">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ subject }}</title>
+  </head>
+  <body style="background:#020617;color:#e2e8f0;font-family:Arial,sans-serif;margin:0;padding:24px 12px">
+    <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 auto;max-width:600px;width:100%">
+      <tr>
+        <td style="padding:0 0 16px;text-align:center">
+          <img src="cid:opensecdash-logo" alt="OpenSecDash" width="56" height="56" style="border:0;border-radius:12px;display:inline-block;height:56px;width:56px">
+          <div style="color:#f8fafc;font-size:20px;font-weight:700;margin-top:8px">OpenSecDash</div>
+        </td>
+      </tr>
+      <tr>
+        <td style="background:#0f172a;border:1px solid #1e293b;border-radius:16px;padding:24px">
+          <h1 style="color:#f8fafc;font-size:22px;line-height:1.3;margin:0 0 20px">{{ heading }}</h1>
+          {% if body %}<p style="color:#cbd5e1;font-size:15px;line-height:1.6;margin:0 0 20px">{{ body }}</p>{% endif %}
+          {% if details %}
+            <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 20px;width:100%">
+              {% for label, value in details %}
+                <tr>
+                  <td style="border-bottom:1px solid #1e293b;color:#94a3b8;font-size:14px;padding:9px 12px 9px 0;vertical-align:top;width:34%">{{ label }}</td>
+                  <td style="border-bottom:1px solid #1e293b;color:#f8fafc;font-size:14px;overflow-wrap:anywhere;padding:9px 0;vertical-align:top">{{ value }}</td>
+                </tr>
+              {% endfor %}
+            </table>
+          {% endif %}
+          {% if items %}
+            <ul style="color:#cbd5e1;font-size:14px;line-height:1.5;margin:0 0 20px;padding-left:20px">
+              {% for item in items %}<li style="margin:0 0 7px">{{ item }}</li>{% endfor %}
+            </ul>
+          {% endif %}
+          {% if more_text %}<p style="color:#94a3b8;font-size:14px;margin:0 0 20px">{{ more_text }}</p>{% endif %}
+          {% if links %}
+            <p style="margin:4px 0 0">
+              <a href="{{ links[0][1] }}" style="background:#2563eb;border-radius:10px;color:#ffffff;display:inline-block;font-size:15px;font-weight:700;padding:11px 16px;text-decoration:none">{{ links[0][0] }}</a>
+            </p>
+            {% for label, url in links[1:] %}
+              <p style="font-size:14px;margin:14px 0 0"><a href="{{ url }}" style="color:#60a5fa;text-decoration:underline">{{ label }}</a></p>
+            {% endfor %}
+          {% endif %}
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

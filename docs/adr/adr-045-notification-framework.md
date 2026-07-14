@@ -5,6 +5,8 @@
 > V1 implements SMTP email only. The channel abstraction is ready for future
 > channels, but Telegram, Discord, Matrix, Gotify, ntfy, Slack, Teams and
 > Pushover remain intentionally unimplemented.
+> SMTP messages contain a plain-text fallback and a branded HTML alternative;
+> the OpenSecDash logo is embedded in the message instead of loaded remotely.
 >
 > Actions and system states enter the engine as events (`action.*`,
 > `system.plugin_error`, `system.asset_offline`). Anti-spam uses a per-rule
