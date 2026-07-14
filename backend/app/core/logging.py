@@ -14,11 +14,13 @@ FILE_HANDLER_NAME = "opensecdash-file"
 DEFAULT_FORMAT = "%(asctime)s %(levelname)s [%(name)s] %(message)s"
 LEVELS = {"DEBUG": logging.DEBUG, "INFO": logging.INFO, "WARNING": logging.WARNING, "ERROR": logging.ERROR, "CRITICAL": logging.CRITICAL}
 SENSITIVE_WORDS = ("password", "passwd", "pwd", "secret", "token", "apikey", "api_key", "access_key", "auth", "credential")
+NON_SENSITIVE_SETTING_KEYS = {"auth.enabled"}
 SECRET_PATTERNS = [
     re.compile(r"(?i)(Authorization\s*:\s*Bearer\s+)([^\s,;]+)"),
     re.compile(r"(?i)(password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key|authorization|bearer)\s*[:=]\s*([^\s,;]+)"),
 ]
 URL_PATTERN = re.compile(r"https?://[^\s'\"<>]+")
+EMAIL_PATTERN = re.compile(r"(?i)(?<![\w.+-])([a-z0-9._%+-]+)@([a-z0-9.-]*[a-z0-9])(?![\w.-])")
 
 
 def _redact_url(match: re.Match[str]) -> str:
@@ -40,15 +42,24 @@ def _redact_url(match: re.Match[str]) -> str:
         return "<redacted-url>"
 
 
+def _mask_email(match: re.Match[str]) -> str:
+    local_part = match.group(1)
+    domain = match.group(2)
+    domain_name, separator, suffix = domain.rpartition(".")
+    masked_domain = f"{domain_name[:1]}***{separator}{suffix}" if separator else f"{domain[:1]}***"
+    return f"{local_part[:1]}***@{masked_domain}"
+
+
 def redact_sensitive(value: object) -> str:
     text = URL_PATTERN.sub(_redact_url, str(value))
     for pattern in SECRET_PATTERNS:
         text = pattern.sub(lambda m: f"{m.group(1)}<redacted>" if m.group(1).lower().startswith("authorization") and ":" in m.group(1) else f"{m.group(1)}=<redacted>", text)
-    return text
+    return EMAIL_PATTERN.sub(_mask_email, text)
 
 
 def redacted_setting_value(key: str, value: str | None) -> str:
-    if any(part in key.lower() for part in SENSITIVE_WORDS):
+    normalized_key = key.lower()
+    if normalized_key not in NON_SENSITIVE_SETTING_KEYS and any(part in normalized_key for part in SENSITIVE_WORDS):
         return "<redacted>" if value else ""
     return redact_sensitive(str(value or ""))
 
