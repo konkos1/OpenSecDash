@@ -55,5 +55,7 @@ def test_settings_template_uses_independent_details_forms():
     assert 'action="/settings/notifications"' in html
     assert 'action="/settings/asset-updates"' in html
     assert 'name="theme"' in html
+    assert '<div><button class="btn" type="submit">' not in html
+    assert html.count('<div class="md:col-span-2 flex items-end"><button class="btn" type="submit">common.save_button</button></div>') == 4
     assert html.index('name="domain"') > html.index('action="/settings/branding"')
     assert '<details class="card mb-5" open>' in html
