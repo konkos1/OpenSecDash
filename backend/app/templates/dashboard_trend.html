@@ -5,12 +5,12 @@
     {% set tick_indexes = [0, 6, 13, 20, 29] %}
     <div class="dashboard-trend-scroll overflow-x-auto">
       <div class="dashboard-trend-chart">
-        <div class="dashboard-trend-bars" role="img" aria-label="{{ t(widget.title_key) }}">
+        <div class="dashboard-trend-bars" role="group" aria-label="{{ t(widget.title_key) }}">
           {% for row in widget.rows %}
             {% set height = (row.value / max_value * 100) if max_value else 0 %}
-            <div class="dashboard-trend-bar" title="{{ row.bucket }} · {{ row.value }}">
-              <div class="w-full rounded-t bg-sky-400" style="height: {{ height }}%; min-height: {{ '3px' if row.value else '0' }}"></div>
-            </div>
+            <button type="button" class="dashboard-trend-bar" data-chart-tooltip data-tooltip="{{ row.bucket }} · {{ row.value }}" aria-label="{{ row.bucket }} · {{ row.value }}">
+              <span class="w-full rounded-t bg-sky-400" style="height: {{ height }}%; min-height: {{ '3px' if row.value else '0' }}" aria-hidden="true"></span>
+            </button>
           {% endfor %}
         </div>
         <div class="dashboard-trend-axis" aria-hidden="true">
@@ -18,6 +18,7 @@
             <span>{% if loop.index0 in tick_indexes %}{{ row.bucket[5:] }}{% endif %}</span>
           {% endfor %}
         </div>
+        <p class="dashboard-trend-detail muted text-sm" data-chart-detail aria-live="polite"></p>
       </div>
     </div>
   {% else %}

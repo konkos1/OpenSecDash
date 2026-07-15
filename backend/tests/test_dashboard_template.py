@@ -191,6 +191,11 @@ def test_dashboard_renders_table_feed_trend_and_empty_states():
     assert "security.ban" in html
     assert "2026-07-11" in html
     assert "dashboard-trend-axis" in html
+    assert 'class="dashboard-trend-bars" role="group"' in html
+    assert 'class="dashboard-trend-bar" data-chart-tooltip' in html
+    assert 'data-tooltip="2026-07-11 · 2"' in html
+    assert 'data-chart-detail aria-live="polite"' in html
+    assert 'title="2026-07-11 · 2"' not in html
     assert "07-11" in html
     assert "min-height: 3px" in html
     assert "bg-sky-400" in html
