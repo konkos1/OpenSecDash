@@ -74,6 +74,53 @@ def test_activation_creates_admin_session_and_allows_settings(user_management_cl
     assert client.get("/settings").status_code == 200
 
 
+def test_core_preferences_are_hidden_and_unchanged_when_authentication_is_enabled(user_management_client):
+    db, client = user_management_client
+    db.add_all(
+        [
+            Setting(key="language", value="en"),
+            Setting(key="live_default", value="true"),
+            Setting(key="theme", value="auto"),
+            Setting(key="instance_accent_color", value="blue"),
+            Setting(key="live_page_refresh", value="true"),
+        ]
+    )
+    db.commit()
+    _enable_auth(client)
+    admin = db.query(User).filter(User.username == "admin").one()
+    admin_preferences = db.query(UserPreference).filter(UserPreference.user_id == admin.id).one()
+    admin_preferences.theme = "dark"
+    admin_preferences.accent_color = "red"
+    db.commit()
+
+    page = client.get("/settings")
+    response = client.post(
+        "/settings/core",
+        data={
+            "language": "de",
+            "live_default": "false",
+            "theme": "light",
+            "accent_color": "green",
+            "live_page_refresh": "false",
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert 'name="language"' not in page.text
+    assert 'name="live_default"' not in page.text
+    assert 'name="theme"' not in page.text
+    assert 'name="accent_color"' not in page.text
+    assert 'name="live_page_refresh"' not in page.text
+    assert 'data-theme="dark"' in page.text
+    assert 'data-accent="red"' in page.text
+    assert get_setting_value(db, "language", "") == "en"
+    assert get_setting_value(db, "live_default", "") == "true"
+    assert get_setting_value(db, "theme", "") == "auto"
+    assert get_setting_value(db, "instance_accent_color", "") == "blue"
+    assert get_setting_value(db, "live_page_refresh", "") == "true"
+
+
 def test_activation_without_admin_or_when_environment_disabled_is_rejected(user_management_client, monkeypatch):
     db, client = user_management_client
 

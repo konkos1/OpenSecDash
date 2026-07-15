@@ -48,6 +48,7 @@ from app.services.rollups import combine_rollup_values
 from app.services.saved_views import VIEW_SCOPES, clean_view_name, plugin_views_for_scope, view_filters_from_query, view_query_state_from_query, view_to_query
 from app.services.auth import AUTH_DISABLED_ENV, auth_enabled
 from app.services.asset_updates import refresh_asset_update
+from app.services.user_preferences import global_preferences, normalize_preferences
 from app.plugins.manager import get_plugin_manager
 from app.services.asset_actions import (
     AssetActionAlreadyRunning,
@@ -1847,6 +1848,8 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
         for group in plugin_setting_groups
         for setting in group["settings"]
     }
+    authentication_enabled = auth_enabled(db)
+    preferences = global_preferences(db)
     return render(
         request,
         db,
@@ -1856,10 +1859,15 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
         instance_logo=get_instance_file(db, "logo"),
         instance_favicon=get_instance_file(db, "favicon"),
         branding_error=request.query_params.get("branding_error", ""),
-        auth_enabled=auth_enabled(db),
+        auth_enabled=authentication_enabled,
         users=db.query(User).order_by(User.username).all(),
         auth_error=request.query_params.get("auth_error", ""),
         auth_notice=request.query_params.get("auth_notice", ""),
+        global_language=preferences["language"],
+        global_live_default=preferences["live_default"],
+        global_theme=preferences["theme"],
+        global_accent_color=preferences["accent_color"],
+        global_live_page_refresh=preferences["live_page_refresh"],
         retention_days=get_setting_value(db, "retention_days", "30"),
         timezone=get_setting_value(db, "timezone", "auto"),
         log_timestamp_timezone=get_setting_value(db, "log_timestamp_timezone", "UTC"),
@@ -1888,6 +1896,11 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
 
 @router.post("/settings/core")
 def save_core_settings(
+    language: str | None = Form(None),
+    live_default: str | None = Form(None),
+    theme: str | None = Form(None),
+    accent_color: str | None = Form(None),
+    live_page_refresh: str | None = Form(None),
     retention_days: str = Form("30"),
     timezone: str = Form("auto"),
     log_timestamp_timezone: str = Form("UTC"),
@@ -1898,6 +1911,25 @@ def save_core_settings(
     log_level: str = Form("INFO"),
     db: Session = Depends(get_db),
 ):
+    if not auth_enabled(db):
+        current_preferences = global_preferences(db)
+        preferences = normalize_preferences(
+            {
+                "language": language if language is not None else current_preferences["language"],
+                "live_default": live_default if live_default is not None else current_preferences["live_default"],
+                "theme": theme if theme is not None else current_preferences["theme"],
+                "accent_color": accent_color if accent_color is not None else current_preferences["accent_color"],
+                "live_page_refresh": live_page_refresh if live_page_refresh is not None else current_preferences["live_page_refresh"],
+            }
+        )
+        for key, value in {
+            "language": preferences["language"],
+            "live_default": preferences["live_default"],
+            "theme": preferences["theme"],
+            "instance_accent_color": preferences["accent_color"],
+            "live_page_refresh": preferences["live_page_refresh"],
+        }.items():
+            save_setting(db, key, value)
     for key, value in {
             "retention_days": retention_days,
             "timezone": timezone,

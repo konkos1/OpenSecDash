@@ -6,6 +6,11 @@ Saving a regular Settings block updates only that block instead of reloading the
 
 ## General settings
 
+When internal sign-in is disabled, display preferences are shared by the instance and
+configured in the Core section. When internal sign-in is enabled, language, default
+Events mode, theme, accent color, and automatic page refresh move to each user's account
+and no longer appear in Core.
+
 | Setting | What it does |
 | --- | --- |
 | Primary Domain | Shown as the identity of this OpenSecDash instance. Useful when screenshots/debug reports need to identify which homelab instance they came from or simply as branding. |

@@ -4,8 +4,10 @@ from typing import Any
 
 import pytest
 
+from app.models.core import Diagnostic
 from app.models.settings import Setting
 from app.plugins.loader import import_plugin_module
+from app.plugins.manager import PluginManager
 
 # CrowdSec's LAPI client and decision service now live in the plugin; load them
 # the same way the plugin manager does (see docs/internal/plugin-rework/).
@@ -167,6 +169,32 @@ def test_sync_crowdsec_decisions_records_lapi_error(monkeypatch, db_session):
 
     assert ok is False
     assert "not reachable" in message
+
+
+def test_periodic_lapi_error_does_not_replace_log_parser_diagnostic(monkeypatch, db_session):
+    _configure_lapi(db_session)
+    db_session.add(Setting(key="plugin.crowdsec.enabled", value="true"))
+    db_session.add(Diagnostic(plugin="crowdsec", component="plugin", status="healthy", last_error="CrowdSec log readable"))
+    db_session.commit()
+
+    def failing_login(url, login, pw):
+        raise LapiError("CrowdSec LAPI not reachable at http://lapi:8080: connection refused")
+
+    monkeypatch.setattr(lapi_module, "lapi_login", failing_login)
+    plugin_module = import_plugin_module(_CROWDSEC, "plugin")
+    plugin = plugin_module.Plugin()
+    manager = PluginManager(Path("/not-used"))
+    manager.plugins = {"crowdsec": plugin}
+
+    manager._run_periodic_tick(db_session, plugin)
+    manager._run_periodic_tick(db_session, plugin)
+
+    plugin_diagnostic = db_session.query(Diagnostic).filter_by(plugin="crowdsec", component="plugin").one()
+    lapi_diagnostic = db_session.query(Diagnostic).filter_by(plugin="crowdsec", component="lapi").one()
+    assert plugin_diagnostic.status == "healthy"
+    assert plugin_diagnostic.last_error == "CrowdSec log readable"
+    assert lapi_diagnostic.status == "error"
+    assert "not reachable" in (lapi_diagnostic.last_error or "")
 
 
 def test_plugin_execute_ban_and_unban_via_lapi(monkeypatch):

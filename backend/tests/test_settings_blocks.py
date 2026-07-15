@@ -73,7 +73,18 @@ def test_settings_blocks_are_independent_and_use_non_nested_forms(settings_clien
     )
     db.commit()
     page = client.get("/settings")
-    core_response = client.post("/settings/core", data={"timezone": "Europe/Berlin"}, follow_redirects=False)
+    core_response = client.post(
+        "/settings/core",
+        data={
+            "language": "de",
+            "live_default": "false",
+            "theme": "light",
+            "accent_color": "green",
+            "live_page_refresh": "false",
+            "timezone": "Europe/Berlin",
+        },
+        follow_redirects=False,
+    )
     branding_response = client.post("/settings/branding", data={"domain": "after.example"}, follow_redirects=False)
     notification_response = client.post("/settings/notifications", data={"notifications_enabled": "true"}, follow_redirects=False)
     asset_response = client.post("/settings/asset-updates", data={"asset_updates_github_interval": "7200"}, follow_redirects=False)
@@ -86,16 +97,21 @@ def test_settings_blocks_are_independent_and_use_non_nested_forms(settings_clien
     assert notification_response.status_code == 303
     assert asset_response.status_code == 303
     assert db.query(Setting).filter_by(key="domain").one().value == "after.example"
+    assert db.query(Setting).filter_by(key="language").one().value == "de"
+    assert db.query(Setting).filter_by(key="live_default").one().value == "false"
+    assert db.query(Setting).filter_by(key="theme").one().value == "light"
+    assert db.query(Setting).filter_by(key="instance_accent_color").one().value == "green"
+    assert db.query(Setting).filter_by(key="live_page_refresh").one().value == "false"
     assert db.query(Setting).filter_by(key="timezone").one().value == "Europe/Berlin"
     assert db.query(Setting).filter_by(key="notifications.enabled").one().value == "true"
     assert db.query(Setting).filter_by(key="asset_updates.github_interval").one().value == "7200"
     assert db.query(Setting).filter_by(key="plugin.crowdsec.enabled").one().value == "true"
     assert 'action="/settings"' not in page.text
-    assert 'name="language"' not in page.text
-    assert 'name="live_default"' not in page.text
-    assert 'name="theme"' not in page.text
-    assert 'name="instance_accent_color"' not in page.text
-    assert 'name="live_page_refresh"' not in page.text
+    assert 'name="language"' in page.text
+    assert 'name="live_default"' in page.text
+    assert 'name="theme"' in page.text
+    assert 'name="accent_color"' in page.text
+    assert 'name="live_page_refresh"' in page.text
     assert 'id="settings-core-form"' in page.text
     assert 'hx-select="#settings-core-form"' in page.text
     assert 'id="settings-notifications-form"' in page.text

@@ -150,11 +150,12 @@ Each signed-in user can keep their own:
 - dashboard widget visibility and ordering
 - Events and Access saved views
 
-Existing installations that leave internal sign-in disabled retain the global instance behavior. See [Authentication](../configuration/authentication.md).
+With internal sign-in disabled, these display preferences remain global and are configured
+under **Settings → Core**. See [Authentication](../configuration/authentication.md).
 
 ## Instance identity and branding
 
-An instance can show its domain, a short PWA description, a custom logo, a custom favicon, and a selectable accent color. OpenSecDash's own name and icon remain visible so screenshots and installed apps still identify the product clearly. Branding files are stored in the database and follow the normal `/data` backup.
+An instance can show its domain, a short PWA description, a custom logo, and a custom favicon. OpenSecDash's own name and icon remain visible so screenshots and installed apps still identify the product clearly. Branding files are stored in the database and follow the normal `/data` backup.
 
 See [Instance branding](../configuration/settings.md#instance-branding).
 
