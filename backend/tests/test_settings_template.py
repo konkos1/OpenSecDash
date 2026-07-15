@@ -14,7 +14,7 @@ def test_settings_template_uses_independent_details_forms():
         request=SimpleNamespace(url=SimpleNamespace(path="/settings")),
         language="en",
         theme="light",
-        instance_accent_color="blue",
+        accent_color="blue",
         timezone="auto",
         domain="homelab.example",
         enabled_plugins={},
@@ -24,9 +24,12 @@ def test_settings_template_uses_independent_details_forms():
         t=lambda key: key,
         plugin_settings_state={},
         plugin_setting_groups=[],
-        language_setting="en",
+        global_language="en",
+        global_live_default="true",
+        global_theme="light",
+        global_accent_color="blue",
+        global_live_page_refresh="true",
         retention_days="30",
-        live_default="true",
         asset_source_type="file",
         asset_source="",
         action_dry_run="true",
@@ -44,12 +47,13 @@ def test_settings_template_uses_independent_details_forms():
         notifications_smtp_password="",
         notifications_smtp_sender="",
         notifications_smtp_recipient="",
+        auth_enabled=False,
     )
 
     assert 'action="/settings/core"' in html
     assert 'action="/settings/branding"' in html
     assert 'action="/settings/notifications"' in html
     assert 'action="/settings/asset-updates"' in html
-    assert 'name="theme"' not in html
+    assert 'name="theme"' in html
     assert html.index('name="domain"') > html.index('action="/settings/branding"')
     assert '<details class="card mb-5" open>' in html
