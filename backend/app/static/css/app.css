@@ -141,9 +141,11 @@ tbody tr:hover { background: rgba(15, 23, 42, .65); }
 .columns-dialog-header { align-items: flex-start; border-bottom: 1px solid rgb(30 41 59); display: flex; gap: 1rem; justify-content: space-between; margin: -1rem -1rem 1rem; padding: 1rem; }
 .dashboard-trend-chart { min-width: 32rem; }
 .dashboard-trend-bars { align-items: end; display: grid; gap: .25rem; grid-template-columns: repeat(30, minmax(0, 1fr)); height: 8rem; }
-.dashboard-trend-bar { align-items: end; display: flex; height: 100%; min-width: 0; }
+.dashboard-trend-bar { align-items: end; background: transparent; border: 0; display: flex; height: 100%; min-width: 0; padding: 0; }
+.dashboard-trend-bar:focus-visible { outline: 2px solid var(--accent-300); outline-offset: 2px; }
 .dashboard-trend-axis { display: grid; font-size: .7rem; grid-template-columns: repeat(30, minmax(0, 1fr)); margin-top: .5rem; }
 .dashboard-trend-axis span { min-width: 0; text-align: center; white-space: nowrap; }
+.dashboard-trend-detail { min-height: 1.25rem; padding-top: .35rem; text-align: center; }
 .columns-grid { display: grid; gap: .65rem; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); }
 .columns-grid label { background: #020617; border: 1px solid #334155; border-radius: .75rem; padding: .65rem .75rem; }
 .columns-grid label:hover { border-color: #64748b; }

@@ -64,6 +64,54 @@ document.addEventListener("DOMContentLoaded", () => {
     localizeOpenSecDashDatetimes();
     localizeOpenSecDashCountries();
 
+    let activeTooltipTrigger = null;
+    const hideTooltip = () => {
+        document.querySelectorAll(".help-tooltip").forEach(tooltip => tooltip.remove());
+        if (activeTooltipTrigger) {
+            activeTooltipTrigger.removeAttribute("aria-describedby");
+            activeTooltipTrigger = null;
+        }
+    };
+    const showTooltip = (trigger, text) => {
+        hideTooltip();
+
+        const tooltip = document.createElement("div");
+        tooltip.id = "opensecdash-tooltip";
+        tooltip.className = "help-tooltip";
+        tooltip.setAttribute("role", "tooltip");
+        tooltip.textContent = text;
+        document.body.appendChild(tooltip);
+
+        const gap = 8;
+        const margin = 8;
+        const triggerRect = trigger.getBoundingClientRect();
+        const tooltipRect = tooltip.getBoundingClientRect();
+        const left = Math.min(
+            Math.max(triggerRect.left + (triggerRect.width / 2) - (tooltipRect.width / 2), margin),
+            window.innerWidth - tooltipRect.width - margin,
+        );
+        let top = triggerRect.top - tooltipRect.height - gap;
+        if (top < margin) {
+            top = triggerRect.bottom + gap;
+        }
+        if (top + tooltipRect.height > window.innerHeight - margin) {
+            top = Math.max(margin, window.innerHeight - tooltipRect.height - margin);
+        }
+        tooltip.style.left = `${left}px`;
+        tooltip.style.top = `${top}px`;
+        trigger.setAttribute("aria-describedby", tooltip.id);
+        activeTooltipTrigger = trigger;
+    };
+    const showChartValue = trigger => {
+        const text = trigger.dataset.tooltip || "";
+        const chart = trigger.closest(".dashboard-trend-chart");
+        const detail = chart && chart.querySelector("[data-chart-detail]");
+        if (detail) {
+            detail.textContent = text;
+        }
+        showTooltip(trigger, text);
+    };
+
     let saveFeedbackTimeout = null;
     const showSaveFeedback = () => {
         const banner = document.getElementById("save-feedback-banner");
@@ -94,6 +142,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let pendingScrollRestore = null;
 
     document.body.addEventListener("htmx:beforeSwap", event => {
+        hideTooltip();
         const target = event.detail && event.detail.target;
         if (!target || !target.id) {
             return;
@@ -282,12 +331,42 @@ document.addEventListener("DOMContentLoaded", () => {
 
     document.addEventListener("keydown", event => {
         if (event.key === "Escape") {
+            hideTooltip();
             document.querySelectorAll(".text-overlay-backdrop").forEach(overlay => overlay.remove());
+        }
+    });
+
+    document.addEventListener("pointerover", event => {
+        const chartBar = event.target.closest(".dashboard-trend-bar[data-chart-tooltip]");
+        if (chartBar && event.pointerType === "mouse" && !chartBar.contains(event.relatedTarget)) {
+            showChartValue(chartBar);
+        }
+    });
+
+    document.addEventListener("pointerout", event => {
+        const chartBar = event.target.closest(".dashboard-trend-bar[data-chart-tooltip]");
+        if (chartBar && event.pointerType === "mouse" && !chartBar.contains(event.relatedTarget)) {
+            hideTooltip();
+        }
+    });
+
+    document.addEventListener("focusin", event => {
+        const chartBar = event.target.closest(".dashboard-trend-bar[data-chart-tooltip]");
+        if (chartBar) {
+            showChartValue(chartBar);
+        }
+    });
+
+    document.addEventListener("focusout", event => {
+        const chartBar = event.target.closest(".dashboard-trend-bar[data-chart-tooltip]");
+        if (chartBar && !chartBar.contains(event.relatedTarget)) {
+            hideTooltip();
         }
     });
 
     document.addEventListener("click", event => {
         const helpButton = event.target.closest(".help[data-tooltip]");
+        const chartBar = event.target.closest(".dashboard-trend-bar[data-chart-tooltip]");
         const overlayTrigger = event.target.closest(".text-overlay-trigger[data-full-text]");
         const pathButton = event.target.closest(".path-truncate[data-full-text]");
         const overlayClose = event.target.closest("[data-text-overlay-close]");
@@ -297,8 +376,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const columnsDialogBackdrop = event.target.tagName === "DIALOG" && event.target.classList.contains("columns-dialog") ? event.target : null;
         const overlayBackdrop = event.target.classList.contains("text-overlay-backdrop") ? event.target : null;
 
-        document.querySelectorAll(".help-tooltip")
-            .forEach(tooltip => tooltip.remove());
+        hideTooltip();
 
         if (overlayClose || overlayBackdrop) {
             event.preventDefault();
@@ -361,29 +439,14 @@ document.addEventListener("DOMContentLoaded", () => {
         if (helpButton) {
             event.preventDefault();
             event.stopPropagation();
+            showTooltip(helpButton, helpButton.dataset.tooltip);
+            return;
+        }
 
-            const tooltip = document.createElement("div");
-            tooltip.className = "help-tooltip";
-            tooltip.textContent = helpButton.dataset.tooltip;
-            document.body.appendChild(tooltip);
-
-            const gap = 8;
-            const margin = 8;
-            const buttonRect = helpButton.getBoundingClientRect();
-            const tooltipRect = tooltip.getBoundingClientRect();
-            const left = Math.min(
-                Math.max(buttonRect.left + (buttonRect.width / 2) - (tooltipRect.width / 2), margin),
-                window.innerWidth - tooltipRect.width - margin,
-            );
-            let top = buttonRect.top - tooltipRect.height - gap;
-            if (top < margin) {
-                top = buttonRect.bottom + gap;
-            }
-            if (top + tooltipRect.height > window.innerHeight - margin) {
-                top = Math.max(margin, window.innerHeight - tooltipRect.height - margin);
-            }
-            tooltip.style.left = `${left}px`;
-            tooltip.style.top = `${top}px`;
+        if (chartBar) {
+            event.preventDefault();
+            event.stopPropagation();
+            showChartValue(chartBar);
             return;
         }
 
