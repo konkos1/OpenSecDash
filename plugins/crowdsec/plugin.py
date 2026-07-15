@@ -103,9 +103,9 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
         # keep LAPI usage low while still keeping active bans reasonably fresh.
         if self._decision_sync_counter % 2 == 1:
             return
-        ok, message = sync_crowdsec_decisions(context.db)
-        if not ok:
-            raise RuntimeError(message)
+        # Decision sync owns the LAPI diagnostic. Returning normally lets the
+        # manager commit that result without misclassifying it as plugin health.
+        sync_crowdsec_decisions(context.db)
 
     async def collect(self, context) -> list[dict[str, Any]]:
         path = Path(context.get("log_path"))
