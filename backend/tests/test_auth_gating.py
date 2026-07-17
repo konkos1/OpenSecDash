@@ -103,7 +103,7 @@ def test_diagnostics_show_sanitized_auth_transport_status(auth_client):
     assert 'data-tooltip="Runtime health: whether an enabled plugin is currently running without errors.' in page.text
     assert 'data-tooltip="Runtime status of datasource plugins' in page.text
     assert 'data-tooltip="Shows manually triggered actions' in page.text
-    assert "Shows the newest 20 manual actions." in page.text
+    assert '<p class="muted mb-3 text-sm">Shows the newest 20 manual actions.</p>' in page.text
     diagnostics_results = page.text.split('<div id="diagnostics-results"', maxsplit=1)[1]
     assert diagnostics_results.count("data-tooltip=") == 5
     assert "The stored authentication hostname matches" in page.text

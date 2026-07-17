@@ -80,7 +80,8 @@
     </section>
 
     <section class="card">
-        <h3 class="font-semibold mb-3">{{ t("diagnostics.recent_actions") }} <button type="button" class="help" data-tooltip="{{ t('diagnostics.recent_actions_help') }} {{ t('table.limit.diagnostics_actions') }}">?</button></h3>
+        <h3 class="font-semibold mb-1">{{ t("diagnostics.recent_actions") }} <button type="button" class="help" data-tooltip="{{ t('diagnostics.recent_actions_help') }}">?</button></h3>
+        <p class="muted mb-3 text-sm">{{ t("table.limit.diagnostics_actions") }}</p>
         {% for action in actions %}
             <div class="row">
                 {% set action_label_key = "action.type." ~ action.action_type %}
