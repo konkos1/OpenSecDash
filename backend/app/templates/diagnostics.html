@@ -19,7 +19,7 @@
     <section id="auth-transport" class="card mb-5">
         <div class="flex items-start justify-between gap-4 mb-3">
             <div>
-                <h3 class="font-semibold mb-1">{{ t("diagnostics.auth_transport") }}</h3>
+                <h3 class="font-semibold mb-1">{{ t("diagnostics.auth_transport") }} <button type="button" class="help" data-tooltip="{{ t('diagnostics.auth_transport_relevance_help') }}">?</button></h3>
                 <p class="muted text-sm">{{ t("diagnostics.auth_transport_help") }}</p>
             </div>
             <b class="status-badge status-{{ auth_transport.status }}">{{ t("diagnostics.status." ~ auth_transport.status) }}</b>

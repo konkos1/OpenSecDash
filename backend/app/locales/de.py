@@ -357,6 +357,7 @@ DE = {
     "diagnostics.debug_report_help": "Erstellt ein bereinigtes ZIP-Paket mit einzelnen Dateien für Einstellungen, Plugin-Status, Diagnosedaten, Zählwerte, letzte Aktionen und den OpenSecDash-Logauszug für GitHub-Issues.",
     "diagnostics.auth_transport": "Anmeldetransport",
     "diagnostics.auth_transport_help": "Prüft die aktuelle Anfrage gegen die vertrauenswürdige HTTPS-/443-Grenze der internen Anmeldung. Proxy-Adressen und Netzbereiche werden nicht angezeigt.",
+    "diagnostics.auth_transport_relevance_help": "Diese Prüfung ist nur relevant, wenn die interne Benutzerverwaltung aktiviert werden soll oder bereits aktiviert ist. Bei ausschließlicher Nutzung eines externen Authentifizierungsanbieters kann sie ignoriert werden.",
     "diagnostics.auth_transport.proxy_configuration": "Explizite Proxy-Konfiguration",
     "diagnostics.auth_transport.proxy_configuration.healthy": "OSD_TRUSTED_PROXIES enthält eine konkrete Proxy-IP oder ein konkretes Proxy-Netz.",
     "diagnostics.auth_transport.proxy_configuration.error": "Setze OSD_TRUSTED_PROXIES auf die Proxy-IP oder das engste praktikable Proxy-Netz; Standardwerte und * genügen nicht.",

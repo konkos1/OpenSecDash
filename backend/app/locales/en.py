@@ -357,6 +357,7 @@ EN = {
     "diagnostics.debug_report_help": "Creates a sanitized ZIP package with separate files for settings, plugin status, diagnostics, counts, recent actions and the OpenSecDash log tail for GitHub issues.",
     "diagnostics.auth_transport": "Authentication transport",
     "diagnostics.auth_transport_help": "Checks the current request against the trusted HTTPS/443 boundary used by internal sign-in. Proxy addresses and network ranges are not displayed.",
+    "diagnostics.auth_transport_relevance_help": "This check is only relevant when internal user management is being enabled or is already enabled. It can be ignored when authentication is handled exclusively by an external provider.",
     "diagnostics.auth_transport.proxy_configuration": "Explicit proxy configuration",
     "diagnostics.auth_transport.proxy_configuration.healthy": "OSD_TRUSTED_PROXIES contains a specific proxy IP or network.",
     "diagnostics.auth_transport.proxy_configuration.error": "Set OSD_TRUSTED_PROXIES to the proxy IP or narrowest practical proxy network; defaults and * do not qualify.",
