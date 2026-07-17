@@ -111,6 +111,13 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         showTooltip(trigger, text);
     };
+    const showTriggerTooltip = trigger => {
+        if (trigger.matches(".dashboard-trend-bar[data-chart-tooltip]")) {
+            showChartValue(trigger);
+            return;
+        }
+        showTooltip(trigger, trigger.dataset.tooltip || "");
+    };
 
     let saveFeedbackTimeout = null;
     const showSaveFeedback = () => {
@@ -140,12 +147,29 @@ document.addEventListener("DOMContentLoaded", () => {
     // it here, once, covers every such region instead of duplicating this in
     // each place that triggers a refresh.
     let pendingScrollRestore = null;
+    let pendingTooltipRestore = null;
 
     document.body.addEventListener("htmx:beforeSwap", event => {
-        hideTooltip();
         const target = event.detail && event.detail.target;
         if (!target || !target.id) {
+            hideTooltip();
             return;
+        }
+        if (activeTooltipTrigger && target.contains(activeTooltipTrigger)) {
+            const selector = activeTooltipTrigger.matches(".help[data-tooltip]")
+                ? ".help[data-tooltip]"
+                : ".dashboard-trend-bar[data-chart-tooltip]";
+            const triggers = Array.from(target.querySelectorAll(selector));
+            const index = triggers.indexOf(activeTooltipTrigger);
+            if (index !== -1) {
+                pendingTooltipRestore = {
+                    id: target.id,
+                    selector,
+                    index,
+                    restoreFocus: document.activeElement === activeTooltipTrigger,
+                };
+            }
+            hideTooltip();
         }
         pendingScrollRestore = {
             id: target.id,
@@ -156,8 +180,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // A failed/cancelled swap must drop the captured position, or it would be
     // (wrongly) applied to the next unrelated swap and jump the page around.
-    document.body.addEventListener("htmx:swapError", () => { pendingScrollRestore = null; });
-    document.body.addEventListener("htmx:responseError", () => { pendingScrollRestore = null; });
+    const clearPendingSwapState = () => {
+        pendingScrollRestore = null;
+        pendingTooltipRestore = null;
+    };
+    document.body.addEventListener("htmx:swapError", clearPendingSwapState);
+    document.body.addEventListener("htmx:responseError", clearPendingSwapState);
 
     document.body.addEventListener("htmx:afterSwap", event => {
         localizeOpenSecDashDatetimes();
@@ -175,6 +203,18 @@ document.addEventListener("DOMContentLoaded", () => {
                 document.documentElement.lang = preferencesForm.elements.language.value;
                 document.body.dataset.theme = preferencesForm.elements.theme.value;
                 document.body.dataset.accent = preferencesForm.elements.accent_color.value;
+            }
+        }
+
+        if (pendingTooltipRestore && swappedElement && swappedElement.id === pendingTooltipRestore.id) {
+            const { selector, index, restoreFocus } = pendingTooltipRestore;
+            pendingTooltipRestore = null;
+            const trigger = swappedElement.querySelectorAll(selector)[index];
+            if (trigger) {
+                showTriggerTooltip(trigger);
+                if (restoreFocus) {
+                    trigger.focus({ preventScroll: true });
+                }
             }
         }
 
