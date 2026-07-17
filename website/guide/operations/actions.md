@@ -8,6 +8,15 @@ UI → validation → confirmation and permission checks → plugin → target s
 
 The current built-in action workflow supports CrowdSec ban and unban through the CrowdSec Local API (LAPI).
 
+::: danger Authentication and HTTPS are required for real integrations
+Do not enable real CrowdSec Ban/Unban, Proxmox, or MQTT operations on an unprotected
+dashboard. Before using them, require either
+[internal sign-in](../configuration/authentication.md) or an external authentication
+provider, and expose OpenSecDash exclusively through an HTTPS
+[reverse proxy](../installation/reverse-proxy.md) with a browser-trusted certificate.
+LAN reachability alone is not an authentication boundary.
+:::
+
 ## Safety controls
 
 OpenSecDash applies the same controls regardless of which page started an action:
@@ -58,4 +67,3 @@ If a real action fails, check:
 3. whether Action simulation is still enabled
 4. the current user's role
 5. the target IP classification
-
