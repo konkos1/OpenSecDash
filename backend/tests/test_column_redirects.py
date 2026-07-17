@@ -1,3 +1,4 @@
+import pytest
 from starlette.requests import Request
 
 from app.web.tables import column_redirect_url
@@ -24,8 +25,18 @@ def test_column_redirect_rejects_external_referer():
     assert column_redirect_url(_request("https://evil.example/events"), "/events", "") == "/events"
 
 
-def test_column_redirect_rejects_protocol_relative_referer():
-    assert column_redirect_url(_request("//evil.example/events"), "/events", "") == "/events"
+@pytest.mark.parametrize(
+    "referer",
+    (
+        "//evil.example/events",
+        r"/\evil.example/events",
+        r"/\\evil.example/events",
+        r"\evil.example/events",
+        r"https:\evil.example/events",
+    ),
+)
+def test_column_redirect_rejects_ambiguous_referer(referer: str):
+    assert column_redirect_url(_request(referer), "/events", "") == "/events"
 
 
 def test_column_redirect_allows_same_origin_referer_as_local_path():

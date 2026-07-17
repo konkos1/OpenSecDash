@@ -67,8 +67,9 @@ from app.web.guards import (
     require_assets_feature_enabled,
     require_events_feature_enabled,
 )
-from app.web.render import render
 from app.web.proxy_headers import TRUSTED_PROXIES_ENV
+from app.web.redirects import safe_local_redirect_target
+from app.web.render import render
 from app.web.tables import (
     DEFAULT_EVENTS_COLUMNS,
     asset_links_for_events,
@@ -76,7 +77,6 @@ from app.web.tables import (
     clean_time_range,
     clean_url_value,
     column_redirect_url,
-    _safe_local_redirect_target,
     parse_snapshot_before,
     save_setting,
     save_table_columns,
@@ -668,7 +668,7 @@ def delete_saved_view(request: Request, view_id: int, scope: str = Form(""), db:
     if view is not None:
         db.delete(view)
         db.commit()
-    return RedirectResponse(url=_safe_local_redirect_target(request, request.headers.get("referer"), _view_path(scope, {})), status_code=303)
+    return RedirectResponse(url=safe_local_redirect_target(request, request.headers.get("referer"), _view_path(scope, {})), status_code=303)
 
 
 @router.get("/")

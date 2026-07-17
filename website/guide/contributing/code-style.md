@@ -108,8 +108,10 @@ The app runs a single event loop for every visitor. **No blocking I/O on the eve
   discussion.
 - Autoescaping stays on. **Never use `|safe`** on data that is not a compile-time
   constant. JS hooks use `data-*` attributes, not inline event handlers.
-- Redirects only target internal paths: validate with
-  `startswith("/") and not startswith("//")` or reuse `_safe_local_redirect_target`.
+- Browser navigation and redirects only target internal paths. Validate them with
+  `is_safe_local_path`, `safe_local_path`, or `safe_local_redirect_target` from
+  `app.web.redirects`; these helpers also reject backslashes that browsers can normalize
+  into path separators.
 - Every user-visible string goes through `t("...")` with locale entries in **both**
   `backend/app/locales/en.py` and `de.py` (or the plugin's `locales.py`). A PR that adds
   UI text in only one language is incomplete.

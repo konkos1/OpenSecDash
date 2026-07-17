@@ -39,6 +39,7 @@ def test_validate_widget_rejects_missing_identity_and_external_href():
     assert not validate_widget(make_widget(title_key=""))
     assert not validate_widget(make_widget(href="http://evil.example"))
     assert not validate_widget(make_widget(href="//evil.example"))
+    assert not validate_widget(make_widget(href=r"/\evil.example"))
 
 
 def test_validate_widget_accepts_internal_paths():
