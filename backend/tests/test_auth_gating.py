@@ -45,7 +45,7 @@ def auth_client(tmp_path, monkeypatch):
 
 
 def enable_auth(db_session):
-    db_session.add(Setting(key="auth.enabled", value="true"))
+    db_session.add_all([Setting(key="auth.enabled", value="true"), Setting(key="auth.hostname", value="testserver")])
     user = create_user(db_session, "admin", "password123", "admin")
     db_session.commit()
     return user
@@ -73,6 +73,27 @@ def test_auth_gating_keeps_required_paths_public_and_rejects_anonymous_requests(
     assert '<html lang="de">' in response.text
 
 
+def test_active_auth_rejects_wrong_proxy_origin_but_keeps_health_public(auth_client):
+    db_session, client = auth_client
+    enable_auth(db_session)
+
+    assert client.get("/login", headers={"x-forwarded-host": "other.example"}).status_code == 403
+    assert client.get("/login", headers={"x-forwarded-proto": "http", "x-forwarded-host": "testserver"}).status_code == 403
+    assert client.get("/login", headers={"x-forwarded-host": "testserver:8443"}).status_code == 403
+    assert client.get("/health", headers={"x-forwarded-proto": "http", "x-forwarded-host": "other.example"}).status_code == 200
+    assert client.get("/ready", headers={"x-forwarded-proto": "http", "x-forwarded-host": "other.example"}).status_code == 200
+
+
+def test_existing_auth_without_hostname_fails_closed_until_break_glass(auth_client, monkeypatch):
+    db_session, client = auth_client
+    db_session.add(Setting(key="auth.enabled", value="true"))
+    db_session.commit()
+
+    assert client.get("/login").status_code == 403
+    monkeypatch.setenv("OSD_AUTH_DISABLED", "true")
+    assert client.get("/settings").status_code == 200
+
+
 def test_auth_gating_uses_the_application_database_override(auth_client, monkeypatch):
     _, client = auth_client
     empty_engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
@@ -93,11 +114,13 @@ def test_login_logout_and_cookie_flags_gate_browser_requests(auth_client):
     assert "HttpOnly" in response.headers["set-cookie"]
     assert "SameSite=lax" in response.headers["set-cookie"]
     assert "Secure" in response.headers["set-cookie"]
+    assert response.headers["strict-transport-security"] == "max-age=31536000"
 
     response = client.get("/")
     assert response.status_code == 200
     assert "Cache-Control" in response.headers
     assert "no-store" in response.headers["Cache-Control"]
+    assert response.headers["strict-transport-security"] == "max-age=31536000"
     assert "admin" in response.text
 
     response = client.post("/auth/logout", follow_redirects=False)
@@ -182,6 +205,23 @@ def test_websocket_closes_anonymous_connections_when_auth_is_enabled(auth_client
 
     with pytest.raises(WebSocketDisconnect) as exc_info:
         with client.websocket_connect("/ws/events"):
+            pass
+
+    assert exc_info.value.code == 1008
+
+
+def test_authenticated_websocket_requires_the_configured_proxy_origin(auth_client):
+    db_session, client = auth_client
+    enable_auth(db_session)
+    db_session.add(Setting(key="plugin.traefik_log.enabled", value="true"))
+    db_session.commit()
+    client.post("/login", data={"username": "admin", "password": "password123"}, follow_redirects=False)
+
+    with client.websocket_connect("wss://testserver/ws/events") as websocket:
+        assert websocket.receive_json()["type"] == "connected"
+
+    with pytest.raises(WebSocketDisconnect) as exc_info:
+        with client.websocket_connect("wss://testserver/ws/events", headers={"x-forwarded-host": "other.example"}):
             pass
 
     assert exc_info.value.code == 1008

@@ -46,7 +46,7 @@ from app.services.notification_channels import get_channel
 from app.services.notifications import invalidate_rules_cache
 from app.services.rollups import combine_rollup_values
 from app.services.saved_views import VIEW_SCOPES, clean_view_name, plugin_views_for_scope, view_filters_from_query, view_query_state_from_query, view_to_query
-from app.services.auth import AUTH_DISABLED_ENV, auth_enabled
+from app.services.auth import AUTH_DISABLED_ENV, AUTH_HOSTNAME_SETTING, auth_disabled_by_environment, auth_enabled
 from app.services.asset_updates import refresh_asset_update
 from app.services.user_preferences import global_preferences, normalize_preferences
 from app.plugins.manager import get_plugin_manager
@@ -1849,6 +1849,7 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
         for setting in group["settings"]
     }
     authentication_enabled = auth_enabled(db)
+    authentication_break_glass = auth_disabled_by_environment()
     preferences = global_preferences(db)
     return render(
         request,
@@ -1860,6 +1861,8 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
         instance_favicon=get_instance_file(db, "favicon"),
         branding_error=request.query_params.get("branding_error", ""),
         auth_enabled=authentication_enabled,
+        auth_break_glass=authentication_break_glass,
+        auth_hostname=get_setting_value(db, AUTH_HOSTNAME_SETTING, ""),
         users=db.query(User).order_by(User.username).all(),
         auth_error=request.query_params.get("auth_error", ""),
         auth_notice=request.query_params.get("auth_notice", ""),

@@ -3,7 +3,15 @@ from typing import Any
 
 from starlette.requests import Request
 
-from app.web.proxy_headers import DEFAULT_TRUSTED_NETWORKS, ProxyHeadersMiddleware, parse_trusted_proxies
+from app.web.proxy_headers import (
+    DEFAULT_TRUSTED_NETWORKS,
+    PROXY_STATE_EXPLICITLY_TRUSTED,
+    PROXY_STATE_FORWARDED_HOST,
+    PROXY_STATE_FORWARDED_PORT,
+    PROXY_STATE_FORWARDED_PROTO,
+    ProxyHeadersMiddleware,
+    parse_trusted_proxies,
+)
 
 
 async def _recording_app(scope: dict[str, Any], receive: Any, send: Any) -> None:
@@ -31,7 +39,11 @@ async def _send(message: dict[str, Any]) -> None:
 
 
 def _apply(scope: dict[str, Any], trusted_proxies: Any = ...) -> None:
-    middleware = ProxyHeadersMiddleware(_recording_app) if trusted_proxies is ... else ProxyHeadersMiddleware(_recording_app, trusted_proxies)
+    middleware = (
+        ProxyHeadersMiddleware(_recording_app, parse_trusted_proxies(None))
+        if trusted_proxies is ...
+        else ProxyHeadersMiddleware(_recording_app, trusted_proxies)
+    )
     asyncio.run(middleware(scope, _receive, _send))
 
 
@@ -89,6 +101,7 @@ def test_untrusted_peers_and_missing_clients_fail_closed():
         (b"X-Forwarded-For", b"203.0.113.9"),
         (b"X-Forwarded-Proto", b"https"),
         (b"X-Forwarded-Host", b"osd.example.com"),
+        (b"X-Forwarded-Port", b"443"),
     ]
     public_scope = _scope(client=("203.0.113.50", 4242), headers=headers)
     missing_client_scope = _scope(client=None, headers=headers)
@@ -100,7 +113,7 @@ def test_untrusted_peers_and_missing_clients_fail_closed():
         assert scope["client"] == client
         assert scope["scheme"] == "http"
         assert dict(scope["headers"])[b"host"] == b"internal.example"
-        assert not _header_names(scope) & {b"x-forwarded-for", b"x-forwarded-proto", b"x-forwarded-host"}
+        assert not _header_names(scope) & {b"x-forwarded-for", b"x-forwarded-proto", b"x-forwarded-host", b"x-forwarded-port"}
 
 
 def test_invalid_x_forwarded_for_does_not_block_other_valid_headers():
@@ -133,6 +146,32 @@ def test_x_forwarded_host_replaces_host_header():
 
     assert dict(scope["headers"])[b"host"] == b"osd.example.com"
     assert Request(scope).url.hostname == "osd.example.com"
+
+
+def test_auth_proxy_provenance_requires_explicit_non_wildcard_configuration(monkeypatch):
+    headers = [
+        (b"host", b"internal.example"),
+        (b"X-Forwarded-Proto", b"https"),
+        (b"X-Forwarded-Host", b"osd.example.com"),
+        (b"X-Forwarded-Port", b"443"),
+    ]
+    default_scope = _scope(headers=headers)
+    wildcard_scope = _scope(headers=headers)
+    configured_scope = _scope(headers=headers)
+
+    monkeypatch.delenv("OSD_TRUSTED_PROXIES", raising=False)
+    asyncio.run(ProxyHeadersMiddleware(_recording_app)(default_scope, _receive, _send))
+    monkeypatch.setenv("OSD_TRUSTED_PROXIES", "*")
+    asyncio.run(ProxyHeadersMiddleware(_recording_app)(wildcard_scope, _receive, _send))
+    monkeypatch.setenv("OSD_TRUSTED_PROXIES", "10.0.0.2")
+    asyncio.run(ProxyHeadersMiddleware(_recording_app)(configured_scope, _receive, _send))
+
+    assert default_scope["state"][PROXY_STATE_EXPLICITLY_TRUSTED] is False
+    assert wildcard_scope["state"][PROXY_STATE_EXPLICITLY_TRUSTED] is False
+    assert configured_scope["state"][PROXY_STATE_EXPLICITLY_TRUSTED] is True
+    assert configured_scope["state"][PROXY_STATE_FORWARDED_PROTO] == "https"
+    assert configured_scope["state"][PROXY_STATE_FORWARDED_HOST] == "osd.example.com"
+    assert configured_scope["state"][PROXY_STATE_FORWARDED_PORT] == "443"
 
 
 def test_empty_and_trust_all_configuration_control_header_processing():

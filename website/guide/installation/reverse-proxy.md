@@ -40,14 +40,16 @@ location / {
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Forwarded-Port $server_port;
 }
 ```
 
 ## Proxy headers
 
-OpenSecDash reads `X-Forwarded-For`, `X-Forwarded-Proto`, and
-`X-Forwarded-Host` so its logs and pages use the real client IP, the external HTTPS
-scheme, and the public hostname.
+OpenSecDash reads `X-Forwarded-For`, `X-Forwarded-Proto`, `X-Forwarded-Host`, and
+`X-Forwarded-Port` so its logs and pages use the real client IP and the external
+request origin.
 
 These headers are accepted only when the direct connection comes from a trusted
 proxy address. By default, OpenSecDash trusts loopback and private network ranges.
@@ -61,6 +63,12 @@ environment:
   # Trust only these reverse-proxy IPs or CIDRs.
   OSD_TRUSTED_PROXIES: 192.168.1.10,10.0.0.0/8
 ```
+
+Internal sign-in has a stricter boundary than general proxy-header processing:
+`OSD_TRUSTED_PROXIES` must be set explicitly to the proxy IP or the narrowest practical
+proxy network. The defaults and `*` do not qualify for enabling internal sign-in.
+OpenSecDash also requires the trusted proxy to provide `X-Forwarded-Proto: https`,
+`X-Forwarded-Port: 443`, and `X-Forwarded-Host`.
 
 ```yaml
 environment:
@@ -77,6 +85,10 @@ environment:
 Traefik and Caddy set these headers automatically. The nginx example above already
 sets them. If OpenSecDash is accessed directly on your LAN without a proxy and you
 do not want proxy-header processing, set `OSD_TRUSTED_PROXIES` to an empty value.
+
+The reverse proxy terminates TLS and is responsible for serving a certificate that is
+valid for the configured OpenSecDash hostname. The browser validates the certificate;
+OpenSecDash cannot inspect the proxy's server certificate after TLS has been terminated.
 
 ## Public exposure
 

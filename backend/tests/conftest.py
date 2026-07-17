@@ -48,10 +48,16 @@ def _test_secret_key(monkeypatch):
 def _browser_origin_header(monkeypatch):
     """Make application TestClients send the Origin header supplied by browsers."""
     original_init = TestClient.__init__
+    monkeypatch.setenv("OSD_TRUSTED_PROXIES", "127.0.0.1")
 
     def init_with_origin(self, *args, **kwargs):
+        kwargs.setdefault("client", ("127.0.0.1", 50000))
         original_init(self, *args, **kwargs)
-        self.headers.setdefault("origin", str(self.base_url).rstrip("/"))
+        external_origin = str(self.base_url).rstrip("/")
+        self.headers.setdefault("origin", external_origin)
+        self.headers.setdefault("x-forwarded-proto", self.base_url.scheme)
+        self.headers.setdefault("x-forwarded-host", external_origin.split("://", 1)[1])
+        self.headers.setdefault("x-forwarded-port", str(self.base_url.port or (443 if self.base_url.scheme == "https" else 80)))
 
     monkeypatch.setattr(TestClient, "__init__", init_with_origin)
 
