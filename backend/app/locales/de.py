@@ -355,6 +355,7 @@ DE = {
     "diagnostics.title": "Diagnose",
     "diagnostics.download_debug_report": "Debug-Bericht herunterladen",
     "diagnostics.debug_report_help": "Erstellt ein bereinigtes ZIP-Paket mit einzelnen Dateien für Einstellungen, Plugin-Status, Diagnosedaten, Zählwerte, letzte Aktionen und den OpenSecDash-Logauszug für GitHub-Issues.",
+    "diagnostics.internal_user_management": "Interne Benutzerverwaltung",
     "diagnostics.auth_transport": "Anmeldetransport",
     "diagnostics.auth_transport_help": "Prüft die aktuelle Anfrage gegen die vertrauenswürdige HTTPS-/443-Grenze der internen Anmeldung. Proxy-Adressen und Netzbereiche werden nicht angezeigt.",
     "diagnostics.auth_transport_relevance_help": "Diese Prüfung ist nur relevant, wenn die interne Benutzerverwaltung aktiviert werden soll oder bereits aktiviert ist. Bei ausschließlicher Nutzung eines externen Authentifizierungsanbieters kann sie ignoriert werden.",

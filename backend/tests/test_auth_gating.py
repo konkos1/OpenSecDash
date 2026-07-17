@@ -93,8 +93,11 @@ def test_diagnostics_show_sanitized_auth_transport_status(auth_client):
 
     assert page.status_code == 200
     assert 'id="auth-transport"' in page.text
+    assert "Internal user management" in page.text
     assert "Authentication transport" in page.text
     assert 'data-tooltip="This check is only relevant when internal user management is being enabled or is already enabled.' in page.text
+    auth_transport_section = page.text.split('<section id="auth-transport"', maxsplit=1)[1].split("</section>", maxsplit=1)[0]
+    assert "data-tooltip=" not in auth_transport_section
     assert "The stored authentication hostname matches" in page.text
     assert "127.0.0.1" not in page.text
 

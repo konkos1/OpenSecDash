@@ -355,6 +355,7 @@ EN = {
     "diagnostics.title": "Diagnostics",
     "diagnostics.download_debug_report": "Download debug report",
     "diagnostics.debug_report_help": "Creates a sanitized ZIP package with separate files for settings, plugin status, diagnostics, counts, recent actions and the OpenSecDash log tail for GitHub issues.",
+    "diagnostics.internal_user_management": "Internal user management",
     "diagnostics.auth_transport": "Authentication transport",
     "diagnostics.auth_transport_help": "Checks the current request against the trusted HTTPS/443 boundary used by internal sign-in. Proxy addresses and network ranges are not displayed.",
     "diagnostics.auth_transport_relevance_help": "This check is only relevant when internal user management is being enabled or is already enabled. It can be ignored when authentication is handled exclusively by an external provider.",
