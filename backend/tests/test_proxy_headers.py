@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from typing import Any
 
 from starlette.requests import Request
@@ -54,6 +55,7 @@ def _header_names(scope: dict[str, Any]) -> set[bytes]:
 
 
 def test_parse_trusted_proxies_supports_all_configuration_forms(caplog):
+    caplog.set_level(logging.WARNING, logger="app.web.proxy_headers")
     defaults = parse_trusted_proxies(None)
 
     assert defaults is not None
