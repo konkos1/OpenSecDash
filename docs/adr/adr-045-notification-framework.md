@@ -7,6 +7,9 @@
 > Pushover remain intentionally unimplemented.
 > SMTP messages contain a plain-text fallback and a branded HTML alternative;
 > the OpenSecDash logo is embedded in the message instead of loaded remotely.
+> STARTTLS and implicit TLS verify the SMTP server certificate and hostname
+> against the system trust store. A local CA certificate file can be added for
+> internal homelab PKI without disabling verification.
 >
 > Actions and system states enter the engine as events (`action.*`,
 > `system.plugin_error`, `system.asset_offline`). Anti-spam uses a per-rule
@@ -190,6 +193,9 @@ within 10 minutes
 Implementation:
 
 `Settings`\n`↓`\n`SMTP Server`\n`SMTP Port`\n`User`\n`Password`\n`Sender`\n`Recipient`
+
+Transport settings additionally select no TLS, STARTTLS, or implicit TLS and
+can point to an optional PEM CA certificate file available to the backend.
 
 
 ---

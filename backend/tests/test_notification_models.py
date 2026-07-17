@@ -73,6 +73,7 @@ def test_notification_settings_section_renders(test_settings_db):
 
     assert response.status_code == 200
     assert 'name="notifications_smtp_host"' in response.text
+    assert 'name="notifications_smtp_ca_file"' in response.text
 
 
 def test_notification_settings_post_persists_all_values(test_settings_db):
@@ -87,6 +88,7 @@ def test_notification_settings_post_persists_all_values(test_settings_db):
                 "notifications_smtp_host": "smtp.example.net",
                 "notifications_smtp_port": "465",
                 "notifications_smtp_security": "ssl",
+                "notifications_smtp_ca_file": "/certs/homelab-ca.pem",
                 "notifications_smtp_user": "mailer",
                 "notifications_smtp_password": "geheim",
                 "notifications_smtp_sender": "opensecdash@example.net",
@@ -106,6 +108,7 @@ def test_notification_settings_post_persists_all_values(test_settings_db):
         "notifications.smtp_host": "smtp.example.net",
         "notifications.smtp_port": "465",
         "notifications.smtp_security": "ssl",
+        "notifications.smtp_ca_file": "/certs/homelab-ca.pem",
         "notifications.smtp_user": "mailer",
         "notifications.smtp_password": "geheim",
         "notifications.smtp_sender": "opensecdash@example.net",

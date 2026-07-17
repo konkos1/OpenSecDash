@@ -43,6 +43,7 @@ def test_settings_template_uses_independent_details_forms():
         notifications_smtp_host="",
         notifications_smtp_port="587",
         notifications_smtp_security="starttls",
+        notifications_smtp_ca_file="",
         notifications_smtp_user="",
         notifications_smtp_password="",
         notifications_smtp_sender="",
