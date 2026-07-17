@@ -43,6 +43,7 @@ class Datasource(Base):
 
 class Insight(Base):
     __tablename__ = "insights"
+    __table_args__ = (Index("ix_insights_type_ip_timestamp", "type", "ip", "timestamp"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     timestamp: Mapped[datetime] = mapped_column(DateTime, default=utc_now, index=True)
