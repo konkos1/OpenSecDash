@@ -29,6 +29,7 @@ from app.services.auth import (
 )
 from app.services.user_preferences import normalize_preferences
 from app.web.auth import SESSION_COOKIE, set_session_cookie
+from app.web.proxy_headers import PROXY_STATE_PEER_ADDRESS
 from app.web.redirects import safe_local_path
 from app.web.render import render
 from app.web.templates import templates
@@ -37,19 +38,32 @@ router = APIRouter(tags=["auth"])
 
 _LOGIN_BACKOFF: OrderedDict[str, tuple[int, float, float]] = OrderedDict()
 _LOGIN_BACKOFF_LOCK = Lock()
-_MAX_LOGIN_FAILURES = 5
+# Account throttling stops distributed guessing; the higher peer threshold is a
+# backstop for password spraying without penalizing a shared homelab proxy quickly.
+_MAX_ACCOUNT_LOGIN_FAILURES = 5
+_MAX_SOURCE_LOGIN_FAILURES = 100
 _LOGIN_LOCK_SECONDS = 60
 _LOGIN_BACKOFF_TTL_SECONDS = 300
 _MAX_LOGIN_BACKOFF_ENTRIES = 4096
 
 
-def _login_backoff_key(username: str, client_id: str) -> str:
-    normalized = f"{normalize_username(username)}\0{client_id}"
-    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+def _login_backoff_key(bucket: str, identity: str) -> str:
+    return hashlib.sha256(f"{bucket}\0{identity}".encode("utf-8")).hexdigest()
 
 
-def _client_id(request: Request) -> str:
+def _account_backoff_key(username: str) -> str:
+    return _login_backoff_key("account", normalize_username(username))
+
+
+def _source_id(request: Request) -> str:
+    peer_address = getattr(request.state, PROXY_STATE_PEER_ADDRESS, None)
+    if isinstance(peer_address, str) and peer_address:
+        return peer_address
     return request.client.host if request.client is not None else "unknown"
+
+
+def _source_backoff_key(source_id: str) -> str:
+    return _login_backoff_key("source", source_id)
 
 
 def reset_login_backoff() -> None:
@@ -58,15 +72,14 @@ def reset_login_backoff() -> None:
         _LOGIN_BACKOFF.clear()
 
 
-def _login_locked(username: str, client_id: str) -> bool:
-    key = _login_backoff_key(username, client_id)
+def _login_locked(username: str, source_id: str) -> bool:
+    keys = (_account_backoff_key(username), _source_backoff_key(source_id))
     with _LOGIN_BACKOFF_LOCK:
-        attempt = _LOGIN_BACKOFF.get(key)
-        return attempt is not None and attempt[1] > time.monotonic()
+        now = time.monotonic()
+        return any((attempt := _LOGIN_BACKOFF.get(key)) is not None and attempt[1] > now for key in keys)
 
 
-def _record_failed_login(username: str, client_id: str) -> None:
-    key = _login_backoff_key(username, client_id)
+def _record_failed_login(username: str, source_id: str) -> None:
     now = time.monotonic()
     with _LOGIN_BACKOFF_LOCK:
         while _LOGIN_BACKOFF:
@@ -74,16 +87,20 @@ def _record_failed_login(username: str, client_id: str) -> None:
             if last_seen > now - _LOGIN_BACKOFF_TTL_SECONDS:
                 break
             _LOGIN_BACKOFF.popitem(last=False)
-        failures, locked_until, _last_seen = _LOGIN_BACKOFF.get(key, (0, 0.0, 0.0))
-        if locked_until and locked_until <= now:
-            failures = 0
-        failures += 1
-        _LOGIN_BACKOFF[key] = (
-            failures,
-            now + _LOGIN_LOCK_SECONDS if failures >= _MAX_LOGIN_FAILURES else 0.0,
-            now,
-        )
-        _LOGIN_BACKOFF.move_to_end(key)
+        for key, threshold in (
+            (_account_backoff_key(username), _MAX_ACCOUNT_LOGIN_FAILURES),
+            (_source_backoff_key(source_id), _MAX_SOURCE_LOGIN_FAILURES),
+        ):
+            failures, locked_until, _last_seen = _LOGIN_BACKOFF.get(key, (0, 0.0, 0.0))
+            if locked_until and locked_until <= now:
+                failures = 0
+            failures += 1
+            _LOGIN_BACKOFF[key] = (
+                failures,
+                now + _LOGIN_LOCK_SECONDS if failures >= threshold else 0.0,
+                now,
+            )
+            _LOGIN_BACKOFF.move_to_end(key)
         while len(_LOGIN_BACKOFF) > _MAX_LOGIN_BACKOFF_ENTRIES:
             _LOGIN_BACKOFF.popitem(last=False)
 
@@ -122,17 +139,17 @@ def login(
 ):
     if not auth_enabled(db):
         return RedirectResponse("/", status_code=303)
-    client_id = _client_id(request)
-    if _login_locked(username, client_id):
+    source_id = _source_id(request)
+    if _login_locked(username, source_id):
         return _login_response(request, db, next, error=True, error_key="auth.login_locked", status_code=429)
 
     user = authenticate(db, username, password)
     if user is None:
-        _record_failed_login(username, client_id)
+        _record_failed_login(username, source_id)
         return _login_response(request, db, next, error=True, status_code=401)
 
     with _LOGIN_BACKOFF_LOCK:
-        _LOGIN_BACKOFF.pop(_login_backoff_key(username, client_id), None)
+        _LOGIN_BACKOFF.pop(_account_backoff_key(username), None)
     cleanup_expired_sessions(db)
     user.last_login_at = utc_now().replace(tzinfo=None)
     token = create_session(db, user)

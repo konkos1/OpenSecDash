@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 TRUSTED_PROXIES_ENV = "OSD_TRUSTED_PROXIES"
 PROXY_STATE_EXPLICITLY_TRUSTED = "osd_proxy_explicitly_trusted"
+PROXY_STATE_PEER_ADDRESS = "osd_proxy_peer_address"
 PROXY_STATE_FORWARDED_PROTO = "osd_proxy_forwarded_proto"
 PROXY_STATE_FORWARDED_HOST = "osd_proxy_forwarded_host"
 PROXY_STATE_FORWARDED_PORT = "osd_proxy_forwarded_port"
@@ -117,10 +118,13 @@ class ProxyHeadersMiddleware:
         headers = list(scope.get("headers", []))
         state = scope.setdefault("state", {})
         state[PROXY_STATE_EXPLICITLY_TRUSTED] = False
+        state[PROXY_STATE_PEER_ADDRESS] = None
         state[PROXY_STATE_FORWARDED_PROTO] = None
         state[PROXY_STATE_FORWARDED_HOST] = None
         state[PROXY_STATE_FORWARDED_PORT] = None
         client = scope.get("client")
+        if isinstance(client, tuple) and client and isinstance(client[0], str):
+            state[PROXY_STATE_PEER_ADDRESS] = client[0]
         trusted = isinstance(client, tuple) and bool(client) and _is_trusted_address(client[0], self.trusted_proxies)
         if not trusted:
             scope["headers"] = [(name, value) for name, value in headers if name.lower() not in _FORWARDED_HEADERS]

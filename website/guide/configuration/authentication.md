@@ -17,6 +17,10 @@ Before enabling internal sign-in:
 4. Ensure that the proxy sends `X-Forwarded-Proto: https`, `X-Forwarded-Port: 443`, and
    `X-Forwarded-Host`.
 
+Do not trust an entire LAN or a broad private range. Every address in
+`OSD_TRUSTED_PROXIES` can supply forwarded client metadata, so prefer the individual
+reverse-proxy IP or a small dedicated proxy network.
+
 Open **Diagnostics → Authentication transport** through the intended hostname to verify
 the current proxy peer and forwarded HTTPS, port, and hostname checks. The page reports
 only statuses and remediation guidance; it does not display configured proxy IPs or

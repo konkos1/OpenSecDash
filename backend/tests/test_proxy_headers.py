@@ -10,6 +10,7 @@ from app.web.proxy_headers import (
     PROXY_STATE_FORWARDED_HOST,
     PROXY_STATE_FORWARDED_PORT,
     PROXY_STATE_FORWARDED_PROTO,
+    PROXY_STATE_PEER_ADDRESS,
     ProxyHeadersMiddleware,
     parse_trusted_proxies,
 )
@@ -75,6 +76,7 @@ def test_x_forwarded_for_sets_the_client_ip_for_a_trusted_peer():
     _apply(scope)
 
     assert scope["client"] == ("203.0.113.9", 0)
+    assert scope["state"][PROXY_STATE_PEER_ADDRESS] == "10.0.0.2"
     request_client = Request(scope).client
     assert request_client is not None
     assert request_client.host == "203.0.113.9"
@@ -112,6 +114,7 @@ def test_untrusted_peers_and_missing_clients_fail_closed():
 
     for scope, client in ((public_scope, ("203.0.113.50", 4242)), (missing_client_scope, None)):
         assert scope["client"] == client
+        assert scope["state"][PROXY_STATE_PEER_ADDRESS] == (client[0] if client is not None else None)
         assert scope["scheme"] == "http"
         assert dict(scope["headers"])[b"host"] == b"internal.example"
         assert not _header_names(scope) & {b"x-forwarded-for", b"x-forwarded-proto", b"x-forwarded-host", b"x-forwarded-port"}

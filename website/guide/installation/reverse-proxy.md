@@ -61,7 +61,7 @@ Use `OSD_TRUSTED_PROXIES` to change this behavior:
 ```yaml
 environment:
   # Trust only these reverse-proxy IPs or CIDRs.
-  OSD_TRUSTED_PROXIES: 192.168.1.10,10.0.0.0/8
+  OSD_TRUSTED_PROXIES: 192.168.1.10,172.20.0.5
 ```
 
 Internal sign-in has a stricter boundary than general proxy-header processing:
@@ -69,6 +69,12 @@ Internal sign-in has a stricter boundary than general proxy-header processing:
 proxy network. The defaults and `*` do not qualify for enabling internal sign-in.
 OpenSecDash also requires the trusted proxy to provide `X-Forwarded-Proto: https`,
 `X-Forwarded-Port: 443`, and `X-Forwarded-Host`.
+
+Do not configure an entire LAN or a broad private range such as `10.0.0.0/8`. Every
+address in this setting is allowed to supply proxy headers. A compromised host or
+container inside an overly broad trusted range could therefore spoof forwarded client
+metadata. Prefer individual proxy IPs; use a CIDR only when the proxy address is dynamic,
+and keep that network dedicated and as small as practical.
 
 The **Diagnostics → Authentication transport** section validates these requirements for
 the current request without exposing configured proxy IPs or network ranges.
