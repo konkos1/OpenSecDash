@@ -2,6 +2,7 @@ from datetime import timedelta
 import hashlib
 
 from app.core.time import utc_now
+from app.models.saved_views import SavedView
 from app.models.settings import Setting
 from app.models.users import UserSession
 from app.services.auth import (
@@ -49,6 +50,36 @@ def test_new_user_validation_normalizes_names_and_rejects_invalid_input(db_sessi
     assert validate_new_user(db_session, "ADMIN", "password123") == "username_taken"
     assert validate_new_user(db_session, "invalid name", "password123") == "invalid_username"
     assert validate_new_user(db_session, "viewer", "shortpw") == "password_too_short"
+
+
+def test_new_user_receives_independent_copies_of_legacy_saved_views(db_session):
+    legacy_view = SavedView(
+        name="Legacy",
+        scope="events",
+        filter_json={"country": "DE"},
+        query_json={"range": "24h"},
+    )
+    db_session.add(legacy_view)
+    db_session.flush()
+
+    first_user = create_user(db_session, "first", "password123", "viewer")
+    second_user = create_user(db_session, "second", "password123", "viewer")
+    db_session.flush()
+
+    first_view = db_session.query(SavedView).filter(SavedView.user_id == first_user.id).one()
+    second_view = db_session.query(SavedView).filter(SavedView.user_id == second_user.id).one()
+    assert (first_view.name, first_view.filter_json, first_view.query_json) == (
+        "Legacy",
+        {"country": "DE"},
+        {"range": "24h"},
+    )
+    assert (second_view.name, second_view.filter_json, second_view.query_json) == (
+        "Legacy",
+        {"country": "DE"},
+        {"range": "24h"},
+    )
+    assert first_view.id != second_view.id
+    assert legacy_view.user_id is None
 
 
 def test_sessions_are_hashed_revocable_and_expire(db_session):

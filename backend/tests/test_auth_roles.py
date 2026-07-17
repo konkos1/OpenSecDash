@@ -157,19 +157,18 @@ def test_saved_views_are_isolated_per_authenticated_user(role_clients):
     assert db.query(SavedView).filter(SavedView.user_id == operator.id).one().filter_json == {"status_code_min": 500}
 
 
-def test_legacy_views_are_copied_once_for_each_authenticated_user(role_clients):
+def test_saved_view_get_does_not_copy_legacy_views_or_write_migration_settings(role_clients):
     db, clients = role_clients
     db.add(SavedView(name="Legacy", scope="events", filter_json={"country": "DE"}))
     db.commit()
-    viewer = db.query(User).filter(User.username == "viewer").one()
-    operator = db.query(User).filter(User.username == "operator").one()
 
     assert clients["viewer"].get("/events").status_code == 200
     assert clients["operator"].get("/events").status_code == 200
 
     db.expire_all()
-    assert db.query(SavedView).filter(SavedView.user_id == viewer.id, SavedView.name == "Legacy").count() == 1
-    assert db.query(SavedView).filter(SavedView.user_id == operator.id, SavedView.name == "Legacy").count() == 1
+    assert db.query(SavedView).filter(SavedView.name == "Legacy").count() == 1
+    assert db.query(SavedView).filter(SavedView.user_id.is_not(None), SavedView.name == "Legacy").count() == 0
+    assert db.query(Setting).filter(Setting.key.like("ui.saved_views.migrated.%")).count() == 0
 
 
 def test_dashboard_layouts_are_isolated_per_authenticated_user(role_clients, monkeypatch):

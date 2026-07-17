@@ -133,24 +133,6 @@ def _saved_view_owner_filter(user_id: int | None):
     return SavedView.user_id.is_(None) if user_id is None else SavedView.user_id == user_id
 
 
-def _copy_legacy_views_for_user(db: Session, user_id: int) -> None:
-    migration_key = f"ui.saved_views.migrated.{user_id}"
-    if get_setting_value(db, migration_key, "false") == "true":
-        return
-    for view in db.query(SavedView).filter(SavedView.user_id.is_(None)).all():
-        db.add(
-            SavedView(
-                user_id=user_id,
-                name=view.name,
-                scope=view.scope,
-                filter_json=view.filter_json,
-                query_json=view.query_json,
-            )
-        )
-    save_setting(db, migration_key, "true")
-    db.commit()
-
-
 def _saved_view_context(db: Session, scope: str, request: Request) -> dict[str, object]:
     query_params = request.query_params
     query_items = query_params.multi_items() if hasattr(query_params, "multi_items") else query_params.items()
@@ -166,8 +148,6 @@ def _saved_view_context(db: Session, scope: str, request: Request) -> dict[str, 
     for view in plugin_views:
         view["href"] = _view_path(scope, view["filter_json"])
     user_id = _current_user_id(request)
-    if user_id is not None:
-        _copy_legacy_views_for_user(db, user_id)
     user_views = db.query(SavedView).filter(SavedView.scope == scope, _saved_view_owner_filter(user_id)).order_by(SavedView.created_at.desc()).all()
     return {
         "plugin_views": plugin_views,
@@ -644,8 +624,6 @@ def save_view(
         path = "/events" if scope == "events" else "/access"
         return RedirectResponse(url=f"{path}?{query}{'&' if query else ''}view_error=missing_name", status_code=303)
     user_id = _current_user_id(request)
-    if user_id is not None:
-        _copy_legacy_views_for_user(db, user_id)
     view = db.query(SavedView).filter(SavedView.scope == scope, SavedView.name == view_name, _saved_view_owner_filter(user_id)).first()
     if view is None:
         view = SavedView(user_id=user_id, scope=scope, name=view_name, filter_json=filter_json, query_json=query_json)
@@ -662,8 +640,6 @@ def delete_saved_view(request: Request, view_id: int, scope: str = Form(""), db:
     if scope not in VIEW_SCOPES:
         return RedirectResponse(url="/", status_code=303)
     user_id = _current_user_id(request)
-    if user_id is not None:
-        _copy_legacy_views_for_user(db, user_id)
     view = db.query(SavedView).filter(SavedView.id == view_id, SavedView.scope == scope, _saved_view_owner_filter(user_id)).first()
     if view is not None:
         db.delete(view)
