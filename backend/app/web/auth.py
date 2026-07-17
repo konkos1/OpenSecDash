@@ -68,41 +68,55 @@ def _is_public_path(path: str) -> bool:
     return path in _PUBLIC_PATHS or path.startswith("/static/")
 
 
-def _cross_origin_request(request: Request) -> bool:
+def _header_origin(value: str, *, allow_path: bool) -> tuple[str, str, int] | None:
+    parsed = urlparse(value.strip())
+    try:
+        port = parsed.port
+    except ValueError:
+        return None
+    if (
+        parsed.scheme not in _DEFAULT_ORIGIN_PORTS
+        or parsed.hostname is None
+        or parsed.username is not None
+        or parsed.password is not None
+        or (not allow_path and (parsed.path not in ("", "/") or parsed.params or parsed.query))
+        or parsed.fragment
+    ):
+        return None
+    return (
+        parsed.scheme,
+        parsed.hostname.lower(),
+        port if port is not None else _DEFAULT_ORIGIN_PORTS[parsed.scheme],
+    )
+
+
+def _request_origin(request: Request) -> tuple[str, str, int] | None:
+    request_scheme = request.url.scheme.lower()
+    request_hostname = request.url.hostname
+    try:
+        request_port = request.url.port
+    except ValueError:
+        return None
+    if request_scheme not in _DEFAULT_ORIGIN_PORTS or request_hostname is None:
+        return None
+    return (
+        request_scheme,
+        request_hostname.lower(),
+        request_port if request_port is not None else _DEFAULT_ORIGIN_PORTS[request_scheme],
+    )
+
+
+def _unsafe_request_has_invalid_origin(request: Request) -> bool:
     if request.method not in _UNSAFE_METHODS:
         return False
     if request.headers.get("sec-fetch-site", "").strip().lower() == "cross-site":
         return True
+    request_origin = _request_origin(request)
     origin = request.headers.get("origin")
-    if origin is None:
-        return False
-    parsed_origin = urlparse(origin.strip())
-    try:
-        origin_port = parsed_origin.port
-        request_port = request.url.port
-    except ValueError:
-        return True
-    if (
-        parsed_origin.scheme not in _DEFAULT_ORIGIN_PORTS
-        or parsed_origin.hostname is None
-        or parsed_origin.username is not None
-        or parsed_origin.password is not None
-        or parsed_origin.path not in ("", "/")
-        or parsed_origin.params
-        or parsed_origin.query
-        or parsed_origin.fragment
-    ):
-        return True
-    request_scheme = request.url.scheme.lower()
-    return (
-        parsed_origin.scheme,
-        parsed_origin.hostname.lower(),
-        origin_port if origin_port is not None else _DEFAULT_ORIGIN_PORTS[parsed_origin.scheme],
-    ) != (
-        request_scheme,
-        request.url.hostname.lower() if request.url.hostname is not None else None,
-        request_port if request_port is not None else _DEFAULT_ORIGIN_PORTS.get(request_scheme),
-    )
+    if origin is not None:
+        return _header_origin(origin, allow_path=False) != request_origin
+    referer = request.headers.get("referer")
+    return referer is None or _header_origin(referer, allow_path=True) != request_origin
 
 
 def required_role(method: str, path: str) -> str:
@@ -139,9 +153,9 @@ def _auth_database(request: Request) -> tuple[Session, Generator[Session, None, 
 
 async def auth_gating_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
     """Apply opt-in session authentication before core and plugin routes."""
-    if _cross_origin_request(request):
+    if _unsafe_request_has_invalid_origin(request):
         if wants_json(request):
-            return JSONResponse(status_code=403, content={"detail": "Cross-origin request rejected"})
+            return JSONResponse(status_code=403, content={"detail": "Request origin rejected"})
         return render_forbidden_page(request)
 
     if _is_public_path(request.url.path):

@@ -87,6 +87,10 @@ def test_cross_site_activation_is_rejected_when_authentication_is_disabled(user_
         )
 
         assert response.status_code == 403
+    client.headers.pop("origin")
+    response = client.post("/settings/auth/enable", data=credentials, follow_redirects=False)
+
+    assert response.status_code == 403
     assert get_setting_value(db, "auth.enabled", "false") == "false"
     assert db.query(User).count() == 0
 

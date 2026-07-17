@@ -59,7 +59,8 @@ proxy when those controls are required.
 
 OpenSecDash rejects state-changing browser requests from a different origin even while
 internal sign-in is disabled. This prevents a website opened in the browser from
-silently changing dashboard settings or enabling sign-in. Requests made directly by
-command-line tools and integrations without browser origin headers remain compatible.
-Browser forms must use the same scheme, hostname, and port as the dashboard; submitting
-from an alternate dashboard hostname is intentionally rejected.
+silently changing dashboard settings or enabling sign-in. Such requests must provide a
+same-origin `Origin` header or, as a legacy fallback, a same-origin `Referer` header.
+Requests without verifiable origin information are rejected. Browser forms must use the
+same scheme, hostname, and port as the dashboard; submitting from an alternate dashboard
+hostname is intentionally rejected.

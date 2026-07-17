@@ -162,6 +162,14 @@ def test_origin_check_and_break_glass(auth_client, monkeypatch):
     assert response.status_code != 403
     response = client.post("/login", headers={"origin": "https://evil.example"}, follow_redirects=False)
     assert response.status_code == 403
+    client.headers.pop("origin")
+    response = client.post("/settings", follow_redirects=False)
+    assert response.status_code == 403
+    response = client.post("/settings", headers={"referer": "https://evil.example/settings"}, follow_redirects=False)
+    assert response.status_code == 403
+    response = client.post("/settings", headers={"referer": "https://testserver/settings"}, follow_redirects=False)
+    assert response.status_code != 403
+    client.headers["origin"] = "https://testserver"
 
     client.post("/auth/logout", follow_redirects=False)
     monkeypatch.setenv("OSD_AUTH_DISABLED", "true")
