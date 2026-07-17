@@ -17,11 +17,10 @@
     </div>
     <div id="diagnostics-results" hx-get="{{ request.url.path }}" hx-select="#diagnostics-results" hx-target="this" hx-swap="outerHTML" {% if live_page_refresh %}hx-trigger="every 15s"{% endif %}>
     <section id="auth-transport" class="card mb-5">
-        <h3 class="font-semibold mb-3">{{ t("diagnostics.internal_user_management") }} <button type="button" class="help" data-tooltip="{{ t('diagnostics.auth_transport_relevance_help') }}">?</button></h3>
+        <h3 class="font-semibold mb-3">{{ t("diagnostics.internal_user_management") }} <button type="button" class="help" data-tooltip="{{ t('diagnostics.auth_transport_relevance_help') }} {{ t('diagnostics.auth_transport_help') }}">?</button></h3>
         <div class="flex items-start justify-between gap-4 mb-3">
             <div>
-                <h4 class="font-semibold mb-1">{{ t("diagnostics.auth_transport") }}</h4>
-                <p class="muted text-sm">{{ t("diagnostics.auth_transport_help") }}</p>
+                <h4 class="font-semibold">{{ t("diagnostics.auth_transport") }}</h4>
             </div>
             <b class="status-badge status-{{ auth_transport.status }}">{{ t("diagnostics.status." ~ auth_transport.status) }}</b>
         </div>
@@ -35,8 +34,7 @@
 
     <section class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
         <div class="card">
-            <h3 class="font-semibold mb-1">{{ t("diagnostics.plugins") }}</h3>
-            <p class="muted mb-3 text-sm">{{ t("diagnostics.plugins_help") }}</p>
+            <h3 class="font-semibold mb-3">{{ t("diagnostics.plugins") }} <button type="button" class="help" data-tooltip="{{ t('diagnostics.plugins_help') }}">?</button></h3>
             {% for row in plugin_rows %}
                 <div class="row">
                     <span>{{ row.plugin.name }}
@@ -51,8 +49,7 @@
         </div>
         
         <div class="card">
-            <h3 class="font-semibold mb-1">{{ t("diagnostics.diagnostics") }}</h3>
-            <p class="muted mb-3 text-sm">{{ t("diagnostics.diagnostics_help") }}</p>
+            <h3 class="font-semibold mb-3">{{ t("diagnostics.diagnostics") }} <button type="button" class="help" data-tooltip="{{ t('diagnostics.diagnostics_help') }}">?</button></h3>
             {% for row in diagnostic_rows %}
                 <div class="row">
                     <span>{% if row.item.component == 'plugin' %}{{ row.item.component }} · {{ row.item.plugin }}{% else %}{{ row.item.plugin }} · {{ row.item.component }}{% endif %}
@@ -68,8 +65,7 @@
     </section>
 
     <section class="card mb-5">
-        <h3 class="font-semibold mb-1">{{ t("diagnostics.datasources") }}</h3>
-        <p class="muted mb-3 text-sm">{{ t("diagnostics.datasources_help") }}</p>
+        <h3 class="font-semibold mb-3">{{ t("diagnostics.datasources") }} <button type="button" class="help" data-tooltip="{{ t('diagnostics.datasources_help') }}">?</button></h3>
         {% for source in datasources %}
             <div class="row">
                 <span>{{ source.name }}
@@ -84,9 +80,7 @@
     </section>
 
     <section class="card">
-        <h3 class="font-semibold mb-1">{{ t("diagnostics.recent_actions") }}</h3>
-        <p class="muted mb-1 text-sm">{{ t("diagnostics.recent_actions_help") }}</p>
-        <p class="muted mb-3 text-sm">{{ t("table.limit.diagnostics_actions") }}</p>
+        <h3 class="font-semibold mb-3">{{ t("diagnostics.recent_actions") }} <button type="button" class="help" data-tooltip="{{ t('diagnostics.recent_actions_help') }} {{ t('table.limit.diagnostics_actions') }}">?</button></h3>
         {% for action in actions %}
             <div class="row">
                 {% set action_label_key = "action.type." ~ action.action_type %}
