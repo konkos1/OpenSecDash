@@ -139,6 +139,21 @@ def test_activation_requires_forwarded_port_443(user_management_client):
     assert db.query(User).count() == 0
 
 
+def test_proxy_activation_error_links_to_diagnostics(user_management_client):
+    _db, client = user_management_client
+
+    response = client.post(
+        "/settings/auth/enable",
+        data={"hostname": "other.example", "username": "admin", "password": "password123", "password_confirm": "password123"},
+        follow_redirects=False,
+    )
+    page = client.get(response.headers["location"])
+
+    assert page.status_code == 200
+    assert "secure proxy boundary is incomplete" in page.text
+    assert 'href="/diagnostics#auth-transport"' in page.text
+
+
 def test_cross_site_activation_is_rejected_when_authentication_is_disabled(user_management_client):
     db, client = user_management_client
     credentials = {"hostname": "testserver", "username": "attacker", "password": "password123", "password_confirm": "password123"}

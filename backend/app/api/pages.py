@@ -59,6 +59,7 @@ from app.services.asset_actions import (
 from app.services.asset_hosts import asset_last_seen_stale, asset_stale_threshold, matching_event_hostnames, normalize_asset_host, sync_asset_host_events
 from app.services.events import apply_event_filters, is_local_ip_value, tokenize_search_expression
 from app.web.dashboard import DashboardWidget, apply_layout, collect_dashboard_widgets, dashboard_layout_setting_key, load_dashboard_layout
+from app.web.auth import auth_transport_diagnostics
 from app.web.guards import (
     assets_feature_enabled,
     events_feature_enabled,
@@ -1791,6 +1792,7 @@ def diagnostics_page(request: Request, db: Session = Depends(get_db)):
         db,
         "diagnostics.html",
         plugin_rows=plugin_rows,
+        auth_transport=auth_transport_diagnostics(request, get_setting_value(db, AUTH_HOSTNAME_SETTING, "")),
         datasources=datasources,
         diagnostic_rows=diagnostic_rows,
         actions=db.query(Action).order_by(Action.timestamp.desc()).limit(20).all(),

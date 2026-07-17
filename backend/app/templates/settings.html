@@ -46,7 +46,7 @@
     <details class="card mb-5">
         <summary class="font-semibold cursor-pointer">{{ t("settings.auth_section") }}</summary>
         <div class="space-y-4 mt-4">
-            {% if auth_error %}<p class="text-red-400 text-sm">{{ t("settings.auth_error." ~ auth_error) }}</p>{% endif %}
+            {% if auth_error in ['proxy_not_configured', 'https_required', 'https_port_required', 'hostname_mismatch'] %}<p class="text-red-400 text-sm">{{ t("settings.auth_proxy_error_summary") }} <a href="/diagnostics#auth-transport">{{ t("settings.auth_proxy_error_diagnostics") }}</a></p>{% elif auth_error %}<p class="text-red-400 text-sm">{{ t("settings.auth_error." ~ auth_error) }}</p>{% endif %}
             {% if auth_notice == "hostname_saved" %}<p class="text-green-400 text-sm">{{ t("settings.auth_notice.hostname_saved") }}</p>{% endif %}
             {% if not auth_enabled %}
                 {% if auth_break_glass %}

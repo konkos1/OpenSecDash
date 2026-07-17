@@ -70,6 +70,9 @@ proxy network. The defaults and `*` do not qualify for enabling internal sign-in
 OpenSecDash also requires the trusted proxy to provide `X-Forwarded-Proto: https`,
 `X-Forwarded-Port: 443`, and `X-Forwarded-Host`.
 
+The **Diagnostics → Authentication transport** section validates these requirements for
+the current request without exposing configured proxy IPs or network ranges.
+
 ```yaml
 environment:
   # Disable proxy-header processing entirely.

@@ -84,6 +84,20 @@ def test_active_auth_rejects_wrong_proxy_origin_but_keeps_health_public(auth_cli
     assert client.get("/ready", headers={"x-forwarded-proto": "http", "x-forwarded-host": "other.example"}).status_code == 200
 
 
+def test_diagnostics_show_sanitized_auth_transport_status(auth_client):
+    db_session, client = auth_client
+    db_session.add(Setting(key="auth.hostname", value="testserver"))
+    db_session.commit()
+
+    page = client.get("/diagnostics")
+
+    assert page.status_code == 200
+    assert 'id="auth-transport"' in page.text
+    assert "Authentication transport" in page.text
+    assert "The stored authentication hostname matches" in page.text
+    assert "127.0.0.1" not in page.text
+
+
 def test_existing_auth_without_hostname_fails_closed_until_break_glass(auth_client, monkeypatch):
     db_session, client = auth_client
     db_session.add(Setting(key="auth.enabled", value="true"))

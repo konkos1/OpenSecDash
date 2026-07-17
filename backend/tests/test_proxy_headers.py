@@ -3,6 +3,7 @@ from typing import Any
 
 from starlette.requests import Request
 
+from app.web.auth import auth_transport_diagnostics
 from app.web.proxy_headers import (
     DEFAULT_TRUSTED_NETWORKS,
     PROXY_STATE_EXPLICITLY_TRUSTED,
@@ -172,6 +173,16 @@ def test_auth_proxy_provenance_requires_explicit_non_wildcard_configuration(monk
     assert configured_scope["state"][PROXY_STATE_FORWARDED_PROTO] == "https"
     assert configured_scope["state"][PROXY_STATE_FORWARDED_HOST] == "osd.example.com"
     assert configured_scope["state"][PROXY_STATE_FORWARDED_PORT] == "443"
+    transport = auth_transport_diagnostics(Request(configured_scope), "osd.example.com")
+    assert transport["status"] == "healthy"
+    assert {row["key"]: row["status"] for row in transport["rows"]} == {
+        "proxy_configuration": "healthy",
+        "proxy_peer": "healthy",
+        "https": "healthy",
+        "port": "healthy",
+        "forwarded_host": "healthy",
+        "hostname": "healthy",
+    }
 
 
 def test_empty_and_trust_all_configuration_control_header_processing():

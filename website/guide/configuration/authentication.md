@@ -17,6 +17,11 @@ Before enabling internal sign-in:
 4. Ensure that the proxy sends `X-Forwarded-Proto: https`, `X-Forwarded-Port: 443`, and
    `X-Forwarded-Host`.
 
+Open **Diagnostics → Authentication transport** through the intended hostname to verify
+the current proxy peer and forwarded HTTPS, port, and hostname checks. The page reports
+only statuses and remediation guidance; it does not display configured proxy IPs or
+network ranges.
+
 Open **Settings → Sign-in & users** through that HTTPS hostname. Enter the hostname
 without `https://`, a port, path, or trailing dot, then enter the username and password
 for the first administrator. OpenSecDash verifies the trusted proxy, HTTPS port 443, and

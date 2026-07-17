@@ -16,6 +16,22 @@
         </div>
     </div>
     <div id="diagnostics-results" hx-get="{{ request.url.path }}" hx-select="#diagnostics-results" hx-target="this" hx-swap="outerHTML" {% if live_page_refresh %}hx-trigger="every 15s"{% endif %}>
+    <section id="auth-transport" class="card mb-5">
+        <div class="flex items-start justify-between gap-4 mb-3">
+            <div>
+                <h3 class="font-semibold mb-1">{{ t("diagnostics.auth_transport") }}</h3>
+                <p class="muted text-sm">{{ t("diagnostics.auth_transport_help") }}</p>
+            </div>
+            <b class="status-badge status-{{ auth_transport.status }}">{{ t("diagnostics.status." ~ auth_transport.status) }}</b>
+        </div>
+        {% for row in auth_transport.rows %}
+            <div class="row">
+                <span>{{ t("diagnostics.auth_transport." ~ row.key) }}<br><small class="muted">{{ t(row.message_key) }}</small></span>
+                <b class="status-badge status-{{ row.status }}">{{ t("diagnostics.status." ~ row.status) }}</b>
+            </div>
+        {% endfor %}
+    </section>
+
     <section class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
         <div class="card">
             <h3 class="font-semibold mb-1">{{ t("diagnostics.plugins") }}</h3>

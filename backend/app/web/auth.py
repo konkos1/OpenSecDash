@@ -1,5 +1,7 @@
 """Shared HTTP authentication helpers and request gating."""
+import os
 from collections.abc import Awaitable, Callable, Generator
+from typing import TypedDict
 from urllib.parse import quote, urlparse
 
 from fastapi import Request
@@ -17,6 +19,7 @@ from app.web.proxy_headers import (
     PROXY_STATE_FORWARDED_HOST,
     PROXY_STATE_FORWARDED_PORT,
     PROXY_STATE_FORWARDED_PROTO,
+    TRUSTED_PROXIES_ENV,
 )
 from app.web.templates import templates
 
@@ -27,6 +30,17 @@ _PUBLIC_PATHS = {"/login", "/sw.js"}
 _UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 _DEFAULT_ORIGIN_PORTS = {"http": 80, "https": 443}
 _HSTS_VALUE = "max-age=31536000"
+
+
+class AuthTransportRow(TypedDict):
+    key: str
+    status: str
+    message_key: str
+
+
+class AuthTransportDiagnostics(TypedDict):
+    status: str
+    rows: list[AuthTransportRow]
 
 
 def wants_json(request: Request) -> bool:
@@ -118,6 +132,52 @@ def auth_proxy_error(request: HTTPConnection, hostname: str) -> str | None:
     if request.url.scheme != expected_scheme or normalize_auth_hostname(request.url.hostname or "") != normalized_hostname or request_port not in (None, 443):
         return "hostname_mismatch"
     return None
+
+
+def auth_transport_diagnostics(request: HTTPConnection, hostname: str) -> AuthTransportDiagnostics:
+    """Return sanitized checks for the current authentication transport boundary."""
+    state = getattr(request, "state", None)
+    raw_trusted_proxies = os.environ.get(TRUSTED_PROXIES_ENV)
+    proxy_configured = raw_trusted_proxies is not None and raw_trusted_proxies.strip() not in ("", "*")
+    peer_trusted = bool(getattr(state, PROXY_STATE_EXPLICITLY_TRUSTED, False))
+    https = getattr(state, PROXY_STATE_FORWARDED_PROTO, None) == "https"
+    port_443 = getattr(state, PROXY_STATE_FORWARDED_PORT, None) == "443"
+    forwarded_host = getattr(state, PROXY_STATE_FORWARDED_HOST, None)
+    parsed_forwarded_host = _forwarded_hostname(forwarded_host) if isinstance(forwarded_host, str) else None
+    host_received = parsed_forwarded_host is not None and parsed_forwarded_host[1] == 443
+    normalized_hostname = normalize_auth_hostname(hostname)
+    hostname_matches = (
+        normalized_hostname is not None
+        and parsed_forwarded_host is not None
+        and parsed_forwarded_host[1] == 443
+        and parsed_forwarded_host[0] == normalized_hostname
+    )
+
+    checks = [
+        ("proxy_configuration", "healthy" if proxy_configured else "error"),
+        ("proxy_peer", "healthy" if peer_trusted else "error"),
+        ("https", "healthy" if https else "error"),
+        ("port", "healthy" if port_443 else "error"),
+        ("forwarded_host", "healthy" if host_received else "error"),
+        (
+            "hostname",
+            "pending" if normalized_hostname is None else ("healthy" if hostname_matches else "error"),
+        ),
+    ]
+    transport_ready = proxy_configured and peer_trusted and https and port_443 and host_received
+    if normalized_hostname is not None:
+        transport_ready = transport_ready and hostname_matches
+    return {
+        "status": "healthy" if transport_ready else "error",
+        "rows": [
+            {
+                "key": key,
+                "status": status,
+                "message_key": f"diagnostics.auth_transport.{key}.{status}",
+            }
+            for key, status in checks
+        ],
+    }
 
 
 def _header_origin(value: str, *, allow_path: bool) -> tuple[str, str, int] | None:
