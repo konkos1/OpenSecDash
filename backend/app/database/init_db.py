@@ -102,6 +102,7 @@ def _migrate_legacy_sqlite() -> None:
         _add_column("assets", column)
 
     _add_column("systems", "last_seen DATETIME")
+    _add_column("systems", "offline_event_for_last_seen DATETIME")
     _add_column("systems", "source_plugin VARCHAR(100)")
     _add_column("systems", "external_id VARCHAR(255)")
     _add_column("geoip_cache", "isp VARCHAR(255)")

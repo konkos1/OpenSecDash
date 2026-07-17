@@ -1,11 +1,18 @@
+from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
+from pathlib import Path
 import ssl
+from threading import Barrier
 from unittest.mock import MagicMock
 
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 from app.core.time import utc_now
+from app.database.base import Base
 from app.models.core import Notification, NotificationRule
+from app.models.events import Event
 from app.models.systems import System
 from app.services import notifications
 from app.services.events import store_event
@@ -138,12 +145,106 @@ def test_unconfigured_channel_keeps_pending_and_offline_state_changes_once(db_se
     system = System(vmid="test-1", hostname="offline.example", source_plugin="proxmox_assets", last_seen=utc_now().replace(tzinfo=None) - timedelta(days=2))
     db_session.add_all([pending, system])
     db_session.commit()
-    notifications._last_offline_state.clear()
 
     dispatch_pending_notifications(db_session)
+    db_session.expire_all()
+    assert system.offline_event_for_last_seen == system.last_seen
     dispatch_pending_notifications(db_session)
     assert pending.status == "pending"
-    assert db_session.query(__import__("app.models.events", fromlist=["Event"]).Event).filter_by(event_type="system.asset_offline").count() == 1
+    assert db_session.query(Event).filter_by(event_type="system.asset_offline").count() == 1
+
+
+def test_offline_detection_tracks_each_last_seen_cycle(db_session, monkeypatch):
+    monkeypatch.setattr(notifications, "get_channel", lambda _: None)
+    now = utc_now().replace(tzinfo=None)
+    system = System(
+        vmid="test-cycle",
+        hostname="cycle.example",
+        source_plugin="proxmox_assets",
+        last_seen=now - timedelta(days=2),
+    )
+    db_session.add(system)
+    db_session.commit()
+
+    dispatch_pending_notifications(db_session)
+    system.last_seen = now
+    db_session.commit()
+    dispatch_pending_notifications(db_session)
+    system.last_seen = now - timedelta(days=3)
+    db_session.commit()
+    dispatch_pending_notifications(db_session)
+
+    events = db_session.query(Event).filter_by(event_type="system.asset_offline").all()
+    assert len(events) == 2
+
+
+def test_offline_detection_uses_source_specific_cutoffs(db_session, monkeypatch):
+    monkeypatch.setattr(notifications, "get_channel", lambda _: None)
+    last_seen = utc_now().replace(tzinfo=None) - timedelta(days=2)
+    db_session.add_all(
+        [
+            System(
+                vmid="test-proxmox-cutoff",
+                hostname="proxmox.example",
+                source_plugin="proxmox_assets",
+                last_seen=last_seen,
+            ),
+            System(
+                vmid="test-default-cutoff",
+                hostname="default.example",
+                source_plugin="json_assets",
+                last_seen=last_seen,
+            ),
+        ]
+    )
+    db_session.commit()
+
+    dispatch_pending_notifications(db_session)
+
+    events = db_session.query(Event).filter_by(event_type="system.asset_offline").all()
+    assert [event.hostname for event in events] == ["proxmox.example"]
+
+
+def test_offline_transition_claim_has_one_winner_across_workers(tmp_path: Path):
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'offline-claim.db'}",
+        connect_args={"check_same_thread": False, "timeout": 10},
+    )
+    Base.metadata.create_all(bind=engine)
+    session_factory = sessionmaker(bind=engine)
+    setup_session = session_factory()
+    last_seen = utc_now().replace(tzinfo=None) - timedelta(days=2)
+    system = System(
+        vmid="test-worker-race",
+        hostname="worker-race.example",
+        source_plugin="proxmox_assets",
+        last_seen=last_seen,
+    )
+    setup_session.add(system)
+    setup_session.commit()
+    system_id = system.id
+    setup_session.close()
+    ready = Barrier(2)
+
+    def claim() -> bool:
+        db = session_factory()
+        try:
+            observed_last_seen = db.query(System.last_seen).filter(System.id == system_id).scalar()
+            assert observed_last_seen is not None
+            ready.wait()
+            claimed = notifications._claim_offline_system(db, system_id, observed_last_seen)
+            db.commit()
+            return claimed
+        finally:
+            db.close()
+
+    try:
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            results = list(executor.map(lambda _index: claim(), range(2)))
+        assert sorted(results) == [False, True]
+    finally:
+        Base.metadata.drop_all(bind=engine)
+        engine.dispose()
 
 
 def test_email_channel_uses_starttls_ssl_and_plain_smtp(db_session, monkeypatch):

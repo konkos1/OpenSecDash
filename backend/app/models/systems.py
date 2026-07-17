@@ -16,6 +16,7 @@ class System(Base):
     system_type: Mapped[str] = mapped_column(String(100), default="custom")
     source_plugin: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
     external_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
-    last_seen: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_seen: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
+    offline_event_for_last_seen: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     assets = relationship("Asset", back_populates="system")
