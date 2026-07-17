@@ -3,15 +3,17 @@ import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from app.core.template_context import get_setting_value
 from app.core.time import utc_now
 from app.core.i18n import translate
+from app.models.assets import Asset
 from app.models.core import Insight, Notification, NotificationRule
 from app.models.events import Event
 from app.models.systems import System
-from app.services.asset_hosts import asset_last_seen_stale
+from app.services.asset_hosts import asset_stale_threshold
 from app.services.notification_channels import get_channel, render_email_html
 
 
@@ -39,7 +41,6 @@ _rules_cache: list[NotificationRuleSnapshot] | None = None
 _rules_loaded_at: float | None = None
 _notifications_enabled_cache: bool | None = None
 _smtp_configured_cache: bool | None = None
-_last_offline_state: dict[int, bool] = {}
 
 EVENT_SEVERITY_ORDER = {"info": 0, "warning": 1, "error": 2, "critical": 3}
 INSIGHT_LEVEL_ORDER = {"low": 0, "medium": 1, "high": 2, "critical": 3}
@@ -316,17 +317,46 @@ def render_notification(db: Session, rule: NotificationRule, pending: list[Notif
 
 def _detect_offline_systems(db: Session) -> None:
     now = utc_now().replace(tzinfo=None)
-    for system in db.query(System).filter(System.last_seen.isnot(None)).all():
-        if system.last_seen is None:
-            continue
-        offline = asset_last_seen_stale(system.last_seen, system.source_plugin, now)
-        was_offline = _last_offline_state.get(system.id, False)
-        _last_offline_state[system.id] = offline
-        if not offline or was_offline:
+    proxmox_cutoff = now - asset_stale_threshold("proxmox_assets")
+    default_cutoff = now - asset_stale_threshold(None)
+    asset_id = (
+        db.query(Asset.id)
+        .filter(Asset.system_id == System.id)
+        .order_by(Asset.id.asc())
+        .limit(1)
+        .scalar_subquery()
+    )
+    candidates = (
+        db.query(
+            System.id,
+            System.hostname,
+            System.last_seen,
+            asset_id.label("asset_id"),
+        )
+        .filter(
+            System.last_seen.isnot(None),
+            System.offline_event_for_last_seen.is_distinct_from(System.last_seen),
+            or_(
+                and_(
+                    System.source_plugin == "proxmox_assets",
+                    System.last_seen < proxmox_cutoff,
+                ),
+                and_(
+                    or_(
+                        System.source_plugin.is_(None),
+                        System.source_plugin != "proxmox_assets",
+                    ),
+                    System.last_seen < default_cutoff,
+                ),
+            ),
+        )
+        .all()
+    )
+    for system_id, hostname, last_seen, first_asset_id in candidates:
+        if not _claim_offline_system(db, system_id, last_seen):
             continue
         from app.services.events import store_event
 
-        asset_id = system.assets[0].id if system.assets else None
         store_event(
             db,
             source="System",
@@ -334,10 +364,27 @@ def _detect_offline_systems(db: Session) -> None:
             plugin="core",
             event_type="system.asset_offline",
             severity="warning",
-            asset_id=asset_id,
-            hostname=system.hostname,
-            data_json={"system": system.hostname, "last_seen": system.last_seen.isoformat()},
+            asset_id=first_asset_id,
+            hostname=hostname,
+            data_json={"system": hostname, "last_seen": last_seen.isoformat()},
         )
+
+
+def _claim_offline_system(db: Session, system_id: int, last_seen: datetime) -> bool:
+    """Claim one observed offline transition for the current transaction."""
+    claimed = (
+        db.query(System)
+        .filter(
+            System.id == system_id,
+            System.last_seen == last_seen,
+            System.offline_event_for_last_seen.is_distinct_from(last_seen),
+        )
+        .update(
+            {System.offline_event_for_last_seen: last_seen},
+            synchronize_session=False,
+        )
+    )
+    return claimed == 1
 
 
 def dispatch_pending_notifications(db: Session) -> int:

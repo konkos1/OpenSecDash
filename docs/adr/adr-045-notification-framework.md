@@ -1,6 +1,6 @@
 # ADR-045: Notification Framework
 
-> **Implementation status (2026-07-12):** Implemented.
+> **Implementation status (2026-07-17):** Implemented.
 >
 > V1 implements SMTP email only. The channel abstraction is ready for future
 > channels, but Telegram, Discord, Matrix, Gotify, ntfy, Slack, Teams and
@@ -16,9 +16,11 @@
 > cooldown plus digest aggregation; events older than 15 minutes do not notify.
 > Notification history additionally stores `subject`, `error` and `sent_at`.
 >
-> Asset-offline detection keeps its previous state in memory, so a restart can
-> report an already-offline system again; the rule cooldown limits this. Failed
-> sends are not retried automatically in V1.
+> Asset-offline detection stores the `last_seen` value for which it emitted an
+> event on the system row. Detection queries only stale candidates and claims
+> each state transition with a conditional database update, so restarts and
+> multiple workers do not produce duplicate offline events. Failed sends are
+> not retried automatically in V1.
 
 ## Goal
 

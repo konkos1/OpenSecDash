@@ -64,6 +64,11 @@ on the Notifications page without losing that choice after a restart.
 | Asset offline | a system becomes stale | 60 minutes |
 | Plugin error | a plugin diagnostic changes to error | 60 minutes |
 
+Offline detection remembers the exact asset update for which it emitted an
+event. Restarting OpenSecDash or running multiple workers therefore does not
+repeat an offline event unless the asset was seen again and later becomes
+stale once more.
+
 ## Cooldown, window, and threshold
 
 The cooldown limits how often a rule sends mail. Further matching events stay
