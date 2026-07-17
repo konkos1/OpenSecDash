@@ -456,6 +456,7 @@ DE = {
     "settings.auth_section": "Anmeldung & Benutzer",
     "settings.auth_intro": "Die interne Anmeldung ist optional. Der Standardschutz bleibt dein Reverse Proxy.",
     "settings.auth_hostname": "OpenSecDash-Hostname",
+    "settings.help.auth_hostname": "Der DNS-Hostname, über den OpenSecDash per HTTPS auf Port 443 erreichbar ist. Gib ihn ohne https://, Port, Pfad oder abschließenden Punkt ein. Er muss mit X-Forwarded-Host des vertrauenswürdigen Reverse Proxys übereinstimmen.",
     "settings.auth_recovery_warning": "Der Notfallzugriff ist aktiv. Die Anmeldung bleibt deaktiviert und jeder erreichbare Besucher hat vollständigen Zugriff. Repariere den Hostnamen, entferne danach OSD_AUTH_DISABLED und starte OpenSecDash neu.",
     "settings.auth_recovery_save": "Notfall-Hostname speichern",
     "settings.auth_notice.hostname_saved": "Der Anmelde-Hostname wurde gespeichert und alle bestehenden Sitzungen wurden widerrufen.",

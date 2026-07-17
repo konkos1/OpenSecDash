@@ -456,6 +456,7 @@ EN = {
     "settings.auth_section": "Sign-in & users",
     "settings.auth_intro": "Internal sign-in is optional. The standard protection remains your reverse proxy.",
     "settings.auth_hostname": "OpenSecDash hostname",
+    "settings.help.auth_hostname": "The DNS hostname used to reach OpenSecDash over HTTPS on port 443. Enter it without https://, a port, path, or trailing dot. It must match X-Forwarded-Host from the trusted reverse proxy.",
     "settings.auth_recovery_warning": "Emergency access is active. Authentication remains disabled and every visitor who can reach OpenSecDash has full access. Repair the hostname, then remove OSD_AUTH_DISABLED and restart.",
     "settings.auth_recovery_save": "Save recovery hostname",
     "settings.auth_notice.hostname_saved": "The authentication hostname was saved and all existing sessions were revoked.",

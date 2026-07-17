@@ -152,6 +152,7 @@ def test_proxy_activation_error_links_to_diagnostics(user_management_client):
     assert page.status_code == 200
     assert "secure proxy boundary is incomplete" in page.text
     assert 'href="/diagnostics#auth-transport"' in page.text
+    assert 'data-tooltip="The DNS hostname used to reach OpenSecDash over HTTPS on port 443.' in page.text
 
 
 def test_cross_site_activation_is_rejected_when_authentication_is_disabled(user_management_client):
@@ -249,6 +250,7 @@ def test_break_glass_can_repair_hostname_and_revokes_sessions(user_management_cl
 
     assert page.status_code == 200
     assert 'action="/settings/auth/hostname"' in page.text
+    assert 'data-tooltip="The DNS hostname used to reach OpenSecDash over HTTPS on port 443.' in page.text
     assert response.headers["location"] == "/settings?auth_notice=hostname_saved"
     assert get_setting_value(db, "auth.hostname", "") == "new.example"
     assert db.query(UserSession).count() == 0
