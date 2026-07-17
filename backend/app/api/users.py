@@ -1,6 +1,4 @@
 """Settings routes for internal authentication and user management."""
-import os
-
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
@@ -8,17 +6,19 @@ from sqlalchemy.orm import Session
 from app.database.dependencies import get_db
 from app.models.users import User, UserPreference, UserSession
 from app.services.auth import (
-    AUTH_DISABLED_ENV,
+    AUTH_HOSTNAME_SETTING,
     PASSWORD_MIN_LENGTH,
     ROLES,
     active_admin_count,
+    auth_disabled_by_environment,
     create_session,
     create_user,
     delete_user_sessions,
     hash_password,
+    normalize_auth_hostname,
     validate_new_user,
 )
-from app.web.auth import set_session_cookie
+from app.web.auth import auth_proxy_error, set_session_cookie
 from app.web.tables import save_setting
 
 router = APIRouter(tags=["users"])
@@ -26,10 +26,6 @@ router = APIRouter(tags=["users"])
 
 def _settings_error(code: str) -> RedirectResponse:
     return RedirectResponse(f"/settings?auth_error={code}", status_code=303)
-
-
-def _auth_disabled_by_environment() -> bool:
-    return os.environ.get(AUTH_DISABLED_ENV, "").lower() in ("1", "true", "yes")
 
 
 def _user_or_error(db: Session, user_id: int) -> User | RedirectResponse:
@@ -43,10 +39,17 @@ def enable_authentication(
     username: str = Form(""),
     password: str = Form(""),
     password_confirm: str = Form(""),
+    hostname: str = Form(""),
     db: Session = Depends(get_db),
 ):
-    if _auth_disabled_by_environment():
+    if auth_disabled_by_environment():
         return _settings_error("env_disabled")
+    normalized_hostname = normalize_auth_hostname(hostname)
+    if normalized_hostname is None:
+        return _settings_error("invalid_hostname")
+    proxy_error = auth_proxy_error(request, normalized_hostname)
+    if proxy_error is not None:
+        return _settings_error(proxy_error)
     if username or password or password_confirm:
         if password != password_confirm:
             return _settings_error("password_mismatch")
@@ -54,6 +57,7 @@ def enable_authentication(
         if error is not None:
             return _settings_error(error)
         user = create_user(db, username, password, "admin")
+        save_setting(db, AUTH_HOSTNAME_SETTING, normalized_hostname)
         save_setting(db, "auth.enabled", "true")
         token = create_session(db, user)
         db.commit()
@@ -62,9 +66,23 @@ def enable_authentication(
         return response
     if active_admin_count(db) == 0:
         return _settings_error("no_admin")
+    save_setting(db, AUTH_HOSTNAME_SETTING, normalized_hostname)
     save_setting(db, "auth.enabled", "true")
     db.commit()
     return RedirectResponse("/login", status_code=303)
+
+
+@router.post("/settings/auth/hostname")
+def repair_authentication_hostname(hostname: str = Form(""), db: Session = Depends(get_db)):
+    if not auth_disabled_by_environment():
+        return _settings_error("recovery_only")
+    normalized_hostname = normalize_auth_hostname(hostname)
+    if normalized_hostname is None:
+        return _settings_error("invalid_hostname")
+    save_setting(db, AUTH_HOSTNAME_SETTING, normalized_hostname)
+    db.query(UserSession).delete()
+    db.commit()
+    return RedirectResponse("/settings?auth_notice=hostname_saved", status_code=303)
 
 
 @router.post("/settings/auth/disable")

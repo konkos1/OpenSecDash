@@ -2,6 +2,15 @@
 
 The CrowdSec plugin imports CrowdSec ban history, synchronizes active decisions, and executes ban/unban actions through CrowdSec's Local API (LAPI).
 
+::: danger Protect Ban and Unban
+Do not disable action simulation or use real Ban/Unban unless OpenSecDash requires
+either [internal sign-in](../configuration/authentication.md) or an external
+authentication provider and is accessed exclusively through an HTTPS
+[reverse proxy](../installation/reverse-proxy.md) with a browser-trusted certificate.
+An unauthenticated LAN dashboard allows every reachable client to operate CrowdSec with
+OpenSecDash's machine credentials.
+:::
+
 ::: danger Breaking change for former `cscli` mode
 OpenSecDash no longer mounts or executes `cscli`. Existing connection-mode and executable-path settings are ignored. Configure an LAPI URL and dedicated CrowdSec machine credentials after upgrading.
 :::

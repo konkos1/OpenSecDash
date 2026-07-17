@@ -13,11 +13,19 @@ from app.services.auth import (
     delete_session,
     delete_user_sessions,
     hash_password,
+    normalize_auth_hostname,
     normalize_username,
     resolve_session,
     validate_new_user,
     verify_password,
 )
+
+
+def test_auth_hostname_normalization_accepts_dns_names_and_rejects_origins_and_ips():
+    assert normalize_auth_hostname("OSD.Example.Internal") == "osd.example.internal"
+    assert normalize_auth_hostname("münchen.example") == "xn--mnchen-3ya.example"
+    for value in ("", "https://osd.example", "osd.example:443", "osd.example/", "osd.example.", "192.168.1.10", "-osd.example"):
+        assert normalize_auth_hostname(value) is None
 
 
 def test_password_hashes_are_salted_and_reject_invalid_values():

@@ -28,9 +28,9 @@ from app.models.events import Event
 from app.plugins.manager import get_plugin_manager
 from app.services.insight_rules import refresh_insight_rules
 from app.services.notifications import seed_default_notification_rules
-from app.services.auth import auth_enabled, resolve_session
+from app.services.auth import AUTH_HOSTNAME_SETTING, auth_enabled, resolve_session
 from app.web.guards import plugin_enabled_guard
-from app.web.auth import auth_gating_middleware, wants_json
+from app.web.auth import auth_gating_middleware, auth_proxy_error, wants_json, websocket_origin_is_valid
 from app.web.proxy_headers import ProxyHeadersMiddleware
 from app.web.templates import register_plugin_template_dirs, templates
 
@@ -85,10 +85,6 @@ app = FastAPI(title="OpenSecDash", version=get_app_version(), lifespan=lifespan)
 # typically cuts that by ~90%, which is what page-switch speed feels like on
 # anything slower than a LAN.
 app.add_middleware(GZipMiddleware, minimum_size=1024)
-
-# Reverse proxies provide the real client metadata; only peers configured via
-# OSD_TRUSTED_PROXIES may supply it (ADR-028).
-app.add_middleware(ProxyHeadersMiddleware)
 
 app.include_router(settings_router)
 app.include_router(events_router)
@@ -148,6 +144,11 @@ async def static_cache_headers(request: Request, call_next):
 @app.middleware("http")
 async def auth_gating(request: Request, call_next):
     return await auth_gating_middleware(request, call_next)
+
+
+# Proxy metadata must be normalized before authentication and origin checks.
+# Only explicitly configured peers may establish the secure auth boundary.
+app.add_middleware(ProxyHeadersMiddleware)
 
 
 def render_error_page(
@@ -238,18 +239,25 @@ def _websocket_poll_state() -> tuple[bool, int]:
         db.close()
 
 
-def _websocket_session_is_valid(token: str) -> bool:
+def _websocket_session_is_valid(websocket: WebSocket, token: str) -> bool:
     """Return whether a websocket may connect under the current auth setting."""
     db = SessionLocal()
     try:
-        return not auth_enabled(db) or resolve_session(db, token) is not None
+        if not auth_enabled(db):
+            return True
+        hostname = get_setting_value(db, AUTH_HOSTNAME_SETTING, "")
+        return (
+            auth_proxy_error(websocket, hostname) is None
+            and websocket_origin_is_valid(websocket, hostname)
+            and resolve_session(db, token) is not None
+        )
     finally:
         db.close()
 
 
 @app.websocket("/ws/events")
 async def events_websocket(websocket: WebSocket) -> None:
-    if not await asyncio.to_thread(_websocket_session_is_valid, websocket.cookies.get("osd_session", "")):
+    if not await asyncio.to_thread(_websocket_session_is_valid, websocket, websocket.cookies.get("osd_session", "")):
         await websocket.close(code=1008)
         return
     enabled, last_seen_id = await asyncio.to_thread(_websocket_poll_state)

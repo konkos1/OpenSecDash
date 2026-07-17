@@ -2,6 +2,21 @@
 
 OpenSecDash is designed as an internal homelab admin tool.
 
+::: danger Protect integrations that can affect other systems
+Do not use real CrowdSec Ban/Unban actions, Proxmox integration, or MQTT publishing
+unless both of these protections are in place:
+
+1. OpenSecDash access requires either [internal sign-in](../configuration/authentication.md)
+   or an external authentication provider such as Authentik, Authelia, or Pocket ID.
+2. Users reach OpenSecDash exclusively through a
+   [reverse proxy](../installation/reverse-proxy.md) using HTTPS and a certificate that
+   their browsers trust.
+
+A LAN-only deployment without authentication and HTTPS is not sufficient for these
+features. Anyone who can reach an unprotected dashboard can trigger actions, change
+integration settings, or obtain access to connected-system capabilities.
+:::
+
 ## Optional internal sign-in
 
 OpenSecDash includes optional internal sign-in with Viewer, Operator, and Admin roles.

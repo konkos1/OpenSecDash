@@ -1,6 +1,7 @@
 """Internal user authentication primitives."""
 import hashlib
 import hmac
+import ipaddress
 import os
 import re
 import secrets
@@ -16,9 +17,11 @@ from app.services.user_preferences import create_user_preferences
 PASSWORD_MIN_LENGTH = 8
 SESSION_LIFETIME_DAYS = 30
 AUTH_DISABLED_ENV = "OSD_AUTH_DISABLED"
+AUTH_HOSTNAME_SETTING = "auth.hostname"
 ROLES = ("viewer", "operator", "admin")
 
 _USERNAME_PATTERN = re.compile(r"[a-z0-9._-]{1,64}")
+_HOSTNAME_LABEL_PATTERN = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?")
 
 
 def hash_password(password: str) -> str:
@@ -51,6 +54,26 @@ def verify_password(password: str, stored: str) -> bool:
 def normalize_username(username: str) -> str:
     """Normalize usernames before validation and lookup."""
     return username.strip().lower()
+
+
+def normalize_auth_hostname(hostname: str) -> str | None:
+    """Return a normalized DNS hostname, or None when the value is invalid."""
+    value = hostname.strip().lower()
+    if not value or value.endswith("."):
+        return None
+    try:
+        normalized = value.encode("idna").decode("ascii")
+    except UnicodeError:
+        return None
+    try:
+        ipaddress.ip_address(normalized)
+    except ValueError:
+        pass
+    else:
+        return None
+    if len(normalized) > 253 or any(_HOSTNAME_LABEL_PATTERN.fullmatch(label) is None for label in normalized.split(".")):
+        return None
+    return normalized
 
 
 def validate_new_user(db: Session, username: str, password: str) -> str | None:
@@ -133,9 +156,14 @@ def cleanup_expired_sessions(db: Session) -> None:
 
 def auth_enabled(db: Session) -> bool:
     """Return whether internal authentication is enabled for this process."""
-    if os.environ.get(AUTH_DISABLED_ENV, "").lower() in ("1", "true", "yes"):
+    if auth_disabled_by_environment():
         return False
     return get_setting_value(db, "auth.enabled", "false") == "true"
+
+
+def auth_disabled_by_environment() -> bool:
+    """Return whether the break-glass environment override is active."""
+    return os.environ.get(AUTH_DISABLED_ENV, "").lower() in ("1", "true", "yes")
 
 
 def active_admin_count(db: Session, exclude_user_id: int | None = None) -> int:

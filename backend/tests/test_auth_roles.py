@@ -40,6 +40,7 @@ def role_clients(tmp_path: Path, monkeypatch):
     db.add_all(
         [
             Setting(key="auth.enabled", value="true"),
+            Setting(key="auth.hostname", value="testserver"),
             Setting(key="plugin.traefik_log.enabled", value="true"),
             Setting(key="plugin.json_assets.enabled", value="true"),
         ]

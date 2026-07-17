@@ -22,8 +22,11 @@ docker compose logs opensecdash --tail=500
 ## Locked out of the web UI
 
 If optional internal sign-in is enabled and no administrator can sign in, use the
-`OSD_AUTH_DISABLED=true` recovery switch to temporarily open the UI, reset access, and
-then remove the variable. See [Authentication](../configuration/authentication.md#locked-out-of-the-web-ui).
+`OSD_AUTH_DISABLED=true` recovery switch to temporarily open the UI, reset access, or
+repair a changed authentication hostname. Restrict network access while the switch is
+active: every client that can reach OpenSecDash has full access. Remove the variable and
+restart after the repair. See
+[Authentication](../configuration/authentication.md#locked-out-of-the-web-ui).
 
 ## First import of a large existing log
 

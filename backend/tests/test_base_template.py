@@ -50,11 +50,21 @@ def test_navigation_orders_core_and_plugin_links_consistently():
     assert "data-navigation-brand" in html
     assert "data-navigation-primary" in html
     assert '/static/css/app.css?v=test-save-feedback-banner' in html
-    navigation_script = '<script src="/static/js/app.js?v=test-touch-chart-tooltips"></script>'
+    navigation_script = '<script src="/static/js/app.js?v=test-persist-refresh-tooltips"></script>'
     assert html.index("</header>") < html.index(navigation_script) < html.index("<main")
     assert html.count(navigation_script) == 1
     assert 'id="save-feedback-banner"' in html
     assert 'data-message="common.settings_saved"' in html
+
+
+def test_help_tooltips_are_restored_after_htmx_refreshes():
+    script = Path("app/static/js/app.js").read_text()
+
+    assert "pendingTooltipRestore" in script
+    assert '".help[data-tooltip]"' in script
+    assert '".dashboard-trend-bar[data-chart-tooltip]"' in script
+    assert "showTriggerTooltip(trigger)" in script
+    assert "trigger.focus({ preventScroll: true })" in script
 
 
 def test_uploaded_instance_logo_stays_with_left_brand():

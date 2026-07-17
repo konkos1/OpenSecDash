@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 from cryptography.fernet import Fernet
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -41,6 +42,24 @@ def _test_secret_key(monkeypatch):
     secrets_module.reset_secret_key_cache()
     yield
     secrets_module.reset_secret_key_cache()
+
+
+@pytest.fixture(autouse=True)
+def _browser_origin_header(monkeypatch):
+    """Make application TestClients send the Origin header supplied by browsers."""
+    original_init = TestClient.__init__
+    monkeypatch.setenv("OSD_TRUSTED_PROXIES", "127.0.0.1")
+
+    def init_with_origin(self, *args, **kwargs):
+        kwargs.setdefault("client", ("127.0.0.1", 50000))
+        original_init(self, *args, **kwargs)
+        external_origin = str(self.base_url).rstrip("/")
+        self.headers.setdefault("origin", external_origin)
+        self.headers.setdefault("x-forwarded-proto", self.base_url.scheme)
+        self.headers.setdefault("x-forwarded-host", external_origin.split("://", 1)[1])
+        self.headers.setdefault("x-forwarded-port", str(self.base_url.port or (443 if self.base_url.scheme == "https" else 80)))
+
+    monkeypatch.setattr(TestClient, "__init__", init_with_origin)
 
 
 @pytest.fixture()

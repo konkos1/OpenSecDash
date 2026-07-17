@@ -1,11 +1,12 @@
 # ADR-028: Authentication & Deployment
 
-> **Implementation status (2026-07-13):** Partially implemented.
+> **Implementation status (2026-07-17):** Partially implemented.
 > Docker-oriented single-container deployment, SQLite, reverse-proxy trust model,
-> proxy-header middleware (X-Forwarded-For/-Proto/-Host from trusted proxies,
+> proxy-header middleware (X-Forwarded-For/-Proto/-Host/-Port from trusted proxies,
 > configured via OSD_TRUSTED_PROXIES), API-side actions, health/ready endpoints,
 > update checks, and optional internal user management (admin/operator/viewer roles,
-> disabled by default) exist.
+> disabled by default) exist. Internal authentication is bound to an explicitly trusted
+> reverse proxy, HTTPS port 443, and one configured hostname.
 
 
 
@@ -142,6 +143,7 @@ Therefore:
 X-Forwarded-For
 X-Forwarded-Proto
 X-Forwarded-Host
+X-Forwarded-Port
 ```
 
 
@@ -153,23 +155,15 @@ X-Forwarded-Host
 
 HTTPS is handled by the reverse proxy.
 
-
----
-
-# Authentication V1
-
-## V1
-
-OpenSecDash trusts the upstream reverse proxy.
+The reverse proxy and browser own certificate issuance and validation. OpenSecDash
+cannot inspect the proxy's server certificate after TLS termination.
 
 
 ---
 
-# Internal auth later
+# Internal authentication
 
-e.g. V2/V3.
-
-Possible roles:
+Internal authentication is optional and disabled by default. It provides:
 
 ```none
 Admin
@@ -177,7 +171,26 @@ Operator
 Viewer
 ```
 
-**But not in V1.**
+Activation requires all of the following:
+
+* `OSD_TRUSTED_PROXIES` is explicitly configured with a proxy IP or CIDR; implicit
+  defaults and wildcard trust do not establish the authentication boundary.
+* The direct peer matches that explicit trust configuration.
+* The proxy supplies `X-Forwarded-Proto: https`.
+* The proxy supplies `X-Forwarded-Port: 443`.
+* The administrator enters a valid DNS hostname that exactly matches the trusted
+  `X-Forwarded-Host`.
+
+The normalized hostname is persisted as `auth.hostname`. While authentication is
+active, user-facing HTTP and WebSocket traffic must continue to use that trusted
+HTTPS/443 origin. `/health` and `/ready` remain exempt so internal health checks do not
+depend on the public proxy path. Valid authenticated HTTP responses send HSTS.
+
+`OSD_AUTH_DISABLED=true` is the break-glass override. It disables authentication and
+the hostname boundary without deleting users, password hashes, or the persisted enabled
+state. While the override is active, Settings allows the hostname to be repaired and
+revokes existing sessions. The override must be removed and OpenSecDash restarted to
+restore authentication.
 
 
 ---
@@ -370,7 +383,7 @@ SQLite
 +
 Reverse Proxy
 +
-no internal user management
+optional internal user management
 +
 optionally e.g. Pocket-ID/Authentik/Authelia in front
 ```
@@ -385,7 +398,7 @@ optionally e.g. Pocket-ID/Authentik/Authelia in front
 The current implementation follows the V1 trust model without internal user management. It provides API-side action execution and health/ready-style operational endpoints.
 
 Dedicated proxy-header middleware is present in `app/web/proxy_headers.py`. It accepts
-`X-Forwarded-For`, `X-Forwarded-Proto`, and `X-Forwarded-Host` only from trusted
+`X-Forwarded-For`, `X-Forwarded-Proto`, `X-Forwarded-Host`, and `X-Forwarded-Port` only from trusted
 peer IPs. Loopback and private networks are trusted by default; the set is
 configurable or disableable with `OSD_TRUSTED_PROXIES`. Headers from untrusted
 sources are discarded. Reverse-proxy deployment remains the intended deployment
@@ -398,3 +411,11 @@ default; `OSD_AUTH_DISABLED` is the break-glass switch. It provides the `admin`,
 `operator`, and `viewer` roles described above, with server-side DB sessions whose
 tokens can be revoked. The `api_tokens` table prepares read, actions, and admin scopes;
 it has no endpoints or UI. The reverse-proxy trust model remains the documented default.
+
+## Implementation notes (2026-07-17)
+
+Internal sign-in activation and authenticated traffic now use the stricter
+HTTPS/443/hostname boundary specified above. The proxy middleware records whether
+forwarded metadata came from an explicitly configured peer so implicit private-network
+defaults and wildcard trust cannot activate internal authentication. The break-glass
+override also supports hostname repair and session revocation.

@@ -2,6 +2,15 @@
 
 The Proxmox Assets plugin imports Proxmox nodes, VMs, and LXCs into OpenSecDash. It can also create application assets from a hidden metadata block in Proxmox guest notes.
 
+::: danger Protect Proxmox credentials and inventory
+Do not configure or use the Proxmox integration unless OpenSecDash requires either
+[internal sign-in](../configuration/authentication.md) or an external authentication
+provider and is accessed exclusively through an HTTPS
+[reverse proxy](../installation/reverse-proxy.md) with a browser-trusted certificate.
+Even a read-only Proxmox token exposes sensitive infrastructure inventory and must not
+be placed behind an unauthenticated or unencrypted dashboard.
+:::
+
 ## Recommended Proxmox permissions
 
 Create a dedicated read-only API token, for example:

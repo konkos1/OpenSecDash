@@ -50,7 +50,7 @@ def user_management_client(tmp_path: Path, monkeypatch):
 def _enable_auth(client: TestClient):
     response = client.post(
         "/settings/auth/enable",
-        data={"username": "admin", "password": "password123", "password_confirm": "password123"},
+        data={"hostname": "testserver", "username": "admin", "password": "password123", "password_confirm": "password123"},
         follow_redirects=False,
     )
     assert response.status_code == 303
@@ -70,8 +70,110 @@ def test_activation_creates_admin_session_and_allows_settings(user_management_cl
 
     assert "osd_session=" in response.headers["set-cookie"]
     assert get_setting_value(db, "auth.enabled", "false") == "true"
+    assert get_setting_value(db, "auth.hostname", "") == "testserver"
     assert db.query(User).filter(User.username == "admin", User.role == "admin").count() == 1
     assert client.get("/settings").status_code == 200
+
+
+@pytest.mark.parametrize(
+    ("base_url", "headers", "hostname", "error"),
+    [
+        ("https://testserver", {}, "other.example", "hostname_mismatch"),
+        ("http://testserver", {}, "testserver", "https_required"),
+        ("https://testserver:8443", {}, "testserver", "https_port_required"),
+        ("https://testserver", {}, "https://testserver", "invalid_hostname"),
+    ],
+)
+def test_activation_requires_trusted_https_443_proxy_and_matching_hostname(
+    user_management_client,
+    base_url,
+    headers,
+    hostname,
+    error,
+):
+    db, _client = user_management_client
+    client = TestClient(app, base_url=base_url, headers=headers)
+    try:
+        response = client.post(
+            "/settings/auth/enable",
+            data={"hostname": hostname, "username": "admin", "password": "password123", "password_confirm": "password123"},
+            follow_redirects=False,
+        )
+    finally:
+        client.close()
+
+    assert response.headers["location"] == f"/settings?auth_error={error}"
+    assert get_setting_value(db, "auth.enabled", "false") == "false"
+    assert db.query(User).count() == 0
+
+
+def test_activation_rejects_a_peer_outside_explicit_proxy_trust(user_management_client):
+    db, _client = user_management_client
+    client = TestClient(app, base_url="https://testserver", client=("203.0.113.10", 50000))
+    try:
+        response = client.post(
+            "/settings/auth/enable",
+            data={"hostname": "testserver", "username": "admin", "password": "password123", "password_confirm": "password123"},
+            follow_redirects=False,
+        )
+    finally:
+        client.close()
+
+    assert response.headers["location"] == "/settings?auth_error=proxy_not_configured"
+    assert get_setting_value(db, "auth.enabled", "false") == "false"
+    assert db.query(User).count() == 0
+
+
+def test_activation_requires_forwarded_port_443(user_management_client):
+    db, client = user_management_client
+    client.headers.pop("x-forwarded-port")
+
+    response = client.post(
+        "/settings/auth/enable",
+        data={"hostname": "testserver", "username": "admin", "password": "password123", "password_confirm": "password123"},
+        follow_redirects=False,
+    )
+
+    assert response.headers["location"] == "/settings?auth_error=https_port_required"
+    assert get_setting_value(db, "auth.enabled", "false") == "false"
+    assert db.query(User).count() == 0
+
+
+def test_proxy_activation_error_links_to_diagnostics(user_management_client):
+    _db, client = user_management_client
+
+    response = client.post(
+        "/settings/auth/enable",
+        data={"hostname": "other.example", "username": "admin", "password": "password123", "password_confirm": "password123"},
+        follow_redirects=False,
+    )
+    page = client.get(response.headers["location"])
+
+    assert page.status_code == 200
+    assert "secure proxy boundary is incomplete" in page.text
+    assert 'href="/diagnostics#auth-transport"' in page.text
+    assert 'data-tooltip="The DNS hostname used to reach OpenSecDash over HTTPS on port 443.' in page.text
+
+
+def test_cross_site_activation_is_rejected_when_authentication_is_disabled(user_management_client):
+    db, client = user_management_client
+    credentials = {"hostname": "testserver", "username": "attacker", "password": "password123", "password_confirm": "password123"}
+
+    for headers in ({"origin": "https://evil.example"}, {"sec-fetch-site": "cross-site"}):
+        response = client.post(
+            "/settings/auth/enable",
+            data=credentials,
+            headers=headers,
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 403
+    client.headers.pop("origin")
+    response = client.post("/settings/auth/enable", data=credentials, follow_redirects=False)
+
+    assert response.status_code == 403
+    assert get_setting_value(db, "auth.enabled", "false") == "false"
+    assert db.query(User).count() == 0
 
 
 def test_core_preferences_are_hidden_and_unchanged_when_authentication_is_enabled(user_management_client):
@@ -124,17 +226,34 @@ def test_core_preferences_are_hidden_and_unchanged_when_authentication_is_enable
 def test_activation_without_admin_or_when_environment_disabled_is_rejected(user_management_client, monkeypatch):
     db, client = user_management_client
 
-    response = client.post("/settings/auth/enable", follow_redirects=False)
+    response = client.post("/settings/auth/enable", data={"hostname": "testserver"}, follow_redirects=False)
     assert response.headers["location"] == "/settings?auth_error=no_admin"
     assert get_setting_value(db, "auth.enabled", "false") == "false"
 
     monkeypatch.setenv("OSD_AUTH_DISABLED", "true")
     response = client.post(
         "/settings/auth/enable",
-        data={"username": "admin", "password": "password123", "password_confirm": "password123"},
+        data={"hostname": "testserver", "username": "admin", "password": "password123", "password_confirm": "password123"},
         follow_redirects=False,
     )
     assert response.headers["location"] == "/settings?auth_error=env_disabled"
+
+
+def test_break_glass_can_repair_hostname_and_revokes_sessions(user_management_client, monkeypatch):
+    db, client = user_management_client
+    _enable_auth(client)
+    assert db.query(UserSession).count() == 1
+    monkeypatch.setenv("OSD_AUTH_DISABLED", "true")
+
+    page = client.get("/settings")
+    response = client.post("/settings/auth/hostname", data={"hostname": "new.example"}, follow_redirects=False)
+
+    assert page.status_code == 200
+    assert 'action="/settings/auth/hostname"' in page.text
+    assert 'data-tooltip="The DNS hostname used to reach OpenSecDash over HTTPS on port 443.' in page.text
+    assert response.headers["location"] == "/settings?auth_notice=hostname_saved"
+    assert get_setting_value(db, "auth.hostname", "") == "new.example"
+    assert db.query(UserSession).count() == 0
 
 
 def test_admin_can_manage_users_and_revokes_target_sessions(user_management_client):
