@@ -56,3 +56,10 @@ HTTPS is still handled by the reverse proxy. The internal session cookie is mark
 resets, and deactivation can revoke it. OpenSecDash does not provide built-in 2FA,
 OIDC, or password-recovery email; use an external identity provider in front of the
 proxy when those controls are required.
+
+OpenSecDash rejects state-changing browser requests from a different origin even while
+internal sign-in is disabled. This prevents a website opened in the browser from
+silently changing dashboard settings or enabling sign-in. Requests made directly by
+command-line tools and integrations without browser origin headers remain compatible.
+Browser forms must use the same scheme, hostname, and port as the dashboard; submitting
+from an alternate dashboard hostname is intentionally rejected.

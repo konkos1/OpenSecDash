@@ -17,6 +17,7 @@ SESSION_COOKIE = "osd_session"
 ROLE_ORDER = {"viewer": 0, "operator": 1, "admin": 2}
 _PUBLIC_PATHS = {"/health", "/ready", "/login", "/sw.js"}
 _UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+_DEFAULT_ORIGIN_PORTS = {"http": 80, "https": 443}
 
 
 def wants_json(request: Request) -> bool:
@@ -70,8 +71,38 @@ def _is_public_path(path: str) -> bool:
 def _cross_origin_request(request: Request) -> bool:
     if request.method not in _UNSAFE_METHODS:
         return False
+    if request.headers.get("sec-fetch-site", "").strip().lower() == "cross-site":
+        return True
     origin = request.headers.get("origin")
-    return origin is not None and urlparse(origin).netloc != request.headers.get("host")
+    if origin is None:
+        return False
+    parsed_origin = urlparse(origin.strip())
+    try:
+        origin_port = parsed_origin.port
+        request_port = request.url.port
+    except ValueError:
+        return True
+    if (
+        parsed_origin.scheme not in _DEFAULT_ORIGIN_PORTS
+        or parsed_origin.hostname is None
+        or parsed_origin.username is not None
+        or parsed_origin.password is not None
+        or parsed_origin.path not in ("", "/")
+        or parsed_origin.params
+        or parsed_origin.query
+        or parsed_origin.fragment
+    ):
+        return True
+    request_scheme = request.url.scheme.lower()
+    return (
+        parsed_origin.scheme,
+        parsed_origin.hostname.lower(),
+        origin_port if origin_port is not None else _DEFAULT_ORIGIN_PORTS[parsed_origin.scheme],
+    ) != (
+        request_scheme,
+        request.url.hostname.lower() if request.url.hostname is not None else None,
+        request_port if request_port is not None else _DEFAULT_ORIGIN_PORTS.get(request_scheme),
+    )
 
 
 def required_role(method: str, path: str) -> str:
@@ -108,6 +139,11 @@ def _auth_database(request: Request) -> tuple[Session, Generator[Session, None, 
 
 async def auth_gating_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
     """Apply opt-in session authentication before core and plugin routes."""
+    if _cross_origin_request(request):
+        if wants_json(request):
+            return JSONResponse(status_code=403, content={"detail": "Cross-origin request rejected"})
+        return render_forbidden_page(request)
+
     if _is_public_path(request.url.path):
         return await call_next(request)
 
@@ -117,10 +153,6 @@ async def auth_gating_middleware(request: Request, call_next: Callable[[Request]
         request.state.auth_enabled = enabled
         if not enabled:
             request.state.user = None
-        elif _cross_origin_request(request):
-            if wants_json(request):
-                return JSONResponse(status_code=403, content={"detail": "Cross-origin request rejected"})
-            return render_forbidden_page(request)
         else:
             token = request.cookies.get(SESSION_COOKIE, "")
             user = resolve_session(db, token) if token else None

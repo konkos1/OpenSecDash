@@ -74,6 +74,23 @@ def test_activation_creates_admin_session_and_allows_settings(user_management_cl
     assert client.get("/settings").status_code == 200
 
 
+def test_cross_site_activation_is_rejected_when_authentication_is_disabled(user_management_client):
+    db, client = user_management_client
+    credentials = {"username": "attacker", "password": "password123", "password_confirm": "password123"}
+
+    for headers in ({"origin": "https://evil.example"}, {"sec-fetch-site": "cross-site"}):
+        response = client.post(
+            "/settings/auth/enable",
+            data=credentials,
+            headers=headers,
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 403
+    assert get_setting_value(db, "auth.enabled", "false") == "false"
+    assert db.query(User).count() == 0
+
+
 def test_core_preferences_are_hidden_and_unchanged_when_authentication_is_enabled(user_management_client):
     db, client = user_management_client
     db.add_all(

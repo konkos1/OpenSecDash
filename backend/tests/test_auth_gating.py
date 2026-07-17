@@ -150,8 +150,18 @@ def test_origin_check_and_break_glass(auth_client, monkeypatch):
 
     response = client.post("/settings", headers={"origin": "https://evil.example"}, follow_redirects=False)
     assert response.status_code == 403
+    response = client.post("/settings", headers={"origin": "http://testserver"}, follow_redirects=False)
+    assert response.status_code == 403
+    response = client.post("/settings", headers={"origin": "null"}, follow_redirects=False)
+    assert response.status_code == 403
+    response = client.post("/settings", headers={"sec-fetch-site": "cross-site"}, follow_redirects=False)
+    assert response.status_code == 403
     response = client.post("/settings", headers={"origin": "https://testserver"}, follow_redirects=False)
     assert response.status_code != 403
+    response = client.post("/settings", headers={"origin": "https://testserver:443"}, follow_redirects=False)
+    assert response.status_code != 403
+    response = client.post("/login", headers={"origin": "https://evil.example"}, follow_redirects=False)
+    assert response.status_code == 403
 
     client.post("/auth/logout", follow_redirects=False)
     monkeypatch.setenv("OSD_AUTH_DISABLED", "true")
