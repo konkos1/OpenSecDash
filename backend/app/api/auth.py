@@ -3,7 +3,6 @@ import time
 import hashlib
 from collections import OrderedDict
 from threading import Lock
-from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
@@ -30,6 +29,7 @@ from app.services.auth import (
 )
 from app.services.user_preferences import normalize_preferences
 from app.web.auth import SESSION_COOKIE, set_session_cookie
+from app.web.redirects import safe_local_path
 from app.web.render import render
 from app.web.templates import templates
 
@@ -88,15 +88,6 @@ def _record_failed_login(username: str, client_id: str) -> None:
             _LOGIN_BACKOFF.popitem(last=False)
 
 
-def _safe_next(value: str | None) -> str:
-    candidate = (value or "").strip()
-    if candidate.startswith("/") and not candidate.startswith("//"):
-        parts = urlsplit(candidate)
-        if not parts.scheme and not parts.netloc:
-            return candidate
-    return "/"
-
-
 def _login_response(request: Request, db: Session, next_path: str, *, error: bool = False, error_key: str = "auth.login_failed", status_code: int = 200):
     language = get_setting_value(db, "language", "en")
     return templates.TemplateResponse(
@@ -106,7 +97,7 @@ def _login_response(request: Request, db: Session, next_path: str, *, error: boo
         context={
             "language": language,
             "t": lambda key: translate(key, language),
-            "next": _safe_next(next_path),
+            "next": safe_local_path(next_path),
             "error": error,
             "error_key": error_key,
             "app_version": get_app_version(),
@@ -146,7 +137,7 @@ def login(
     user.last_login_at = utc_now().replace(tzinfo=None)
     token = create_session(db, user)
     db.commit()
-    response = RedirectResponse(_safe_next(next), status_code=303)
+    response = RedirectResponse(safe_local_path(next), status_code=303)
     set_session_cookie(response, request, token)
     return response
 

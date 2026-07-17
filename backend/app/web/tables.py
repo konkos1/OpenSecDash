@@ -16,6 +16,7 @@ from app.models.assets import Asset
 from app.models.events import Event
 from app.models.settings import Setting
 from app.services.asset_hosts import event_matches_asset_host, find_asset_by_host
+from app.web.redirects import safe_local_redirect_target
 
 logger = logging.getLogger(__name__)
 
@@ -129,23 +130,8 @@ def save_table_columns(db: Session, setting_key: str, selected: list[str], defau
     save_setting(db, setting_key, ",".join(values) if values else default)
 
 
-def _safe_local_redirect_target(request: Request, target: str | None, fallback: str) -> str:
-    candidate = (target or fallback).strip() or fallback
-    parts = urlsplit(candidate)
-    request_origin = urlsplit(str(request.url))
-
-    if parts.scheme or parts.netloc:
-        if parts.scheme != request_origin.scheme or parts.netloc != request_origin.netloc:
-            return fallback
-        return urlunsplit(("", "", parts.path or "/", parts.query, parts.fragment))
-
-    if not parts.path.startswith("/") or parts.path.startswith("//"):
-        return fallback
-    return urlunsplit(("", "", parts.path, parts.query, parts.fragment))
-
-
 def column_redirect_url(request: Request, fallback: str, snapshot_before: str | None) -> str:
-    target = _safe_local_redirect_target(request, request.headers.get("referer"), fallback)
+    target = safe_local_redirect_target(request, request.headers.get("referer"), fallback)
     if not snapshot_before:
         return target
     parts = urlsplit(target)

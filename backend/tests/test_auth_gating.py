@@ -170,7 +170,14 @@ def test_login_backoff_and_open_redirect_protection(auth_client):
     assert "Too many failed attempts." in response.text
 
     auth_api.reset_login_backoff()
-    for target in ("https://evil.example", "//evil.example"):
+    for target in (
+        "https://evil.example",
+        "//evil.example",
+        r"/\evil.example",
+        r"/\\evil.example",
+        r"\evil.example",
+        r"https:\evil.example",
+    ):
         response = client.post(
             "/login",
             data={"username": "admin", "password": "password123", "next": target},

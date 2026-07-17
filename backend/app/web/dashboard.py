@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.template_context import get_setting_value
 from app.plugins.manager import get_plugin_manager
+from app.web.redirects import is_safe_local_path
 
 
 WidgetType = Literal["counter", "table", "feed", "trend", "map"]
@@ -63,14 +64,10 @@ def validate_widget(widget: DashboardWidget) -> bool:
         return False
 
     def valid_href(value: object) -> bool:
-        return value is None or (
-            isinstance(value, str)
-            and value.startswith("/")
-            and not value.startswith("//")
-        )
+        return value is None or is_safe_local_path(value)
 
     def required_href(value: object) -> bool:
-        return isinstance(value, str) and valid_href(value)
+        return is_safe_local_path(value)
 
     if not valid_href(widget.href):
         return False
