@@ -1,3 +1,5 @@
+from sqlalchemy import event as sqlalchemy_event
+
 from app.models.assets import Asset
 from app.models.events import Event
 from app.models.systems import System
@@ -46,6 +48,32 @@ def test_event_filters_match_assets_by_id_or_name(db_session):
     assert _matching_ids(db_session, {"asset": str(nextcloud.id)}) == [matching.id]
     assert _matching_ids(db_session, {"asset": "Nextcloud"}) == [matching.id]
     assert _matching_ids(db_session, {"asset": "cloud.example.test"}) == [matching.id]
+
+
+def test_event_filters_match_asset_name_with_one_select(db_session):
+    system = System(vmid="100", hostname="apps", system_type="vm")
+    db_session.add(system)
+    db_session.flush()
+    asset = Asset(system_id=system.id, name="Nextcloud", hostname="cloud.example.test")
+    db_session.add(asset)
+    db_session.flush()
+    matching = Event(event_type="access.error", severity="warning", plugin="traefik_log", asset_id=asset.id)
+    db_session.add(matching)
+    db_session.commit()
+
+    select_statements = []
+
+    def record_select(_connection, _cursor, statement, _parameters, _context, _executemany):
+        if statement.lstrip().upper().startswith("SELECT"):
+            select_statements.append(statement)
+
+    sqlalchemy_event.listen(db_session.bind, "before_cursor_execute", record_select)
+    try:
+        assert _matching_ids(db_session, {"asset": "Nextcloud"}) == [matching.id]
+    finally:
+        sqlalchemy_event.remove(db_session.bind, "before_cursor_execute", record_select)
+
+    assert len(select_statements) == 1
 
 
 def test_event_filters_ignore_empty_or_invalid_new_values(db_session):

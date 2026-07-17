@@ -723,13 +723,8 @@ def apply_event_filters(query, filters: dict[str, Any]):
             try:
                 asset_id = int(asset)
             except (TypeError, ValueError):
-                asset_ids = [
-                    value
-                    for (value,) in query.session.query(Asset.id)
-                    .filter(or_(Asset.name == asset, Asset.hostname == asset))
-                    .all()
-                ]
-                query = query.filter(Event.asset_id.in_(asset_ids) if asset_ids else Event.asset_id == -1)
+                asset_ids = query.session.query(Asset.id).filter(or_(Asset.name == asset, Asset.hostname == asset))
+                query = query.filter(Event.asset_id.in_(asset_ids))
             else:
                 query = query.filter(Event.asset_id == asset_id)
     if filters.get("path"):
