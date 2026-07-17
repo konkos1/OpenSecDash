@@ -188,6 +188,53 @@ def test_login_backoff_and_open_redirect_protection(auth_client):
         client.post("/auth/logout", follow_redirects=False)
 
 
+def test_login_backoff_cannot_be_bypassed_with_rotating_forwarded_ips(auth_client):
+    db_session, client = auth_client
+    enable_auth(db_session)
+
+    for index in range(5):
+        response = client.post(
+            "/login",
+            headers={"x-forwarded-for": f"203.0.113.{index + 1}"},
+            data={"username": "admin", "password": "wrong-password"},
+            follow_redirects=False,
+        )
+        assert response.status_code == 401
+
+    response = client.post(
+        "/login",
+        headers={"x-forwarded-for": "203.0.113.99"},
+        data={"username": "admin", "password": "password123"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 429
+
+
+def test_login_backoff_limits_password_spraying_from_one_proxy_peer(auth_client, monkeypatch):
+    db_session, client = auth_client
+    enable_auth(db_session)
+    monkeypatch.setattr(auth_api, "_MAX_SOURCE_LOGIN_FAILURES", 3)
+
+    for index in range(3):
+        response = client.post(
+            "/login",
+            headers={"x-forwarded-for": f"203.0.113.{index + 1}"},
+            data={"username": f"unknown-{index}", "password": "wrong-password"},
+            follow_redirects=False,
+        )
+        assert response.status_code == 401
+
+    response = client.post(
+        "/login",
+        headers={"x-forwarded-for": "203.0.113.99"},
+        data={"username": "admin", "password": "password123"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 429
+
+
 def test_login_backoff_state_is_bounded_and_uses_fixed_size_keys(monkeypatch):
     auth_api.reset_login_backoff()
     monkeypatch.setattr(auth_api, "_MAX_LOGIN_BACKOFF_ENTRIES", 3)

@@ -419,3 +419,11 @@ HTTPS/443/hostname boundary specified above. The proxy middleware records whethe
 forwarded metadata came from an explicitly configured peer so implicit private-network
 defaults and wildcard trust cannot activate internal authentication. The break-glass
 override also supports hostname repair and session revocation.
+
+Login throttling uses independent account and direct-peer buckets. The account bucket
+limits attempts against one normalized username regardless of forwarded client IP, while
+the higher-threshold peer bucket limits password spraying across usernames. The proxy
+middleware preserves the direct peer address before applying `X-Forwarded-For`, so an
+overly broad trusted-proxy configuration cannot bypass both buckets by rotating
+forwarded addresses. Deployments must still restrict `OSD_TRUSTED_PROXIES` to individual
+proxy addresses or the narrowest practical dedicated proxy network.
