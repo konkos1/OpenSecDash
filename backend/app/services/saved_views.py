@@ -6,12 +6,30 @@ from datetime import datetime
 from typing import Any
 from urllib.parse import urlencode
 
+from sqlalchemy.orm import Session
+
+from app.models.saved_views import SavedView
+
 
 VIEW_SCOPES = {"events", "access"}
 MAX_VIEW_NAME_LENGTH = 120
 MAX_FILTER_VALUE_LENGTH = 2048
 MAX_FILTER_LIST_VALUES = 20
 _TIME_RANGES = {"1h", "24h", "7d", "30d", "custom"}
+
+
+def copy_legacy_views_to_user(db: Session, user_id: int) -> None:
+    """Initialize a user's saved views from the anonymous legacy views."""
+    for view in db.query(SavedView).filter(SavedView.user_id.is_(None)).all():
+        db.add(
+            SavedView(
+                user_id=user_id,
+                name=view.name,
+                scope=view.scope,
+                filter_json=view.filter_json,
+                query_json=view.query_json,
+            )
+        )
 
 
 def clean_view_name(value: object) -> str | None:
