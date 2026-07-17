@@ -1,4 +1,5 @@
 from datetime import timedelta
+import ssl
 from unittest.mock import MagicMock
 
 import pytest
@@ -160,7 +161,12 @@ def test_email_channel_uses_starttls_ssl_and_plain_smtp(db_session, monkeypatch)
         db_session.commit()
         channel.send(db_session, "Subject", "Body")
     assert smtp.call_count == 2
-    smtp_instance.starttls.assert_called_once()
+    starttls_context = smtp_instance.starttls.call_args.kwargs["context"]
+    ssl_context = smtp_ssl.call_args.kwargs["context"]
+    assert starttls_context.verify_mode == ssl.CERT_REQUIRED
+    assert starttls_context.check_hostname is True
+    assert ssl_context.verify_mode == ssl.CERT_REQUIRED
+    assert ssl_context.check_hostname is True
     smtp_ssl.assert_called_once()
     message = smtp_instance.send_message.call_args_list[0].args[0]
     assert message["From"] == "OpenSecDash <sender@example>"
@@ -169,3 +175,17 @@ def test_email_channel_uses_starttls_ssl_and_plain_smtp(db_session, monkeypatch)
     logo_parts = [part for part in message.walk() if part.get_content_type() == "image/png"]
     assert len(logo_parts) == 1
     assert logo_parts[0]["Content-ID"] == "<opensecdash-logo>"
+
+
+def test_email_channel_adds_custom_ca_to_default_trust_store(db_session, monkeypatch):
+    context = MagicMock()
+    smtp = MagicMock()
+    monkeypatch.setattr("app.services.notification_channels.ssl.create_default_context", MagicMock(return_value=context))
+    monkeypatch.setattr("app.services.notification_channels.smtplib.SMTP", smtp)
+    save_setting(db_session, "notifications.smtp_ca_file", "/certs/homelab-ca.pem")
+    db_session.commit()
+
+    EmailChannel().send(db_session, "Subject", "Body")
+
+    context.load_verify_locations.assert_called_once_with(cafile="/certs/homelab-ca.pem")
+    smtp.return_value.__enter__.return_value.starttls.assert_called_once_with(context=context)

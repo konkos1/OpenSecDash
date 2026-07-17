@@ -21,11 +21,15 @@ mail server:
 3. Enter the SMTP host and port. `587` with STARTTLS is a common choice;
    `465` is commonly used with SSL/TLS.
 4. Choose the security mode required by your mail server: none, STARTTLS, or
-   SSL/TLS.
-5. Enter an SMTP user and password when your server requires authentication.
+   SSL/TLS. STARTTLS and SSL/TLS verify the server certificate and hostname.
+5. If the server certificate uses your own homelab CA, optionally enter the
+   path to its PEM certificate as **Custom CA certificate file**. The file must
+   be available inside the OpenSecDash container. Leave the field empty to use
+   the system trust store.
+6. Enter an SMTP user and password when your server requires authentication.
    For a provider account, use an app password rather than your normal login
    password when the provider supports it.
-6. Set a sender address and the recipient address for alerts. The sender also
+7. Set a sender address and the recipient address for alerts. The sender also
    accepts a display name in standard mailbox format, for example
    `OpenSecDash <notifications@example.com>`. Your SMTP provider may require the
    address or alias to be approved for the authenticated account.
@@ -33,6 +37,9 @@ mail server:
 For a homelab, the SMTP host might be a local relay such as
 `mail.home.arpa`, or the SMTP server from your email provider. Do not put real
 passwords in compose files, screenshots, or shared configuration examples.
+The configured SMTP hostname must match the certificate. Mount a private CA
+certificate read-only into the container when you use the custom CA field;
+certificate verification cannot be disabled.
 
 The SMTP password is stored encrypted in the database. See
 [Secrets are encrypted at rest](./settings.md#secrets-are-encrypted-at-rest)

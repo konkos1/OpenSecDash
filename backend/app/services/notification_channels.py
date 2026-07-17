@@ -1,4 +1,5 @@
 import smtplib
+import ssl
 from email.message import EmailMessage
 from pathlib import Path
 from typing import Protocol
@@ -52,6 +53,13 @@ class NotificationChannel(Protocol):
 class EmailChannel:
     id = "email"
 
+    def _tls_context(self, db: Session) -> ssl.SSLContext:
+        context = ssl.create_default_context()
+        ca_file = get_setting_value(db, "notifications.smtp_ca_file", "").strip()
+        if ca_file:
+            context.load_verify_locations(cafile=ca_file)
+        return context
+
     def is_configured(self, db: Session) -> bool:
         return all(
             get_setting_value(db, key, "").strip()
@@ -92,10 +100,15 @@ class EmailChannel:
                 disposition="inline",
                 filename="opensecdash.png",
             )
-        smtp_class = smtplib.SMTP_SSL if security == "ssl" else smtplib.SMTP
-        with smtp_class(host, port, timeout=10) as smtp:
+        tls_context = self._tls_context(db) if security in {"starttls", "ssl"} else None
+        if security == "ssl":
+            smtp_connection = smtplib.SMTP_SSL(host, port, timeout=10, context=tls_context)
+        else:
+            smtp_connection = smtplib.SMTP(host, port, timeout=10)
+        with smtp_connection as smtp:
             if security == "starttls":
-                smtp.starttls()
+                assert tls_context is not None
+                smtp.starttls(context=tls_context)
             if user:
                 smtp.login(user, password)
             smtp.send_message(message)
