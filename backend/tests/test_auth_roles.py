@@ -14,7 +14,7 @@ from app.models.settings import Setting
 from app.models.users import User
 from app.services.auth import create_user
 from app.web import auth as auth_web
-from app.web.auth import required_role
+from app.web.permissions import route_permission_inventory, required_role
 from app.web.dashboard import dashboard_layout_setting_key, load_dashboard_layout
 
 
@@ -76,13 +76,58 @@ def role_clients(tmp_path: Path, monkeypatch):
         ("GET", "/diagnostics/debug-report", "admin"),
         ("POST", "/auth/password", "viewer"),
         ("POST", "/account/preferences", "viewer"),
-        ("POST", "/irgendwas/neues", "operator"),
+        ("POST", "/irgendwas/neues", "admin"),
+        ("POST", "/api/events", "admin"),
+        ("POST", "/api/assets/import", "admin"),
         ("POST", "/views", "viewer"),
         ("POST", "/dashboard/layout", "viewer"),
     ],
 )
 def test_required_role_matrix(method, path, role):
     assert required_role(method, path) == role
+
+
+def test_route_permission_inventory_covers_core_and_plugin_routes():
+    inventory = route_permission_inventory()
+    registered = {(item.method, item.path.replace(":path}", "}")) for item in inventory}
+    actual = {
+        (method.upper(), path)
+        for path, operations in app.openapi()["paths"].items()
+        for method in operations
+    }
+
+    framework_routes = {
+        ("GET", "/openapi.json"),
+        ("GET", "/docs"),
+        ("GET", "/docs/oauth2-redirect"),
+        ("GET", "/redoc"),
+        ("GET", "/sw.js"),
+    }
+    assert len(registered) == len(inventory)
+    assert registered == actual | framework_routes
+    assert {item.owner for item in inventory} >= {
+        "core",
+        "crowdsec",
+        "json_assets",
+        "mqtt",
+        "proxmox_assets",
+        "traefik_log",
+    }
+    assert all(
+        item.category in {"public", "read-only", "personal-preference", "operational", "administration"}
+        for item in inventory
+    )
+
+
+def test_event_and_asset_imports_require_admin(role_clients):
+    _, clients = role_clients
+
+    for role in ("viewer", "operator"):
+        assert clients[role].post("/api/events", json={}).status_code == 403
+        assert clients[role].post("/api/assets/import", json={}).status_code == 403
+
+    assert clients["admin"].post("/api/events", json={}).status_code == 422
+    assert clients["admin"].post("/api/assets/import", json={}).status_code == 422
 
 
 def test_viewer_can_read_and_use_viewer_preferences(role_clients):

@@ -36,6 +36,7 @@ from app.web.guards import plugin_enabled_guard
 from app.web.auth import auth_gating_middleware, auth_proxy_error, wants_json, websocket_origin_is_valid
 from app.web.proxy_headers import ProxyHeadersMiddleware
 from app.web.body_limit import RequestBodyLimitMiddleware
+from app.web.security_headers import SecurityHeadersMiddleware, apply_security_headers
 from app.web.templates import register_plugin_template_dirs, templates
 
 logger = logging.getLogger(__name__)
@@ -157,6 +158,7 @@ async def auth_gating(request: Request, call_next):
 # Proxy metadata must be normalized before authentication and origin checks.
 # Only explicitly configured peers may establish the secure auth boundary.
 app.add_middleware(ProxyHeadersMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
 
 
 def render_error_page(
@@ -219,16 +221,25 @@ async def generic_exception_handler(request: Request, exc: Exception):
         exc_info=(type(exc), exc, exc.__traceback__),
     )
     if wants_json(request):
-        return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+        return apply_security_headers(
+            request,
+            JSONResponse(status_code=500, content={"detail": "Internal server error"}),
+        )
     try:
-        return render_error_page(request, 500, "error.generic.title", "error.generic.message")
+        return apply_security_headers(
+            request,
+            render_error_page(request, 500, "error.generic.title", "error.generic.message"),
+        )
     except Exception:
         logger.warning(
             "Could not render the localized error page for %s %s; returning a minimal response",
             request.method,
             request.url.path,
         )
-        return PlainTextResponse("Internal server error", status_code=500)
+        return apply_security_headers(
+            request,
+            PlainTextResponse("Internal server error", status_code=500),
+        )
 
 
 @app.get("/health")

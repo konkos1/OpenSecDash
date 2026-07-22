@@ -2,6 +2,10 @@
 
 > **Implementation status (2026-07-11):** Implemented.
 > Central validation, confirmation requirements, global-IP gates, audit records/events, metadata-based action registration, and registry-driven IP Explorer actions are implemented. The asynchronous queue and user management remain outside this V1 scope.
+> Update (2026-07-22): route roles are declared in one auditable Core/plugin registry.
+> Actions and approved operational refresh/sync routes require Operator; settings,
+> inventory imports, event creation, and other administrative writes require Admin.
+> Unknown writing routes fail closed as Admin.
 
 
 ## Goal

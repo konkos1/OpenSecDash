@@ -70,6 +70,10 @@ proxy network. The defaults and `*` do not qualify for enabling internal sign-in
 OpenSecDash also requires the trusted proxy to provide `X-Forwarded-Proto: https`,
 `X-Forwarded-Port: 443`, and `X-Forwarded-Host`.
 
+Only requests that pass this boundary receive OpenSecDash's HSTS header. Direct HTTP
+health checks and auth-disabled HTTP access do not receive HSTS, so an incorrect proxy
+configuration cannot pin an unvalidated direct hostname to HTTPS.
+
 Do not configure an entire LAN or a broad private range such as `10.0.0.0/8`. Every
 address in this setting is allowed to supply proxy headers. A compromised host or
 container inside an overly broad trusted range could therefore spoof forwarded client

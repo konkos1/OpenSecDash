@@ -21,7 +21,8 @@ integration settings, or obtain access to connected-system capabilities.
 
 OpenSecDash includes optional internal sign-in with Viewer, Operator, and Admin roles.
 It is disabled by default, so treat the dashboard as sensitive even when internal
-sign-in is not enabled.
+sign-in is not enabled. A dashboard-wide warning makes this state visible: every visitor
+who can reach an unprotected instance has full Viewer, Operator, and Admin access.
 
 Recommended placement:
 
@@ -30,6 +31,10 @@ Recommended placement:
 - behind Authentik, Authelia, Pocket ID, or another trusted forward-auth layer
 
 Do not expose it directly to the public internet.
+
+Using Authentik, Authelia, Pocket ID, or another trusted forward-auth layer without also
+enabling OpenSecDash's internal sign-in is a supported homelab setup. This avoids a
+second password prompt while keeping access protected at the reverse proxy.
 
 See [Authentication](../configuration/authentication.md) to enable internal sign-in and
 recover from an administrator lockout.
@@ -83,6 +88,15 @@ Critical actions such as CrowdSec ban and unban require confirmation. OpenSecDas
 Results are recorded in Diagnostics under **Recent actions** and in the Events view. Generic actions emit `action.executed` or `action.failed`; CrowdSec uses its existing specific success event types for completed Ban/Unban actions and the shared `action.failed` event for failures.
 
 See [Actions and safety](../operations/actions.md) for the full execution and audit flow.
+
+## Browser protections
+
+OpenSecDash applies one global browser-header policy to normal pages, login and error
+pages, APIs, static assets, the service worker, and uploaded instance images. Framing is
+blocked by both CSP `frame-ancestors 'none'` and `X-Frame-Options: DENY`. Scripts are
+restricted to local files. Alpine expressions currently require CSP `unsafe-eval`, and
+Alpine/HTMX visibility and indicator styles require `unsafe-inline` for styles; no
+foreign script CDN or wildcard source is allowed.
 
 ## CrowdSec connection security
 

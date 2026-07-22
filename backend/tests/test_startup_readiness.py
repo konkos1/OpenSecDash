@@ -244,6 +244,7 @@ def test_programmatic_migration_keeps_one_service_handler(tmp_path, monkeypatch)
 def test_generic_exception_is_logged_once_with_traceback_and_sanitized_request(caplog):
     test_app = FastAPI()
     test_app.add_exception_handler(Exception, main_module.generic_exception_handler)
+    test_app.add_middleware(main_module.SecurityHeadersMiddleware)
 
     @test_app.get("/api/boom")
     def boom():
@@ -255,6 +256,8 @@ def test_generic_exception_is_logged_once_with_traceback_and_sanitized_request(c
     matching = [record for record in caplog.records if record.getMessage() == "Unhandled exception for GET /api/boom"]
     assert response.status_code == 500
     assert response.json() == {"detail": "Internal server error"}
+    assert response.headers["x-frame-options"] == "DENY"
+    assert "frame-ancestors 'none'" in response.headers["content-security-policy"]
     assert len(matching) == 1
     assert matching[0].exc_info is not None
     assert "token" not in matching[0].getMessage()
@@ -264,6 +267,7 @@ def test_generic_exception_is_logged_once_with_traceback_and_sanitized_request(c
 def test_generic_exception_uses_database_independent_fallback(monkeypatch, caplog):
     test_app = FastAPI()
     test_app.add_exception_handler(Exception, main_module.generic_exception_handler)
+    test_app.add_middleware(main_module.SecurityHeadersMiddleware)
 
     @test_app.get("/boom")
     def boom():
@@ -279,5 +283,6 @@ def test_generic_exception_uses_database_independent_fallback(monkeypatch, caplo
     matching = [record for record in caplog.records if record.getMessage() == "Unhandled exception for GET /boom"]
     assert response.status_code == 500
     assert response.text == "Internal server error"
+    assert response.headers["x-content-type-options"] == "nosniff"
     assert len(matching) == 1
     assert matching[0].exc_info is not None

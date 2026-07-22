@@ -102,6 +102,13 @@
             </nav>
         </header>
 
+        {% if not auth_enabled %}
+            <aside class="auth-disabled-warning" role="status">
+                <strong>{{ t("auth.disabled_warning_title") }}</strong>
+                <span>{{ t("auth.disabled_warning_message") }}</span>
+            </aside>
+        {% endif %}
+
         {# Run the responsive navigation measurement before parsing potentially
            large page tables, so the header reaches its final layout before
            the browser can paint an intermediate collapsed state. #}
