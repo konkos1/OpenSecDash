@@ -431,8 +431,10 @@ Run checks from the repository root/backend:
 
 ```bash
 cd backend
-uv run pytest -q
-uv run pyright ../backend/app ../backend/tests ../plugins
+uv lock --check
+uv sync --frozen --group dev
+.venv/bin/python -m pytest tests/ -q
+.venv/bin/pyright --pythonversion 3.13 app tests ../plugins
 ```
 
 For parser-heavy plugins, add focused unit tests that call `parse_line()` or equivalent helper methods directly.

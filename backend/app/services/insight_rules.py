@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 from dataclasses import dataclass
@@ -20,13 +21,17 @@ from app.services.notifications import handle_insight
 logger = logging.getLogger(__name__)
 
 RULE_SOURCE_URL = "https://opensecdash.app/rules/insights-rules.json"
+RULE_MANIFEST_URL = "https://opensecdash.app/rules/insights-rules-v1.sha256.json"
 RULE_REFRESH_INTERVAL = timedelta(hours=24)
 RULE_TIMEOUT_SECONDS = 5
+RULE_MANIFEST_MAX_BYTES = 8 * 1024
+RULESET_MAX_BYTES = 256 * 1024
 SUPPORTED_SCHEMA_MAJOR = 1
 RULE_FETCHED_AT_KEY = "insight_rules.fetched_at"
 RULE_VERSION_KEY = "insight_rules.version"
 RULE_SOURCE_KEY = "insight_rules.source"
 RULE_ETAG_KEY = "insight_rules.etag"
+RULE_SHA256_KEY = "insight_rules.sha256"
 DEFAULT_RULES_PATH = Path(__file__).resolve().parents[1] / "insights" / "rules" / "default-rules.json"
 
 
@@ -77,6 +82,34 @@ def _update_diagnostic(db: Session, status: str, message: str) -> None:
 
 def _load_default_ruleset() -> dict[str, Any]:
     return json.loads(DEFAULT_RULES_PATH.read_text(encoding="utf-8"))
+
+
+def _response_json(response: requests.Response, *, max_bytes: int) -> dict[str, Any]:
+    content = response.content
+    if len(content) > max_bytes:
+        raise ValueError("Remote insight rules response is too large")
+    data = json.loads(content)
+    if not isinstance(data, dict):
+        raise ValueError("Remote insight rules response must be an object")
+    return data
+
+
+def _expected_ruleset_hash(manifest: dict[str, Any]) -> str:
+    if manifest.get("schema_version") != 1 or manifest.get("path") != "/rules/insights-rules.json":
+        raise ValueError("Invalid insight rules hash manifest")
+    digest = manifest.get("sha256")
+    if not isinstance(digest, str) or len(digest) != 64 or any(character not in "0123456789abcdef" for character in digest):
+        raise ValueError("Invalid insight rules SHA-256 digest")
+    expires = manifest.get("expires")
+    if not isinstance(expires, str):
+        raise ValueError("Insight rules hash manifest has no expiry")
+    try:
+        expiry_date = datetime.fromisoformat(expires).date()
+    except ValueError as exc:
+        raise ValueError("Invalid insight rules hash manifest expiry") from exc
+    if expiry_date < utc_now().date():
+        raise ValueError(f"Insight rules hash manifest expired on {expires}")
+    return digest
 
 
 def _schema_major(value: Any) -> int:
@@ -277,21 +310,39 @@ def refresh_insight_rules(db: Session, *, force: bool = False) -> dict[str, Any]
 
     headers = {}
     etag = _setting(db, RULE_ETAG_KEY, "")
-    if etag:
+    stored_hash = _setting(db, RULE_SHA256_KEY, "")
+    if etag and stored_hash:
         headers["If-None-Match"] = etag
 
     try:
+        manifest_response = requests.get(RULE_MANIFEST_URL, timeout=RULE_TIMEOUT_SECONDS)
+        manifest_response.raise_for_status()
+        expected_hash = _expected_ruleset_hash(
+            _response_json(manifest_response, max_bytes=RULE_MANIFEST_MAX_BYTES)
+        )
         response = requests.get(RULE_SOURCE_URL, timeout=RULE_TIMEOUT_SECONDS, headers=headers)
         if response.status_code == 304:
+            if stored_hash != expected_hash:
+                raise ValueError("Remote insight rules manifest changed without ruleset content")
             _save_setting(db, RULE_FETCHED_AT_KEY, utc_now().replace(tzinfo=None).isoformat())
             _update_diagnostic(db, "healthy", f"Insights engine rules unchanged: {_ruleset_state_message(db)}")
             db.commit()
             return {"status": "unchanged", "source": "database", "version": _setting(db, RULE_VERSION_KEY, str(bundled["version"])), "count": len(active_rules(db))}
         response.raise_for_status()
-        remote = import_ruleset(db, response.json(), source="remote")
+        ruleset_content = response.content
+        if len(ruleset_content) > RULESET_MAX_BYTES:
+            raise ValueError("Remote insight rules response is too large")
+        actual_hash = hashlib.sha256(ruleset_content).hexdigest()
+        if actual_hash != expected_hash:
+            raise ValueError("Remote insight rules SHA-256 verification failed")
+        remote_data = json.loads(ruleset_content)
+        if not isinstance(remote_data, dict):
+            raise ValueError("Remote insight rules response must be an object")
+        remote = import_ruleset(db, remote_data, source="remote")
         _save_setting(db, RULE_FETCHED_AT_KEY, utc_now().replace(tzinfo=None).isoformat())
         _save_setting(db, RULE_VERSION_KEY, str(remote.get("version") or ""))
         _save_setting(db, RULE_SOURCE_KEY, RULE_SOURCE_URL)
+        _save_setting(db, RULE_SHA256_KEY, actual_hash)
         if response.headers.get("ETag"):
             _save_setting(db, RULE_ETAG_KEY, str(response.headers["ETag"]))
         active_count = len(active_rules(db))
@@ -388,9 +439,11 @@ def debug_summary(db: Session) -> list[str]:
     rules = active_rules(db)
     return [
         f"source_url: {RULE_SOURCE_URL}",
+        f"hash_manifest_url: {RULE_MANIFEST_URL}",
         f"stored_rules: {len(rules)}",
         f"remote_fetched_at: {_setting(db, RULE_FETCHED_AT_KEY, '')}",
         f"remote_ruleset_version: {_setting(db, RULE_VERSION_KEY, '')}",
+        f"remote_ruleset_sha256: {_setting(db, RULE_SHA256_KEY, '')}",
         "rules:",
         *[f"- {rule.id}: {rule.title} (source={rule.source}; schema={rule.schema_version}; ruleset={rule.ruleset_version})" for rule in rules],
     ]

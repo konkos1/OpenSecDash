@@ -25,17 +25,22 @@ v*.*.*
 
 ```bash
 cd backend
-uv run pytest -q
-uv run pyright ../backend/app ../backend/tests ../plugins
+uv lock --check
+uv sync --frozen --group dev
+.venv/bin/python -m pytest tests/ -q
+.venv/bin/pyright --pythonversion 3.13 app tests ../plugins
 ```
 
 3. Check dependencies/security status when appropriate:
 
 ```bash
 cd backend
-uv lock --upgrade --dry-run
-uv export --format requirements-txt --all-groups --no-hashes > /tmp/opensecdash-requirements.txt
-uvx pip-audit --strict --desc off -r /tmp/opensecdash-requirements.txt
+uv export --quiet --frozen --no-dev --no-emit-project --output-file /tmp/opensecdash-runtime-requirements.txt
+uv run --frozen pip-audit --requirement /tmp/opensecdash-runtime-requirements.txt
+
+cd ../website
+npm ci
+npm run audit:ci
 ```
 
 4. Update `README.md` or docs if behavior changed.
@@ -47,6 +52,12 @@ docker run --rm -p 8765:8000 -v opensecdash-data:/data opensecdash:local
 ```
 
 Open <http://localhost:8765> and verify `/health`.
+
+The publish workflow repeats the image build twice without a dependency cache,
+compares installed package versions, verifies core packages against `uv.lock`, scans
+the image for fixable high/critical OS and Python findings, and generates an SPDX SBOM.
+Review the uploaded audit, package-list, scan, and SBOM artifacts before announcing the
+release. Publication does not proceed when a gate fails.
 
 ## Create a release tag
 
@@ -70,6 +81,9 @@ The Release workflow publishes a GitHub Release for the same tag. Release notes 
 If a release adds `group_by: "path"` insight rules, mention that the public remote
 ruleset will be updated only after the app release is available. Do not publish those
 rules before then: older app versions reject the entire remote ruleset.
+
+Update `website/public/rules/insights-rules-v1.sha256.json` whenever the public ruleset
+changes. Verify the digest and expiry before tagging.
 
 ### Internal authentication release note
 

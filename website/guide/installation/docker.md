@@ -42,6 +42,20 @@ services:
       - "8765:8000"
     volumes:
       - opensecdash-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    pids_limit: 256
+    mem_limit: 1g
+    cpus: 2.0
     logging:
       driver: json-file
       options:
@@ -72,6 +86,20 @@ services:
       - /var/log/traefik/geoblock.log:/logs/geoblock.log:ro
       - /var/log/crowdsec/crowdsec.log:/logs/crowdsec.log:ro
       - ./assets/assets.json:/assets/assets.json:ro
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    pids_limit: 256
+    mem_limit: 1g
+    cpus: 2.0
     # Optional: uncomment the environment block and one or more variables to
     # completely disable plugins at startup. Disabled plugins are hidden from
     # Settings, Diagnostics and navigation, and run no background tasks.
@@ -184,6 +212,31 @@ Any plugin can be completely disabled with `OSD_PLUGIN_<PLUGIN>_DISABLED=true` (
 OpenSecDash is easiest to operate when it can read the relevant log files locally. In many homelab setups that means running the OpenSecDash container on the same Docker host or guest as Traefik, GeoBlock, CrowdSec, and similar tools, then mounting their log files read-only into the container.
 
 For persistent data, both a named Docker volume and a host bind mount such as `./data:/data` are supported. On startup, the container fixes `/data` ownership and then runs the app as the unprivileged `opensecdash` user.
+
+### Volume upgrades and ownership
+
+The Compose hardening keeps the root filesystem read-only, provides a small temporary
+filesystem at `/tmp`, drops all capabilities except `CHOWN`, `SETUID`, and `SETGID`,
+and applies realistic starter limits for a homelab. The container still starts as root
+only for the ownership repair; the application process is unprivileged. Adjust CPU and
+memory limits for unusually large event volumes, but keep the other boundaries.
+
+Existing named volumes and writable Linux bind mounts upgrade without a manual step:
+the entry point recursively repairs `/data` ownership before migration and startup. If
+a NAS or bind-mount policy prevents that ownership change, stop the app and run this
+one-time repair against the same mount before retrying the upgrade:
+
+```bash
+docker run --rm --user root --entrypoint sh \
+  -v /absolute/path/to/data:/data \
+  konkos1/opensecdash:latest \
+  -c 'chown -R opensecdash:opensecdash /data'
+```
+
+Replace the host path with the actual bind mount. For a named volume, replace the
+`-v` value with `opensecdash-data:/data`. Back up `/data` first; the command changes
+ownership, not database contents. Read-only plugin files should remain under `/logs`
+or `/assets`, not below `/data`.
 
 If those tools run on a different host/VM, you need to make their logs available to OpenSecDash first, for example with bind mounts, shared storage, or another log shipping approach.
 

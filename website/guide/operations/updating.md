@@ -11,13 +11,20 @@ docker compose up -d
 
 Database migrations run automatically by default when `AUTO_MIGRATE=true`.
 
+The current image starts as root only long enough to repair ownership on existing
+named or bind-mounted `/data` storage, then runs the app unprivileged. The hardened
+Compose example retains `CHOWN`, `SETUID`, and `SETGID` solely for this upgrade path.
+If a NAS forbids automatic ownership changes, use the documented one-time
+[volume ownership repair](../installation/docker.md#volume-upgrades-and-ownership) after backing
+up `/data`.
+
 For bare-metal installs, pull the repository, update the virtual environment, and restart the systemd service.
 
 ```bash
 cd /opt/opensecdash
 git pull
 cd backend
-.venv/bin/pip install -e .
+uv sync --frozen --no-dev
 sudo systemctl restart opensecdash
 ```
 

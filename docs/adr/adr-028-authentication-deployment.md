@@ -16,6 +16,12 @@
 > OWASP scrypt `N=2^14,r=8,p=5` profile and transparently upgrade the previous profile
 > only after successful authentication. No OIDC, onboarding, or external-identity user
 > provisioning is introduced.
+> Update (2026-07-22): the production image installs Python exclusively from
+> `uv.lock` in a multi-stage build with digest-pinned Python and uv bases. The Compose
+> example uses a read-only root filesystem, a bounded `/tmp`, no-new-privileges,
+> resource/PID limits, and only the capabilities needed to repair `/data` ownership
+> before dropping to the unprivileged app user. Existing named and bind volumes retain
+> this ownership-migration path.
 
 
 

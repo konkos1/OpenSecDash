@@ -21,8 +21,10 @@ The detailed contributor documentation lives on the website:
 
 ```bash
 cd backend
-uv run pytest -q
-uv run pyright ../backend/app ../backend/tests ../plugins
+uv lock --check
+uv sync --frozen --group dev
+.venv/bin/python -m pytest tests/ -q
+.venv/bin/pyright --pythonversion 3.13 app tests ../plugins
 ```
 
 - Confirm the CLA checkbox in the pull request template.

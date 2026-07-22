@@ -58,7 +58,7 @@ OpenSecDash can display:
 
 Review debug reports before attaching them to public issues.
 
-SMTP notifications intentionally send matching event or Insight details to the mail server configured by the administrator. Leave notifications disabled if that destination is not trusted. Remote GeoIP is disabled by default; when enabled, it sends each uncached public IP over unencrypted HTTP to `ip-api.com`, caches successful results for the configured TTL and failures for one hour, and never sends private or reserved IPs. The Insights rule updater only downloads declarative JSON rules from the fixed OpenSecDash website URL; it does not upload local events, IPs, hostnames, or telemetry.
+SMTP notifications intentionally send matching event or Insight details to the mail server configured by the administrator. Leave notifications disabled if that destination is not trusted. Remote GeoIP is disabled by default; when enabled, it sends each uncached public IP over unencrypted HTTP to `ip-api.com`, caches successful results for the configured TTL and failures for one hour, and never sends private or reserved IPs. The Insights rule updater only downloads declarative JSON rules from fixed OpenSecDash website URLs; it does not upload local events, IPs, hostnames, or telemetry. A fixed, expiring SHA-256 manifest is verified before remote rules are stored; see the [Insights engine guide](../operations/insight-rules.md) for the remaining same-site trust limitation.
 
 ## Remote reads and input boundaries
 

@@ -2,6 +2,8 @@
 
 Bare-metal installation is supported if you prefer running OpenSecDash directly on a Linux host. Docker is still recommended unless you explicitly want to manage Python, systemd, file paths, and permissions yourself.
 
+Install Python 3.13 and the officially pinned `uv` 0.11.23 release before starting.
+
 ## Host requirements
 
 Minimum for a small homelab instance:
@@ -51,9 +53,8 @@ sudo chown -R opensecdash:opensecdash /opt/opensecdash /var/lib/opensecdash /var
 cd /opt/opensecdash
 sudo -u opensecdash git clone https://github.com/konkos1/OpenSecDash.git .
 cd /opt/opensecdash/backend
-sudo -u opensecdash python3 -m venv .venv
-sudo -u opensecdash .venv/bin/pip install --upgrade pip
-sudo -u opensecdash .venv/bin/pip install -e .
+sudo -u opensecdash uv lock --check
+sudo -u opensecdash uv sync --frozen --no-dev
 ```
 
 Create `/opt/opensecdash/backend/.env`:
