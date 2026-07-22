@@ -3,11 +3,58 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.core.template_context import get_setting_value
+from app.core.input_limits import (
+    MAX_ASSET_APPS_PER_SYSTEM,
+    MAX_ASSET_FIELD_LENGTH,
+    MAX_ASSET_INVENTORY_BYTES,
+    MAX_ASSET_SYSTEMS,
+    MAX_JSON_DEPTH,
+    json_depth,
+    serialized_json_size,
+)
 from app.core.time import utc_now
 from app.models.assets import Asset
 from app.models.systems import System
 
 SOURCE_PLUGIN = "json_assets"
+
+
+def _inventory_strings(value: Any):
+    if isinstance(value, dict):
+        for key, item in value.items():
+            yield str(key)
+            yield from _inventory_strings(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _inventory_strings(item)
+    elif isinstance(value, str):
+        yield value
+
+
+def validate_asset_inventory(inventory: dict[str, Any]) -> None:
+    """Apply the same semantic limits to URL, file, and API inventories."""
+    if serialized_json_size(inventory) > MAX_ASSET_INVENTORY_BYTES:
+        raise ValueError("Asset inventory exceeds the 10 MiB limit")
+    if json_depth(inventory) > MAX_JSON_DEPTH:
+        raise ValueError(f"Asset inventory exceeds the maximum JSON depth of {MAX_JSON_DEPTH}")
+    if any(len(value) > MAX_ASSET_FIELD_LENGTH for value in _inventory_strings(inventory)):
+        raise ValueError(f"Asset inventory field exceeds {MAX_ASSET_FIELD_LENGTH} characters")
+    systems = inventory.get("systems", [])
+    if not isinstance(systems, list):
+        raise ValueError("Asset inventory systems must be a list")
+    if len(systems) > MAX_ASSET_SYSTEMS:
+        raise ValueError(f"Asset inventory exceeds the maximum of {MAX_ASSET_SYSTEMS} systems")
+    for system in systems:
+        if not isinstance(system, dict):
+            raise ValueError("Each asset inventory system must be an object")
+        apps = system.get("apps", [])
+        if not isinstance(apps, list):
+            raise ValueError("Asset inventory apps must be a list")
+        if len(apps) > MAX_ASSET_APPS_PER_SYSTEM:
+            raise ValueError(f"Asset inventory exceeds the maximum of {MAX_ASSET_APPS_PER_SYSTEM} apps per system")
+        for app in apps:
+            if not isinstance(app, dict):
+                raise ValueError("Each asset inventory app must be an object")
 
 
 def _slug(value: str) -> str:
@@ -26,6 +73,7 @@ def import_json_assets(
     db: Session,
     inventory: dict[str, Any],
 ) -> dict[str, int]:
+    validate_asset_inventory(inventory)
     imported_systems = 0
     imported_assets = 0
     updated_assets = 0

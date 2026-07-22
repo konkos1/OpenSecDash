@@ -450,6 +450,7 @@ EN = {
     "settings.notifications_smtp_port": "SMTP port",
     "settings.notifications_smtp_security": "SMTP security",
     "settings.notifications_smtp_security_none": "None",
+    "settings.notifications_smtp_unencrypted_warning": "Warning: SMTP messages and credentials are sent without transport encryption in this mode.",
     "settings.notifications_smtp_ca_file": "Custom CA certificate file",
     "settings.notifications_smtp_user": "SMTP user",
     "settings.notifications_smtp_password": "SMTP password",

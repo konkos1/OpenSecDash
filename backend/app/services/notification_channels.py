@@ -74,6 +74,8 @@ class EmailChannel:
         except ValueError:
             port = 587
         security = get_setting_value(db, "notifications.smtp_security", "starttls")
+        if security not in {"none", "starttls", "ssl"}:
+            raise ValueError("Unsupported SMTP security mode")
         user = get_setting_value(db, "notifications.smtp_user", "")
         password = get_setting_value(db, "notifications.smtp_password", "")
         sender = get_setting_value(db, "notifications.smtp_sender", "")

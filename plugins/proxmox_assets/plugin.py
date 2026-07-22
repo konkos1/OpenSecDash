@@ -37,8 +37,8 @@ class Plugin(PeriodicPlugin):
             "proxmox.settings.token_id.help": "Example: opensecdash@pve!inventory",
             "proxmox.settings.token_secret": "API token secret",
             "proxmox.settings.token_secret.help": "Secret value for the Proxmox API token.",
-            "proxmox.settings.verify_tls": "Verify TLS certificate",
-            "proxmox.settings.verify_tls.help": "Disable only for self-signed homelab certificates you trust.",
+            "proxmox.settings.verify_tls": "Verify TLS certificate (disabling is insecure)",
+            "proxmox.settings.verify_tls.help": "Keeps certificate and hostname verification enabled. Disabling it is insecure and is shown as a diagnostic warning.",
             "proxmox.settings.poll_interval": "Poll interval seconds",
             "proxmox.settings.poll_interval.help": "How often Proxmox assets are synchronized. Default: 300 seconds.",
             "common.yes": "Yes", "common.no": "No",
@@ -52,8 +52,8 @@ class Plugin(PeriodicPlugin):
             "proxmox.settings.token_id.help": "Beispiel: opensecdash@pve!inventory",
             "proxmox.settings.token_secret": "API-Token-Secret",
             "proxmox.settings.token_secret.help": "Secret-Wert des Proxmox API-Tokens.",
-            "proxmox.settings.verify_tls": "TLS-Zertifikat prüfen",
-            "proxmox.settings.verify_tls.help": "Nur für vertrauenswürdige selbstsignierte Homelab-Zertifikate deaktivieren.",
+            "proxmox.settings.verify_tls": "TLS-Zertifikat prüfen (Deaktivieren ist unsicher)",
+            "proxmox.settings.verify_tls.help": "Aktiviert Zertifikats- und Hostnamenprüfung. Das Deaktivieren ist unsicher und wird als Diagnosewarnung angezeigt.",
             "proxmox.settings.poll_interval": "Prüfintervall in Sekunden",
             "proxmox.settings.poll_interval.help": "Wie oft Proxmox-Assets synchronisiert werden. Standard: 300 Sekunden.",
             "common.yes": "Ja", "common.no": "Nein",
@@ -64,13 +64,15 @@ class Plugin(PeriodicPlugin):
         if not context.get("api_url") or not context.get("token_id") or not context.get("token_secret"):
             return {"status": "warning", "message": "Proxmox API URL or token is missing."}
         try:
-            client = ProxmoxClient(context.get("api_url"), context.get("token_id"), context.get("token_secret"), verify_tls=context.get("verify_tls", "true") == "true")
+            client = ProxmoxClient(context.get("api_url"), context.get("token_id"), context.get("token_secret"), verify_tls=context.get("verify_tls", "true") != "false")
             nodes = [item for item in client.get("/nodes") if isinstance(item, dict)]
             visibility = inspect_proxmox_guest_visibility(client, nodes)
             guests = visibility.get("guests") if isinstance(visibility.get("guests"), list) else []
             detail = proxmox_visibility_message(visibility)
             if not guests:
                 return {"status": "warning", "message": f"Proxmox reachable, but no VM/LXC guests visible. {detail}. Check VM.Audit permissions with propagation on the token if this is unexpected."}
+            if context.get("verify_tls", "true") != "true":
+                return {"status": "warning", "message": f"Proxmox reachable, but TLS certificate verification is disabled. {detail}."}
             return {"status": "healthy", "message": f"Proxmox reachable; {len(guests)} guest(s) visible. {detail}."}
         except Exception as exc:
             return {"status": "error", "message": str(exc)}
@@ -90,7 +92,7 @@ class Plugin(PeriodicPlugin):
                     api_url=context.get("api_url"),
                     token_id=context.get("token_id"),
                     token_secret=context.get("token_secret"),
-                    verify_tls=context.get("verify_tls", "true") == "true",
+                    verify_tls=context.get("verify_tls", "true") != "false",
                 ),
             )
         except AssetActionAlreadyRunning:

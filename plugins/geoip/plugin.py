@@ -18,17 +18,17 @@ class Plugin(PeriodicPlugin):
         description="Adds country codes, cities, ASNs and ISPs to public IP events using a cached provider lookup.",
     )
     settings = [
-        PluginSetting("enabled", "geoip.settings.enabled", "geoip.settings.enabled.help", "boolean", "true", [("false", "common.no"), ("true", "common.yes")]),
+        PluginSetting("enabled", "geoip.settings.enabled", "geoip.settings.enabled.help", "boolean", "false", [("false", "common.no"), ("true", "common.yes")]),
         PluginSetting("provider", "geoip.settings.provider", "geoip.settings.provider.help", "select", "ip-api", [("ip-api", "geoip.option.ip_api")], visible_if=("enabled", "true")),
         PluginSetting("cache_ttl_days", "geoip.settings.cache_ttl_days", "geoip.settings.cache_ttl_days.help", "number", "30", visible_if=("enabled", "true")),
         PluginSetting("timeout_seconds", "geoip.settings.timeout_seconds", "geoip.settings.timeout_seconds.help", "number", "3", visible_if=("enabled", "true")),
     ]
     locales = {
         "en": {
-            "geoip.settings.enabled": "GeoIP/City/ASN/ISP enrichment enabled",
-            "geoip.settings.enabled.help": "Adds country code, city, ASN and ISP to new public-IP events when the producer did not already provide them.",
+            "geoip.settings.enabled": "GeoIP enabled (sends uncached public IPs to ip-api.com over unencrypted HTTP)",
+            "geoip.settings.enabled.help": "Warning: each uncached public IP is sent over unencrypted HTTP to ip-api.com. Successful results are cached for the configured TTL; failures for one hour. Private and reserved IPs are never sent.",
             "geoip.settings.provider": "GeoIP provider",
-            "geoip.settings.provider.help": "Provider used for lookups. ip-api works without an API key but uses the public free endpoint.",
+            "geoip.settings.provider.help": "ip-api.com receives the public IP over its unencrypted free HTTP endpoint. OpenSecDash does not treat this transport as secure.",
             "geoip.option.ip_api": "ip-api.com",
             "geoip.settings.cache_ttl_days": "GeoIP cache TTL days",
             "geoip.settings.cache_ttl_days.help": "How long successful GeoIP lookups stay cached before being refreshed.",
@@ -38,10 +38,10 @@ class Plugin(PeriodicPlugin):
             "common.no": "No",
         },
         "de": {
-            "geoip.settings.enabled": "GeoIP/Stadt/ASN/ISP-Anreicherung aktiviert",
-            "geoip.settings.enabled.help": "Ergänzt bei neuen Events mit öffentlicher IP Länder-Code, Stadt, ASN und ISP, wenn der Erzeuger diese noch nicht geliefert hat.",
+            "geoip.settings.enabled": "GeoIP aktiviert (sendet nicht gecachte öffentliche IPs unverschlüsselt an ip-api.com)",
+            "geoip.settings.enabled.help": "Warnung: Jede nicht gecachte öffentliche IP wird unverschlüsselt per HTTP an ip-api.com gesendet. Erfolge werden für die konfigurierte TTL, Fehler eine Stunde gecacht. Private und reservierte IPs werden nie gesendet.",
             "geoip.settings.provider": "GeoIP-Provider",
-            "geoip.settings.provider.help": "Provider für Lookups. ip-api funktioniert ohne API-Key, nutzt aber den öffentlichen Free-Endpunkt.",
+            "geoip.settings.provider.help": "ip-api.com erhält die öffentliche IP über seinen unverschlüsselten kostenlosen HTTP-Endpunkt. OpenSecDash stuft diesen Transport nicht als sicher ein.",
             "geoip.option.ip_api": "ip-api.com",
             "geoip.settings.cache_ttl_days": "GeoIP-Cache-TTL in Tagen",
             "geoip.settings.cache_ttl_days.help": "Wie lange erfolgreiche GeoIP-Lookups gecacht werden, bevor sie erneuert werden.",
@@ -56,7 +56,10 @@ class Plugin(PeriodicPlugin):
         provider = context.get("provider", "ip-api")
         if provider != "ip-api":
             return {"status": "error", "message": f"Unsupported GeoIP provider: {provider}"}
-        return {"status": "healthy", "message": f"GeoIP provider configured: {provider}"}
+        return {
+            "status": "warning",
+            "message": "GeoIP is active: uncached public IPs are sent to ip-api.com over unencrypted HTTP.",
+        }
 
     async def tick(self, context: PluginContext) -> None:
         deleted = cleanup_expired_cache(context.db)

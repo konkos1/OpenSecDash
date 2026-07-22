@@ -450,6 +450,7 @@ DE = {
     "settings.notifications_smtp_port": "SMTP-Port",
     "settings.notifications_smtp_security": "SMTP-Sicherheit",
     "settings.notifications_smtp_security_none": "Keine",
+    "settings.notifications_smtp_unencrypted_warning": "Warnung: SMTP-Nachrichten und Zugangsdaten werden in diesem Modus ohne Transportverschlüsselung übertragen.",
     "settings.notifications_smtp_ca_file": "Eigene CA-Zertifikatsdatei",
     "settings.notifications_smtp_user": "SMTP-Benutzer",
     "settings.notifications_smtp_password": "SMTP-Passwort",

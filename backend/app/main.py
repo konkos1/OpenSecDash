@@ -15,6 +15,7 @@ from starlette.middleware.gzip import GZipMiddleware
 
 from app.core import plugin_registry
 from app.core.logging import configure_logging_from_db, setup_service_logging
+from app.core.settings import settings
 from app.core.version import get_app_version
 
 setup_service_logging()
@@ -34,6 +35,7 @@ from app.services.notifications import seed_default_notification_rules
 from app.web.guards import plugin_enabled_guard
 from app.web.auth import auth_gating_middleware, auth_proxy_error, wants_json, websocket_origin_is_valid
 from app.web.proxy_headers import ProxyHeadersMiddleware
+from app.web.body_limit import RequestBodyLimitMiddleware
 from app.web.templates import register_plugin_template_dirs, templates
 
 logger = logging.getLogger(__name__)
@@ -84,6 +86,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="OpenSecDash", version=get_app_version(), lifespan=lifespan)
+
+app.add_middleware(RequestBodyLimitMiddleware, max_bytes=settings.max_request_body_bytes)
 
 # Pages with a few hundred table rows are several hundred KB of HTML; gzip
 # typically cuts that by ~90%, which is what page-switch speed feels like on

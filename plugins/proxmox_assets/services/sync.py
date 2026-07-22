@@ -9,12 +9,17 @@ import requests
 from sqlalchemy.orm import Session
 
 from app.core.time import utc_now
+from app.core.remote_urls import RemoteURLPolicyError, validate_credentialed_http_url
 from app.models.assets import Asset
 from app.models.systems import System
 
 SOURCE_PLUGIN = "proxmox_assets"
 NOTES_RE = re.compile(r"<!--\s*opensecdash\s*(.*?)\s*-->", re.IGNORECASE | re.DOTALL)
 logger = logging.getLogger(__name__)
+
+
+class ProxmoxConnectionError(RuntimeError):
+    """Stable Proxmox error that never includes credentials or response data."""
 
 
 def normalize_proxmox_host(api_url: str) -> str:
@@ -75,16 +80,35 @@ def parse_opensecdash_notes(notes: str | None) -> list[dict[str, Any]]:
 
 class ProxmoxClient:
     def __init__(self, api_url: str, token_id: str, token_secret: str, verify_tls: bool = True, timeout: int = 15) -> None:
-        self.api_url = api_url.rstrip("/")
+        try:
+            self.api_url = validate_credentialed_http_url(api_url)
+        except RemoteURLPolicyError as exc:
+            raise ProxmoxConnectionError(str(exc)) from exc
         self.timeout = timeout
         self.verify_tls = verify_tls
         self.session = requests.Session()
+        self.session.trust_env = False
         self.session.headers.update({"Authorization": f"PVEAPIToken={token_id}={token_secret}"})
 
     def get(self, path: str) -> Any:
-        response = self.session.get(f"{self.api_url}/api2/json{path}", timeout=self.timeout, verify=self.verify_tls)
-        response.raise_for_status()
-        return response.json().get("data", [])
+        try:
+            response = self.session.get(
+                f"{self.api_url}/api2/json{path}",
+                timeout=self.timeout,
+                verify=self.verify_tls,
+                allow_redirects=False,
+            )
+        except requests.RequestException as exc:
+            raise ProxmoxConnectionError("Proxmox API is not reachable") from exc
+        if 300 <= response.status_code < 400:
+            raise ProxmoxConnectionError("Proxmox API refused an HTTP redirect")
+        if response.status_code >= 400:
+            raise ProxmoxConnectionError(f"Proxmox API request failed with HTTP {response.status_code}")
+        try:
+            payload = response.json()
+        except requests.JSONDecodeError as exc:
+            raise ProxmoxConnectionError("Proxmox API returned invalid JSON") from exc
+        return payload.get("data", []) if isinstance(payload, dict) else []
 
 
 def _guest_kind(value: object) -> str | None:

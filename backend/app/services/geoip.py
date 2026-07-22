@@ -19,7 +19,7 @@ ERROR_CACHE_TTL = timedelta(hours=1)
 
 
 def geoip_enabled(db: Session) -> bool:
-    return get_setting_value(db, "plugin.geoip.enabled", "true") == "true"
+    return get_setting_value(db, "plugin.geoip.enabled", "false") == "true"
 
 
 def _int_setting(db: Session, key: str, default: int, minimum: int = 0) -> int:
