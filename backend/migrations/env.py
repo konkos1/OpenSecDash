@@ -94,6 +94,8 @@ def run_migrations_online() -> None:
 
     """
     url = config.get_main_option("sqlalchemy.url")
+    if url is None:
+        raise RuntimeError("sqlalchemy.url is not configured for migrations")
     connect_args = {"timeout": 10, "check_same_thread": False} if url.startswith("sqlite") else {}
     connectable = create_engine(url, poolclass=pool.NullPool, connect_args=connect_args)
 
