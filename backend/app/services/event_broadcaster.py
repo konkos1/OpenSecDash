@@ -27,24 +27,27 @@ class EventBroadcaster:
         self._ready = asyncio.Event()
         self._subscribers: set[asyncio.Queue[EventPollState]] = set()
         self._task: asyncio.Task[None] | None = None
+        self._lifecycle_lock = asyncio.Lock()
 
     async def start(self) -> None:
-        if self._task is not None and not self._task.done():
-            return
-        self._task = None
-        await self._poll_once()
-        self._task = asyncio.create_task(self._run(), name="event-broadcaster")
+        async with self._lifecycle_lock:
+            if self._task is not None and not self._task.done():
+                return
+            self._task = None
+            await self._poll_once()
+            self._task = asyncio.create_task(self._run(), name="event-broadcaster")
 
     async def stop(self) -> None:
-        task = self._task
-        self._task = None
-        if task is None:
-            return
-        task.cancel()
-        try:
-            await task
-        except asyncio.CancelledError:
-            pass
+        async with self._lifecycle_lock:
+            task = self._task
+            self._task = None
+            if task is None:
+                return
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
 
     async def current_state(self) -> EventPollState:
         await self._ready.wait()

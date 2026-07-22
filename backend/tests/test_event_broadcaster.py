@@ -4,6 +4,70 @@ import threading
 from app.services.event_broadcaster import EventBroadcaster
 
 
+def test_event_broadcaster_serializes_concurrent_starts():
+    first_poll_started = threading.Event()
+    second_poll_started = threading.Event()
+    release_poll = threading.Event()
+    calls_lock = threading.Lock()
+    calls = 0
+
+    def poll_state() -> tuple[bool, int]:
+        nonlocal calls
+        with calls_lock:
+            calls += 1
+            current_call = calls
+        first_poll_started.set()
+        if current_call == 2:
+            second_poll_started.set()
+        if not release_poll.wait(timeout=1):
+            raise RuntimeError("Timed out waiting to release broadcaster poll")
+        return True, current_call
+
+    async def scenario() -> None:
+        broadcaster = EventBroadcaster(poll_state, interval_seconds=60)
+        first_start = asyncio.create_task(broadcaster.start())
+        assert await asyncio.to_thread(first_poll_started.wait, 1)
+        second_start = asyncio.create_task(broadcaster.start())
+        concurrent_second_poll = await asyncio.to_thread(second_poll_started.wait, 0.05)
+        release_poll.set()
+        await asyncio.gather(first_start, second_start)
+        await broadcaster.stop()
+
+        assert not concurrent_second_poll
+        assert calls == 1
+
+    asyncio.run(scenario())
+
+
+def test_event_broadcaster_stop_waits_for_startup_poll():
+    poll_started = threading.Event()
+    release_poll = threading.Event()
+
+    def poll_state() -> tuple[bool, int]:
+        poll_started.set()
+        if not release_poll.wait(timeout=1):
+            raise RuntimeError("Timed out waiting to release broadcaster poll")
+        return True, 1
+
+    async def scenario() -> None:
+        broadcaster = EventBroadcaster(poll_state, interval_seconds=60)
+        start_task = asyncio.create_task(broadcaster.start())
+        assert await asyncio.to_thread(poll_started.wait, 1)
+        stop_task = asyncio.create_task(broadcaster.stop())
+        await asyncio.sleep(0)
+        release_poll.set()
+        await asyncio.gather(start_task, stop_task)
+
+        running_pollers = [
+            task
+            for task in asyncio.all_tasks()
+            if task.get_name() == "event-broadcaster" and not task.done()
+        ]
+        assert running_pollers == []
+
+    asyncio.run(scenario())
+
+
 def test_event_broadcaster_poll_rate_does_not_grow_with_subscribers():
     lock = threading.Lock()
     calls = 0
