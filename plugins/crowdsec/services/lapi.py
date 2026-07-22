@@ -74,7 +74,7 @@ def lapi_login(url: str, machine_id: str, password: str) -> str:
     if response.status_code == 403:
         raise LapiError("CrowdSec LAPI rejected the credentials (machine not registered or wrong password)")
     if response.status_code >= 400:
-        raise LapiError(f"CrowdSec LAPI login failed with HTTP {response.status_code}: {response.text[:200]}")
+        raise LapiError(f"CrowdSec LAPI login failed with HTTP {response.status_code}")
     token = str((response.json() or {}).get("token") or "")
     if not token:
         raise LapiError("CrowdSec LAPI login returned no token")

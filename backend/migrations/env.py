@@ -24,7 +24,7 @@ config = context.config
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
-if config.config_file_name is not None:
+if config.config_file_name is not None and config.attributes.get("configure_logger", True):
     fileConfig(config.config_file_name)
 
 # add your model's MetaData object here
@@ -94,6 +94,8 @@ def run_migrations_online() -> None:
 
     """
     url = config.get_main_option("sqlalchemy.url")
+    if url is None:
+        raise RuntimeError("sqlalchemy.url is not configured for migrations")
     connect_args = {"timeout": 10, "check_same_thread": False} if url.startswith("sqlite") else {}
     connectable = create_engine(url, poolclass=pool.NullPool, connect_args=connect_args)
 

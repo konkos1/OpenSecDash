@@ -143,7 +143,17 @@ time, ip, host, method, status, path
 
 ## Events and Access search
 
-The Events and Access pages have a text search field for quick investigations. The search checks common event fields such as event type, plugin/source, severity, IP, country, city, ASN, ISP, hostname, method, status code, path, timestamps, plugin JSON payload, and raw event data.
+The Events and Access pages start with the last 24 hours selected. A previously selected
+range is retained, and a saved view keeps its own range. Choose **All time** explicitly
+when an investigation really needs the complete history; an empty or missing `range`
+does not silently turn a search into an all-time scan. The Events API uses the same
+24-hour default and accepts `range=all` for an explicit unbounded request.
+
+The text search checks structured event fields such as event type, plugin/source,
+severity, IP, country, city, ASN, ISP, hostname, method, status code, path, and
+timestamps. **Include JSON and raw data** adds `data_json` and `raw_data` to that search
+for investigations that need original payload content. This option can be noticeably
+slower, so it is off by default and is preserved by saved views.
 
 Simple search:
 
@@ -189,6 +199,13 @@ Notes:
 - Parentheses can be used to make the intended logic explicit.
 - A plain search without `&&`, `||`, or parentheses is treated as one substring search.
 - The special value `-` can be used for country searches to find events without a country value.
+- A search is limited to 256 characters, 32 tokens, and four parenthesis levels. Empty
+  terms, incomplete operators, and unterminated quotes are rejected server-side.
+- Recognized IP, ASN, HTTP-status, and country terms use their structured columns and
+  indexes, including inside boolean expressions and when JSON/raw-data search is
+  enabled. Quotes group terms containing spaces; they do not switch structured terms
+  to substring matching. Structured URL filters remain the clearest option for
+  combined filters.
 
 ## Asset Explorer filters
 

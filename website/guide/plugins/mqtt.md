@@ -41,6 +41,8 @@ Asset data can come from any supported asset source, for example JSON Assets or 
 | MQTT port | Broker port, usually `1883` for plain MQTT. |
 | MQTT username | Optional broker username. Use a dedicated MQTT user if possible. |
 | MQTT password | Optional broker password. |
+| MQTT transport security | `TLS` verifies the broker certificate and hostname; `None` keeps an existing plain MQTT setup working but shows a warning. |
+| Custom CA certificate file | Optional PEM CA file for a private broker CA. The system trust store is used when empty. |
 | Home Assistant discovery prefix | Discovery prefix, usually `homeassistant`. |
 | MQTT state topic prefix | Prefix for OpenSecDash state topics, default `opensecdash`. |
 | Publish interval | `auto`, `0`, or a number of seconds. |
@@ -179,4 +181,7 @@ max: 10
 
 ## Diagnostics
 
-Diagnostics verifies whether the configured broker host/port is reachable. Publish failures are reported on the MQTT plugin diagnostic row.
+Diagnostics verifies whether the configured broker host/port is reachable. In TLS
+mode it completes a certificate- and hostname-verified TLS handshake. Plain MQTT is
+reported as a warning. Publish failures are reported on the MQTT plugin diagnostic
+row.

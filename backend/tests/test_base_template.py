@@ -67,6 +67,14 @@ def test_help_tooltips_are_restored_after_htmx_refreshes():
     assert "trigger.focus({ preventScroll: true })" in script
 
 
+def test_live_refresh_dispatches_to_the_htmx_synchronized_result_region():
+    script = Path("app/static/js/app.js").read_text()
+    live_mode = script.split("function openSecDashLiveMode", 1)[1].split("function openSecDashAutoRefresh", 1)[0]
+
+    assert 'htmx.trigger(results, "opensecdash-refresh")' in live_mode
+    assert "htmx.ajax" not in live_mode
+
+
 def test_uploaded_instance_logo_stays_with_left_brand():
     css = Path("app/static/css/app.css").read_text()
 

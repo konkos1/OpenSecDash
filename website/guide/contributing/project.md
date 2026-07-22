@@ -42,6 +42,13 @@ Release preparation is documented in `docs/RELEASE.md`.
 
 The Git tag is the release version source of truth. For a tag such as `v0.2.0`, the Docker publish workflow derives `0.2.0`, passes it into the container as `OPENSECDASH_VERSION`, and publishes matching Docker tags. `backend/pyproject.toml` intentionally stays at `0.0.0`.
 
+Before Docker Hub publication, the release workflow audits the locked Python runtime
+and website build dependencies, builds the image twice with cold dependency caches,
+compares all installed Python package versions, verifies core runtime versions against
+`uv.lock`, creates an SPDX SBOM, and scans OS and Python packages. Fixable high or
+critical image findings block the push. The package lists, audit reports, image scan,
+and SBOM are retained as workflow artifacts.
+
 Release notes are generated from pull requests associated with the tagged changes. The notes list PR number, title, and contributor instead of dumping every commit.
 
 ## Code style and review
@@ -52,8 +59,10 @@ fixes. Before opening a pull request, run the required checks:
 
 ```bash
 cd backend
-uv run pytest -q
-uv run pyright ../backend/app ../backend/tests ../plugins
+uv lock --check
+uv sync --frozen --group dev
+.venv/bin/python -m pytest tests/ -q
+.venv/bin/pyright --pythonversion 3.13 app tests ../plugins
 ```
 
 Both checks must pass without errors. If a check was not run, state that clearly in the

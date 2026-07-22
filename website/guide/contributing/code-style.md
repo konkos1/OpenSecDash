@@ -12,8 +12,10 @@ types, not formatting:
 
 ```bash
 cd backend
-uv run pytest -q
-uv run pyright ../backend/app ../backend/tests ../plugins
+uv lock --check
+uv sync --frozen --group dev
+.venv/bin/python -m pytest tests/ -q
+.venv/bin/pyright --pythonversion 3.13 app tests ../plugins
 ```
 
 Both must pass with zero errors before a PR is opened. If you did not run them, say so in

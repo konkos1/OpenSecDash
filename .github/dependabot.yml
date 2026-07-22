@@ -28,12 +28,28 @@ updates:
         patterns:
           - "*"
 
-  - package-ecosystem: "docker"
-    directory: "/"
+  - package-ecosystem: "npm"
+    directory: "/website"
     schedule:
       interval: "weekly"
       day: "monday"
       time: "09:30"
+      timezone: "Europe/Berlin"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "website"
+    groups:
+      website-dependencies:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "docker"
+    directory: "/docker"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:45"
       timezone: "Europe/Berlin"
     open-pull-requests-limit: 2
     labels:

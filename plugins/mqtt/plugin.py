@@ -5,6 +5,7 @@ import json
 import logging
 import re
 import socket
+import ssl
 from typing import Any, Protocol, cast
 
 from app.models.assets import Asset
@@ -26,6 +27,13 @@ class Plugin(ExportPlugin, PeriodicPlugin):
     def __init__(self) -> None:
         self._last_publish_error: str | None = None
 
+    @staticmethod
+    def tls_enabled(context: PluginContext) -> bool:
+        mode = context.get("tls_mode", "none")
+        if mode not in {"none", "tls"}:
+            raise ValueError("Unsupported MQTT transport security mode")
+        return mode == "tls"
+
     metadata = PluginMetadata(
         id="mqtt-hass", 
         name="MQTT to Home Assistant", 
@@ -40,6 +48,8 @@ class Plugin(ExportPlugin, PeriodicPlugin):
         PluginSetting("port", "mqtt.settings.port", "mqtt.settings.port.help", "number", "1883", visible_if=("enabled", "true")),
         PluginSetting("username", "mqtt.settings.username", "mqtt.settings.username.help", "text", "", visible_if=("enabled", "true")),
         PluginSetting("password", "mqtt.settings.password", "mqtt.settings.password.help", "password", "", visible_if=("enabled", "true")),
+        PluginSetting("tls_mode", "mqtt.settings.tls_mode", "mqtt.settings.tls_mode.help", "select", "none", [("none", "mqtt.option.tls_none"), ("tls", "mqtt.option.tls")], visible_if=("enabled", "true")),
+        PluginSetting("ca_file", "mqtt.settings.ca_file", "mqtt.settings.ca_file.help", "file", "", visible_if=("enabled", "true")),
         PluginSetting("discovery_prefix", "mqtt.settings.discovery_prefix", "mqtt.settings.discovery_prefix.help", "text", "homeassistant", visible_if=("enabled", "true")),
         PluginSetting("topic_prefix", "mqtt.settings.topic_prefix", "mqtt.settings.topic_prefix.help", "text", "opensecdash", visible_if=("enabled", "true")),
         PluginSetting("publish_interval", "mqtt.settings.publish_interval", "mqtt.settings.publish_interval.help", "text", "auto", visible_if=("enabled", "true")),
@@ -56,6 +66,12 @@ class Plugin(ExportPlugin, PeriodicPlugin):
             "mqtt.settings.username.help": "Username for broker authentication. Required for a working secured MQTT setup.",
             "mqtt.settings.password": "MQTT password",
             "mqtt.settings.password.help": "Password for broker authentication. Use a dedicated MQTT user if possible.",
+            "mqtt.settings.tls_mode": "MQTT transport security (plain MQTT is unencrypted)",
+            "mqtt.settings.tls_mode.help": "TLS verifies the broker certificate and hostname. Plain MQTT is unencrypted and is shown as a diagnostic warning.",
+            "mqtt.settings.ca_file": "Custom CA certificate file",
+            "mqtt.settings.ca_file.help": "Optional PEM CA file available inside the OpenSecDash container. Leave empty to use the system trust store.",
+            "mqtt.option.tls_none": "None (unencrypted)",
+            "mqtt.option.tls": "TLS (certificate verified)",
             "mqtt.settings.discovery_prefix": "Home Assistant discovery prefix",
             "mqtt.settings.discovery_prefix.help": "Discovery prefix for Home Assistant MQTT discovery, usually homeassistant.",
             "mqtt.settings.topic_prefix": "MQTT state topic prefix",
@@ -75,6 +91,12 @@ class Plugin(ExportPlugin, PeriodicPlugin):
             "mqtt.settings.username.help": "Benutzername für die Broker-Anmeldung. Für ein abgesichertes MQTT-Setup erforderlich.",
             "mqtt.settings.password": "MQTT Passwort",
             "mqtt.settings.password.help": "Passwort für die Broker-Anmeldung. Wenn möglich einen dedizierten MQTT-Benutzer verwenden.",
+            "mqtt.settings.tls_mode": "MQTT-Transportsicherheit (einfaches MQTT ist unverschlüsselt)",
+            "mqtt.settings.tls_mode.help": "TLS prüft Zertifikat und Hostnamen des Brokers. Unverschlüsseltes MQTT wird als Diagnosewarnung angezeigt.",
+            "mqtt.settings.ca_file": "Eigene CA-Zertifikatsdatei",
+            "mqtt.settings.ca_file.help": "Optionale PEM-CA-Datei im OpenSecDash-Container. Leer lassen, um den System-Zertifikatsspeicher zu verwenden.",
+            "mqtt.option.tls_none": "Keine (unverschlüsselt)",
+            "mqtt.option.tls": "TLS (Zertifikat geprüft)",
             "mqtt.settings.discovery_prefix": "Home Assistant Discovery-Präfix",
             "mqtt.settings.discovery_prefix.help": "Discovery-Präfix für Home Assistant MQTT Discovery, üblicherweise homeassistant.",
             "mqtt.settings.topic_prefix": "MQTT State-Topic-Präfix",
@@ -98,11 +120,19 @@ class Plugin(ExportPlugin, PeriodicPlugin):
             return {"status": "error", "message": "MQTT host is not configured"}
         try:
             port = int(context.get("port", "1883"))
-            with socket.create_connection((host, port), timeout=5):
+            tls_enabled = self.tls_enabled(context)
+            with socket.create_connection((host, port), timeout=5) as connection:
+                if tls_enabled:
+                    ca_file = context.get("ca_file").strip() or None
+                    tls_context = ssl.create_default_context(cafile=ca_file)
+                    with tls_context.wrap_socket(connection, server_hostname=host):
+                        pass
                 logger.debug("MQTT broker reachable: %s:%s", host, port)
                 message = f"MQTT broker reachable: {host}:{port}"
                 if self._last_publish_error:
                     return {"status": "error", "message": f"{message}; MQTT publish failed: {self._last_publish_error}"}
+                if not tls_enabled:
+                    return {"status": "warning", "message": f"{message}; MQTT transport is unencrypted"}
                 return {"status": "healthy", "message": message}
         except Exception as exc:
             return {"status": "error", "message": f"MQTT broker not reachable: {exc}"}
@@ -234,9 +264,17 @@ class Plugin(ExportPlugin, PeriodicPlugin):
             for topic, payload, retain in messages
         ]
         logger.debug("Publishing %d MQTT message(s): %s", len(payloads), ", ".join(item["topic"] for item in payloads))
+        tls = None
+        if self.tls_enabled(context):
+            tls = {
+                "ca_certs": context.get("ca_file").strip() or None,
+                "cert_reqs": ssl.CERT_REQUIRED,
+                "tls_version": ssl.PROTOCOL_TLS_CLIENT,
+            }
         publish.multiple(
             payloads,
             hostname=host,
             port=int(context.get("port", "1883")),
             auth=auth,
+            tls=tls,
         )

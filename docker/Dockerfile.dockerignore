@@ -23,6 +23,6 @@ data
 node_modules
 dist
 build
-*.egg-info
+**/*.egg-info
 backend/dev-data/
 docs/internal/

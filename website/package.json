@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "audit:ci": "node scripts/check-npm-audit.mjs",
     "docs:dev": "vitepress dev --host 127.0.0.1",
     "docs:build": "node scripts/write-indexnow-key.mjs && vitepress build",
     "indexnow:submit": "node scripts/submit-indexnow.mjs",

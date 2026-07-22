@@ -29,6 +29,7 @@ def alembic_config() -> Config:
     config = Config(str(ALEMBIC_INI))
     config.set_main_option("sqlalchemy.url", settings.database_url)
     config.set_main_option("script_location", str(BACKEND_DIR / "migrations"))
+    config.attributes["configure_logger"] = False
     return config
 
 

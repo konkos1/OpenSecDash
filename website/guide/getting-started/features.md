@@ -80,11 +80,17 @@ The Events and Access views support practical filters for homelab investigations
 - path
 - plugin/source
 - local-IP include/exclude behavior
-- text search with boolean expressions such as `wp-login && (404 || 403)`
+- bounded text search with boolean expressions such as `wp-login && (404 || 403)`
+- optional JSON/raw-data search for payload-level investigations
 
 Operator filters are structured URL parameters rather than a free-text query language. For example, `/events?country_in=RU,CN` is the structured equivalent of `country IN (RU,CN)` and investigates traffic from a country list; `/events?country_not=DE` excludes German traffic, and `/access?status_min=400&status_max=499` shows client-error responses. The Events filter form also exposes status ranges, ASN, and hostname; URL filters make the same investigation links shareable.
 
-Choose **Last hour**, **24 hours**, **7 days**, or **30 days** in the time-range picker. The selected range is retained when moving between Events and Access. For a custom range, use a shareable URL such as `/events?range=custom&from=2026-07-12T00:00:00Z&to=2026-07-13T00:00:00Z`.
+Events and Access start with the last 24 hours for a new user or installation. Choose
+**Last hour**, **24 hours**, **7 days**, or **30 days** in the time-range picker; choose
+**All time** explicitly for the complete retained history. The selected range is
+retained when moving between Events and Access and is stored with saved views. For a
+custom range, use a shareable URL such as
+`/events?range=custom&from=2026-07-12T00:00:00Z&to=2026-07-13T00:00:00Z`.
 
 The header has one global search box. An IP address or CIDR opens the IP Explorer, a matching asset name or hostname opens Asset Explorer, and other searches open matching Events. For example, searching `/wp-login.php` opens Events with that search term.
 

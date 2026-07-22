@@ -42,6 +42,11 @@ Do not give write/admin permissions. OpenSecDash does not need Guest Exec, SSH, 
 | Poll interval seconds | How often Proxmox assets are synchronized. Default: `300`. |
 
 Disable TLS verification only for trusted self-signed homelab certificates.
+OpenSecDash rejects API URLs with embedded credentials, query strings, fragments, or
+invalid schemes/ports. API-token requests never follow redirects and do not use proxy
+environment variables. TLS certificate and hostname verification is enabled by
+default; disabling it keeps existing self-signed setups working but produces a
+Diagnostics warning.
 
 ## Notes metadata
 

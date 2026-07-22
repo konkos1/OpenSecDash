@@ -28,9 +28,23 @@ def test_events_api_create_list_and_get(db_session):
 
     assert created.id is not None
     assert get_event(created.id, db_session).path == "/missing"
-    listed = list_events(limit=10, event_type="access.*", ip="8.8.8.8", country="US", status_code=404, db=db_session)
+    listed = list_events(limit=10, event_type="access.*", ip="8.8.8.8", country="US", status_code=404, range="all", db=db_session)
     assert [event.id for event in listed] == [created.id]
 
     with pytest.raises(HTTPException) as exc_info:
         get_event(9999, db_session)
     assert exc_info.value.status_code == 404
+
+
+def test_events_api_rejects_invalid_search_expression(db_session):
+    with pytest.raises(HTTPException) as exc_info:
+        list_events(q="term ||", range="all", db=db_session)
+
+    assert exc_info.value.status_code == 422
+
+
+def test_events_api_rejects_unbounded_custom_range(db_session):
+    with pytest.raises(HTTPException) as exc_info:
+        list_events(q="marker", range="custom", db=db_session)
+
+    assert exc_info.value.status_code == 422

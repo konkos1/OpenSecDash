@@ -21,6 +21,17 @@ AUTH_DISABLED_ENV = "OSD_AUTH_DISABLED"
 AUTH_HOSTNAME_SETTING = "auth.hostname"
 ROLES = ("viewer", "operator", "admin")
 
+# OWASP lists this 16 MiB / five-pass profile as equivalent to its 128 MiB
+# scrypt minimum while keeping five concurrent logins within a 512 MB container.
+SCRYPT_N = 16384
+SCRYPT_R = 8
+SCRYPT_P = 5
+SCRYPT_DKLEN = 32
+SCRYPT_MAXMEM = 32 * 1024 * 1024
+_LEGACY_SCRYPT_COST = (16384, 8, 1)
+_CURRENT_SCRYPT_COST = (SCRYPT_N, SCRYPT_R, SCRYPT_P)
+_SUPPORTED_SCRYPT_COSTS = {_LEGACY_SCRYPT_COST, _CURRENT_SCRYPT_COST}
+
 _USERNAME_PATTERN = re.compile(r"[a-z0-9._-]{1,64}")
 _HOSTNAME_LABEL_PATTERN = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?")
 
@@ -28,8 +39,16 @@ _HOSTNAME_LABEL_PATTERN = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?")
 def hash_password(password: str) -> str:
     """Return a versioned scrypt password hash with a random salt."""
     salt = secrets.token_bytes(16)
-    password_hash = hashlib.scrypt(password.encode(), salt=salt, n=16384, r=8, p=1, dklen=32)
-    return f"scrypt$16384$8$1${salt.hex()}${password_hash.hex()}"
+    password_hash = hashlib.scrypt(
+        password.encode(),
+        salt=salt,
+        n=SCRYPT_N,
+        r=SCRYPT_R,
+        p=SCRYPT_P,
+        dklen=SCRYPT_DKLEN,
+        maxmem=SCRYPT_MAXMEM,
+    )
+    return f"scrypt${SCRYPT_N}${SCRYPT_R}${SCRYPT_P}${salt.hex()}${password_hash.hex()}"
 
 
 _DUMMY_PASSWORD_HASH = hash_password("not-a-valid-password")
@@ -42,14 +61,33 @@ def verify_password(password: str, stored: str) -> bool:
         if algorithm != "scrypt":
             return False
         n, r, p = int(n_text), int(r_text), int(p_text)
-        if n <= 1 or n & (n - 1) or r < 1 or p < 1:
+        if (n, r, p) not in _SUPPORTED_SCRYPT_COSTS:
             return False
         salt = bytes.fromhex(salt_hex)
         expected_hash = bytes.fromhex(hash_hex)
-        calculated_hash = hashlib.scrypt(password.encode(), salt=salt, n=n, r=r, p=p, dklen=len(expected_hash))
+        if len(salt) != 16 or len(expected_hash) != SCRYPT_DKLEN:
+            return False
+        calculated_hash = hashlib.scrypt(
+            password.encode(),
+            salt=salt,
+            n=n,
+            r=r,
+            p=p,
+            dklen=SCRYPT_DKLEN,
+            maxmem=SCRYPT_MAXMEM,
+        )
     except (MemoryError, TypeError, ValueError):
         return False
     return hmac.compare_digest(calculated_hash, expected_hash)
+
+
+def password_needs_rehash(stored: str) -> bool:
+    """Return whether a valid legacy hash should use the current cost profile."""
+    try:
+        algorithm, n_text, r_text, p_text, _salt_hex, _hash_hex = stored.split("$")
+        return algorithm == "scrypt" and (int(n_text), int(r_text), int(p_text)) == _LEGACY_SCRYPT_COST
+    except ValueError:
+        return False
 
 
 def normalize_username(username: str) -> str:
@@ -111,6 +149,9 @@ def authenticate(db: Session, username: str, password: str) -> User | None:
         return None
     if not verify_password(password, user.password_hash):
         return None
+    if password_needs_rehash(user.password_hash):
+        user.password_hash = hash_password(password)
+        db.commit()
     return user
 
 

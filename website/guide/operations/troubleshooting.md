@@ -19,6 +19,12 @@ Use **Diagnostics → Download debug report** and review the ZIP before sharing 
 docker compose logs opensecdash --tail=500
 ```
 
+## Health checks
+
+`GET /health` is the liveness check. It only confirms that the application process can answer HTTP and does not access the database.
+
+`GET /ready` is the readiness check. After startup has completed, it performs one read-only `SELECT 1` database ping. It does not run migrations, seed defaults, rotate secrets, or perform event maintenance. A database error returns `503 Service Unavailable` without database paths or exception details.
+
 ## Locked out of the web UI
 
 If optional internal sign-in is enabled and no administrator can sign in, use the

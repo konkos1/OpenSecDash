@@ -6,7 +6,9 @@
 
 ## Status: implemented (2026-07-07)
 
-The complete implementation plan is located in `docs/internal/plugin-rework/` and was implemented in phases 1 through 9. The earlier transitional convention of placing new integration-specific services under `backend/app/services/` is therefore **rescinded**.
+The plugin service ownership rework is complete. The earlier transitional convention
+of placing new integration-specific services under `backend/app/services/` is therefore
+**rescinded**.
 
 New convention: Integration-specific services, pages, templates, and locales belong in the respective plugin directory (`plugins/<name>/services/`, `routes.py`, `templates/`, `locales.py`). The core does not directly access plugin modules; shared interaction runs through the plugin manager, registries, and plugin hooks.
 

@@ -3,7 +3,9 @@ from sqlalchemy import event as sqlalchemy_event
 from app.models.assets import Asset
 from app.models.events import Event
 from app.models.systems import System
-from app.services.events import apply_event_filters
+import pytest
+
+from app.services.events import MAX_SEARCH_DEPTH, MAX_SEARCH_LENGTH, MAX_SEARCH_TOKENS, apply_event_filters
 
 
 def _matching_ids(db_session, filters):
@@ -93,3 +95,72 @@ def test_event_filters_ignore_empty_or_invalid_new_values(db_session):
     }
 
     assert _matching_ids(db_session, filters) == [first.id, second.id]
+
+
+def test_search_excludes_raw_payloads_unless_explicitly_enabled(db_session):
+    structured = Event(event_type="security.marker", severity="warning", plugin="crowdsec", path="/visible")
+    raw_only = Event(
+        event_type="security.other",
+        severity="warning",
+        plugin="crowdsec",
+        data_json={"detail": "payload-marker"},
+        raw_data="raw-marker",
+    )
+    db_session.add_all([structured, raw_only])
+    db_session.commit()
+
+    assert _matching_ids(db_session, {"q": "visible"}) == [structured.id]
+    assert _matching_ids(db_session, {"q": "payload-marker"}) == []
+    assert _matching_ids(db_session, {"q": "payload-marker", "include_raw_data": True}) == [raw_only.id]
+    assert _matching_ids(db_session, {"q": "raw-marker", "include_raw_data": True}) == [raw_only.id]
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "x" * (MAX_SEARCH_LENGTH + 1),
+        " && ".join(["term"] * (MAX_SEARCH_TOKENS // 2 + 2)),
+        "(" * (MAX_SEARCH_DEPTH + 1) + "term" + ")" * (MAX_SEARCH_DEPTH + 1),
+        "&& term",
+        "term ||",
+        '""',
+        '"unterminated',
+    ],
+)
+def test_search_rejects_oversized_or_empty_expressions(db_session, query):
+    with pytest.raises(ValueError):
+        apply_event_filters(db_session.query(Event), {"q": query})
+
+
+def test_search_uses_bound_structured_predicates_for_ip_asn_status_and_country(db_session):
+    query_text = str(apply_event_filters(db_session.query(Event), {"q": "198.51.100.10"}))
+    assert "events.ip =" in query_text
+    assert " LIKE " not in query_text
+
+    assert "events.asn =" in str(apply_event_filters(db_session.query(Event), {"q": "AS64500"}))
+    assert "events.status_code =" in str(apply_event_filters(db_session.query(Event), {"q": "404"}))
+    assert "events.country =" in str(apply_event_filters(db_session.query(Event), {"q": "DE"}))
+
+
+def test_search_keeps_structured_ip_semantics_in_expressions_quotes_and_raw_search(db_session):
+    structured = Event(event_type="security.marker", plugin="crowdsec", ip="198.51.100.10")
+    substring = Event(
+        event_type="security.other",
+        plugin="crowdsec",
+        ip="203.0.113.5",
+        path="/lookup/198.51.100.10/details",
+        raw_data="198.51.100.10",
+    )
+    db_session.add_all([structured, substring])
+    db_session.commit()
+
+    assert _matching_ids(db_session, {"q": "198.51.100.10"}) == [structured.id]
+    assert _matching_ids(db_session, {"q": "198.51.100.10 && 198.51.100.10"}) == [structured.id]
+    assert _matching_ids(db_session, {"q": '"198.51.100.10"'}) == [structured.id]
+    assert _matching_ids(db_session, {"q": "198.51.100.10", "include_raw_data": True}) == [structured.id]
+
+
+def test_whitespace_search_does_not_generate_match_everything_like(db_session):
+    query_text = str(apply_event_filters(db_session.query(Event), {"q": "   "}))
+
+    assert " LIKE " not in query_text

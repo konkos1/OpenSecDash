@@ -27,7 +27,7 @@ def assets_proxmox_sync_page(db: Session = Depends(get_db)):
                     api_url=get_setting_value(db, "plugin.proxmox_assets.api_url", ""),
                     token_id=get_setting_value(db, "plugin.proxmox_assets.token_id", ""),
                     token_secret=get_setting_value(db, "plugin.proxmox_assets.token_secret", ""),
-                    verify_tls=get_setting_value(db, "plugin.proxmox_assets.verify_tls", "true") == "true",
+                    verify_tls=get_setting_value(db, "plugin.proxmox_assets.verify_tls", "true") != "false",
                 ),
                 export_publishable_asset_updates(db),
             )[0],

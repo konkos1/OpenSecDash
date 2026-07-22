@@ -14,6 +14,7 @@ from app.core.template_context import build_template_context, get_setting_value
 from app.database.dependencies import get_db
 from app.database.session import SessionLocal
 from app.services.auth import AUTH_HOSTNAME_SETTING, SESSION_LIFETIME_DAYS, auth_enabled, normalize_auth_hostname, resolve_session
+from app.web.permissions import required_role
 from app.web.proxy_headers import (
     PROXY_STATE_EXPLICITLY_TRUSTED,
     PROXY_STATE_FORWARDED_HOST,
@@ -26,7 +27,7 @@ from app.web.templates import templates
 SESSION_COOKIE = "osd_session"
 ROLE_ORDER = {"viewer": 0, "operator": 1, "admin": 2}
 _OPERATIONAL_PATHS = {"/health", "/ready"}
-_PUBLIC_PATHS = {"/login", "/sw.js"}
+_PUBLIC_PATHS = {"/login", "/manifest.webmanifest", "/sw.js"}
 _UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 _DEFAULT_ORIGIN_PORTS = {"http": 80, "https": 443}
 _HSTS_VALUE = "max-age=31536000"
@@ -242,26 +243,6 @@ def _protect_authenticated_response(response: Response) -> Response:
     response.headers.setdefault("Cache-Control", "no-store")
     response.headers.setdefault("Strict-Transport-Security", _HSTS_VALUE)
     return response
-
-
-def required_role(method: str, path: str) -> str:
-    """Return the minimum role required for a request."""
-    if (
-        path == "/settings"
-        or path.startswith("/settings/")
-        or path.startswith("/api/settings")
-        or path == "/diagnostics/debug-report"
-    ):
-        return "admin"
-    if method in ("GET", "HEAD", "OPTIONS"):
-        return "viewer"
-    if (
-        path.endswith("/columns")
-        or path in ("/auth/logout", "/auth/password", "/account/preferences", "/views", "/dashboard/layout", "/dashboard/layout/reset")
-        or path.startswith("/views/")
-    ):
-        return "viewer"
-    return "operator"
 
 
 def _auth_database(request: Request) -> tuple[Session, Generator[Session, None, None] | None, bool]:

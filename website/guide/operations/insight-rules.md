@@ -15,6 +15,18 @@ The Insights engine ships with a local fallback ruleset, imports active rules in
 https://opensecdash.app/rules/insights-rules.json
 ```
 
+Before importing that file, the app downloads the fixed
+`/rules/insights-rules-v1.sha256.json` manifest, checks its expiry and expected path,
+and verifies the exact ruleset bytes with SHA-256. Responses are bounded to 8 KiB for
+the manifest and 256 KiB for the ruleset. A failure leaves the last valid database
+rules active.
+
+This is an explicitly temporary authenticity layer expiring on 2026-10-31. It detects
+accidental or partial publication changes, but because the manifest and rules are
+served by the same HTTPS website, a compromise of that site or its TLS delivery could
+replace both. A later release must replace this with an offline-key signature or renew
+the exception with a new documented scope and expiry.
+
 The source URL is intentionally hardcoded and not configurable in the UI. This keeps the feature predictable and avoids turning the app into a generic remote-code/rule loader.
 
 OpenSecDash refreshes the rules:

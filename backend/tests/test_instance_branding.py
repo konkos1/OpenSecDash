@@ -141,6 +141,8 @@ def test_instance_file_routes_return_files_with_security_headers(instance_brandi
     assert response.headers["cache-control"] == "public, max-age=86400"
     assert response.headers["x-content-type-options"] == "nosniff"
     assert response.headers["content-security-policy"] == "default-src 'none'; style-src 'unsafe-inline'"
+    assert response.headers["x-frame-options"] == "DENY"
+    assert response.headers["referrer-policy"] == "no-referrer"
 
 
 @pytest.mark.parametrize(

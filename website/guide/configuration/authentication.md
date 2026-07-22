@@ -40,9 +40,12 @@ the event WebSocket remain bound to the configured HTTPS hostname. `/health` and
 
 | Role | Access |
 | --- | --- |
-| Viewer | View dashboard data and manage saved views and dashboard layout. |
-| Operator | Viewer access plus actions such as CrowdSec ban and unban. |
-| Admin | Operator access plus Settings and user management. |
+| Viewer | View dashboard data and manage personal preferences, saved views, columns, and dashboard layout. |
+| Operator | Viewer access plus explicitly approved actions and refresh/sync operations such as CrowdSec ban/unban and Proxmox sync. |
+| Admin | Operator access plus Settings, users, branding, notification rules, integration configuration, debug reports, event creation, and asset inventory imports. |
+
+Route permissions are declared in one auditable Core/plugin registry. Unknown writing
+routes fail closed as Admin instead of inheriting Operator access from their HTTP method.
 
 ## Manage users
 
@@ -93,6 +96,18 @@ authentication to the configured hostname on port 443, marks the session cookie
 server-side so sign-out, password resets, deactivation, and hostname recovery can revoke
 them. OpenSecDash does not provide built-in 2FA, OIDC, or password-recovery email; use an
 external identity provider in front of the proxy when those controls are required.
+
+Passwords use self-describing scrypt hashes. New and changed passwords use
+`N=2^14,r=8,p=5`, one of OWASP's equivalent minimum scrypt profiles. A 2026-07-22
+measurement in a container limited to 1 vCPU and 512 MB found about 0.123 seconds for
+one hash and 1.194 seconds for five parallel hashes at roughly 98 MiB peak RSS. The
+`N=2^17,r=8,p=1` alternative used about 509 MiB during the same parallel test. Existing
+`N=2^14,r=8,p=1` hashes remain valid and are upgraded only after a successful sign-in.
+
+All responses receive anti-sniffing, referrer, framing, permissions, and Content
+Security Policy headers. Login, Settings, and authenticated HTML/API responses are not
+cached. HSTS is sent only after the configured trusted HTTPS/443 authentication boundary
+has been validated.
 
 OpenSecDash rejects state-changing browser requests from a different origin even while
 internal sign-in is disabled. This prevents a website opened in the browser from

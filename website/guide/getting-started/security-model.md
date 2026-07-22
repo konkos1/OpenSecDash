@@ -21,7 +21,8 @@ integration settings, or obtain access to connected-system capabilities.
 
 OpenSecDash includes optional internal sign-in with Viewer, Operator, and Admin roles.
 It is disabled by default, so treat the dashboard as sensitive even when internal
-sign-in is not enabled.
+sign-in is not enabled. A dashboard-wide warning makes this state visible: every visitor
+who can reach an unprotected instance has full Viewer, Operator, and Admin access.
 
 Recommended placement:
 
@@ -30,6 +31,10 @@ Recommended placement:
 - behind Authentik, Authelia, Pocket ID, or another trusted forward-auth layer
 
 Do not expose it directly to the public internet.
+
+Using Authentik, Authelia, Pocket ID, or another trusted forward-auth layer without also
+enabling OpenSecDash's internal sign-in is a supported homelab setup. This avoids a
+second password prompt while keeping access protected at the reverse proxy.
 
 See [Authentication](../configuration/authentication.md) to enable internal sign-in and
 recover from an administrator lockout.
@@ -53,7 +58,24 @@ OpenSecDash can display:
 
 Review debug reports before attaching them to public issues.
 
-SMTP notifications intentionally send matching event or Insight details to the mail server configured by the administrator. Leave notifications disabled if that destination is not trusted. The Insights rule updater only downloads declarative JSON rules from the fixed OpenSecDash website URL; it does not upload local events, IPs, hostnames, or telemetry.
+SMTP notifications intentionally send matching event or Insight details to the mail server configured by the administrator. Leave notifications disabled if that destination is not trusted. Remote GeoIP is disabled by default; when enabled, it sends each uncached public IP over unencrypted HTTP to `ip-api.com`, caches successful results for the configured TTL and failures for one hour, and never sends private or reserved IPs. The Insights rule updater only downloads declarative JSON rules from fixed OpenSecDash website URLs; it does not upload local events, IPs, hostnames, or telemetry. A fixed, expiring SHA-256 manifest is verified before remote rules are stored; see the [Insights engine guide](../operations/insight-rules.md) for the remaining same-site trust limitation.
+
+## Remote reads and input boundaries
+
+JSON Assets URL sources may use HTTP or HTTPS and may point into private IPv4 or IPv6
+homelab networks. OpenSecDash rejects URL credentials, loopback, unspecified,
+multicast, link-local, and known cloud metadata targets. It validates every DNS answer
+and every redirect target, follows at most three redirects, ignores proxy environment
+variables, and uses separate connect/read timeouts. DNS can change between validation
+and connection, so this policy reduces but cannot completely eliminate DNS-rebinding
+risk.
+
+Remote and local `assets.json` input is limited to 10 MiB, JSON depth 20, 10,000
+systems, 1,000 apps per system, and 2,048 characters per field. Remote compressed and
+unpacked sizes are both checked. The API and all other writing routes also have
+server-side body limits; the global default is 12 MiB and can be lowered with
+`MAX_REQUEST_BODY_BYTES`. Event API fields follow the database field sizes,
+`data_json` and `raw_data` are each limited to 1 MiB, and JSON depth is limited to 20.
 
 ## Action simulation
 
@@ -66,6 +88,15 @@ Critical actions such as CrowdSec ban and unban require confirmation. OpenSecDas
 Results are recorded in Diagnostics under **Recent actions** and in the Events view. Generic actions emit `action.executed` or `action.failed`; CrowdSec uses its existing specific success event types for completed Ban/Unban actions and the shared `action.failed` event for failures.
 
 See [Actions and safety](../operations/actions.md) for the full execution and audit flow.
+
+## Browser protections
+
+OpenSecDash applies one global browser-header policy to normal pages, login and error
+pages, APIs, static assets, the service worker, and uploaded instance images. Framing is
+blocked by both CSP `frame-ancestors 'none'` and `X-Frame-Options: DENY`. Scripts are
+restricted to local files. Alpine expressions currently require CSP `unsafe-eval`, and
+Alpine/HTMX visibility and indicator styles require `unsafe-inline` for styles; no
+foreign script CDN or wildcard source is allowed.
 
 ## CrowdSec connection security
 

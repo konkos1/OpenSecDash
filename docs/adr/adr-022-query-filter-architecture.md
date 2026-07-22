@@ -2,6 +2,12 @@
 
 > **Implementation status (2026-07-12):** Implemented.
 > Events and Access use the shared filter engine with structured operator keys, ASN/hostname/asset filters, time-range presets, URL filters, local-IP filtering, search expressions, saved views, and table column settings. The global header search routes IPs/CIDRs to IP Explorer, matching asset names/hostnames to Asset Explorer, and all other input to Events.
+> Update (2026-07-22): Events, Access, and the Events list API use a bounded 24-hour
+> default; `range=all` is the explicit all-time choice and saved views preserve it.
+> Search expressions have server-side length, token, nesting, and syntax limits.
+> Structured fields remain the default search surface, while JSON and raw payloads
+> require an explicit, saved-view-compatible opt-in. Exact IP, ASN, status, and country
+> terms use bound structured predicates.
 
 > **Intentional scope:** Filter operators are explicit structured keys, not a free-text DSL, so validation and SQLAlchemy-bound queries remain straightforward and safe. Custom time ranges use `range=custom` with `from`/`to` URL parameters, and only the selected time range is preserved between Events and Access. Saved views with the same name in the same scope are overwritten; plugin-provided views are supported as read-only defaults. Torblock is not applicable because no Torblock plugin exists. Generated drill-down values link to matching Events/Access views where a meaningful filter exists; technical, inventory, notification, current-decision, and Rollup values remain intentionally non-drill-down.
 

@@ -1,12 +1,13 @@
 from datetime import datetime, timedelta
 
 from app.core.time import utc_now
-from app.models.core import AggregationDaily, GeoIPCache, Insight
+from app.models.core import AggregationDaily, AggregationMonthly, GeoIPCache, Insight
 from app.models.events import Event
 from app.models.settings import Setting
 from app.services.events import (
     apply_event_filters,
     classify_access_status,
+    cleanup_duplicate_events,
     normalize_event_time,
     store_event,
     tokenize_search_expression,
@@ -99,6 +100,30 @@ def test_store_event_deduplicates_and_updates_rollups_and_insights(db_session):
     assert db_session.query(AggregationDaily).filter_by(date="2026-01-02", metric="country", key="US").one().value == 1
     assert db_session.query(AggregationDaily).filter_by(date="2026-01-02", metric="summary", key="bans").one().value == 1
     assert db_session.query(Insight).filter_by(type="security_ban_observed", ip="8.8.8.8").count() == 1
+
+
+def test_cleanup_duplicate_events_preserves_null_and_empty_raw_data_semantics_and_rebuilds_rollups(db_session):
+    event_time = datetime(2026, 1, 2, 3, 4, 5)
+    events = [
+        Event(id=1, timestamp=event_time, event_time=event_time, source="first", plugin="raw", event_type="access.error", raw_data="same line", ip="1.1.1.1"),
+        Event(id=2, timestamp=event_time, event_time=event_time, source="second", plugin="raw", event_type="access.error", raw_data="same line", ip="2.2.2.2"),
+        Event(id=3, timestamp=event_time, event_time=event_time, source="first", plugin="composite", event_type="access.allowed", raw_data=None, ip=None, country=None),
+        Event(id=4, timestamp=event_time, event_time=event_time, source="second", plugin="composite", event_type="access.allowed", raw_data="", ip=None, country=None),
+        Event(id=5, timestamp=event_time, event_time=event_time, source="distinct", plugin="composite", event_type="access.allowed", raw_data="", ip="3.3.3.3", country=None),
+        Event(id=6, timestamp=event_time, event_time=event_time, source="other-plugin", plugin="other", event_type="access.error", raw_data="same line", ip="4.4.4.4"),
+    ]
+    db_session.add_all(events)
+    db_session.add(AggregationDaily(date="2026-01-02", metric="summary", key="total_events", value=99))
+    db_session.add(AggregationMonthly(month="2026-01", metric="summary", key="total_events", value=99))
+    db_session.commit()
+
+    deleted = cleanup_duplicate_events(db_session)
+    db_session.commit()
+
+    assert deleted == 2
+    assert [event.id for event in db_session.query(Event).order_by(Event.id)] == [1, 3, 5, 6]
+    assert db_session.query(AggregationDaily).filter_by(date="2026-01-02", metric="summary", key="total_events").one().value == 4
+    assert db_session.query(AggregationMonthly).count() == 0
 
 
 def test_manual_ban_action_id_is_not_part_of_scenario_rollup_key(db_session):

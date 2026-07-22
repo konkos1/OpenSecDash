@@ -15,6 +15,22 @@ services:
       # - /var/log/geoblock.log:/logs/geoblock.log:ro
       # - /var/log/crowdsec.log:/logs/crowdsec.log:ro
       # - ./assets/assets.json:/assets/assets.json:ro
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # Startup keeps only the capabilities needed to repair existing /data
+    # ownership and then switch to the unprivileged app user.
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    pids_limit: 256
+    mem_limit: 1g
+    cpus: 2.0
     # Optional: completely disable individual plugins. A disabled plugin is
     # hidden everywhere (settings, diagnostics, navigation) and runs no
     # background tasks. Saved plugin settings are kept and come back when the

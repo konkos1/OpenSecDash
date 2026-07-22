@@ -6,8 +6,7 @@ on:
       - "v*.*.*"
 
 permissions:
-  contents: write
-  pull-requests: read
+  contents: read
 
 concurrency:
   group: release-${{ github.ref }}
@@ -17,9 +16,11 @@ jobs:
   github-release:
     name: Publish GitHub release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
 
@@ -79,10 +80,10 @@ jobs:
       cancel-in-progress: false
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 22
           cache: npm
@@ -91,6 +92,10 @@ jobs:
       - name: Install dependencies
         working-directory: website
         run: npm ci --no-audit
+
+      - name: Audit website dependencies
+        working-directory: website
+        run: npm run audit:ci
 
       - name: Build website
         working-directory: website
@@ -103,7 +108,7 @@ jobs:
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: npx --yes wrangler@latest deploy
+        run: npx --yes wrangler@4.113.0 deploy
 
       - name: Wait for Cloudflare deployment propagation
         run: sleep 60

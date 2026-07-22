@@ -2,6 +2,8 @@
 
 Bare-metal installation is supported if you prefer running OpenSecDash directly on a Linux host. Docker is still recommended unless you explicitly want to manage Python, systemd, file paths, and permissions yourself.
 
+Install Python 3.13 and the officially pinned `uv` 0.11.23 release before starting.
+
 ## Host requirements
 
 Minimum for a small homelab instance:
@@ -13,6 +15,12 @@ Minimum for a small homelab instance:
 | Storage | 1 GB free | SSD with several GB free, depending on log volume and retention |
 
 OpenSecDash is lightweight, but storage usage depends on imported event volume, configured retention, and debug/log output.
+
+Release validation uses 1 vCPU/512 MiB for fresh and 10,000-event profiles, and
+2 vCPU/1 GiB for the 1,000,000-event and upgrade profiles. These checks cover startup,
+read-only readiness, bounded search, migrations, and clean connection shutdown. Real
+ingestion rates and plugin memory use still depend on log volume and enabled
+integrations.
 
 As a rough guide, measured on SQLite after `VACUUM` (events plus their indexes and rollups):
 
@@ -51,9 +59,8 @@ sudo chown -R opensecdash:opensecdash /opt/opensecdash /var/lib/opensecdash /var
 cd /opt/opensecdash
 sudo -u opensecdash git clone https://github.com/konkos1/OpenSecDash.git .
 cd /opt/opensecdash/backend
-sudo -u opensecdash python3 -m venv .venv
-sudo -u opensecdash .venv/bin/pip install --upgrade pip
-sudo -u opensecdash .venv/bin/pip install -e .
+sudo -u opensecdash uv lock --check
+sudo -u opensecdash uv sync --frozen --no-dev
 ```
 
 Create `/opt/opensecdash/backend/.env`:

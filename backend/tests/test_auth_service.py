@@ -16,6 +16,7 @@ from app.services.auth import (
     hash_password,
     normalize_auth_hostname,
     normalize_username,
+    password_needs_rehash,
     resolve_session,
     validate_new_user,
     verify_password,
@@ -33,13 +34,47 @@ def test_password_hashes_are_salted_and_reject_invalid_values():
     first_hash = hash_password("password123")
     second_hash = hash_password("password123")
 
-    assert first_hash.startswith("scrypt$16384$")
+    assert first_hash.startswith("scrypt$16384$8$5$")
     assert first_hash != second_hash
     assert verify_password("password123", first_hash) is True
     assert verify_password("wrong-password", first_hash) is False
     assert verify_password("password123", "") is False
     assert verify_password("password123", "bcrypt$anything") is False
     assert verify_password("password123", first_hash[:-1]) is False
+    assert password_needs_rehash(first_hash) is False
+
+
+def test_legacy_password_hash_is_rehashed_only_after_successful_authentication(db_session):
+    salt = bytes.fromhex("00112233445566778899aabbccddeeff")
+    legacy_digest = hashlib.scrypt(b"password123", salt=salt, n=16384, r=8, p=1, dklen=32)
+    legacy_hash = f"scrypt$16384$8$1${salt.hex()}${legacy_digest.hex()}"
+    user = create_user(db_session, "admin", "password123", "admin")
+    user.password_hash = legacy_hash
+    db_session.commit()
+
+    assert authenticate(db_session, "admin", "wrong-password") is None
+    db_session.refresh(user)
+    assert user.password_hash == legacy_hash
+
+    assert authenticate(db_session, "admin", "password123") == user
+    db_session.refresh(user)
+    assert user.password_hash.startswith("scrypt$16384$8$5$")
+    assert verify_password("password123", user.password_hash) is True
+
+
+def test_extreme_scrypt_parameters_are_rejected_before_hashing(monkeypatch):
+    called = False
+
+    def unexpected_scrypt(*args, **kwargs):
+        nonlocal called
+        called = True
+        raise AssertionError("scrypt must not run")
+
+    monkeypatch.setattr(hashlib, "scrypt", unexpected_scrypt)
+
+    extreme = "scrypt$1048576$8$1$00112233445566778899aabbccddeeff$" + "00" * 32
+    assert verify_password("password123", extreme) is False
+    assert called is False
 
 
 def test_new_user_validation_normalizes_names_and_rejects_invalid_input(db_session):

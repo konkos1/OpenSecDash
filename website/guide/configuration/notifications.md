@@ -45,6 +45,11 @@ The SMTP password is stored encrypted in the database. See
 [Secrets are encrypted at rest](./settings.md#secrets-are-encrypted-at-rest)
 for how OpenSecDash manages setting encryption keys.
 
+STARTTLS and SSL/TLS use the system trust store (plus the optional custom CA file)
+and verify the SMTP certificate and hostname. The unencrypted mode remains available
+for existing local relays, but Settings shows a warning because message contents and
+credentials then cross the network without transport encryption.
+
 ## Test the configuration
 
 Use **Send test** on the Notifications page after saving the settings. The test

@@ -81,3 +81,33 @@ def test_custom_range_uses_url_boundaries(monkeypatch, db_session):
 
     assert captured["event_time_from"] == datetime(2026, 7, 1, 0, 0)
     assert captured["event_time_to"] == datetime(2026, 7, 2, 0, 0)
+
+
+def test_event_pages_default_missing_or_empty_range_to_24_hours(monkeypatch, db_session):
+    db_session.add(Setting(key="plugin.traefik_log.enabled", value="true"))
+    db_session.commit()
+    now = datetime(2026, 7, 12, 12, 0, tzinfo=UTC)
+    monkeypatch.setattr(tables, "utc_now", lambda: now)
+    captured: dict[str, Any] = {}
+    monkeypatch.setattr(pages, "apply_event_filters", lambda query, filters: captured.update(filters) or query)
+    monkeypatch.setattr(pages, "render", lambda request, db, template, **context: context)
+
+    pages.events_page(cast(Any, _request()), db=db_session)
+    assert captured["event_time_from"] == datetime(2026, 7, 11, 12, 0)
+
+    pages.events_page(cast(Any, _request()), range="", db=db_session)
+    assert captured["event_time_from"] == datetime(2026, 7, 11, 12, 0)
+
+
+def test_explicit_all_time_range_is_saved_and_unbounded(monkeypatch, db_session):
+    db_session.add(Setting(key="plugin.traefik_log.enabled", value="true"))
+    db_session.commit()
+    captured: dict[str, Any] = {}
+    monkeypatch.setattr(pages, "apply_event_filters", lambda query, filters: captured.update(filters) or query)
+    monkeypatch.setattr(pages, "render", lambda request, db, template, **context: context)
+
+    context = cast(dict[str, Any], pages.events_page(cast(Any, _request()), range="all", db=db_session))
+
+    assert captured["event_time_from"] is None
+    assert context["filters"]["range"] == "all"
+    assert db_session.query(Setting).filter(Setting.key == "ui.time_range").one().value == "all"

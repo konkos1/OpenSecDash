@@ -19,6 +19,17 @@ not add those rules to the public remote ruleset until that app release is avail
 older apps would reject the entire remote ruleset. After release, keep both files in
 sync.
 
+The public ruleset also has a release-pinned SHA-256 manifest:
+
+```text
+website/public/rules/insights-rules-v1.sha256.json
+```
+
+After every public ruleset change, update the manifest digest with
+`shasum -a 256 website/public/rules/insights-rules.json`, set a reviewed future
+expiry date, and test both files together. OpenSecDash rejects a missing, expired, or
+mismatching manifest before importing any remote rules.
+
 ## Top-level structure
 
 ```json
@@ -168,14 +179,18 @@ After editing rules, run:
 
 ```bash
 cd backend
-uv run pytest -q
-uv run pyright ../backend/app ../backend/tests ../plugins
+uv lock --check
+uv sync --frozen --group dev
+.venv/bin/python -m pytest tests/ -q
+.venv/bin/pyright --pythonversion 3.13 app tests ../plugins
 ```
 
 Then build the website to verify the public JSON is included:
 
 ```bash
 cd website
+npm ci
+npm run audit:ci
 npm run docs:build
 ```
 
@@ -183,4 +198,5 @@ The built file should exist at:
 
 ```text
 website/.vitepress/dist/rules/insights-rules.json
+website/.vitepress/dist/rules/insights-rules-v1.sha256.json
 ```

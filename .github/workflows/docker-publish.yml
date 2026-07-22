@@ -20,20 +20,68 @@ jobs:
   docker:
     name: Build and publish Docker image
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.13"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+        with:
+          version: "0.11.23"
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Audit locked Python runtime dependencies
+        working-directory: backend
+        run: |
+          uv lock --check
+          uv sync --frozen --group dev
+          uv export --quiet --frozen --no-dev --no-emit-project --output-file runtime-requirements.txt
+          uv run --frozen pip-audit --requirement runtime-requirements.txt --format json --output ../pip-audit.json
+
+      - name: Setup Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Audit website build dependencies
+        working-directory: website
+        run: |
+          npm ci --no-audit
+          npm run audit:ci
+          npm audit --package-lock-only --json > ../npm-audit.json || true
+
+      - name: Run backend, migration, website, and Tailwind release gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-gate-reports
+          cd backend
+          .venv/bin/python -m pytest tests/ -q --junitxml=../release-gate-reports/pytest.xml
+          .venv/bin/pyright --pythonversion 3.13 app tests ../plugins \
+            > ../release-gate-reports/pyright.txt
+          scratch_dir="$(mktemp -d)"
+          trap 'rm -rf "${scratch_dir}"' EXIT
+          DATABASE_URL="sqlite:///${scratch_dir}/alembic.db" .venv/bin/alembic upgrade head
+          DATABASE_URL="sqlite:///${scratch_dir}/alembic.db" .venv/bin/alembic heads
+          DATABASE_URL="sqlite:///${scratch_dir}/alembic.db" .venv/bin/alembic check
+          npx -y tailwindcss@3.4.17 -c tailwind.config.js \
+            -i tailwind.input.css -o app/static/css/tailwind.css --minify
+          git diff --exit-code app/static/css/tailwind.css
+          cd ../website
+          npm run docs:build
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v4
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
 
       - name: Resolve app version
         id: version
@@ -49,7 +97,7 @@ jobs:
 
       - name: Docker metadata
         id: meta
-        uses: docker/metadata-action@v6
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
         with:
           images: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}
           tags: |
@@ -60,15 +108,163 @@ jobs:
           labels: |
             org.opencontainers.image.version=${{ steps.version.outputs.version }}
 
-      - name: Build and push
-        uses: docker/build-push-action@v7
+      - name: Build first cold-cache image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
         with:
           context: .
           file: docker/Dockerfile
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          load: true
+          no-cache: true
+          tags: opensecdash:release-candidate-a
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             OPENSECDASH_VERSION=${{ steps.version.outputs.version }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+
+      - name: Build second cold-cache image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: .
+          file: docker/Dockerfile
+          load: true
+          no-cache: true
+          tags: opensecdash:release-candidate-b
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            OPENSECDASH_VERSION=${{ steps.version.outputs.version }}
+
+      - name: Verify image package reproducibility and lock versions
+        run: |
+          docker run --rm --entrypoint python opensecdash:release-candidate-a -c 'import importlib.metadata as m, json; print(json.dumps(sorted(({"name": d.metadata["Name"], "version": d.version} for d in m.distributions()), key=lambda item: item["name"].lower())))' > image-packages-a.json
+          docker run --rm --entrypoint python opensecdash:release-candidate-b -c 'import importlib.metadata as m, json; print(json.dumps(sorted(({"name": d.metadata["Name"], "version": d.version} for d in m.distributions()), key=lambda item: item["name"].lower())))' > image-packages-b.json
+          diff -u image-packages-a.json image-packages-b.json
+          python docker/verify-image-packages.py backend/uv.lock image-packages-a.json
+
+      - name: Run resource-bounded system profiles against release candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          report_dir="$(pwd)/release-gate-reports"
+          runner_user="$(id -u):$(id -g)"
+          docker run --rm --user "${runner_user}" --memory 512m --cpus 1 \
+            --entrypoint python -v "${report_dir}:/reports" \
+            opensecdash:release-candidate-a \
+            -m tests.performance.event_search_benchmark --events 0 \
+            --iterations 5 --default-range 24h --enforce-gates \
+            --output /reports/profile-fresh.json
+          docker run --rm --user "${runner_user}" --memory 512m --cpus 1 \
+            --entrypoint python -v "${report_dir}:/reports" \
+            opensecdash:release-candidate-a \
+            -m tests.performance.event_search_benchmark --events 10000 \
+            --iterations 5 --default-range 24h --enforce-gates \
+            --output /reports/profile-small.json
+          docker run --rm --user "${runner_user}" --memory 1g --cpus 2 \
+            --entrypoint python -v "${report_dir}:/reports" \
+            opensecdash:release-candidate-a \
+            -m tests.performance.event_search_benchmark --events 1000000 \
+            --iterations 5 --default-range 24h --enforce-gates \
+            --output /reports/profile-large.json
+          docker run --rm --user "${runner_user}" --memory 1g --cpus 2 \
+            --entrypoint python -v "${report_dir}:/reports" \
+            opensecdash:release-candidate-a \
+            -m tests.performance.upgrade_benchmark --events 10000 \
+            --enforce-gates --output /reports/profile-upgrade.json
+
+      - name: Smoke test hardened image with scratch storage
+        shell: bash
+        run: |
+          set -euo pipefail
+          cleanup() {
+            docker rm -f opensecdash-release-smoke >/dev/null 2>&1 || true
+            docker volume rm opensecdash-release-smoke >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          docker volume create opensecdash-release-smoke
+          docker run --rm --user root --entrypoint sh \
+            -v opensecdash-release-smoke:/data \
+            opensecdash:release-candidate-a \
+            -c 'touch /data/root-owned && chown root:root /data/root-owned'
+          docker run -d --name opensecdash-release-smoke \
+            --read-only \
+            --tmpfs /tmp:size=16m,mode=1777 \
+            --security-opt no-new-privileges:true \
+            --cap-drop ALL --cap-add CHOWN --cap-add SETGID --cap-add SETUID \
+            --pids-limit 256 --memory 1g --cpus 2 \
+            -p 127.0.0.1:18765:8000 \
+            -v opensecdash-release-smoke:/data \
+            opensecdash:release-candidate-a
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:18765/ready >/dev/null; then
+              break
+            fi
+            if [[ "${attempt}" == "30" ]]; then
+              docker logs opensecdash-release-smoke
+              exit 1
+            fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:18765/health >/dev/null
+          curl --fail --silent http://127.0.0.1:18765/ready >/dev/null
+          curl --fail --silent http://127.0.0.1:18765/static/css/app.css >/dev/null
+          docker exec opensecdash-release-smoke sh -c \
+            'test "$(awk "/^Uid:/ {print \$2}" /proc/1/status)" != "0" && test "$(stat -c %U /data/root-owned)" = "opensecdash"'
+          docker exec --user opensecdash opensecdash-release-smoke sh -c \
+            'touch /data/write-test && touch /tmp/write-test && ! touch /app/rootfs-write-test'
+          docker logs opensecdash-release-smoke 2>&1 | grep -Eq 'Starting [0-9]+ plugin task groups'
+
+      - name: Generate SPDX SBOM
+        uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
+        with:
+          image: opensecdash:release-candidate-a
+          format: spdx-json
+          output-file: opensecdash.spdx.json
+          upload-artifact: false
+
+      - name: Scan image for fixable high and critical vulnerabilities
+        id: trivy
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: v0.70.0
+          image-ref: opensecdash:release-candidate-a
+          format: json
+          output: trivy-report.json
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+
+      - name: Upload supply-chain reports
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: supply-chain-reports-${{ github.sha }}
+          path: |
+            image-packages-a.json
+            image-packages-b.json
+            npm-audit.json
+            opensecdash.spdx.json
+            pip-audit.json
+            release-gate-reports/
+            trivy-report.json
+          if-no-files-found: warn
+
+      - name: Enforce container vulnerability gate
+        if: steps.trivy.outcome != 'success'
+        run: |
+          echo "Fixable high or critical container vulnerabilities block publication."
+          exit 1
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Publish verified image
+        env:
+          IMAGE_TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          while IFS= read -r tag; do
+            docker tag opensecdash:release-candidate-a "${tag}"
+            docker push "${tag}"
+          done <<< "${IMAGE_TAGS}"

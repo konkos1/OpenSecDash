@@ -60,7 +60,7 @@
     {% if filters.insight_type %}<input type="hidden" name="insight_type" value="{{ filters.insight_type }}">{% endif %}
     <input type="hidden" name="snapshot_before" value="{{ filters.snapshot_before or '' }}" data-snapshot-before>
     <div class="field-help sm:col-span-2 lg:col-span-2" style="position:relative">
-      <input class="input" name="q" value="{{ filters.q or '' }}" placeholder="{{ t('events.search_placeholder') }}">
+      <input class="input" name="q" value="{{ filters.q or '' }}" maxlength="256" placeholder="{{ t('events.search_placeholder') }}">
       <button type="button" class="help" style="position:absolute;right:.45rem;top:.95rem;margin-left:0;z-index:5" data-tooltip="{{ t('events.search_help') }}">?</button>
     </div>
     <div class="field-help" style="position:relative">
@@ -80,13 +80,17 @@
     <label class="flex items-center gap-2 text-sm lg:col-span-1">
       <span>{{ t("events.time_range") }}</span>
       <select class="input" name="range">
-        <option value="">{{ t("events.range_all") }}</option>
+        <option value="all" {% if filters.range == "all" %}selected{% endif %}>{{ t("events.range_all") }}</option>
         <option value="1h" {% if filters.range == "1h" %}selected{% endif %}>{{ t("events.range_1h") }}</option>
         <option value="24h" {% if filters.range == "24h" %}selected{% endif %}>{{ t("events.range_24h") }}</option>
         <option value="7d" {% if filters.range == "7d" %}selected{% endif %}>{{ t("events.range_7d") }}</option>
         <option value="30d" {% if filters.range == "30d" %}selected{% endif %}>{{ t("events.range_30d") }}</option>
         <option value="custom" {% if filters.range == "custom" %}selected{% endif %}>{{ t("events.range_custom") }}</option>
       </select>
+    </label>
+    <label class="flex items-center gap-2 text-sm lg:col-span-2">
+      <input type="checkbox" name="include_raw_data" value="true" {% if filters.include_raw_data %}checked{% endif %}>
+      <span>{{ t("events.include_raw_data") }}</span>
     </label>
     <label class="flex items-center gap-2 text-sm lg:col-span-1">
       <input type="checkbox" name="hide_local_ips" value="true" {% if filters.hide_local_ips %}checked{% endif %}>
@@ -138,7 +142,7 @@
     </form>
   </dialog>
 
-  <div id="events-results">
+  <div id="events-results" hx-get="{{ request.url }}" hx-trigger="opensecdash-refresh queue:last" hx-target="this" hx-select="#events-results" hx-swap="outerHTML" hx-sync="this:queue last">
   <div class="card overflow-x-auto responsive-table">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
       <p class="muted text-sm">{{ t("table.limit.events") }}</p>

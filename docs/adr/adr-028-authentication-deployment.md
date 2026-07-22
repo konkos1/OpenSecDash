@@ -1,12 +1,27 @@
 # ADR-028: Authentication & Deployment
 
-> **Implementation status (2026-07-17):** Partially implemented.
+> **Implementation status (2026-07-22):** Partially implemented.
 > Docker-oriented single-container deployment, SQLite, reverse-proxy trust model,
 > proxy-header middleware (X-Forwarded-For/-Proto/-Host/-Port from trusted proxies,
 > configured via OSD_TRUSTED_PROXIES), API-side actions, health/ready endpoints,
 > update checks, and optional internal user management (admin/operator/viewer roles,
 > disabled by default) exist. Internal authentication is bound to an explicitly trusted
-> reverse proxy, HTTPS port 443, and one configured hostname.
+> reverse proxy, HTTPS port 443, and one configured hostname. `/health` is a process-only
+> liveness check; `/ready` performs one read-only database ping after startup and never
+> triggers migrations, seeding, secret rotation, or event maintenance.
+> Update (2026-07-22): route roles are explicit and auditable for Core and plugins;
+> unknown writes fail closed as Admin. Event creation and asset inventory imports are
+> Admin operations. Internal authentication remains disabled by default, with a global
+> warning that unprotected visitors have full access. Password hashes use the bounded
+> OWASP scrypt `N=2^14,r=8,p=5` profile and transparently upgrade the previous profile
+> only after successful authentication. No OIDC, onboarding, or external-identity user
+> provisioning is introduced.
+> Update (2026-07-22): the production image installs Python exclusively from
+> `uv.lock` in a multi-stage build with digest-pinned Python and uv bases. The Compose
+> example uses a read-only root filesystem, a bounded `/tmp`, no-new-privileges,
+> resource/PID limits, and only the capabilities needed to repair `/data` ownership
+> before dropping to the unprivileged app user. Existing named and bind volumes retain
+> this ownership-migration path.
 
 
 

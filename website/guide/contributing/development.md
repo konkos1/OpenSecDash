@@ -4,15 +4,17 @@ Install backend dependencies and run checks:
 
 ```bash
 cd backend
-uv run pytest -q
-uv run pyright ../backend/app ../backend/tests ../plugins
+uv lock --check
+uv sync --frozen --group dev
+.venv/bin/python -m pytest tests/ -q
+.venv/bin/pyright --pythonversion 3.13 app tests ../plugins
 ```
 
 Run the app locally:
 
 ```bash
 cd backend
-uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uv run --frozen uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 To test the Docker image from your working tree, replace `image: konkos1/opensecdash:latest` in your `docker-compose.yml` with `build: { context: ., dockerfile: docker/Dockerfile }` and run `docker compose up -d --build`.
@@ -21,9 +23,30 @@ Run the docs website locally:
 
 ```bash
 cd website
-npm install
+npm ci
+npm run audit:ci
 npm run docs:dev
 ```
+
+The documentation dev and preview servers bind to loopback. The build audit checks
+production dependencies separately and permits a high/critical development finding
+only when `audit-allowlist.json` names the advisory, explains its scope, and has a
+future expiry date. New or expired findings fail CI.
+
+Release images are built twice without a dependency cache. CI compares their complete
+Python package lists, checks FastAPI/Uvicorn/WebSockets against `uv.lock`, audits the
+locked Python runtime and npm build dependencies, generates an SPDX SBOM, and blocks
+publication on fixable high or critical image findings. A temporary vulnerability
+exception must name each CVE/advisory, explain why it is not fixable, limit the affected
+scope, and include an expiry date; exceptions must be reviewed in the workflow rather
+than implemented by globally hiding scanner findings.
+
+The publish workflow also runs the complete backend/security suite, Pyright, Alembic,
+Tailwind, and the documentation build before exercising Fresh, Small, Large, and
+Upgrade profiles inside the release-candidate image. The profile JSON reports enforce
+the documented readiness and search thresholds and are retained with the SBOM and scan
+reports. Local profile commands live in `backend/tests/performance/README.md`; they use
+temporary SQLite databases and must never be pointed at a development database.
 
 Before contributing, read the repository's `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, and CLA notes.
 

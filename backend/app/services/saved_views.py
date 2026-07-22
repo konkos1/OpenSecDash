@@ -15,7 +15,7 @@ VIEW_SCOPES = {"events", "access"}
 MAX_VIEW_NAME_LENGTH = 120
 MAX_FILTER_VALUE_LENGTH = 2048
 MAX_FILTER_LIST_VALUES = 20
-_TIME_RANGES = {"1h", "24h", "7d", "30d", "custom"}
+_TIME_RANGES = {"all", "1h", "24h", "7d", "30d", "custom"}
 
 
 def copy_legacy_views_to_user(db: Session, user_id: int) -> None:
@@ -112,7 +112,7 @@ def validate_view_filters(filters: Mapping[str, object]) -> dict[str, Any]:
         if (value := _integer(filters.get(key))) is not None:
             result[key] = value
 
-    for key in ["show_local_ips", "hide_local_ips"]:
+    for key in ["show_local_ips", "hide_local_ips", "include_raw_data"]:
         if _truthy(filters.get(key)):
             result[key] = True
     return result
@@ -169,7 +169,7 @@ def view_to_query(filters: Mapping[str, object], query_state: Mapping[str, objec
     for filter_key, query_key in [("status_code", "status_code"), ("status_code_min", "status_min"), ("status_code_max", "status_max")]:
         if filter_key in validated:
             params.append((query_key, str(validated[filter_key])))
-    for key in ["show_local_ips", "hide_local_ips"]:
+    for key in ["show_local_ips", "hide_local_ips", "include_raw_data"]:
         if validated.get(key):
             params.append((key, "true"))
     state = view_query_state_from_query((str(key), str(value)) for key, value in (query_state or {}).items())

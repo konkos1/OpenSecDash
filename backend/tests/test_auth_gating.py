@@ -9,6 +9,7 @@ from app.database.dependencies import get_db
 from app.database.base import Base
 from app.main import app
 from app.models.settings import Setting
+from app.models.users import UserSession
 from app.services.auth import create_user
 from app.web import auth as auth_web
 
@@ -71,6 +72,44 @@ def test_auth_gating_keeps_required_paths_public_and_rejects_anonymous_requests(
     response = client.get("/login")
     assert response.status_code == 200
     assert '<html lang="de">' in response.text
+
+
+def test_security_headers_cover_pages_auth_errors_api_static_and_pwa(auth_client):
+    db_session, client = auth_client
+    responses = [
+        client.get("/"),
+        client.get("/settings"),
+        client.get("/missing-page"),
+        client.get("/api/events"),
+        client.get("/static/css/app.css"),
+        client.get("/sw.js"),
+        client.get("/instance/logo", headers={"accept": "application/json"}),
+    ]
+
+    enable_auth(db_session)
+    login = client.get("/login")
+    responses.append(login)
+
+    for response in responses:
+        assert response.headers["x-content-type-options"] == "nosniff"
+        assert response.headers["referrer-policy"] == "no-referrer"
+        assert response.headers["x-frame-options"] == "DENY"
+        assert "frame-ancestors 'none'" in response.headers["content-security-policy"]
+        assert "camera=()" in response.headers["permissions-policy"]
+
+    assert login.headers["cache-control"] == "no-store"
+    assert responses[1].headers["cache-control"] == "no-store"
+    assert "strict-transport-security" not in responses[0].headers
+
+
+def test_auth_disabled_warning_explains_full_access_and_external_protection(auth_client):
+    _, client = auth_client
+
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert "Internal sign-in is disabled." in response.text
+    assert "Every visitor who can reach OpenSecDash has full access" in response.text
 
 
 def test_active_auth_rejects_wrong_proxy_origin_but_keeps_health_public(auth_client):
@@ -303,5 +342,23 @@ def test_authenticated_websocket_requires_the_configured_proxy_origin(auth_clien
     with pytest.raises(WebSocketDisconnect) as exc_info:
         with client.websocket_connect("wss://testserver/ws/events", headers={"x-forwarded-host": "other.example"}):
             pass
+
+    assert exc_info.value.code == 1008
+
+
+def test_authenticated_websocket_closes_after_session_invalidation(auth_client):
+    db_session, client = auth_client
+    enable_auth(db_session)
+    db_session.add(Setting(key="plugin.traefik_log.enabled", value="true"))
+    db_session.commit()
+    client.post("/login", data={"username": "admin", "password": "password123"}, follow_redirects=False)
+
+    with client.websocket_connect("wss://testserver/ws/events") as websocket:
+        assert websocket.receive_json()["type"] == "connected"
+        db_session.query(UserSession).delete()
+        db_session.commit()
+
+        with pytest.raises(WebSocketDisconnect) as exc_info:
+            websocket.receive_json()
 
     assert exc_info.value.code == 1008

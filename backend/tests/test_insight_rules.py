@@ -1,9 +1,12 @@
+import hashlib
+import json
+
+import pytest
+
 from app.models.core import Diagnostic, Insight
 from app.models.settings import Setting
 from app.services.events import store_event
-import pytest
-
-from app.services.insight_rules import RULE_SOURCE_URL, parse_rules, refresh_insight_rules
+from app.services.insight_rules import RULE_MANIFEST_URL, RULE_SOURCE_URL, parse_rules, refresh_insight_rules
 
 
 class _Response:
@@ -13,25 +16,55 @@ class _Response:
     def raise_for_status(self):
         return None
 
-    def json(self):
-        return {
-            "schema_version": 1.1,
-            "ruleset_version": "2026-07-02",
-            "rules": [
-                {
-                    "id": "web.test_probe",
-                    "title": "Test probe",
-                    "description": "Test probe description.",
-                    "level": "medium",
-                    "confidence": 0.7,
-                    "event_types": ["access.error"],
-                    "path_contains_any": ["/test-probe"],
-                    "group_by": "ip",
-                    "window_minutes": 5,
-                    "threshold": 1,
-                }
-            ],
-        }
+    @property
+    def content(self):
+        return json.dumps(
+            {
+                "schema_version": 1.1,
+                "ruleset_version": "2026-07-02",
+                "rules": [
+                    {
+                        "id": "web.test_probe",
+                        "title": "Test probe",
+                        "description": "Test probe description.",
+                        "level": "medium",
+                        "confidence": 0.7,
+                        "event_types": ["access.error"],
+                        "path_contains_any": ["/test-probe"],
+                        "group_by": "ip",
+                        "window_minutes": 5,
+                        "threshold": 1,
+                    }
+                ],
+            },
+            separators=(",", ":"),
+        ).encode()
+
+
+class _ManifestResponse:
+    status_code = 200
+    headers = {}
+
+    def raise_for_status(self):
+        return None
+
+    @property
+    def content(self):
+        return json.dumps(
+            {
+                "schema_version": 1,
+                "path": "/rules/insights-rules.json",
+                "sha256": hashlib.sha256(_Response().content).hexdigest(),
+                "expires": "2099-12-31",
+            }
+        ).encode()
+
+
+def _remote_response(url):
+    if url == RULE_MANIFEST_URL:
+        return _ManifestResponse()
+    assert url == RULE_SOURCE_URL
+    return _Response()
 
 
 def test_default_declarative_rules_create_web_insight(db_session):
@@ -56,9 +89,9 @@ def test_default_declarative_rules_create_web_insight(db_session):
 def test_refresh_insight_rules_uses_hardcoded_source_url(monkeypatch, db_session):
     calls = []
 
-    def fake_get(url, timeout, headers):
+    def fake_get(url, timeout, headers=None):
         calls.append((url, timeout, headers))
-        return _Response()
+        return _remote_response(url)
 
     monkeypatch.setattr("app.services.insight_rules.requests.get", fake_get)
 
@@ -71,8 +104,11 @@ def test_refresh_insight_rules_uses_hardcoded_source_url(monkeypatch, db_session
     assert "remote_version=2026-07-02" in diagnostic.last_error
     assert "bundled=6" in diagnostic.last_error
     assert "remote=1" in diagnostic.last_error
-    assert calls[0][0] == RULE_SOURCE_URL
+    assert calls[0][0] == RULE_MANIFEST_URL
+    assert calls[1][0] == RULE_SOURCE_URL
     assert db_session.query(Setting).filter_by(key="insight_rules.version").one().value == "2026-07-02"
+    stored_hash = db_session.query(Setting).filter_by(key="insight_rules.sha256").one().value
+    assert stored_hash == hashlib.sha256(_Response().content).hexdigest()
 
 
 def _ruleset_diagnostic(db_session):
@@ -82,7 +118,7 @@ def _ruleset_diagnostic(db_session):
 def test_refresh_insight_rules_reports_bundled_only_fallback_on_first_ever_failure(monkeypatch, db_session):
     # No RULE_FETCHED_AT_KEY/RULE_VERSION_KEY yet - a remote fetch has never
     # succeeded, so the fallback is unambiguously "bundled rules only".
-    def fake_get(url, timeout, headers):
+    def fake_get(url, timeout, headers=None):
         raise ConnectionError("network unreachable")
 
     monkeypatch.setattr("app.services.insight_rules.requests.get", fake_get)
@@ -100,11 +136,14 @@ def test_refresh_insight_rules_reports_last_known_good_remote_on_later_failure(m
     # A previous fetch succeeded (version + timestamp already stored); a
     # later failure must say so precisely instead of the ambiguous old
     # "using database/bundled rules" message.
-    monkeypatch.setattr("app.services.insight_rules.requests.get", lambda url, timeout, headers: _Response())
+    monkeypatch.setattr(
+        "app.services.insight_rules.requests.get",
+        lambda url, timeout, headers=None: _remote_response(url),
+    )
     first = refresh_insight_rules(db_session, force=True)
     assert first["status"] == "updated"
 
-    def fake_get_fails(url, timeout, headers):
+    def fake_get_fails(url, timeout, headers=None):
         raise ConnectionError("network unreachable")
 
     monkeypatch.setattr("app.services.insight_rules.requests.get", fake_get_fails)
@@ -119,7 +158,10 @@ def test_refresh_insight_rules_reports_last_known_good_remote_on_later_failure(m
 
 
 def test_refresh_insight_rules_reports_source_versions_from_cache(monkeypatch, db_session):
-    monkeypatch.setattr("app.services.insight_rules.requests.get", lambda url, timeout, headers: _Response())
+    monkeypatch.setattr(
+        "app.services.insight_rules.requests.get",
+        lambda url, timeout, headers=None: _remote_response(url),
+    )
     first = refresh_insight_rules(db_session, force=True)
     assert first["status"] == "updated"
 
@@ -133,6 +175,31 @@ def test_refresh_insight_rules_reports_source_versions_from_cache(monkeypatch, d
     assert "remote_version=2026-07-02" in diagnostic.last_error
     assert "bundled=6" in diagnostic.last_error
     assert "remote=1" in diagnostic.last_error
+
+
+def test_refresh_insight_rules_rejects_ruleset_with_wrong_hash(monkeypatch, db_session):
+    class _WrongHashManifest(_ManifestResponse):
+        @property
+        def content(self):
+            return json.dumps(
+                {
+                    "schema_version": 1,
+                    "path": "/rules/insights-rules.json",
+                    "sha256": "0" * 64,
+                    "expires": "2099-12-31",
+                }
+            ).encode()
+
+    def fake_get(url, timeout, headers=None):
+        return _WrongHashManifest() if url == RULE_MANIFEST_URL else _Response()
+
+    monkeypatch.setattr("app.services.insight_rules.requests.get", fake_get)
+
+    result = refresh_insight_rules(db_session, force=True)
+
+    assert result["status"] == "failed"
+    assert "SHA-256 verification failed" in result["error"]
+    assert db_session.query(Setting).filter_by(key="insight_rules.version").first() is None
 
 
 def test_schema_version_allows_same_major_minor_updates():

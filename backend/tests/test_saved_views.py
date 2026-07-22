@@ -85,6 +85,22 @@ def test_save_view_keeps_validated_route_state_with_engine_filters(db_session):
     assert response.headers["location"] == "/access?status_min=404&range=24h&today=true&snapshot_before=2026-07-12T12%3A00%3A00"
 
 
+def test_saved_view_preserves_explicit_all_range_and_raw_data_opt_in(db_session):
+    response = pages.save_view(
+        cast(Any, _request()),
+        scope="events",
+        name="Raw history",
+        filters="q=marker&include_raw_data=true",
+        return_query="range=all",
+        db=db_session,
+    )
+
+    view = db_session.query(SavedView).one()
+    assert view.filter_json == {"q": "marker", "include_raw_data": True}
+    assert view.query_json == {"range": "all"}
+    assert response.headers["location"] == "/events?q=marker&include_raw_data=true&range=all"
+
+
 def test_saved_views_are_listed_per_scope_and_can_be_deleted(db_session):
     events_view = SavedView(name="Events", scope="events", filter_json={"country": "DE"})
     access_view = SavedView(name="Access", scope="access", filter_json={"status_code_min": 400})

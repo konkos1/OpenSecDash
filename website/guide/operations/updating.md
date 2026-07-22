@@ -11,19 +11,33 @@ docker compose up -d
 
 Database migrations run automatically by default when `AUTO_MIGRATE=true`.
 
+The current image starts as root only long enough to repair ownership on existing
+named or bind-mounted `/data` storage, then runs the app unprivileged. The hardened
+Compose example retains `CHOWN`, `SETUID`, and `SETGID` solely for this upgrade path.
+If a NAS forbids automatic ownership changes, use the documented one-time
+[volume ownership repair](../installation/docker.md#volume-upgrades-and-ownership) after backing
+up `/data`.
+
 For bare-metal installs, pull the repository, update the virtual environment, and restart the systemd service.
 
 ```bash
 cd /opt/opensecdash
 git pull
 cd backend
-.venv/bin/pip install -e .
+uv sync --frozen --no-dev
 sudo systemctl restart opensecdash
 ```
 
 ## Upgrading from v0.3.1 or earlier
 
 The releases after `v0.3.1` add database migrations for notifications, saved views, personal preferences, instance branding, and optional internal users. These migrations run automatically with the default `AUTO_MIGRATE=true` setting. Internal authentication remains disabled until an administrator explicitly enables it, so the upgrade does not create a surprise login requirement.
+
+Remote GeoIP is disabled for new installations. Upgrades keep an existing explicit
+GeoIP setting unchanged. If GeoIP remains enabled, Settings and Diagnostics warn that
+uncached public IPs are sent to `ip-api.com` over unencrypted HTTP; review that data
+flow and disable the plugin if it is not acceptable.
+
+The first start after upgrading an older installation also performs one legacy event-deduplication maintenance pass before the app becomes ready. The pass is implemented inside SQLite and keeps the oldest matching event. A stored maintenance marker makes subsequent starts skip the event-wide scan. If the maintenance pass fails, startup stops and readiness is not reported.
 
 ### CrowdSec breaking change: migrate from `cscli` to LAPI
 

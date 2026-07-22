@@ -1,0 +1,10 @@
+{
+  "advisories": [
+    {
+      "id": "GHSA-fx2h-pf6j-xcff",
+      "expires": "2026-10-31",
+      "scope": "development only",
+      "reason": "VitePress 1.6.4 has no fixed Vite release available. The documentation dev and preview servers bind to loopback only; production serves static output."
+    }
+  ]
+}
