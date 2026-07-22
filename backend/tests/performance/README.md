@@ -1,25 +1,38 @@
-# Event search and WebSocket fan-out benchmarks
+# System validation benchmarks
 
 These release checks are explicit because the million-event fixture is too large for
-the normal unit-test job. Both helpers create their SQLite databases below a temporary
-directory and delete them after the run. They never read `DATABASE_URL` or the
+the normal unit-test job. The helpers create their SQLite databases below temporary
+directories and delete them after the run. They never read `DATABASE_URL` or the
 development database.
 
 Run from `backend/`:
 
 ```bash
 .venv/bin/python -m tests.performance.event_search_benchmark \
-  --events 1000000 --iterations 5 --default-range 24h
+  --events 0 --iterations 5 --default-range 24h --enforce-gates
 .venv/bin/python -m tests.performance.event_search_benchmark \
-  --events 1000000 --iterations 5 --default-range all
+  --events 10000 --iterations 5 --default-range 24h --enforce-gates
+.venv/bin/python -m tests.performance.event_search_benchmark \
+  --events 1000000 --iterations 5 --default-range 24h --enforce-gates
+.venv/bin/python -m tests.performance.upgrade_benchmark \
+  --events 10000 --enforce-gates
 .venv/bin/python -m tests.performance.websocket_fanout_benchmark
 ```
+
+The Docker release workflow runs the same Fresh, Small, Large, and Upgrade profiles
+inside the exact release-candidate image. Fresh and Small use 1 vCPU/512 MiB; Large and
+Upgrade use 2 vCPU/1 GiB. Each profile writes a JSON report, and a failed gate prevents
+image publication.
 
 The search fixture covers three plugins, four event types, paths, public IPs,
 countries, hostnames, ASNs, status codes, 30 days of timestamps, JSON payloads, raw
 lines, and occasional 2 KiB payload values. Every case is warmed once and then run five
-times; the report includes p95, the SQLite query plan, database size, fixture build
-time, connection/first-query startup time, and process peak RSS.
+times; the report includes p50/p95, the SQLite query plan, database size, fixture build
+time, connection/first-query startup time, process peak RSS, 100 serial and 20 parallel
+readiness calls, connection cleanup, and a machine-readable gate result. The upgrade
+profile builds a representative supported legacy schema from the first migration,
+preserves synthetic legacy events, migrates secrets, runs startup maintenance,
+confirms auth remains off, and proves the second start skips the event scan.
 
 ## Results from 2026-07-22
 

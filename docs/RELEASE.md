@@ -29,6 +29,8 @@ uv lock --check
 uv sync --frozen --group dev
 .venv/bin/python -m pytest tests/ -q
 .venv/bin/pyright --pythonversion 3.13 app tests ../plugins
+.venv/bin/alembic heads
+.venv/bin/alembic check
 ```
 
 3. Check dependencies/security status when appropriate:
@@ -43,8 +45,10 @@ npm ci
 npm run audit:ci
 ```
 
-4. Update `README.md` or docs if behavior changed.
-5. Confirm Docker builds locally if packaging changed:
+4. Run the scratch system profiles documented in
+   `backend/tests/performance/README.md`. Never point them at a development database.
+5. Update `README.md` or docs if behavior changed.
+6. Confirm Docker builds locally if packaging changed:
 
 ```bash
 docker build -f docker/Dockerfile -t opensecdash:local .
@@ -58,6 +62,40 @@ compares installed package versions, verifies core packages against `uv.lock`, s
 the image for fixable high/critical OS and Python findings, and generates an SPDX SBOM.
 Review the uploaded audit, package-list, scan, and SBOM artifacts before announcing the
 release. Publication does not proceed when a gate fails.
+
+## Automated release gate
+
+The Docker publish workflow is the authoritative release gate. It runs against the
+tagged commit and the exact release-candidate image:
+
+| Gate | Evidence retained by CI |
+| --- | --- |
+| Unit/integration/security regressions | JUnit report for the complete backend suite |
+| Types and migrations | Pyright output, Alembic upgrade/heads/check |
+| Frontend and documentation | Tailwind reproducibility check and VitePress build |
+| Fresh/Small/Large/Upgrade profiles | JSON p50/p95, size, RSS, readiness, search, migration, and startup reports |
+| Locked dependencies | Python/npm audit reports and two compared image package lists |
+| Image security | SPDX SBOM and Trivy OS/Python report |
+| Runtime container | Hardened named-volume health/ready/static/plugin/shutdown smoke |
+
+Fresh and Small are limited to 1 vCPU/512 MiB. Large and Upgrade are limited to
+2 vCPU/1 GiB. Search publication gates are p95 below 250 ms for initial lists, 750 ms
+for typical terms, and 1,000 ms for no-match searches; serial and parallel readiness
+must remain below 250 ms and must not change the database. Reports are uploaded even
+when a later gate fails.
+
+## Time-bounded release risks
+
+Every exception is reviewed before its expiry. An expired exception blocks release
+until it is removed or explicitly renewed with fresh evidence.
+
+| Risk | Owner | Priority | Expiry/review |
+| --- | --- | --- | --- |
+| Remote Insight authenticity uses the release-pinned SHA-256 manifest rather than an offline signing key. | Release maintainer | P1 | 2026-10-31 |
+| The Vite development server advisory remains in build-only dependencies; docs servers stay loopback-only. | Website maintainer | P1 | 2026-10-31 |
+| JSON Assets cannot completely eliminate DNS rebinding between validation and connect. | Security maintainer | P2 | 2026-10-31 |
+| Alpine/HTMX still require the documented CSP `unsafe-eval`/inline-style exceptions. | Frontend maintainer | P2 | 2026-10-31 |
+| The container entry point starts as root only to repair volume ownership before dropping privileges. | Container maintainer | P2 | 2026-10-31 |
 
 ## Create a release tag
 

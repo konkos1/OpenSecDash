@@ -14,6 +14,21 @@ Minimum for a small homelab instance:
 
 OpenSecDash is lightweight, but storage usage depends on imported event volume, configured retention, and debug/log output.
 
+The release gate exercises these resource profiles against the published container
+shape. They are validation boundaries, not promises for every plugin mix or storage
+device:
+
+| Profile | Events | CPU limit | RAM limit | Expected use |
+| --- | ---: | ---: | ---: | --- |
+| Fresh | 0 | 1 vCPU | 512 MiB | First installation and first start |
+| Small | 10,000 | 1 vCPU | 512 MiB | Typical small homelab |
+| Large | 1,000,000 | 2 vCPU | 1 GiB | Documented large local database |
+| Upgrade | 10,000 synthetic legacy events | 2 vCPU | 1 GiB | Full migration and startup compatibility |
+
+The checks cover startup, read-only readiness, bounded search, migration, and clean
+connection shutdown. Real ingestion rates and plugin memory use still depend on log
+volume and enabled integrations.
+
 As a rough guide, measured on SQLite after `VACUUM` (events plus their indexes and rollups):
 
 | Events currently stored | Approximate database size |

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 import json
 import os
@@ -17,12 +18,15 @@ import resource
 import sqlite3
 import statistics
 import tempfile
+import threading
 import time
 from typing import Any, cast
 
 from sqlalchemy import Table, create_engine, text
 from sqlalchemy.orm import Session
+from sqlalchemy.pool import QueuePool
 
+from app import main as main_module
 from app.models.events import Event
 from app.services.events import apply_event_filters
 
@@ -113,6 +117,14 @@ def _percentile_95(values: list[float]) -> float:
     return statistics.quantiles(values, n=20, method="inclusive")[18]
 
 
+def _timing_summary(values: list[float]) -> dict[str, float]:
+    return {
+        "p50_ms": round(statistics.median(values), 2),
+        "p95_ms": round(_percentile_95(values), 2),
+        "min_ms": round(min(values), 2),
+    }
+
+
 def _benchmark_query(
     session: Session,
     engine,
@@ -137,10 +149,52 @@ def _benchmark_query(
     statement = query().statement.compile(engine, compile_kwargs={"literal_binds": True})
     plan = [row[-1] for row in session.execute(text(f"EXPLAIN QUERY PLAN {statement}"))]
     return {
-        "p95_ms": round(_percentile_95(durations), 2),
-        "min_ms": round(min(durations), 2),
+        **_timing_summary(durations),
         "rows": result_count,
         "query_plan": plan,
+    }
+
+
+def _benchmark_readiness(engine) -> dict[str, Any]:
+    original_engine = main_module.engine
+    main_module.engine = engine
+    try:
+        def ready() -> float:
+            started = time.perf_counter()
+            response = main_module.ready()
+            if response.status_code != 200 or json.loads(bytes(response.body)) != {"status": "ready"}:
+                raise RuntimeError(f"Unexpected readiness response: {response.body!r}")
+            return (time.perf_counter() - started) * 1000
+
+        serial = [ready() for _ in range(100)]
+        with ThreadPoolExecutor(max_workers=20) as executor:
+            parallel = list(executor.map(lambda _: ready(), range(20)))
+    finally:
+        main_module.engine = original_engine
+    return {
+        "serial_100": _timing_summary(serial),
+        "parallel_20": _timing_summary(parallel),
+    }
+
+
+def _release_gates(results: dict[str, Any], readiness: dict[str, Any]) -> dict[str, bool]:
+    query_results = cast(dict[str, dict[str, Any]], results)
+    return {
+        "readiness_serial_p95_under_250_ms": readiness["serial_100"]["p95_ms"] < 250,
+        "readiness_parallel_p95_under_250_ms": readiness["parallel_20"]["p95_ms"] < 250,
+        "events_initial_p95_under_250_ms": query_results["events_initial"]["p95_ms"] < 250,
+        "access_initial_p95_under_250_ms": query_results["access_initial"]["p95_ms"] < 250,
+        "typical_searches_p95_under_750_ms": all(
+            query_results[name]["p95_ms"] < 750
+            for name in (
+                "structured_window",
+                "search_path",
+                "search_hostname",
+                "search_ip",
+                "search_combined",
+            )
+        ),
+        "no_match_p95_under_1000_ms": query_results["search_no_match"]["p95_ms"] < 1_000,
     }
 
 
@@ -182,19 +236,37 @@ def run(event_count: int, iterations: int, default_range: str) -> dict[str, Any]
                 name: _benchmark_query(session, engine, filters, iterations)
                 for name, filters in cases.items()
             }
+        database_before_readiness = database_path.stat().st_size
+        readiness = _benchmark_readiness(engine)
+        database_after_readiness = database_path.stat().st_size
+        checked_out_connections = cast(QueuePool, engine.pool).checkedout()
+        with sqlite3.connect(database_path) as connection:
+            index_bytes = connection.execute(
+                "SELECT coalesce(sum(pgsize), 0) FROM dbstat WHERE name LIKE 'ix_%'"
+            ).fetchone()[0]
         engine.dispose()
 
         rss_divisor = 1024 * 1024 if os.uname().sysname == "Darwin" else 1024
-        return {
+        usage = resource.getrusage(resource.RUSAGE_SELF)
+        report = {
             "events": event_count,
             "database_mib": round(database_mib, 2),
+            "index_mib": round(index_bytes / (1024 * 1024), 2),
             "populate_seconds": round(populate_seconds, 2),
             "startup_ms": round(startup_ms, 2),
-            "peak_rss_mib": round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / rss_divisor, 2),
+            "peak_rss_mib": round(usage.ru_maxrss / rss_divisor, 2),
+            "cpu_seconds": round(usage.ru_utime + usage.ru_stime, 2),
+            "active_threads_after": threading.active_count(),
             "iterations": iterations,
             "default_range": default_range,
             "results": results,
+            "readiness": readiness,
+            "readiness_database_size_unchanged": database_before_readiness == database_after_readiness,
+            "checked_out_connections": checked_out_connections,
         }
+        report["gates"] = _release_gates(results, readiness)
+        report["passed"] = all(report["gates"].values()) and report["readiness_database_size_unchanged"]
+        return report
 
 
 def main() -> None:
@@ -202,12 +274,21 @@ def main() -> None:
     parser.add_argument("--events", type=int, default=DEFAULT_EVENT_COUNT)
     parser.add_argument("--iterations", type=int, default=5)
     parser.add_argument("--default-range", choices=("24h", "all"), default="24h")
+    parser.add_argument("--enforce-gates", action="store_true")
+    parser.add_argument("--output", type=Path)
     arguments = parser.parse_args()
-    if arguments.events < 1:
-        parser.error("--events must be positive")
+    if arguments.events < 0:
+        parser.error("--events must not be negative")
     if arguments.iterations < 1:
         parser.error("--iterations must be positive")
-    print(json.dumps(run(arguments.events, arguments.iterations, arguments.default_range), indent=2))
+    report = run(arguments.events, arguments.iterations, arguments.default_range)
+    serialized = json.dumps(report, indent=2)
+    if arguments.output is None:
+        print(serialized)
+    else:
+        arguments.output.write_text(serialized + "\n", encoding="utf-8")
+    if arguments.enforce_gates and not report["passed"]:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

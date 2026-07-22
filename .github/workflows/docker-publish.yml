@@ -60,6 +60,26 @@ jobs:
           npm run audit:ci
           npm audit --package-lock-only --json > ../npm-audit.json || true
 
+      - name: Run backend, migration, website, and Tailwind release gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-gate-reports
+          cd backend
+          .venv/bin/python -m pytest tests/ -q --junitxml=../release-gate-reports/pytest.xml
+          .venv/bin/pyright --pythonversion 3.13 app tests ../plugins \
+            > ../release-gate-reports/pyright.txt
+          scratch_dir="$(mktemp -d)"
+          trap 'rm -rf "${scratch_dir}"' EXIT
+          DATABASE_URL="sqlite:///${scratch_dir}/alembic.db" .venv/bin/alembic upgrade head
+          DATABASE_URL="sqlite:///${scratch_dir}/alembic.db" .venv/bin/alembic heads
+          DATABASE_URL="sqlite:///${scratch_dir}/alembic.db" .venv/bin/alembic check
+          npx -y tailwindcss@3.4.17 -c tailwind.config.js \
+            -i tailwind.input.css -o app/static/css/tailwind.css --minify
+          git diff --exit-code app/static/css/tailwind.css
+          cd ../website
+          npm run docs:build
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
 
@@ -118,6 +138,36 @@ jobs:
           docker run --rm --entrypoint python opensecdash:release-candidate-b -c 'import importlib.metadata as m, json; print(json.dumps(sorted(({"name": d.metadata["Name"], "version": d.version} for d in m.distributions()), key=lambda item: item["name"].lower())))' > image-packages-b.json
           diff -u image-packages-a.json image-packages-b.json
           python docker/verify-image-packages.py backend/uv.lock image-packages-a.json
+
+      - name: Run resource-bounded system profiles against release candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          report_dir="$(pwd)/release-gate-reports"
+          runner_user="$(id -u):$(id -g)"
+          docker run --rm --user "${runner_user}" --memory 512m --cpus 1 \
+            --entrypoint python -v "${report_dir}:/reports" \
+            opensecdash:release-candidate-a \
+            -m tests.performance.event_search_benchmark --events 0 \
+            --iterations 5 --default-range 24h --enforce-gates \
+            --output /reports/profile-fresh.json
+          docker run --rm --user "${runner_user}" --memory 512m --cpus 1 \
+            --entrypoint python -v "${report_dir}:/reports" \
+            opensecdash:release-candidate-a \
+            -m tests.performance.event_search_benchmark --events 10000 \
+            --iterations 5 --default-range 24h --enforce-gates \
+            --output /reports/profile-small.json
+          docker run --rm --user "${runner_user}" --memory 1g --cpus 2 \
+            --entrypoint python -v "${report_dir}:/reports" \
+            opensecdash:release-candidate-a \
+            -m tests.performance.event_search_benchmark --events 1000000 \
+            --iterations 5 --default-range 24h --enforce-gates \
+            --output /reports/profile-large.json
+          docker run --rm --user "${runner_user}" --memory 1g --cpus 2 \
+            --entrypoint python -v "${report_dir}:/reports" \
+            opensecdash:release-candidate-a \
+            -m tests.performance.upgrade_benchmark --events 10000 \
+            --enforce-gates --output /reports/profile-upgrade.json
 
       - name: Smoke test hardened image with scratch storage
         shell: bash
@@ -194,6 +244,7 @@ jobs:
             npm-audit.json
             opensecdash.spdx.json
             pip-audit.json
+            release-gate-reports/
             trivy-report.json
           if-no-files-found: warn
 

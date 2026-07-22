@@ -16,6 +16,12 @@ Minimum for a small homelab instance:
 
 OpenSecDash is lightweight, but storage usage depends on imported event volume, configured retention, and debug/log output.
 
+Release validation uses 1 vCPU/512 MiB for fresh and 10,000-event profiles, and
+2 vCPU/1 GiB for the 1,000,000-event and upgrade profiles. These checks cover startup,
+read-only readiness, bounded search, migrations, and clean connection shutdown. Real
+ingestion rates and plugin memory use still depend on log volume and enabled
+integrations.
+
 As a rough guide, measured on SQLite after `VACUUM` (events plus their indexes and rollups):
 
 | Events currently stored | Approximate database size |

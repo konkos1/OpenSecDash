@@ -41,6 +41,13 @@ exception must name each CVE/advisory, explain why it is not fixable, limit the 
 scope, and include an expiry date; exceptions must be reviewed in the workflow rather
 than implemented by globally hiding scanner findings.
 
+The publish workflow also runs the complete backend/security suite, Pyright, Alembic,
+Tailwind, and the documentation build before exercising Fresh, Small, Large, and
+Upgrade profiles inside the release-candidate image. The profile JSON reports enforce
+the documented readiness and search thresholds and are retained with the SBOM and scan
+reports. Local profile commands live in `backend/tests/performance/README.md`; they use
+temporary SQLite databases and must never be pointed at a development database.
+
 Before contributing, read the repository's `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, and CLA notes.
 
 If you want to add a new integration, see [Plugin development](./plugin-development.md). For heuristic web-probe detections, see [Contributing insight rules](./insight-rules.md). For UI languages, see [Translations](./translations.md).
