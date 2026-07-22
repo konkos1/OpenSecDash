@@ -11,8 +11,14 @@ from app.database.base import Base
 from app.database.dependencies import get_db
 from app.main import app
 from app.models.settings import Setting
-from app.models.users import User, UserPreference, UserSession
-from app.services.auth import create_session, create_user
+from app.models.users import ExternalIdentity, User, UserPreference, UserSession
+from app.services.auth import (
+    AUTH_METHOD_OIDC,
+    AUTH_METHOD_PASSWORD,
+    create_session,
+    create_user,
+    link_external_identity,
+)
 from app.web import auth as auth_web
 
 
@@ -309,6 +315,24 @@ def test_last_admin_and_self_delete_protections(user_management_client):
     assert db.query(UserPreference).filter(UserPreference.user_id == second_admin.id).count() == 0
 
 
+def test_deleting_a_user_removes_sessions_preferences_and_external_identities(user_management_client):
+    db, client = user_management_client
+    _enable_auth(client)
+    linked_admin = create_user(db, "linkedadmin", "password123", "admin")
+    db.flush()
+    link_external_identity(db, linked_admin.id, "https://idp.example/realms/homelab", "subject-1")
+    create_session(db, linked_admin, AUTH_METHOD_OIDC)
+    db.commit()
+
+    response = client.post(f"/settings/users/{linked_admin.id}/delete", follow_redirects=False)
+
+    assert response.status_code == 303
+    assert db.query(User).filter(User.id == linked_admin.id).first() is None
+    assert db.query(UserSession).filter(UserSession.user_id == linked_admin.id).count() == 0
+    assert db.query(UserPreference).filter(UserPreference.user_id == linked_admin.id).count() == 0
+    assert db.query(ExternalIdentity).filter(ExternalIdentity.user_id == linked_admin.id).count() == 0
+
+
 def test_operator_and_viewer_cannot_manage_users(user_management_client):
     db, client = user_management_client
     _enable_auth(client)
@@ -348,7 +372,7 @@ def test_account_password_change_replaces_sessions(user_management_client):
     db, client = user_management_client
     _enable_auth(client)
     admin = db.query(User).filter(User.username == "admin").one()
-    other_token = create_session(db, admin)
+    other_token = create_session(db, admin, AUTH_METHOD_PASSWORD)
     db.commit()
     other_client = TestClient(app, base_url="https://testserver")
     other_client.cookies.set("osd_session", other_token)

@@ -7,12 +7,14 @@ from app.database.dependencies import get_db
 from app.models.users import User, UserPreference, UserSession
 from app.services.auth import (
     AUTH_HOSTNAME_SETTING,
+    AUTH_METHOD_PASSWORD,
     PASSWORD_MIN_LENGTH,
     ROLES,
     active_admin_count,
     auth_disabled_by_environment,
     create_session,
     create_user,
+    delete_user_external_identities,
     delete_user_sessions,
     hash_password,
     normalize_auth_hostname,
@@ -59,7 +61,7 @@ def enable_authentication(
         user = create_user(db, username, password, "admin")
         save_setting(db, AUTH_HOSTNAME_SETTING, normalized_hostname)
         save_setting(db, "auth.enabled", "true")
-        token = create_session(db, user)
+        token = create_session(db, user, AUTH_METHOD_PASSWORD)
         db.commit()
         response = RedirectResponse("/settings", status_code=303)
         set_session_cookie(response, request, token)
@@ -167,6 +169,7 @@ def delete_managed_user(request: Request, user_id: int, db: Session = Depends(ge
     if user.is_active and user.role == "admin" and active_admin_count(db, exclude_user_id=user.id) == 0:
         return _settings_error("last_admin")
     delete_user_sessions(db, user.id)
+    delete_user_external_identities(db, user.id)
     db.query(UserPreference).filter(UserPreference.user_id == user.id).delete()
     db.delete(user)
     db.commit()

@@ -9,7 +9,7 @@ from app.core.version import get_app_version
 from app.models.core import Diagnostic, Notification, NotificationRule, PluginRecord
 from app.models.saved_views import SavedView
 from app.models.settings import InstanceFile, Setting
-from app.models.users import User, UserPreference, UserSession
+from app.models.users import ExternalIdentity, User, UserPreference, UserSession
 
 
 def test_debug_report_includes_docker_log_hint_when_file_logging_disabled(db_session):
@@ -134,6 +134,40 @@ def test_debug_report_redacts_sensitive_settings_and_log_tail(db_session, tmp_pa
     assert "Dashboard layouts: 1" in ui_state
     assert "Private investigation" not in ui_state
     assert '"country": "DE"' not in ui_state
+
+
+def test_debug_report_aggregates_external_identities_without_issuers_or_subjects(db_session):
+    issuer = "https://idp.example/realms/homelab"
+    db_session.add_all(
+        [
+            User(username="local-admin", password_hash="password-hash", role="admin", is_active=True),
+            User(username="oidc-viewer", password_hash=None, role="viewer", is_active=True),
+            ExternalIdentity(user_id=2, provider="oidc", issuer=issuer, subject="private-subject"),
+            UserSession(
+                token_hash="a" * 64,
+                user_id=1,
+                expires_at=utc_now().replace(tzinfo=None) + timedelta(days=1),
+                auth_method="password",
+            ),
+            UserSession(
+                token_hash="b" * 64,
+                user_id=2,
+                expires_at=utc_now().replace(tzinfo=None) + timedelta(days=1),
+                auth_method="oidc",
+            ),
+        ]
+    )
+    db_session.commit()
+
+    report = build_debug_report(db_session)
+
+    assert "Users without local password: 1" in report
+    assert "External identities: 1" in report
+    assert "Sessions method password: 1" in report
+    assert "Sessions method oidc: 1" in report
+    assert "external_identities: 1" in report
+    assert issuer not in report
+    assert "private-subject" not in report
 
 
 def test_debug_report_summarizes_environment_without_exposing_proxy_networks(db_session, monkeypatch):

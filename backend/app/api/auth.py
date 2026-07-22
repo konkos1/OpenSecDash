@@ -15,6 +15,7 @@ from app.core.version import get_app_version
 from app.database.dependencies import get_db
 from app.models.users import User, UserPreference
 from app.services.auth import (
+    AUTH_METHOD_PASSWORD,
     PASSWORD_MIN_LENGTH,
     auth_enabled,
     authenticate,
@@ -152,7 +153,7 @@ def login(
         _LOGIN_BACKOFF.pop(_account_backoff_key(username), None)
     cleanup_expired_sessions(db)
     user.last_login_at = utc_now().replace(tzinfo=None)
-    token = create_session(db, user)
+    token = create_session(db, user, AUTH_METHOD_PASSWORD)
     db.commit()
     response = RedirectResponse(safe_local_path(next), status_code=303)
     set_session_cookie(response, request, token)
@@ -243,7 +244,7 @@ def change_password(
 
     user.password_hash = hash_password(new_password)
     delete_user_sessions(db, user.id)
-    token = create_session(db, user)
+    token = create_session(db, user, AUTH_METHOD_PASSWORD)
     db.commit()
     response = RedirectResponse("/account?auth_notice=password_changed", status_code=303)
     set_session_cookie(response, request, token)

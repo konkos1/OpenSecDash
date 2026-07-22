@@ -31,7 +31,7 @@ from app.models.events import Event
 from app.models.saved_views import SavedView
 from app.models.settings import InstanceFile, Setting
 from app.models.systems import System
-from app.models.users import User, UserPreference, UserSession
+from app.models.users import ExternalIdentity, User, UserPreference, UserSession
 from app.services.dashboard_metrics import (
     dashboard_counts_cache,
     dashboard_delta as _dashboard_delta,
@@ -46,7 +46,13 @@ from app.services.notification_channels import get_channel
 from app.services.notifications import invalidate_rules_cache
 from app.services.rollups import combine_rollup_values
 from app.services.saved_views import VIEW_SCOPES, clean_view_name, plugin_views_for_scope, view_filters_from_query, view_query_state_from_query, view_to_query
-from app.services.auth import AUTH_DISABLED_ENV, AUTH_HOSTNAME_SETTING, auth_disabled_by_environment, auth_enabled
+from app.services.auth import (
+    AUTH_DISABLED_ENV,
+    AUTH_HOSTNAME_SETTING,
+    AUTH_METHODS,
+    auth_disabled_by_environment,
+    auth_enabled,
+)
 from app.services.asset_updates import refresh_asset_update
 from app.services.user_preferences import global_preferences, normalize_preferences
 from app.plugins.manager import get_plugin_manager
@@ -1556,6 +1562,18 @@ def _debug_authentication_lines(db: Session) -> list[str]:
     ]
     for role in ("admin", "operator", "viewer"):
         lines.append(_debug_line(f"Users role {role}", db.query(User).filter(User.role == role).count()))
+    # Aggregates only: issuers, subjects and claims never belong in a debug report.
+    lines.append(
+        _debug_line("Users without local password", db.query(User).filter(User.password_hash.is_(None)).count())
+    )
+    lines.append(_debug_line("External identities", db.query(ExternalIdentity).count()))
+    for auth_method in AUTH_METHODS:
+        lines.append(
+            _debug_line(
+                f"Sessions method {auth_method}",
+                db.query(UserSession).filter(UserSession.auth_method == auth_method).count(),
+            )
+        )
     return lines
 
 
@@ -1675,6 +1693,7 @@ def build_debug_report_files(db: Session) -> dict[str, str]:
                 _debug_line("users", db.query(User).count()),
                 _debug_line("user_sessions", db.query(UserSession).count()),
                 _debug_line("user_preferences", db.query(UserPreference).count()),
+                _debug_line("external_identities", db.query(ExternalIdentity).count()),
                 _debug_line("saved_views", db.query(SavedView).count()),
             ],
         ),
