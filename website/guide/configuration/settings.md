@@ -201,8 +201,11 @@ Notes:
 - The special value `-` can be used for country searches to find events without a country value.
 - A search is limited to 256 characters, 32 tokens, and four parenthesis levels. Empty
   terms, incomplete operators, and unterminated quotes are rejected server-side.
-- Plain IP, ASN, HTTP-status, and country searches use their structured columns and
-  indexes. Structured URL filters remain the clearest option for combined filters.
+- Recognized IP, ASN, HTTP-status, and country terms use their structured columns and
+  indexes, including inside boolean expressions and when JSON/raw-data search is
+  enabled. Quotes group terms containing spaces; they do not switch structured terms
+  to substring matching. Structured URL filters remain the clearest option for
+  combined filters.
 
 ## Asset Explorer filters
 

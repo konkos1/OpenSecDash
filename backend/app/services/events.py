@@ -652,24 +652,22 @@ def search_term_condition(
     extra_terms: list[str] | None = None,
     *,
     include_raw_data: bool = False,
-    prefer_structured: bool = True,
 ):
     if not term:
         raise ValueError("Search expression contains an empty term.")
 
-    if not include_raw_data and prefer_structured:
-        try:
-            ipaddress.ip_address(term)
-        except ValueError:
-            pass
-        else:
-            return Event.ip == term
-        if term.isdigit() and 100 <= int(term) <= 599:
-            return Event.status_code == int(term)
-        if (asn := _normalize_asn_filter(term)) is not None:
-            return Event.asn == asn
-        if re.fullmatch(r"[A-Za-z]{2}", term):
-            return Event.country == term.upper()
+    try:
+        ipaddress.ip_address(term)
+    except ValueError:
+        pass
+    else:
+        return Event.ip == term
+    if term.isdigit() and 100 <= int(term) <= 599:
+        return Event.status_code == int(term)
+    if (asn := _normalize_asn_filter(term)) is not None:
+        return Event.asn == asn
+    if re.fullmatch(r"[A-Za-z]{2}", term):
+        return Event.country == term.upper()
 
     conditions = []
     original_pattern = f"%{term}%"
@@ -734,7 +732,6 @@ def build_search_expression(
             token,
             extra_terms_by_term.get(token, []),
             include_raw_data=include_raw_data,
-            prefer_structured=False,
         )
 
     return parse_or()

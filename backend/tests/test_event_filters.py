@@ -142,6 +142,24 @@ def test_search_uses_bound_structured_predicates_for_ip_asn_status_and_country(d
     assert "events.country =" in str(apply_event_filters(db_session.query(Event), {"q": "DE"}))
 
 
+def test_search_keeps_structured_ip_semantics_in_expressions_quotes_and_raw_search(db_session):
+    structured = Event(event_type="security.marker", plugin="crowdsec", ip="198.51.100.10")
+    substring = Event(
+        event_type="security.other",
+        plugin="crowdsec",
+        ip="203.0.113.5",
+        path="/lookup/198.51.100.10/details",
+        raw_data="198.51.100.10",
+    )
+    db_session.add_all([structured, substring])
+    db_session.commit()
+
+    assert _matching_ids(db_session, {"q": "198.51.100.10"}) == [structured.id]
+    assert _matching_ids(db_session, {"q": "198.51.100.10 && 198.51.100.10"}) == [structured.id]
+    assert _matching_ids(db_session, {"q": '"198.51.100.10"'}) == [structured.id]
+    assert _matching_ids(db_session, {"q": "198.51.100.10", "include_raw_data": True}) == [structured.id]
+
+
 def test_whitespace_search_does_not_generate_match_everything_like(db_session):
     query_text = str(apply_event_filters(db_session.query(Event), {"q": "   "}))
 
