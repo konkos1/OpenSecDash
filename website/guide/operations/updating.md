@@ -25,6 +25,8 @@ sudo systemctl restart opensecdash
 
 The releases after `v0.3.1` add database migrations for notifications, saved views, personal preferences, instance branding, and optional internal users. These migrations run automatically with the default `AUTO_MIGRATE=true` setting. Internal authentication remains disabled until an administrator explicitly enables it, so the upgrade does not create a surprise login requirement.
 
+The first start after upgrading an older installation also performs one legacy event-deduplication maintenance pass before the app becomes ready. The pass is implemented inside SQLite and keeps the oldest matching event. A stored maintenance marker makes subsequent starts skip the event-wide scan. If the maintenance pass fails, startup stops and readiness is not reported.
+
 ### CrowdSec breaking change: migrate from `cscli` to LAPI
 
 ::: danger Action required for former `cscli` mode

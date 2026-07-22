@@ -6,9 +6,10 @@ from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import func
+from sqlalchemy import func, text
+from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.gzip import GZipMiddleware
 
@@ -22,7 +23,7 @@ from app.api import action_forms_router, actions_router, assets_router, auth_rou
 from app.database.init_db import init_db
 from app.database.migrations import run_auto_migrations_if_enabled, update_migration_diagnostic
 from app.core.template_context import build_template_context
-from app.database.session import SessionLocal
+from app.database.session import SessionLocal, engine
 from app.core.template_context import get_setting_value
 from app.models.events import Event
 from app.plugins.manager import get_plugin_manager
@@ -204,9 +205,23 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
 
 @app.exception_handler(Exception)
 async def generic_exception_handler(request: Request, exc: Exception):
+    logger.exception(
+        "Unhandled exception for %s %s",
+        request.method,
+        request.url.path,
+        exc_info=(type(exc), exc, exc.__traceback__),
+    )
     if wants_json(request):
         return JSONResponse(status_code=500, content={"detail": "Internal server error"})
-    return render_error_page(request, 500, "error.generic.title", "error.generic.message")
+    try:
+        return render_error_page(request, 500, "error.generic.title", "error.generic.message")
+    except Exception:
+        logger.warning(
+            "Could not render the localized error page for %s %s; returning a minimal response",
+            request.method,
+            request.url.path,
+        )
+        return PlainTextResponse("Internal server error", status_code=500)
 
 
 @app.get("/health")
@@ -215,9 +230,13 @@ def health() -> dict[str, str]:
 
 
 @app.get("/ready")
-def ready() -> dict[str, str]:
-    init_db()
-    return {"status": "ready"}
+def ready() -> JSONResponse:
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1")).scalar_one()
+    except SQLAlchemyError:
+        return JSONResponse(status_code=503, content={"detail": "Service unavailable"})
+    return JSONResponse(content={"status": "ready"})
 
 
 def _websocket_poll_state() -> tuple[bool, int]:

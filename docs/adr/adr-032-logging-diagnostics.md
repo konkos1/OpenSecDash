@@ -1,7 +1,7 @@
 # ADR-032: Logging & Diagnostics
 
-> **Implementation status (2026-07-09):** Implemented.
-> Diagnostics page, plugin/datasource diagnostics, redacted debug reports, logs, and downloadable debug-report ZIP exist.
+> **Implementation status (2026-07-22):** Implemented.
+> Diagnostics page, plugin/datasource diagnostics, redacted debug reports, logs, and downloadable debug-report ZIP exist. OpenSecDash owns one redacting service-console handler; in-process Alembic migrations do not add a competing root handler, while Alembic CLI logging remains available. Unhandled request exceptions are logged once by the app with a traceback and a method/path-only request summary. File logging remains optional and relies on external rotation.
 
 
 

@@ -13,6 +13,10 @@ from app.models.settings import Setting
 logger = logging.getLogger(__name__)
 
 
+EVENT_DEDUPE_MAINTENANCE_KEY = "maintenance.event_dedupe_version"
+EVENT_DEDUPE_MAINTENANCE_VERSION = "1"
+
+
 DEFAULT_SETTINGS = {
     "language": "en",
     "domain": "",
@@ -218,10 +222,23 @@ def init_db() -> None:
         seed_defaults(db)
         encrypt_legacy_plaintext_secrets(db)
         db.commit()
+
+        marker = db.query(Setting).filter(Setting.key == EVENT_DEDUPE_MAINTENANCE_KEY).first()
+        if marker is not None and marker.value == EVENT_DEDUPE_MAINTENANCE_VERSION:
+            return
+
         from app.services.events import cleanup_duplicate_events
 
         deleted = cleanup_duplicate_events(db)
-        if deleted:
-            db.commit()
+        if marker is None:
+            db.add(Setting(key=EVENT_DEDUPE_MAINTENANCE_KEY, value=EVENT_DEDUPE_MAINTENANCE_VERSION))
+        else:
+            marker.value = EVENT_DEDUPE_MAINTENANCE_VERSION
+        db.commit()
+        logger.info(
+            "Completed event deduplication maintenance version %s; removed %d duplicate event(s)",
+            EVENT_DEDUPE_MAINTENANCE_VERSION,
+            deleted,
+        )
     finally:
         db.close()

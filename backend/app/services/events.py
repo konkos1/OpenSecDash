@@ -9,7 +9,8 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from sqlalchemy import String, and_, cast, func, or_
+from sqlalchemy import String, and_, cast, delete, func, or_, select
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.orm import Session
 
 # Re-exported for existing importers; the implementation lives in core so the
@@ -224,66 +225,70 @@ def store_event(db: Session, **values: Any) -> Event:
 
 
 def cleanup_duplicate_events(db: Session) -> int:
-    # Runs on every startup: stream plain column tuples instead of building
-    # a full ORM object per event, so start time doesn't balloon with the
-    # size of the events table.
-    rows = (
-        db.query(
-            Event.id,
-            Event.plugin,
-            Event.event_type,
-            Event.raw_data,
-            Event.event_time,
-            Event.ip,
-            Event.country,
-            Event.hostname,
-            Event.method,
-            Event.path,
-            Event.status_code,
-            Event.asset_id,
-        )
-        .order_by(Event.id.asc())
-        .yield_per(1000)
-    )
-    seen: set[tuple[Any, ...]] = set()
-    duplicate_ids: list[int] = []
-
-    for row in rows:
-        if row.raw_data:
-            key = ("raw", row.plugin, row.event_type, row.raw_data)
-        else:
-            key = (
-                "composite",
-                row.plugin,
-                row.event_type,
-                row.event_time,
-                row.ip,
-                row.country,
-                row.hostname,
-                row.method,
-                row.path,
-                row.status_code,
-                row.asset_id,
+    raw_ranked = (
+        select(
+            Event.id.label("id"),
+            func.row_number()
+            .over(
+                partition_by=(Event.plugin, Event.event_type, Event.raw_data),
+                order_by=Event.id.asc(),
             )
-        if key in seen:
-            duplicate_ids.append(row.id)
-        else:
-            seen.add(key)
+            .label("duplicate_rank"),
+        )
+        .where(Event.raw_data.is_not(None), Event.raw_data != "")
+        .subquery()
+    )
+    composite_ranked = (
+        select(
+            Event.id.label("id"),
+            func.row_number()
+            .over(
+                partition_by=(
+                    Event.plugin,
+                    Event.event_type,
+                    Event.event_time,
+                    Event.ip,
+                    Event.country,
+                    Event.hostname,
+                    Event.method,
+                    Event.path,
+                    Event.status_code,
+                    Event.asset_id,
+                ),
+                order_by=Event.id.asc(),
+            )
+            .label("duplicate_rank"),
+        )
+        .where(or_(Event.raw_data.is_(None), Event.raw_data == ""))
+        .subquery()
+    )
 
-    if not duplicate_ids:
+    raw_result = db.execute(
+        delete(Event)
+        .where(Event.id.in_(select(raw_ranked.c.id).where(raw_ranked.c.duplicate_rank > 1)))
+        .execution_options(synchronize_session=False)
+    )
+    composite_result = db.execute(
+        delete(Event)
+        .where(Event.id.in_(select(composite_ranked.c.id).where(composite_ranked.c.duplicate_rank > 1)))
+        .execution_options(synchronize_session=False)
+    )
+    raw_deleted = raw_result.rowcount if isinstance(raw_result, CursorResult) else 0
+    composite_deleted = composite_result.rowcount if isinstance(composite_result, CursorResult) else 0
+    deleted = (raw_deleted or 0) + (composite_deleted or 0)
+
+    if not deleted:
         return 0
 
-    for start in range(0, len(duplicate_ids), 500):
-        db.query(Event).filter(Event.id.in_(duplicate_ids[start : start + 500])).delete(synchronize_session=False)
     db.query(AggregationDaily).delete(synchronize_session=False)
     db.query(AggregationMonthly).delete(synchronize_session=False)
     db.flush()
 
-    for event in db.query(Event).order_by(Event.id.asc()).all():
+    for event in db.query(Event).order_by(Event.id.asc()).yield_per(1000):
         update_rollups(db, event)
 
-    logger.info("Removed %d duplicate events and rebuilt rollups", len(duplicate_ids))
-    return len(duplicate_ids)
+    logger.info("Removed %d duplicate events and rebuilt rollups", deleted)
+    return deleted
 
 
 def rollup_metrics_for_event(event: Event) -> list[tuple[str, str]]:

@@ -1,12 +1,14 @@
 # ADR-028: Authentication & Deployment
 
-> **Implementation status (2026-07-17):** Partially implemented.
+> **Implementation status (2026-07-22):** Partially implemented.
 > Docker-oriented single-container deployment, SQLite, reverse-proxy trust model,
 > proxy-header middleware (X-Forwarded-For/-Proto/-Host/-Port from trusted proxies,
 > configured via OSD_TRUSTED_PROXIES), API-side actions, health/ready endpoints,
 > update checks, and optional internal user management (admin/operator/viewer roles,
 > disabled by default) exist. Internal authentication is bound to an explicitly trusted
-> reverse proxy, HTTPS port 443, and one configured hostname.
+> reverse proxy, HTTPS port 443, and one configured hostname. `/health` is a process-only
+> liveness check; `/ready` performs one read-only database ping after startup and never
+> triggers migrations, seeding, secret rotation, or event maintenance.
 
 
 
