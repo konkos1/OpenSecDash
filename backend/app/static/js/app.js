@@ -797,11 +797,13 @@ function openSecDashLiveMode(initialLive, messages = {}, resultsSelector = null)
             // Horizontal/vertical scroll position across the swap is handled
             // globally for every htmx swap in the app - see htmx:beforeSwap /
             // htmx:afterSwap near the top of this file.
-            htmx.ajax("GET", window.location.href, {
-                target: this.resultsSelector,
-                select: this.resultsSelector,
-                swap: "outerHTML",
-            });
+            const results = document.querySelector(this.resultsSelector);
+            if (!results) {
+                return;
+            }
+            // The result node owns the HTMX request and uses queue:last plus
+            // hx-sync, so a slow response can have at most one follow-up.
+            htmx.trigger(results, "opensecdash-refresh");
         },
 
         freezeSnapshot(existingCutoff = null) {

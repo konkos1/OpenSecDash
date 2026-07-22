@@ -27,9 +27,10 @@ from app.database.session import SessionLocal, engine
 from app.core.template_context import get_setting_value
 from app.models.events import Event
 from app.plugins.manager import get_plugin_manager
+from app.services.auth import AUTH_HOSTNAME_SETTING, auth_enabled, resolve_session
+from app.services.event_broadcaster import EventBroadcaster
 from app.services.insight_rules import refresh_insight_rules
 from app.services.notifications import seed_default_notification_rules
-from app.services.auth import AUTH_HOSTNAME_SETTING, auth_enabled, resolve_session
 from app.web.guards import plugin_enabled_guard
 from app.web.auth import auth_gating_middleware, auth_proxy_error, wants_json, websocket_origin_is_valid
 from app.web.proxy_headers import ProxyHeadersMiddleware
@@ -73,10 +74,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     finally:
         db.close()
     await manager.startup()
+    await _event_broadcaster.start()
     try:
         yield
     finally:
         logger.info("OpenSecDash %s stopping gracefully...", get_app_version())
+        await _event_broadcaster.stop()
         await manager.shutdown()
 
 
@@ -240,13 +243,7 @@ def ready() -> JSONResponse:
 
 
 def _websocket_poll_state() -> tuple[bool, int]:
-    """One poll iteration's DB reads, sharing a single session.
-
-    Runs via ``asyncio.to_thread``: each connected client polls once per
-    second, and these blocking queries must not run on the event loop itself -
-    with a few open tabs that would otherwise add several loop-freezing DB
-    calls every second, exactly when the app is busiest.
-    """
+    """Read the app-wide event state for the in-process broadcaster."""
     db = SessionLocal()
     try:
         enabled = any(
@@ -256,6 +253,9 @@ def _websocket_poll_state() -> tuple[bool, int]:
         return enabled, int(db.query(func.max(Event.id)).scalar() or 0)
     finally:
         db.close()
+
+
+_event_broadcaster = EventBroadcaster(_websocket_poll_state)
 
 
 def _websocket_session_is_valid(websocket: WebSocket, token: str) -> bool:
@@ -279,29 +279,50 @@ async def events_websocket(websocket: WebSocket) -> None:
     if not await asyncio.to_thread(_websocket_session_is_valid, websocket, websocket.cookies.get("osd_session", "")):
         await websocket.close(code=1008)
         return
-    enabled, last_seen_id = await asyncio.to_thread(_websocket_poll_state)
-    if not enabled:
+    await _event_broadcaster.start()
+    notifications = _event_broadcaster.subscribe()
+    state = await _event_broadcaster.current_state()
+    if not state.enabled:
+        _event_broadcaster.unsubscribe(notifications)
         await websocket.close(code=1008)
         return
     await websocket.accept()
+    last_seen_id = state.last_event_id
     await websocket.send_json({"type": "connected", "last_event_id": last_seen_id})
 
+    receive_task = asyncio.create_task(websocket.receive_text())
+    notification_task = asyncio.create_task(notifications.get())
+    next_session_check = asyncio.get_running_loop().time() + 5
     try:
         while True:
-            try:
-                await asyncio.wait_for(websocket.receive_text(), timeout=1)
-            except TimeoutError:
-                pass
+            done, _pending = await asyncio.wait(
+                {receive_task, notification_task},
+                timeout=1,
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            if receive_task in done:
+                receive_task.result()
+                receive_task = asyncio.create_task(websocket.receive_text())
+            if notification_task in done:
+                state = notification_task.result()
+                notification_task = asyncio.create_task(notifications.get())
+                if not state.enabled:
+                    await websocket.close(code=1008)
+                    return
+                if state.last_event_id > last_seen_id:
+                    last_seen_id = state.last_event_id
+                    await websocket.send_json({"type": "events_changed", "last_event_id": last_seen_id})
 
-            enabled, current_id = await asyncio.to_thread(_websocket_poll_state)
-            if not enabled:
-                await websocket.close(code=1008)
-                return
-
-            if current_id > last_seen_id:
-                last_seen_id = current_id
-                await websocket.send_json({"type": "events_changed", "last_event_id": current_id})
+            if asyncio.get_running_loop().time() >= next_session_check:
+                if not await asyncio.to_thread(_websocket_session_is_valid, websocket, websocket.cookies.get("osd_session", "")):
+                    await websocket.close(code=1008)
+                    return
+                next_session_check = asyncio.get_running_loop().time() + 5
     except WebSocketDisconnect:
         return
     except RuntimeError:
         return
+    finally:
+        receive_task.cancel()
+        notification_task.cancel()
+        _event_broadcaster.unsubscribe(notifications)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ipaddress
 import logging
 import re
 import threading
@@ -28,6 +29,12 @@ from app.services.rollups import normalize_rollup_key
 
 
 logger = logging.getLogger(__name__)
+
+# The default 24-hour window keeps the candidate set small, but these limits
+# also protect explicit all-time searches from pathological expressions.
+MAX_SEARCH_LENGTH = 256
+MAX_SEARCH_TOKENS = 32
+MAX_SEARCH_DEPTH = 4
 
 
 def _apply_assumed_timezone(naive_value: datetime, assume_tz: str | None) -> datetime:
@@ -531,8 +538,8 @@ def create_rule_based_insights(db: Session, event: Event) -> None:
 
 
 
-def searchable_event_fields():
-    return [
+def searchable_event_fields(*, include_raw_data: bool = False):
+    fields = [
         Event.id,
         Event.source,
         Event.source_id,
@@ -550,13 +557,16 @@ def searchable_event_fields():
         Event.method,
         Event.status_code,
         Event.path,
-        Event.data_json,
-        Event.raw_data,
         Event.retention_class,
     ]
+    if include_raw_data:
+        fields.extend([Event.data_json, Event.raw_data])
+    return fields
 
 
 def tokenize_search_expression(text: str) -> list[str]:
+    if len(text) > MAX_SEARCH_LENGTH:
+        raise ValueError(f"Search query must be at most {MAX_SEARCH_LENGTH} characters.")
     tokens: list[str] = []
     i = 0
     while i < len(text):
@@ -578,8 +588,12 @@ def tokenize_search_expression(text: str) -> list[str]:
             start = i
             while i < len(text) and text[i] != quote:
                 i += 1
+            if i >= len(text):
+                raise ValueError("Search expression contains an unterminated quote.")
+            if i == start:
+                raise ValueError("Search expression contains an empty term.")
             tokens.append(text[start:i])
-            i += 1 if i < len(text) else 0
+            i += 1
             continue
         start = i
         while i < len(text) and not text[i].isspace() and text[i] not in "()":
@@ -587,13 +601,82 @@ def tokenize_search_expression(text: str) -> list[str]:
                 break
             i += 1
         tokens.append(text[start:i])
-    return [token for token in tokens if token]
+    tokens = [token for token in tokens if token]
+    if len(tokens) > MAX_SEARCH_TOKENS:
+        raise ValueError(f"Search query must contain at most {MAX_SEARCH_TOKENS} tokens.")
+    return tokens
 
 
-def search_term_condition(term: str, extra_terms: list[str] | None = None):
+def validate_search_expression(text: str) -> list[str]:
+    """Validate bounded boolean search syntax and return its tokens."""
+    stripped = text.strip()
+    if not stripped:
+        return []
+    tokens = tokenize_search_expression(stripped)
+    if not tokens:
+        raise ValueError("Search expression contains an empty term.")
+
+    expression_syntax = any(token in {"&&", "||", "(", ")"} for token in tokens)
+    if not expression_syntax:
+        return tokens
+
+    depth = 0
+    expects_term = True
+    for token in tokens:
+        if token == "(":
+            if not expects_term:
+                raise ValueError("Search expression is invalid.")
+            depth += 1
+            if depth > MAX_SEARCH_DEPTH:
+                raise ValueError(f"Search expression nesting may not exceed {MAX_SEARCH_DEPTH} levels.")
+        elif token == ")":
+            if expects_term or depth == 0:
+                raise ValueError("Search expression is invalid.")
+            depth -= 1
+            expects_term = False
+        elif token in {"&&", "||"}:
+            if expects_term:
+                raise ValueError("Search expression is invalid.")
+            expects_term = True
+        else:
+            if not expects_term:
+                raise ValueError("Search expression is invalid.")
+            expects_term = False
+    if expects_term or depth:
+        raise ValueError("Search expression is invalid.")
+    return tokens
+
+
+def search_term_condition(
+    term: str,
+    extra_terms: list[str] | None = None,
+    *,
+    include_raw_data: bool = False,
+    prefer_structured: bool = True,
+):
+    if not term:
+        raise ValueError("Search expression contains an empty term.")
+
+    if not include_raw_data and prefer_structured:
+        try:
+            ipaddress.ip_address(term)
+        except ValueError:
+            pass
+        else:
+            return Event.ip == term
+        if term.isdigit() and 100 <= int(term) <= 599:
+            return Event.status_code == int(term)
+        if (asn := _normalize_asn_filter(term)) is not None:
+            return Event.asn == asn
+        if re.fullmatch(r"[A-Za-z]{2}", term):
+            return Event.country == term.upper()
+
     conditions = []
     original_pattern = f"%{term}%"
-    conditions.extend(cast(field, String).like(original_pattern) for field in searchable_event_fields())
+    conditions.extend(
+        cast(field, String).like(original_pattern)
+        for field in searchable_event_fields(include_raw_data=include_raw_data)
+    )
 
     # event_time is the user-visible time column. If a token looks like a date/time
     # and the UI timezone produced UTC equivalents, match event_time only against
@@ -607,7 +690,12 @@ def search_term_condition(term: str, extra_terms: list[str] | None = None):
     return or_(*conditions)
 
 
-def build_search_expression(tokens: list[str], extra_terms_by_term: dict[str, list[str]] | None = None):
+def build_search_expression(
+    tokens: list[str],
+    extra_terms_by_term: dict[str, list[str]] | None = None,
+    *,
+    include_raw_data: bool = False,
+):
     position = 0
     extra_terms_by_term = extra_terms_by_term or {}
 
@@ -630,7 +718,7 @@ def build_search_expression(tokens: list[str], extra_terms_by_term: dict[str, li
     def parse_factor():
         nonlocal position
         if position >= len(tokens):
-            return search_term_condition("")
+            raise ValueError("Search expression is invalid.")
         token = tokens[position]
         if token == "(":
             position += 1
@@ -640,9 +728,14 @@ def build_search_expression(tokens: list[str], extra_terms_by_term: dict[str, li
             return expression
         if token == ")":
             position += 1
-            return search_term_condition("")
+            raise ValueError("Search expression is invalid.")
         position += 1
-        return search_term_condition(token, extra_terms_by_term.get(token, []))
+        return search_term_condition(
+            token,
+            extra_terms_by_term.get(token, []),
+            include_raw_data=include_raw_data,
+            prefer_structured=False,
+        )
 
     return parse_or()
 
@@ -745,9 +838,24 @@ def apply_event_filters(query, filters: dict[str, Any]):
 
     if filters.get("q"):
         q_text = str(filters["q"]).strip()
-        tokens = tokenize_search_expression(q_text)
-        if any(token in {"&&", "||", "(", ")"} for token in tokens):
-            query = query.filter(build_search_expression(tokens, filters.get("q_utc_terms_by_term", {})))
+        if not q_text:
+            return query
+        tokens = validate_search_expression(q_text)
+        include_raw_data = bool(filters.get("include_raw_data"))
+        if any(token in {"&&", "||", "(", ")"} for token in tokens) or any(quote in q_text for quote in {'"', "'"}):
+            query = query.filter(
+                build_search_expression(
+                    tokens,
+                    filters.get("q_utc_terms_by_term", {}),
+                    include_raw_data=include_raw_data,
+                )
+            )
         else:
-            query = query.filter(search_term_condition(q_text, filters.get("q_utc_terms", [])))
+            query = query.filter(
+                search_term_condition(
+                    q_text,
+                    filters.get("q_utc_terms", []),
+                    include_raw_data=include_raw_data,
+                )
+            )
     return query

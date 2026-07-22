@@ -47,7 +47,8 @@ TIME_RANGE_PRESETS = {
     "7d": timedelta(days=7),
     "30d": timedelta(days=30),
 }
-TIME_RANGE_VALUES = {*TIME_RANGE_PRESETS, "custom"}
+DEFAULT_EVENT_TIME_RANGE = "24h"
+TIME_RANGE_VALUES = {*TIME_RANGE_PRESETS, "all", "custom"}
 
 
 def save_setting(db: Session, key: str, value: str) -> None:

@@ -18,7 +18,7 @@ LOCALES = {
         # Page
         "access.title": "Access",
         "access.search_placeholder": "Search access",
-        "access.search_help": "Searches access fields such as time, IP, host, method, HTTP status, path, and JSON/raw data. Supports &&, || and parentheses, e.g. 2026-06-20 && /.env or (api && 404).",
+        "access.search_help": "Searches structured access fields. Enable raw-data search to include JSON/raw data. Supports &&, ||, parentheses, and quotes; up to 256 characters, 32 tokens, and 4 nesting levels.",
         "access.no_events": "No access events",
         "table.limit.access": "Shows the newest 200 matching access events.",
     },
@@ -38,7 +38,7 @@ LOCALES = {
         # Page
         "access.title": "Access",
         "access.search_placeholder": "In Access suchen",
-        "access.search_help": "Durchsucht Access-Felder wie Zeit, IP, Host, Methode, HTTP-Status, Pfad sowie JSON/Raw-Daten. Unterstützt &&, || und Klammern, z.B. 2026-06-20 && /.env oder (api && 404).",
+        "access.search_help": "Durchsucht strukturierte Access-Felder. Aktiviere die Rohdatensuche für JSON/Raw-Daten. Unterstützt &&, ||, Klammern und Quotes; maximal 256 Zeichen, 32 Tokens und 4 Verschachtelungsebenen.",
         "access.no_events": "Keine Access-Events",
         "table.limit.access": "Zeigt die neuesten 200 passenden Access-Events.",
     },

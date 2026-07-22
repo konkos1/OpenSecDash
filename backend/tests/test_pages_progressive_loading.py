@@ -67,8 +67,8 @@ def test_events_renders_data_on_initial_and_htmx_requests(db_session):
     db_session.add(Event(event_time=datetime(2026, 7, 13, 12), event_type="security.ban", plugin="crowdsec", ip="203.0.113.77", country="ZZ", hostname="h"))
     db_session.commit()
 
-    shell = _html(pages.events_page(_req("/events", hx=False), db=db_session))
-    data = _html(pages.events_page(_req("/events", hx=True), db=db_session))
+    shell = _html(pages.events_page(_req("/events", hx=False), range="all", db=db_session))
+    data = _html(pages.events_page(_req("/events", hx=True), range="all", db=db_session))
 
     _assert_data(shell, marker="203.0.113.77")
     _assert_data(data, marker="203.0.113.77")
@@ -77,7 +77,8 @@ def test_events_renders_data_on_initial_and_htmx_requests(db_session):
 def test_events_initial_request_has_no_deferred_fetch(db_session):
     _enable(db_session, "crowdsec")
     shell = _html(pages.events_page(_req("/events", hx=False, query_string=b"country=ZZ&ip=203.0.113.77"), db=db_session))
-    assert 'hx-get="http://testserver/events' not in shell
+    assert 'hx-trigger="opensecdash-refresh queue:last"' in shell
+    assert 'hx-sync="this:queue last"' in shell
     assert 'id="events-results"' in shell
 
 
@@ -102,7 +103,7 @@ def test_events_mobile_rows_match_access_layout_and_open_long_user_agent(db_sess
     )
     db_session.commit()
 
-    html = _html(pages.events_page(_req("/events", hx=False), db=db_session))
+    html = _html(pages.events_page(_req("/events", hx=False), range="all", db=db_session))
 
     assert 'class="card overflow-x-auto responsive-table"' in html
     assert 'data-label="Time"' in html
@@ -199,11 +200,13 @@ def test_access_renders_data_on_initial_and_htmx_requests(db_session):
     db_session.add(Event(event_time=datetime(2026, 7, 13, 12), event_type="access.log", plugin="traefik_log", ip="198.51.100.5", is_local_ip=False))
     db_session.commit()
 
-    shell = _html(routes.access_page(_req("/access", hx=False), db=db_session))
-    data = _html(routes.access_page(_req("/access", hx=True), db=db_session))
+    shell = _html(routes.access_page(_req("/access", hx=False), range="all", db=db_session))
+    data = _html(routes.access_page(_req("/access", hx=True), range="all", db=db_session))
 
     _assert_data(shell, marker="198.51.100.5")
     _assert_data(data, marker="198.51.100.5")
+    assert 'hx-trigger="opensecdash-refresh queue:last"' in shell
+    assert 'hx-sync="this:queue last"' in shell
 
 
 def test_crowdsec_shell_defers_and_data_loads(db_session):

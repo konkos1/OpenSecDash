@@ -57,7 +57,7 @@ from app.services.asset_actions import (
     run_asset_metadata_action,
 )
 from app.services.asset_hosts import asset_last_seen_stale, asset_stale_threshold, matching_event_hostnames, normalize_asset_host, sync_asset_host_events
-from app.services.events import apply_event_filters, is_local_ip_value, tokenize_search_expression
+from app.services.events import MAX_SEARCH_LENGTH, apply_event_filters, is_local_ip_value, validate_search_expression
 from app.web.dashboard import DashboardWidget, apply_layout, collect_dashboard_widgets, dashboard_layout_setting_key, load_dashboard_layout
 from app.web.auth import auth_transport_diagnostics
 from app.web.guards import (
@@ -72,6 +72,7 @@ from app.web.redirects import safe_local_redirect_target
 from app.web.render import render
 from app.web.tables import (
     DEFAULT_EVENTS_COLUMNS,
+    DEFAULT_EVENT_TIME_RANGE,
     asset_links_for_events,
     clean_filter_value,
     clean_time_range,
@@ -592,7 +593,7 @@ def backlog_banner_fragment(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/search")
-def global_search(q: str = "", db: Session = Depends(get_db)):
+def global_search(q: Annotated[str, Query(max_length=MAX_SEARCH_LENGTH)] = "", db: Session = Depends(get_db)):
     search_text = q.strip()
     if events_feature_enabled(db) and _is_ip_or_network(search_text):
         return RedirectResponse(url=f"/ip/{quote(search_text, safe='')}")
@@ -878,7 +879,8 @@ def events_page(
     hostname: str | None = None,
     asset: str | None = None,
     path: str | None = None,
-    q: str | None = None,
+    q: Annotated[str | None, Query(max_length=MAX_SEARCH_LENGTH)] = None,
+    include_raw_data: str | None = None,
     hide_local_ips: str | None = None,
     show_local_ips: str | None = None,
     today: str | None = None,
@@ -902,7 +904,10 @@ def events_page(
         for plugin_id in plugin_registry.ids_with_capability("datasource")
         if is_plugin_enabled(db, plugin_id)
     ]
-    q_tokens = [token for token in tokenize_search_expression(q_value or "") if token not in {"&&", "||", "(", ")"}]
+    try:
+        q_tokens = [token for token in validate_search_expression(q_value or "") if token not in {"&&", "||", "(", ")"}]
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     q_utc_terms_by_term = {token: utc_search_terms_for_ui_time(token, timezone_name) for token in q_tokens}
     today_enabled = today == "true"
     hour_value = int(hour) if hour and hour.isdigit() and 0 <= int(hour) <= 23 else None
@@ -910,11 +915,15 @@ def events_page(
     snapshot_cutoff = parse_snapshot_before(snapshot_before)
     range_value = clean_time_range(range)
     if range is None:
-        range_value = clean_time_range(get_setting_value(db, "ui.time_range", ""))
-    elif range_value:
+        range_value = clean_time_range(get_setting_value(db, "ui.time_range", DEFAULT_EVENT_TIME_RANGE)) or DEFAULT_EVENT_TIME_RANGE
+    elif range_value is None:
+        range_value = DEFAULT_EVENT_TIME_RANGE
+    else:
         save_setting(db, "ui.time_range", range_value)
         db.commit()
     range_start = time_range_start(range_value, from_)
+    if range_value == "custom" and range_start is None:
+        raise HTTPException(status_code=400, detail="Custom time range requires a valid from value.")
     custom_to = parse_snapshot_before(to) if range_value == "custom" else None
     event_time_from = max([value for value in [hour_start, today_start(db) if today_enabled else None, range_start] if value is not None], default=None)
     event_time_to = min([value for value in [hour_end, snapshot_cutoff, custom_to] if value is not None], default=None)
@@ -951,6 +960,7 @@ def events_page(
         "q": q_value,
         "q_utc_terms": utc_search_terms_for_ui_time(q_value, timezone_name),
         "q_utc_terms_by_term": q_utc_terms_by_term,
+        "include_raw_data": include_raw_data == "true",
         "plugins": enabled_event_plugins,
         "hide_local_ips": hide_local_ips == "true",
         "show_local_ips": show_local_ips == "true",
@@ -972,6 +982,7 @@ def events_page(
         "asset": asset or "",
         "path": path or "",
         "q": q or "",
+        "include_raw_data": include_raw_data == "true",
         "hide_local_ips": hide_local_ips == "true",
         "show_local_ips": show_local_ips == "true",
         "today": today_enabled,

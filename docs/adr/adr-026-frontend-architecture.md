@@ -10,6 +10,10 @@
 > block — so first paint is independent of database size. The fetch reuses the same route
 > (the `HX-Request` header selects the data path), so guards and the live WebSocket refresh
 > are unaffected.
+> Update (2026-07-22): one app-wide in-process poller reads the current event ID and
+> fans changes out to WebSocket subscribers. Subscriber queues retain only the latest
+> state, and Events/Access result regions use HTMX `queue:last`/`hx-sync`, limiting each
+> region to one active request and one pending refresh. No external broker is involved.
 > Deviation: charts are rendered as server-side lists, bars, and an SVG world map
 > instead of Chart.js — in line with the "use as little JavaScript as possible"
 > principle.

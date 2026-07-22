@@ -2,7 +2,7 @@ import asyncio
 from typing import Annotated
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
@@ -11,12 +11,13 @@ from app.database.dependencies import get_db
 from app.models.events import Event
 from app.models.saved_views import SavedView
 from app.plugins.manager import get_plugin_manager
-from app.services.events import apply_event_filters, tokenize_search_expression
+from app.services.events import MAX_SEARCH_LENGTH, apply_event_filters, validate_search_expression
 from app.services.saved_views import plugin_views_for_scope, view_filters_from_query, view_to_query
 from app.web.guards import is_plugin_enabled
 from app.web.render import render
 from app.web.tables import (
     DEFAULT_ACCESS_COLUMNS,
+    DEFAULT_EVENT_TIME_RANGE,
     asset_links_for_events,
     clean_filter_value,
     clean_time_range,
@@ -62,7 +63,8 @@ def _saved_view_context(db: Session, request: Request) -> dict[str, object]:
 @router.get("/access")
 def access_page(
     request: Request,
-    q: str | None = None,
+    q: Annotated[str | None, Query(max_length=MAX_SEARCH_LENGTH)] = None,
+    include_raw_data: str | None = None,
     asn: str | None = None,
     hostname: str | None = None,
     asset: str | None = None,
@@ -82,17 +84,24 @@ def access_page(
     q_value = clean_filter_value(q)
     country_in_values = [value for item in (country_in or "").split(",") if (value := clean_filter_value(item))]
     timezone_name = get_setting_value(db, "timezone", "auto")
-    q_tokens = [token for token in tokenize_search_expression(q_value or "") if token not in {"&&", "||", "(", ")"}]
+    try:
+        q_tokens = [token for token in validate_search_expression(q_value or "") if token not in {"&&", "||", "(", ")"}]
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     q_utc_terms_by_term = {token: utc_search_terms_for_ui_time(token, timezone_name) for token in q_tokens}
     today_enabled = today == "true"
     snapshot_cutoff = parse_snapshot_before(snapshot_before)
     range_value = clean_time_range(range)
     if range is None:
-        range_value = clean_time_range(get_setting_value(db, "ui.time_range", ""))
-    elif range_value:
+        range_value = clean_time_range(get_setting_value(db, "ui.time_range", DEFAULT_EVENT_TIME_RANGE)) or DEFAULT_EVENT_TIME_RANGE
+    elif range_value is None:
+        range_value = DEFAULT_EVENT_TIME_RANGE
+    else:
         save_setting(db, "ui.time_range", range_value)
         db.commit()
     range_start = time_range_start(range_value, from_)
+    if range_value == "custom" and range_start is None:
+        raise HTTPException(status_code=400, detail="Custom time range requires a valid from value.")
     custom_to = parse_snapshot_before(to) if range_value == "custom" else None
     local_filter_touched = "local_ip_filter" in request.query_params
     hide_local_default = get_setting_value(db, "plugin.traefik_log.hide_local_ips_default", "false") == "true"
@@ -103,6 +112,7 @@ def access_page(
         "q": q_value,
         "q_utc_terms": utc_search_terms_for_ui_time(q_value, timezone_name),
         "q_utc_terms_by_term": q_utc_terms_by_term,
+        "include_raw_data": include_raw_data == "true",
         "asn": clean_filter_value(asn),
         "hostname": clean_filter_value(hostname),
         "asset": clean_filter_value(asset),
@@ -132,6 +142,7 @@ def access_page(
         active_columns=active_columns,
         columns_setting_action="/access/columns",
         q=q or "",
+        include_raw_data=include_raw_data == "true",
         hide_local_ips=hide_local_enabled,
         show_local_ips=show_local_enabled,
         today=today_enabled,
