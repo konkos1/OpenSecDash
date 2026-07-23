@@ -420,8 +420,11 @@ def validate_discovery_metadata(document: dict[str, Any], discovery_url: str, *,
                 raise OidcConfigurationError("blocked_endpoint") from exc
 
     response_types = document.get("response_types_supported")
+    # OpenSecDash asks for exactly "code", so the provider has to offer that
+    # response type on its own. A hybrid-only entry such as "code id_token"
+    # would pass a substring check here and be refused at the first sign-in.
     if not isinstance(response_types, list) or not any(
-        isinstance(item, str) and "code" in item.split() for item in response_types
+        isinstance(item, str) and item.split() == ["code"] for item in response_types
     ):
         raise OidcConfigurationError("unsupported_flow")
 

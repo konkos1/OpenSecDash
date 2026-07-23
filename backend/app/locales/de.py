@@ -623,7 +623,7 @@ DE = {
     "settings.oidc_error.invalid_issuer": "Der Issuer im Konfigurationsdokument fehlt, ist unsicher oder passt nicht zum gespeicherten Issuer.",
     "settings.oidc_error.blocked_endpoint": "Das Konfigurationsdokument verweist auf eine nicht erlaubte Adresse.",
     "settings.oidc_error.blocked_redirect": "Der Anbieter hat auf eine nicht erlaubte Adresse weitergeleitet.",
-    "settings.oidc_error.unsupported_flow": "Der Anbieter bietet den Authorization-Code-Flow nicht an.",
+    "settings.oidc_error.unsupported_flow": "Der Anbieter bietet den reinen Authorization-Code-Flow (Response Type \"code\") nicht an.",
     "settings.oidc_error.unsupported_algorithms": "Der Anbieter bietet keine sichere asymmetrische ID-Token-Signatur an.",
     "settings.oidc_error.incomplete_config": "Gib Discovery-URL, Client-ID und Client Secret an.",
     "settings.oidc_error.password_login_locked": "Die Passwort-Anmeldung ist deaktiviert. Aktiviere sie wieder, bevor du die Anbieterkonfiguration änderst.",

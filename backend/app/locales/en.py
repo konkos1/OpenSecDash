@@ -623,7 +623,7 @@ EN = {
     "settings.oidc_error.invalid_issuer": "The issuer in the configuration document is missing, unsafe, or does not match the stored one.",
     "settings.oidc_error.blocked_endpoint": "The configuration document points to an address that is not allowed.",
     "settings.oidc_error.blocked_redirect": "The provider redirected to an address that is not allowed.",
-    "settings.oidc_error.unsupported_flow": "The provider does not offer the authorization code flow.",
+    "settings.oidc_error.unsupported_flow": "The provider does not offer the plain authorization code flow (response type \"code\").",
     "settings.oidc_error.unsupported_algorithms": "The provider does not offer a safe asymmetric ID token signature.",
     "settings.oidc_error.incomplete_config": "Enter a discovery URL, a client ID, and a client secret.",
     "settings.oidc_error.password_login_locked": "Password sign-in is disabled. Enable it again before changing the provider configuration.",

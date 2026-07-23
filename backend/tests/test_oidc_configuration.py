@@ -125,6 +125,12 @@ def test_valid_discovery_document_yields_the_issuer():
     assert validate_discovery_metadata(_metadata(), DISCOVERY_URL, resolve=False) == ISSUER
 
 
+def test_a_provider_offering_more_than_the_code_flow_stays_usable():
+    document = _metadata(response_types_supported=["code id_token", "code", "id_token"])
+
+    assert validate_discovery_metadata(document, DISCOVERY_URL, resolve=False) == ISSUER
+
+
 @pytest.mark.parametrize(
     ("overrides", "code"),
     [
@@ -138,6 +144,9 @@ def test_valid_discovery_document_yields_the_issuer():
         ({"userinfo_endpoint": "https://169.254.169.254/userinfo"}, "blocked_endpoint"),
         ({"response_types_supported": ["id_token"]}, "unsupported_flow"),
         ({"response_types_supported": "code"}, "unsupported_flow"),
+        # Hybrid flow only: the provider would refuse the plain code request.
+        ({"response_types_supported": ["code id_token", "id_token token"]}, "unsupported_flow"),
+        ({"response_types_supported": ["codeword"]}, "unsupported_flow"),
         ({"id_token_signing_alg_values_supported": ["HS256", "none"]}, "unsupported_algorithms"),
         ({"id_token_signing_alg_values_supported": []}, "unsupported_algorithms"),
     ],
