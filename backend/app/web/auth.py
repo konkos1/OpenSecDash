@@ -27,7 +27,7 @@ from app.web.templates import templates
 SESSION_COOKIE = "osd_session"
 ROLE_ORDER = {"viewer": 0, "operator": 1, "admin": 2}
 _OPERATIONAL_PATHS = {"/health", "/ready"}
-_PUBLIC_PATHS = {"/login", "/manifest.webmanifest", "/sw.js"}
+_PUBLIC_PATHS = {"/login", "/auth/oidc/login", "/auth/oidc/callback", "/manifest.webmanifest", "/sw.js"}
 _UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 _DEFAULT_ORIGIN_PORTS = {"http": 80, "https": 443}
 _HSTS_VALUE = "max-age=31536000"

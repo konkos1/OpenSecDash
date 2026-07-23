@@ -30,6 +30,12 @@
                 </label>
                 <button class="btn" type="submit">{{ t("auth.login_button") }}</button>
             </form>
+            {% if oidc_enabled %}
+                <div class="mt-5 border-t border-slate-800 pt-5 grid gap-2">
+                    <p class="text-sm text-slate-400">{{ t("auth.oidc_or") }}</p>
+                    <a class="btn text-center" href="/auth/oidc/login?next={{ next|urlencode }}">{{ t("auth.oidc_login_button") }}</a>
+                </div>
+            {% endif %}
         </main>
     </body>
 </html>

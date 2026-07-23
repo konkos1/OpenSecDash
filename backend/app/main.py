@@ -20,7 +20,7 @@ from app.core.version import get_app_version
 
 setup_service_logging()
 
-from app.api import action_forms_router, actions_router, assets_router, auth_router, events_router, instance_router, oidc_settings_router, pages_router, settings_router, users_router
+from app.api import action_forms_router, actions_router, assets_router, auth_router, events_router, instance_router, oidc_auth_router, oidc_settings_router, pages_router, settings_router, users_router
 from app.database.init_db import init_db
 from app.database.migrations import run_auto_migrations_if_enabled, update_migration_diagnostic
 from app.core.template_context import build_template_context
@@ -36,6 +36,7 @@ from app.web.guards import plugin_enabled_guard
 from app.web.auth import auth_gating_middleware, auth_proxy_error, wants_json, websocket_origin_is_valid
 from app.web.proxy_headers import ProxyHeadersMiddleware
 from app.web.body_limit import RequestBodyLimitMiddleware
+from app.web.oidc_state import install_oidc_state_middleware
 from app.web.security_headers import SecurityHeadersMiddleware, apply_security_headers
 from app.web.templates import register_plugin_template_dirs, templates
 
@@ -88,6 +89,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(title="OpenSecDash", version=get_app_version(), lifespan=lifespan)
 
+# Added first, so it sits closest to the routes: only an OIDC route can write
+# the short-lived state cookie, and a request rejected further out never does.
+install_oidc_state_middleware(app)
+
 app.add_middleware(RequestBodyLimitMiddleware, max_bytes=settings.max_request_body_bytes)
 
 # Pages with a few hundred table rows are several hundred KB of HTML; gzip
@@ -103,6 +108,7 @@ app.include_router(assets_router)
 app.include_router(instance_router)
 app.include_router(auth_router)
 app.include_router(users_router)
+app.include_router(oidc_auth_router)
 app.include_router(oidc_settings_router)
 app.include_router(pages_router)
 

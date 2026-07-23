@@ -23,11 +23,13 @@ from app.services.auth import (
     create_session,
     delete_session,
     delete_user_sessions,
+    find_user_external_identity,
     hash_password,
     normalize_username,
     resolve_session,
     verify_password,
 )
+from app.services.oidc import load_config
 from app.services.user_preferences import normalize_preferences
 from app.web.auth import SESSION_COOKIE, set_session_cookie
 from app.web.proxy_headers import PROXY_STATE_PEER_ADDRESS
@@ -46,6 +48,12 @@ _MAX_SOURCE_LOGIN_FAILURES = 100
 _LOGIN_LOCK_SECONDS = 60
 _LOGIN_BACKOFF_TTL_SECONDS = 300
 _MAX_LOGIN_BACKOFF_ENTRIES = 4096
+
+# Only these codes may come back from the OIDC routes as a query parameter, so
+# an arbitrary value can never be turned into a translation lookup.
+OIDC_LOGIN_ERRORS = ("unavailable", "provider_error", "session_expired", "login_failed")
+OIDC_ACCOUNT_ERRORS = ("unavailable", "provider_error", "session_expired", "identity_taken", "other_identity")
+OIDC_ACCOUNT_NOTICES = ("linked", "already_linked")
 
 
 def _login_backoff_key(bucket: str, identity: str) -> str:
@@ -108,6 +116,7 @@ def _record_failed_login(username: str, source_id: str) -> None:
 
 def _login_response(request: Request, db: Session, next_path: str, *, error: bool = False, error_key: str = "auth.login_failed", status_code: int = 200):
     language = get_setting_value(db, "language", "en")
+    oidc_config = load_config(db)
     return templates.TemplateResponse(
         request=request,
         name="login.html",
@@ -118,15 +127,18 @@ def _login_response(request: Request, db: Session, next_path: str, *, error: boo
             "next": safe_local_path(next_path),
             "error": error,
             "error_key": error_key,
+            "oidc_enabled": oidc_config.enabled and oidc_config.complete,
             "app_version": get_app_version(),
         },
     )
 
 
 @router.get("/login")
-def login_page(request: Request, next: str = "/", db: Session = Depends(get_db)):
+def login_page(request: Request, next: str = "/", oidc_error: str = "", db: Session = Depends(get_db)):
     if not auth_enabled(db) or resolve_session(db, request.cookies.get(SESSION_COOKIE, "")) is not None:
         return RedirectResponse("/", status_code=303)
+    if oidc_error in OIDC_LOGIN_ERRORS:
+        return _login_response(request, db, next, error=True, error_key=f"auth.oidc_error.{oidc_error}")
     return _login_response(request, db, next)
 
 
@@ -178,6 +190,9 @@ def account_page(request: Request, db: Session = Depends(get_db)):
     user = getattr(request.state, "user", None)
     if user is None:
         return RedirectResponse("/login", status_code=303)
+    oidc_config = load_config(db)
+    oidc_error = request.query_params.get("oidc_error", "")
+    oidc_notice = request.query_params.get("oidc_notice", "")
     return render(
         request,
         db,
@@ -185,6 +200,13 @@ def account_page(request: Request, db: Session = Depends(get_db)):
         account_user=user,
         auth_error=request.query_params.get("auth_error", ""),
         auth_notice=request.query_params.get("auth_notice", ""),
+        # Only whether a link exists is shown: never the subject, the issuer or
+        # anything else the provider sent.
+        account_has_password=user.password_hash is not None,
+        oidc_available=oidc_config.enabled and oidc_config.complete,
+        oidc_linked=find_user_external_identity(db, user.id) is not None,
+        oidc_error=oidc_error if oidc_error in OIDC_ACCOUNT_ERRORS else "",
+        oidc_notice=oidc_notice if oidc_notice in OIDC_ACCOUNT_NOTICES else "",
     )
 
 

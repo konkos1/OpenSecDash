@@ -46,6 +46,15 @@ MAX_METADATA_BYTES = 256 * 1024
 MAX_REDIRECTS = 3
 METADATA_CACHE_SECONDS = 300
 
+# Providers and OpenSecDash are expected to keep reasonably accurate time. One
+# minute absorbs normal NTP drift without meaningfully widening the window in
+# which an expired ID token is still accepted.
+CLOCK_SKEW_SECONDS = 60
+
+# An ID token subject is the login key, so it is length-limited to the column
+# it is stored in rather than to whatever the provider happens to send.
+MAX_SUBJECT_LENGTH = 255
+
 # Only asymmetric signatures: a symmetric ID token signature would be verifiable
 # with the client secret alone, and "none" is not a signature at all.
 SAFE_ID_TOKEN_ALGORITHMS = frozenset(
@@ -342,13 +351,54 @@ async def load_provider_metadata(
     return metadata
 
 
-def build_oauth_client(config: OidcConfig, metadata: dict[str, Any]) -> StarletteOAuth2App:
+def safe_id_token_algorithms(metadata: dict[str, Any]) -> list[str]:
+    """Return only the advertised ID token algorithms OpenSecDash accepts.
+
+    Authlib verifies the ID token against exactly this list, so filtering here
+    is what actually rejects ``none`` and symmetric signatures - a provider may
+    advertise a safe algorithm next to unsafe ones. An empty result falls back
+    to RS256, which fails closed: a token signed with anything else is refused.
+    """
+    advertised = metadata.get("id_token_signing_alg_values_supported")
+    if not isinstance(advertised, list):
+        return ["RS256"]
+    return [item for item in advertised if isinstance(item, str) and item in SAFE_ID_TOKEN_ALGORITHMS] or ["RS256"]
+
+
+def id_token_claims_options(config: OidcConfig) -> dict[str, dict[str, Any]]:
+    """Return the required ID token claim conditions for the stored provider.
+
+    Issuer and audience are pinned explicitly: Authlib only checks the audience
+    indirectly through ``azp``, which would still accept a token minted for a
+    different client of the same provider.
+    """
+    return {
+        "iss": {"essential": True, "values": [config.issuer]},
+        "aud": {"essential": True, "values": [config.client_id]},
+    }
+
+
+def build_oauth_client(
+    config: OidcConfig,
+    metadata: dict[str, Any],
+    *,
+    transport: httpx.AsyncBaseTransport | None = None,
+) -> StarletteOAuth2App:
     """Build an Authlib client from already validated metadata.
 
     The metadata is passed in instead of a ``server_metadata_url`` so Authlib
     never fetches discovery itself: that fetch would follow redirects without
     running them through the provider URL policy again.
     """
+    client_kwargs: dict[str, Any] = {
+        "scope": OIDC_SCOPE,
+        "code_challenge_method": "S256",
+        "timeout": _timeout(),
+        "follow_redirects": False,
+        "trust_env": False,
+    }
+    if transport is not None:
+        client_kwargs["transport"] = transport
     oauth = OAuth()
     oauth.register(
         name=OIDC_CLIENT_NAME,
@@ -359,13 +409,8 @@ def build_oauth_client(config: OidcConfig, metadata: dict[str, Any]) -> Starlett
         token_endpoint=metadata["token_endpoint"],
         jwks_uri=metadata["jwks_uri"],
         userinfo_endpoint=metadata.get("userinfo_endpoint"),
-        client_kwargs={
-            "scope": OIDC_SCOPE,
-            "code_challenge_method": "S256",
-            "timeout": _timeout(),
-            "follow_redirects": False,
-            "trust_env": False,
-        },
+        id_token_signing_alg_values_supported=safe_id_token_algorithms(metadata),
+        client_kwargs=client_kwargs,
     )
     return cast(StarletteOAuth2App, oauth.create_client(OIDC_CLIENT_NAME))
 

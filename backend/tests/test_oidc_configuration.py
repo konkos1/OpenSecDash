@@ -529,13 +529,13 @@ def test_diagnostics_and_debug_report_stay_sanitized(oidc_client, monkeypatch):
         assert secret not in body
 
 
-def test_phase_two_adds_no_oidc_login_routes(oidc_client):
+def test_sign_in_routes_do_nothing_while_the_provider_is_not_enabled(oidc_client):
     _db, clients = oidc_client
-    paths = set(app.openapi()["paths"])
 
-    assert "/auth/oidc/login" not in paths
-    assert "/auth/oidc/callback" not in paths
-    assert clients["admin"].get("/auth/oidc/login", follow_redirects=False).status_code == 404
+    response = clients["admin"].get("/auth/oidc/login", follow_redirects=False)
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/login?oidc_error=unavailable"
 
 
 def test_provider_metadata_cache_is_invalidated_by_a_configuration_change():
