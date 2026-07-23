@@ -39,7 +39,17 @@ def _set_if_missing(connection: sa.Connection, key: str, value: str) -> None:
 
 
 def upgrade() -> None:
+    """Move the asset update settings of an installation that already has settings.
+
+    A brand-new database is skipped on purpose: it has nothing to move and gets
+    the same defaults from the startup seed moments later. An empty settings
+    table is what identifies a new installation there (see
+    app/database/init_db.py::seed_defaults), so writing here would make every
+    new installation look like an upgrade.
+    """
     connection = op.get_bind()
+    if connection.execute(sa.select(settings.c.key).limit(1)).first() is None:
+        return
     for new_key, old_keys, default in [
         ("asset_updates.github_token", ["plugin.json_assets.github_token", "plugin.assets.github_token", "github_token"], ""),
         ("asset_updates.github_interval", ["plugin.json_assets.github_interval"], "21600"),
