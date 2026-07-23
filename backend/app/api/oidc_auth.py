@@ -56,9 +56,16 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["oidc"])
 
 # Anything the provider or the network can raise on the way to a verified ID
-# token. They all end in the same generic message: the distinction only ever
-# reaches the log, never the browser.
-_PROVIDER_FAILURES = (AuthlibBaseError, JoseError, httpx.HTTPError, ValueError, KeyError)
+# token, including an answer that broke the size limit. They all end in the same
+# generic message: the distinction only ever reaches the log, never the browser.
+_PROVIDER_FAILURES = (
+    AuthlibBaseError,
+    JoseError,
+    httpx.HTTPError,
+    OidcConfigurationError,
+    ValueError,
+    KeyError,
+)
 
 
 def _login_error(code: str) -> RedirectResponse:

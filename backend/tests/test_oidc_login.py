@@ -497,6 +497,28 @@ def test_a_rotated_signing_key_is_accepted_once_the_provider_publishes_it(oidc_a
     assert ACCESS_TOKEN not in "\n".join(setting.value for setting in db.query(Setting).all())
 
 
+@pytest.mark.parametrize("path", ["/token", "/jwks"])
+def test_an_oversized_provider_answer_never_reaches_the_process(oidc_app, provider, monkeypatch, path):
+    db, client = oidc_app
+    answer = provider._handle
+
+    def oversized(request: httpx.Request) -> httpx.Response:
+        if request.url.path == path:
+            return httpx.Response(
+                200,
+                content=b"x" * (oidc.MAX_PROVIDER_RESPONSE_BYTES + 1),
+                headers={"content-type": "application/json"},
+            )
+        return answer(request)
+
+    monkeypatch.setattr(provider, "_handle", oversized)
+
+    response = _login(client, provider)
+
+    assert response.headers["location"] == "/login?oidc_error=provider_error"
+    assert db.query(UserSession).count() == 0
+
+
 def test_only_safe_algorithms_reach_the_token_verification():
     assert safe_id_token_algorithms({"id_token_signing_alg_values_supported": ["none", "HS256", "ES256"]}) == ["ES256"]
     assert safe_id_token_algorithms({"id_token_signing_alg_values_supported": ["none", "HS256"]}) == ["RS256"]

@@ -524,7 +524,9 @@ page, nor the debug report; only stable error codes and exception class names do
 connections verify TLS against the container's own trust store rather than a library
 certificate bundle, so a homelab CA can be trusted through the image or
 `SSL_CERT_FILE`/`SSL_CERT_DIR`; proxy environment variables stay disabled, and there is
-no switch to skip certificate verification.
+no switch to skip certificate verification. The same transport caps every answer Authlib
+reads on its own — token, JWKS, and userinfo — at the size already used for discovery, so
+a broken or hostile provider cannot make the process buffer an unbounded response.
 
 The redirect URL is always `https://<auth.hostname>/auth/oidc/callback`, built from the
 validated hostname instead of a request header. The short-lived transaction state uses a

@@ -49,6 +49,10 @@ CALLBACK_PATH = "/auth/oidc/callback"
 CONNECT_TIMEOUT_SECONDS = 5.0
 READ_TIMEOUT_SECONDS = 5.0
 MAX_METADATA_BYTES = 256 * 1024
+# Token, JWKS and userinfo answers are a few kilobytes in practice. Authlib
+# reads them into memory in one piece, so the same ceiling is enforced in the
+# transport that carries those requests.
+MAX_PROVIDER_RESPONSE_BYTES = 256 * 1024
 MAX_REDIRECTS = 3
 METADATA_CACHE_SECONDS = 300
 
@@ -232,6 +236,64 @@ def _ssl_context() -> ssl.SSLContext:
     keeps proxy environment variables out of provider requests.
     """
     return ssl.create_default_context()
+
+
+class _LimitedStream(httpx.AsyncByteStream):
+    """Yield a provider response only as long as it stays below the limit."""
+
+    def __init__(self, stream: Any, max_bytes: int) -> None:
+        self._stream = stream
+        self._max_bytes = max_bytes
+
+    async def __aiter__(self):
+        total = 0
+        async for chunk in self._stream:
+            total += len(chunk)
+            if total > self._max_bytes:
+                raise OidcConfigurationError("response_too_large")
+            yield chunk
+
+    async def aclose(self) -> None:
+        close = getattr(self._stream, "aclose", None)
+        if close is not None:
+            await close()
+
+
+class _SizeLimitedTransport(httpx.AsyncBaseTransport):
+    """Cap every response Authlib reads on its own.
+
+    Authlib loads the token, JWKS and userinfo answers completely into memory,
+    and neither it nor HTTPX offers a size option at that call. Wrapping the
+    transport is the one place where a broken or hostile provider can be
+    stopped before a huge answer is buffered.
+    """
+
+    def __init__(self, inner: httpx.AsyncBaseTransport, max_bytes: int) -> None:
+        self.inner = inner
+        self.max_bytes = max_bytes
+
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        response = await self.inner.handle_async_request(request)
+        declared = response.headers.get("content-length")
+        if declared is not None and declared.isdigit() and int(declared) > self.max_bytes:
+            await response.aclose()
+            raise OidcConfigurationError("response_too_large")
+        return httpx.Response(
+            status_code=response.status_code,
+            headers=response.headers,
+            stream=_LimitedStream(response.stream, self.max_bytes),
+            extensions=response.extensions,
+            request=request,
+        )
+
+    async def aclose(self) -> None:
+        await self.inner.aclose()
+
+
+def _provider_transport(transport: httpx.AsyncBaseTransport | None = None) -> httpx.AsyncBaseTransport:
+    """Return the size-limited transport used for all requests Authlib makes."""
+    inner = transport if transport is not None else httpx.AsyncHTTPTransport(verify=_ssl_context(), trust_env=False)
+    return _SizeLimitedTransport(inner, MAX_PROVIDER_RESPONSE_BYTES)
 
 
 def _timeout() -> httpx.Timeout:
@@ -471,10 +533,11 @@ def build_oauth_client(
         "timeout": _timeout(),
         "follow_redirects": False,
         "trust_env": False,
-        "verify": _ssl_context(),
+        # The transport carries both the size limit and, for real connections,
+        # the trust store, because HTTPX ignores a client-level ``verify`` once
+        # a transport is supplied.
+        "transport": _provider_transport(transport),
     }
-    if transport is not None:
-        client_kwargs["transport"] = transport
     oauth = OAuth()
     oauth.register(
         name=OIDC_CLIENT_NAME,

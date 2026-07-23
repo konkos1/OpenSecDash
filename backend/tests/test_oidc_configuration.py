@@ -605,32 +605,88 @@ def test_a_homelab_certificate_authority_is_trusted(tmp_path: Path, monkeypatch)
     assert common_name not in bundled
 
 
-def test_provider_connections_verify_against_that_trust_store(monkeypatch):
-    captured: dict[str, object] = {}
-    real_client = httpx.AsyncClient
+def _config(**overrides) -> oidc.OidcConfig:
+    values = {
+        "enabled": True,
+        "discovery_url": DISCOVERY_URL,
+        "client_id": "dashboard-client-1234",
+        "client_secret": "provider-secret",
+        "jit_enabled": False,
+        "issuer": ISSUER,
+    }
+    values.update(overrides)
+    return oidc.OidcConfig(**values)
 
-    def spy(*args, **kwargs):
-        captured.update(kwargs)
+
+def test_provider_connections_verify_against_that_trust_store(monkeypatch):
+    discovery: dict[str, object] = {}
+    connection: dict[str, object] = {}
+    real_client = httpx.AsyncClient
+    real_transport = httpx.AsyncHTTPTransport
+
+    def client_spy(*args, **kwargs):
+        discovery.update(kwargs)
         return real_client(*args, **kwargs)
 
-    monkeypatch.setattr(httpx, "AsyncClient", spy)
-    _fetch(DISCOVERY_URL, lambda request: _json_response(_metadata()))
-    client_kwargs = oidc.build_oauth_client(
-        oidc.OidcConfig(
-            enabled=True,
-            discovery_url=DISCOVERY_URL,
-            client_id="dashboard-client-1234",
-            client_secret="provider-secret",
-            jit_enabled=False,
-            issuer=ISSUER,
-        ),
-        _metadata(),
-    ).client_kwargs
+    def transport_spy(*args, **kwargs):
+        connection.update(kwargs)
+        return real_transport(*args, **kwargs)
 
-    for kwargs in (captured, client_kwargs):
+    monkeypatch.setattr(httpx, "AsyncClient", client_spy)
+    monkeypatch.setattr(httpx, "AsyncHTTPTransport", transport_spy)
+    _fetch(DISCOVERY_URL, lambda request: _json_response(_metadata()))
+    oidc.build_oauth_client(_config(), _metadata())
+
+    # Discovery configures TLS on the client, Authlib's requests on the
+    # transport that carries them.
+    for kwargs in (discovery, connection):
         assert isinstance(kwargs["verify"], ssl.SSLContext)
         # Proxy environment variables stay out of provider requests.
         assert kwargs["trust_env"] is False
+
+
+# --- response size limits --------------------------------------------------
+
+
+def _limited_request(response: httpx.Response) -> httpx.Response:
+    transport = oidc._SizeLimitedTransport(httpx.MockTransport(lambda request: response), oidc.MAX_PROVIDER_RESPONSE_BYTES)
+
+    async def send():
+        async with httpx.AsyncClient(transport=transport) as client:
+            return await client.get(f"{ISSUER}/jwks")
+
+    return asyncio.run(send())
+
+
+def test_authlib_requests_carry_the_response_size_limit():
+    client_kwargs = oidc.build_oauth_client(_config(), _metadata()).client_kwargs
+
+    transport = client_kwargs["transport"]
+
+    assert isinstance(transport, oidc._SizeLimitedTransport)
+    assert transport.max_bytes == oidc.MAX_PROVIDER_RESPONSE_BYTES
+
+
+def test_an_oversized_provider_response_is_stopped():
+    oversized = httpx.Response(200, content=b"x" * (oidc.MAX_PROVIDER_RESPONSE_BYTES + 1))
+
+    assert _error_code(_limited_request, oversized) == "response_too_large"
+
+
+def test_an_oversized_announcement_is_stopped_before_the_body():
+    lying_header = httpx.Response(
+        200,
+        content=b"{}",
+        headers={"content-length": str(oidc.MAX_PROVIDER_RESPONSE_BYTES + 1)},
+    )
+
+    assert _error_code(_limited_request, lying_header) == "response_too_large"
+
+
+def test_a_normal_provider_response_passes_the_limit():
+    allowed = _limited_request(_json_response({"keys": []}))
+
+    assert allowed.json() == {"keys": []}
 
 
 def test_authlib_client_uses_pkce_and_the_openid_scopes():
