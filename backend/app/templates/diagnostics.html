@@ -30,6 +30,28 @@
                 <b class="status-badge status-{{ row.status }}">{{ t("diagnostics.status." ~ row.status) }}</b>
             </div>
         {% endfor %}
+        <div class="flex items-start justify-between gap-4 mt-5 mb-3">
+            <div>
+                <h4 class="font-semibold">{{ t("diagnostics.oidc") }} <button type="button" class="help" data-tooltip="{{ t('diagnostics.oidc_help') }}">?</button></h4>
+            </div>
+            <b class="status-badge status-{{ "healthy" if oidc_transport.enabled else "disabled" }}">{{ t("settings.oidc_active") if oidc_transport.enabled else t("settings.oidc_inactive") }}</b>
+        </div>
+        {% for row in oidc_transport.rows %}
+            <div class="row">
+                <span>{{ t("diagnostics.oidc." ~ row.key) }}<br><small class="muted">{{ t(row.message_key) }}</small></span>
+                <b class="status-badge status-{{ row.status }}">{{ t("diagnostics.status." ~ row.status) }}</b>
+            </div>
+        {% endfor %}
+        {% for flag in oidc_transport.flags %}
+            <div class="row">
+                <span>{{ t("diagnostics.oidc." ~ flag.key) }}</span>
+                <b>{{ t(flag.value_key) }}</b>
+            </div>
+        {% endfor %}
+        <div class="row">
+            <span>{{ t("diagnostics.oidc.identities") }}</span>
+            <b>{{ oidc_transport.identities }}</b>
+        </div>
     </section>
 
     <section class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
