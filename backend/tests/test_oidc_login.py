@@ -15,6 +15,7 @@ from joserfc import jwt
 from joserfc.jwk import KeySet, OctKey, RSAKey
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from starlette.websockets import WebSocketDisconnect
 
 from app.api import auth as auth_api
 from app.api import oidc_auth
@@ -480,6 +481,22 @@ def test_an_unpublished_signing_key_is_rejected(oidc_app, provider):
     assert db.query(UserSession).count() == 0
 
 
+def test_a_rotated_signing_key_is_accepted_once_the_provider_publishes_it(oidc_app, provider):
+    db, client = oidc_app
+    assert _login(client, provider).status_code == 303
+    rotated = RSAKey.generate_key(2048, parameters={"kid": "rotated-key", "use": "sig", "alg": "RS256"})
+    provider.signing_key = rotated
+    provider.published_keys = KeySet([rotated])
+
+    response = _login(client, provider)
+
+    # The key set is read per sign-in, so a rotation needs no restart - and the
+    # tokens of neither sign-in are kept anywhere.
+    assert response.headers["location"] == "/"
+    assert db.query(UserSession).count() == 2
+    assert ACCESS_TOKEN not in "\n".join(setting.value for setting in db.query(Setting).all())
+
+
 def test_only_safe_algorithms_reach_the_token_verification():
     assert safe_id_token_algorithms({"id_token_signing_alg_values_supported": ["none", "HS256", "ES256"]}) == ["ES256"]
     assert safe_id_token_algorithms({"id_token_signing_alg_values_supported": ["none", "HS256"]}) == ["RS256"]
@@ -771,6 +788,23 @@ def test_logout_only_ends_the_local_session(oidc_app, provider):
     assert db.query(UserSession).count() == 0
     assert db.query(ExternalIdentity).count() == 1
     assert db.query(Setting).filter(Setting.key.like("%id_token%")).count() == 0
+
+
+def test_the_event_stream_works_with_a_provider_session_and_closes_after_revocation(oidc_app, provider):
+    db, client = oidc_app
+    save_setting(db, "plugin.traefik_log.enabled", "true")
+    db.commit()
+    _login(client, provider)
+
+    with client.websocket_connect("wss://testserver/ws/events") as websocket:
+        assert websocket.receive_json()["type"] == "connected"
+        db.query(UserSession).delete()
+        db.commit()
+
+        with pytest.raises(WebSocketDisconnect) as exc_info:
+            websocket.receive_json()
+
+    assert exc_info.value.code == 1008
 
 
 def test_password_sign_in_keeps_working_next_to_single_sign_on(oidc_app, provider):

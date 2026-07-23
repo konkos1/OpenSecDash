@@ -103,6 +103,26 @@ The reverse proxy terminates TLS and is responsible for serving a certificate th
 valid for the configured OpenSecDash hostname. The browser validates the certificate;
 OpenSecDash cannot inspect the proxy's server certificate after TLS has been terminated.
 
+## Single sign-on redirect URL
+
+When [single sign-on](../configuration/authentication.md#single-sign-on-oidc) is used,
+the identity provider redirects the browser back to a fixed path on the OpenSecDash
+hostname:
+
+```text
+https://dash.example.com/auth/oidc/callback
+```
+
+OpenSecDash builds this URL from the configured authentication hostname, not from
+`X-Forwarded-Host`, so a wrong or missing forwarded host does not change where the
+provider is told to redirect. Register exactly this URL with the provider, and make sure
+the proxy passes the callback path through unchanged, without stripping the query string
+that carries the provider's response. A mismatch between the registered redirect URL and
+the configured hostname makes the provider reject the sign-in before OpenSecDash sees it.
+
+The OpenSecDash container also has to reach the provider directly and trust its
+certificate; that connection does not go through this reverse proxy.
+
 ## Public exposure
 
 Do not expose OpenSecDash directly to the public internet without an authentication layer. It may display sensitive logs and action controls.

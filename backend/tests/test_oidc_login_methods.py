@@ -23,6 +23,7 @@ from app.services.auth import (
     AUTH_DISABLED_ENV,
     AUTH_METHOD_OIDC,
     AUTH_METHOD_PASSWORD,
+    auth_enabled,
     create_user,
     jit_fallback_username,
     link_external_identity,
@@ -36,6 +37,7 @@ from app.services.oidc import (
     OIDC_ISSUER_SETTING,
     OIDC_JIT_ENABLED_SETTING,
     PASSWORD_LOGIN_ENABLED_SETTING,
+    OidcConfigurationError,
     build_oauth_client,
     effective_password_login_enabled,
     load_config,
@@ -188,6 +190,18 @@ def _oidc_sign_in(client: TestClient, provider: FakeProvider) -> httpx2.Response
     return client.get(f"/auth/oidc/callback?code=provider-code&state={params['state']}", follow_redirects=False)
 
 
+def _oidc_sign_in_outcome(client: TestClient, provider: FakeProvider) -> str:
+    """Run a sign-in that may already fail at the redirect and return where it ended."""
+    start = client.get("/auth/oidc/login", follow_redirects=False)
+    location = start.headers["location"]
+    if not location.startswith("http"):
+        return location
+    params = dict(parse_qsl(urlsplit(location).query))
+    provider.nonce = params["nonce"]
+    callback = client.get(f"/auth/oidc/callback?code=provider-code&state={params['state']}", follow_redirects=False)
+    return callback.headers["location"]
+
+
 def _enable_jit(db) -> None:
     save_setting(db, OIDC_JIT_ENABLED_SETTING, "true")
     db.commit()
@@ -337,6 +351,23 @@ def test_a_passwordless_user_can_never_sign_in_locally(methods_app, provider):
 
 
 # --- effective sign-in methods ---------------------------------------------
+
+
+def test_a_fresh_installation_starts_with_every_switch_at_its_default(tmp_path: Path):
+    engine = create_engine(f"sqlite:///{tmp_path / 'fresh.db'}", connect_args={"check_same_thread": False})
+    Base.metadata.create_all(bind=engine)
+    db = sessionmaker(autocommit=False, autoflush=False, bind=engine)()
+    try:
+        config = load_config(db)
+
+        assert auth_enabled(db) is False
+        assert (config.enabled, config.jit_enabled) == (False, False)
+        assert (config.discovery_url, config.client_id, config.client_secret, config.issuer) == ("", "", "", "")
+        assert effective_password_login_enabled(db) is True
+    finally:
+        db.close()
+        Base.metadata.drop_all(bind=engine)
+        engine.dispose()
 
 
 def test_password_sign_in_stays_the_default(methods_app, provider):
@@ -810,6 +841,47 @@ def test_removing_the_environment_switch_restores_the_stored_state(break_glass, 
     assert load_config(db) == stored
     assert get_setting_value(db, PASSWORD_LOGIN_ENABLED_SETTING, "") == "false"
     assert effective_password_login_enabled(db) is False
+
+
+def _break_provider(provider: FakeProvider, monkeypatch, failure: str) -> None:
+    """Make the configured provider fail the way one real outage class would."""
+    if failure in ("dns", "timeout", "tls", "discovery"):
+        # Which network exception maps to which sanitized code is covered in
+        # test_oidc_configuration.py; here only the effect on sign-in matters.
+        code = "invalid_response" if failure == "discovery" else "unreachable"
+
+        async def failing_metadata(config, **kwargs):
+            raise OidcConfigurationError(code)
+
+        monkeypatch.setattr(oidc_auth, "load_provider_metadata", failing_metadata)
+        return
+
+    broken_path = "/jwks" if failure == "jwks" else "/token"
+
+    def failing_handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == broken_path:
+            return httpx.Response(500, json={})
+        return FakeProvider._handle(provider, request)
+
+    monkeypatch.setattr(provider, "_handle", failing_handler)
+
+
+@pytest.mark.parametrize("failure", ["dns", "timeout", "tls", "discovery", "jwks", "token"])
+def test_emergency_access_recovers_from_every_provider_failure(only_oidc, provider, monkeypatch, failure):
+    db, client, _admin = only_oidc
+    _break_provider(provider, monkeypatch, failure)
+    assert client.post("/auth/logout", follow_redirects=False).status_code == 303
+
+    assert _oidc_sign_in_outcome(client, provider).startswith("/login?oidc_error=")
+    assert _password_sign_in(client).status_code == 403
+
+    monkeypatch.setenv(AUTH_DISABLED_ENV, "true")
+    assert client.post("/settings/auth/password-login/enable", follow_redirects=False).status_code == 303
+    monkeypatch.delenv(AUTH_DISABLED_ENV)
+
+    assert _password_sign_in(client).status_code == 303
+    assert db.query(UserSession).one().auth_method == AUTH_METHOD_PASSWORD
+    assert load_config(db).enabled is True
 
 
 def test_the_last_method_cannot_be_taken_away(methods_app, provider):
