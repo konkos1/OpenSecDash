@@ -15,6 +15,7 @@ from app.core.version import get_app_version
 from app.database.dependencies import get_db
 from app.models.users import User, UserPreference
 from app.services.auth import (
+    AUTH_METHOD_PASSWORD,
     PASSWORD_MIN_LENGTH,
     auth_enabled,
     authenticate,
@@ -22,11 +23,13 @@ from app.services.auth import (
     create_session,
     delete_session,
     delete_user_sessions,
+    find_user_external_identity,
     hash_password,
     normalize_username,
     resolve_session,
     verify_password,
 )
+from app.services.oidc import effective_password_login_enabled, load_config
 from app.services.user_preferences import normalize_preferences
 from app.web.auth import SESSION_COOKIE, set_session_cookie
 from app.web.proxy_headers import PROXY_STATE_PEER_ADDRESS
@@ -45,6 +48,22 @@ _MAX_SOURCE_LOGIN_FAILURES = 100
 _LOGIN_LOCK_SECONDS = 60
 _LOGIN_BACKOFF_TTL_SECONDS = 300
 _MAX_LOGIN_BACKOFF_ENTRIES = 4096
+
+# Only these codes may come back from the OIDC routes as a query parameter, so
+# an arbitrary value can never be turned into a translation lookup.
+OIDC_LOGIN_ERRORS = ("unavailable", "provider_error", "session_expired", "login_failed")
+OIDC_ACCOUNT_ERRORS = (
+    "unavailable",
+    "provider_error",
+    "session_expired",
+    "identity_taken",
+    "other_identity",
+    "unlink_needs_password_login",
+    "unlink_needs_password",
+    "unlink_last_admin",
+    "not_linked",
+)
+OIDC_ACCOUNT_NOTICES = ("linked", "already_linked")
 
 
 def _login_backoff_key(bucket: str, identity: str) -> str:
@@ -107,6 +126,7 @@ def _record_failed_login(username: str, source_id: str) -> None:
 
 def _login_response(request: Request, db: Session, next_path: str, *, error: bool = False, error_key: str = "auth.login_failed", status_code: int = 200):
     language = get_setting_value(db, "language", "en")
+    oidc_config = load_config(db)
     return templates.TemplateResponse(
         request=request,
         name="login.html",
@@ -117,15 +137,19 @@ def _login_response(request: Request, db: Session, next_path: str, *, error: boo
             "next": safe_local_path(next_path),
             "error": error,
             "error_key": error_key,
+            "oidc_enabled": oidc_config.enabled and oidc_config.complete,
+            "password_login_enabled": effective_password_login_enabled(db),
             "app_version": get_app_version(),
         },
     )
 
 
 @router.get("/login")
-def login_page(request: Request, next: str = "/", db: Session = Depends(get_db)):
+def login_page(request: Request, next: str = "/", oidc_error: str = "", db: Session = Depends(get_db)):
     if not auth_enabled(db) or resolve_session(db, request.cookies.get(SESSION_COOKIE, "")) is not None:
         return RedirectResponse("/", status_code=303)
+    if oidc_error in OIDC_LOGIN_ERRORS:
+        return _login_response(request, db, next, error=True, error_key=f"auth.oidc_error.{oidc_error}")
     return _login_response(request, db, next)
 
 
@@ -139,6 +163,10 @@ def login(
 ):
     if not auth_enabled(db):
         return RedirectResponse("/", status_code=303)
+    if not effective_password_login_enabled(db):
+        # No hash is checked and no failure is counted: with password sign-in
+        # switched off this form is not an attempt, it is the wrong door.
+        return _login_response(request, db, next, error=True, error_key="auth.password_login_disabled", status_code=403)
     source_id = _source_id(request)
     if _login_locked(username, source_id):
         return _login_response(request, db, next, error=True, error_key="auth.login_locked", status_code=429)
@@ -152,7 +180,7 @@ def login(
         _LOGIN_BACKOFF.pop(_account_backoff_key(username), None)
     cleanup_expired_sessions(db)
     user.last_login_at = utc_now().replace(tzinfo=None)
-    token = create_session(db, user)
+    token = create_session(db, user, AUTH_METHOD_PASSWORD)
     db.commit()
     response = RedirectResponse(safe_local_path(next), status_code=303)
     set_session_cookie(response, request, token)
@@ -177,6 +205,10 @@ def account_page(request: Request, db: Session = Depends(get_db)):
     user = getattr(request.state, "user", None)
     if user is None:
         return RedirectResponse("/login", status_code=303)
+    oidc_config = load_config(db)
+    oidc_error = request.query_params.get("oidc_error", "")
+    oidc_notice = request.query_params.get("oidc_notice", "")
+    oidc_linked = find_user_external_identity(db, user.id) is not None
     return render(
         request,
         db,
@@ -184,6 +216,16 @@ def account_page(request: Request, db: Session = Depends(get_db)):
         account_user=user,
         auth_error=request.query_params.get("auth_error", ""),
         auth_notice=request.query_params.get("auth_notice", ""),
+        # Only whether a link exists is shown: never the subject, the issuer or
+        # anything else the provider sent.
+        account_has_password=user.password_hash is not None and effective_password_login_enabled(db),
+        oidc_available=oidc_config.enabled and oidc_config.complete,
+        oidc_linked=oidc_linked,
+        # Removing the link needs a local password to fall back on, and the
+        # password sign-in it belongs to has to be available.
+        oidc_can_unlink=oidc_linked and user.password_hash is not None and effective_password_login_enabled(db),
+        oidc_error=oidc_error if oidc_error in OIDC_ACCOUNT_ERRORS else "",
+        oidc_notice=oidc_notice if oidc_notice in OIDC_ACCOUNT_NOTICES else "",
     )
 
 
@@ -233,6 +275,8 @@ def change_password(
     session_user = getattr(request.state, "user", None)
     if session_user is None:
         return RedirectResponse("/login", status_code=303)
+    if not effective_password_login_enabled(db):
+        return RedirectResponse("/account?auth_error=password_login_disabled", status_code=303)
     user = db.query(User).filter(User.id == session_user.id).first()
     if user is None or not verify_password(current_password, user.password_hash):
         return RedirectResponse("/account?auth_error=wrong_password", status_code=303)
@@ -243,7 +287,7 @@ def change_password(
 
     user.password_hash = hash_password(new_password)
     delete_user_sessions(db, user.id)
-    token = create_session(db, user)
+    token = create_session(db, user, AUTH_METHOD_PASSWORD)
     db.commit()
     response = RedirectResponse("/account?auth_notice=password_changed", status_code=303)
     set_session_cookie(response, request, token)

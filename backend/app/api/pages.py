@@ -31,7 +31,7 @@ from app.models.events import Event
 from app.models.saved_views import SavedView
 from app.models.settings import InstanceFile, Setting
 from app.models.systems import System
-from app.models.users import User, UserPreference, UserSession
+from app.models.users import ExternalIdentity, User, UserPreference, UserSession
 from app.services.dashboard_metrics import (
     dashboard_counts_cache,
     dashboard_delta as _dashboard_delta,
@@ -46,7 +46,23 @@ from app.services.notification_channels import get_channel
 from app.services.notifications import invalidate_rules_cache
 from app.services.rollups import combine_rollup_values
 from app.services.saved_views import VIEW_SCOPES, clean_view_name, plugin_views_for_scope, view_filters_from_query, view_query_state_from_query, view_to_query
-from app.services.auth import AUTH_DISABLED_ENV, AUTH_HOSTNAME_SETTING, auth_disabled_by_environment, auth_enabled
+from app.services.auth import (
+    AUTH_DISABLED_ENV,
+    AUTH_HOSTNAME_SETTING,
+    AUTH_METHODS,
+    auth_disabled_by_environment,
+    auth_enabled,
+)
+from app.services.oidc import (
+    CHECK_STATUS_PENDING,
+    OIDC_CHECK_AT_SETTING,
+    OIDC_CHECK_ERROR_SETTING,
+    OIDC_CHECK_STATUS_SETTING,
+    callback_url,
+    effective_password_login_enabled,
+    load_config,
+    provider_diagnostics,
+)
 from app.services.asset_updates import refresh_asset_update
 from app.services.user_preferences import global_preferences, normalize_preferences
 from app.plugins.manager import get_plugin_manager
@@ -1556,6 +1572,25 @@ def _debug_authentication_lines(db: Session) -> list[str]:
     ]
     for role in ("admin", "operator", "viewer"):
         lines.append(_debug_line(f"Users role {role}", db.query(User).filter(User.role == role).count()))
+    # Aggregates only: issuers, subjects and claims never belong in a debug report.
+    lines.append(
+        _debug_line("Users without local password", db.query(User).filter(User.password_hash.is_(None)).count())
+    )
+    lines.append(_debug_line("External identities", db.query(ExternalIdentity).count()))
+    # Never the discovery URL, issuer, client ID, subjects or the client secret.
+    oidc_config = load_config(db)
+    lines.append(_debug_line("OIDC configured", oidc_config.complete))
+    lines.append(_debug_line("OIDC enabled", oidc_config.enabled))
+    lines.append(_debug_line("OIDC discovery check", get_setting_value(db, OIDC_CHECK_STATUS_SETTING, CHECK_STATUS_PENDING)))
+    lines.append(_debug_line("OIDC just-in-time users", "on" if oidc_config.jit_enabled else "off"))
+    lines.append(_debug_line("Password sign-in", "on" if effective_password_login_enabled(db) else "off"))
+    for auth_method in AUTH_METHODS:
+        lines.append(
+            _debug_line(
+                f"Sessions method {auth_method}",
+                db.query(UserSession).filter(UserSession.auth_method == auth_method).count(),
+            )
+        )
     return lines
 
 
@@ -1675,6 +1710,7 @@ def build_debug_report_files(db: Session) -> dict[str, str]:
                 _debug_line("users", db.query(User).count()),
                 _debug_line("user_sessions", db.query(UserSession).count()),
                 _debug_line("user_preferences", db.query(UserPreference).count()),
+                _debug_line("external_identities", db.query(ExternalIdentity).count()),
                 _debug_line("saved_views", db.query(SavedView).count()),
             ],
         ),
@@ -1780,6 +1816,7 @@ def diagnostics_page(request: Request, db: Session = Depends(get_db)):
         "diagnostics.html",
         plugin_rows=plugin_rows,
         auth_transport=auth_transport_diagnostics(request, get_setting_value(db, AUTH_HOSTNAME_SETTING, "")),
+        oidc_transport=provider_diagnostics(db, get_setting_value(db, AUTH_HOSTNAME_SETTING, "")),
         datasources=datasources,
         diagnostic_rows=diagnostic_rows,
         actions=db.query(Action).order_by(Action.timestamp.desc()).limit(20).all(),
@@ -1839,6 +1876,7 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
     }
     authentication_enabled = auth_enabled(db)
     authentication_break_glass = auth_disabled_by_environment()
+    oidc_config = load_config(db)
     preferences = global_preferences(db)
     return render(
         request,
@@ -1855,6 +1893,22 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
         users=db.query(User).order_by(User.username).all(),
         auth_error=request.query_params.get("auth_error", ""),
         auth_notice=request.query_params.get("auth_notice", ""),
+        # The stored client secret is never rendered back - only whether one exists.
+        oidc_enabled=oidc_config.enabled,
+        oidc_discovery_url=oidc_config.discovery_url,
+        oidc_client_id=oidc_config.client_id,
+        oidc_secret_stored=bool(oidc_config.client_secret),
+        oidc_jit_enabled=oidc_config.jit_enabled,
+        oidc_callback_url=callback_url(get_setting_value(db, AUTH_HOSTNAME_SETTING, "")) or "",
+        oidc_check_status=get_setting_value(db, OIDC_CHECK_STATUS_SETTING, CHECK_STATUS_PENDING),
+        oidc_check_at=get_setting_value(db, OIDC_CHECK_AT_SETTING, ""),
+        oidc_check_error=get_setting_value(db, OIDC_CHECK_ERROR_SETTING, ""),
+        oidc_password_login_enabled=effective_password_login_enabled(db),
+        # Only whether an account is linked is shown, never an issuer or subject.
+        oidc_linked_user_ids=[identity.user_id for identity in db.query(ExternalIdentity).all()],
+        oidc_identity_count=db.query(ExternalIdentity).count(),
+        oidc_error=request.query_params.get("oidc_error", ""),
+        oidc_notice=request.query_params.get("oidc_notice", ""),
         global_language=preferences["language"],
         global_live_default=preferences["live_default"],
         global_theme=preferences["theme"],

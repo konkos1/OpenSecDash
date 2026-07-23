@@ -5,6 +5,7 @@ import logging
 import json
 import time
 from pathlib import Path
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.orm import Session
@@ -37,6 +38,23 @@ GEOIP_BACKFILL_BATCH_SIZE = 50
 EVENTS_COMMIT_EVERY = 200
 
 _UNSET: Any = object()
+
+
+def run_with_session(work: Callable[..., Any], *args: Any) -> Any:
+    """Run one threaded tick with a session owned by the worker thread.
+
+    Background loops hand their database work to ``asyncio.to_thread``, and
+    cancelling a loop cannot stop a thread that is already running. A session
+    created on the event loop and closed in the loop's ``finally`` is therefore
+    closed while the worker may still be inside ``commit()``, which SQLAlchemy
+    rejects with ``IllegalStateChangeError`` during shutdown. Creating, using
+    and closing the session on the same worker thread removes that race.
+    """
+    db = SessionLocal()
+    try:
+        return work(db, *args)
+    finally:
+        db.close()
 
 
 class PluginManager:
@@ -309,17 +327,14 @@ class PluginManager:
         # event loop (and with it every page view) for the whole check.
         last_run = 0.0
         while True:
-            db = SessionLocal()
             try:
-                last_run = await asyncio.to_thread(self._run_asset_update_tick, db, last_run)
+                last_run = await asyncio.to_thread(run_with_session, self._run_asset_update_tick, last_run)
                 await asyncio.sleep(60)
             except asyncio.CancelledError:
                 raise
             except Exception:
                 logger.exception("Asset update check failed")
                 await asyncio.sleep(60)
-            finally:
-                db.close()
 
     def _run_asset_update_tick(self, db: Session, last_run: float) -> float:
         """Runs one asset-update check synchronously. Called via ``asyncio.to_thread``."""
@@ -384,9 +399,8 @@ class PluginManager:
 
     async def _insight_rules_loop(self) -> None:
         while True:
-            db = SessionLocal()
             try:
-                result = await asyncio.to_thread(refresh_insight_rules, db)
+                result = await asyncio.to_thread(run_with_session, refresh_insight_rules)
                 logger.debug("Insights engine rules refresh result: %s", result)
                 await asyncio.sleep(24 * 60 * 60)
             except asyncio.CancelledError:
@@ -394,14 +408,11 @@ class PluginManager:
             except Exception:
                 logger.exception("Insights engine rules refresh failed")
                 await asyncio.sleep(60 * 60)
-            finally:
-                db.close()
 
     async def _rollup_compaction_loop(self) -> None:
         while True:
-            db = SessionLocal()
             try:
-                compacted = await asyncio.to_thread(self._run_rollup_compaction, db)
+                compacted = await asyncio.to_thread(run_with_session, self._run_rollup_compaction)
                 if compacted:
                     logger.info("Compacted %d completed rollup month(s)", compacted)
                 await asyncio.sleep(60 * 60)
@@ -410,8 +421,6 @@ class PluginManager:
             except Exception:
                 logger.exception("Rollup compaction failed")
                 await asyncio.sleep(60 * 60)
-            finally:
-                db.close()
 
     @staticmethod
     def _run_rollup_compaction(db: Session) -> int:
@@ -425,9 +434,8 @@ class PluginManager:
         # tens of thousands of rows in one transaction, which must not stall
         # the event loop while SQLite works through it.
         while True:
-            db = SessionLocal()
             try:
-                deleted = await asyncio.to_thread(self._run_retention_cleanup, db)
+                deleted = await asyncio.to_thread(run_with_session, self._run_retention_cleanup)
                 if deleted:
                     logger.info("Retention cleanup removed %d raw event(s)", deleted)
                 await asyncio.sleep(60 * 60)
@@ -436,8 +444,6 @@ class PluginManager:
             except Exception:
                 logger.exception("Retention cleanup failed")
                 await asyncio.sleep(60 * 60)
-            finally:
-                db.close()
 
     def _run_retention_cleanup(self, db: Session) -> int:
         """Runs one retention cleanup synchronously. Called via ``asyncio.to_thread``."""
@@ -448,12 +454,11 @@ class PluginManager:
 
     async def _geoip_backfill_loop(self) -> None:
         while True:
-            db = SessionLocal()
             try:
                 # Runs in a thread: a slow/unreachable GeoIP provider can mean
                 # a real network wait per uncached IP, which must not block
                 # the event loop while it's happening.
-                processed = await asyncio.to_thread(enrich_pending_events, db, GEOIP_BACKFILL_BATCH_SIZE)
+                processed = await asyncio.to_thread(run_with_session, enrich_pending_events, GEOIP_BACKFILL_BATCH_SIZE)
                 # Keep draining quickly while a backlog exists (e.g. right
                 # after a large log import), back off once caught up.
                 await asyncio.sleep(1 if processed >= GEOIP_BACKFILL_BATCH_SIZE else 15)
@@ -461,10 +466,7 @@ class PluginManager:
                 raise
             except Exception:
                 logger.exception("GeoIP backfill failed")
-                db.rollback()
                 await asyncio.sleep(30)
-            finally:
-                db.close()
 
     async def _self_update_check_loop(self) -> None:
         # Runs in a thread: one GitHub API request, which must not block the
@@ -472,23 +474,19 @@ class PluginManager:
         # GitHub's unauthenticated rate limits and is timely enough for a
         # "new version available" footer hint.
         while True:
-            db = SessionLocal()
             try:
-                await asyncio.to_thread(run_self_update_check, db)
+                await asyncio.to_thread(run_with_session, run_self_update_check)
                 await asyncio.sleep(6 * 60 * 60)
             except asyncio.CancelledError:
                 raise
             except Exception:
                 logger.exception("OpenSecDash update check failed")
                 await asyncio.sleep(60 * 60)
-            finally:
-                db.close()
 
     async def _notification_dispatch_loop(self) -> None:
         while True:
-            db = SessionLocal()
             try:
-                sent = await asyncio.to_thread(dispatch_pending_notifications, db)
+                sent = await asyncio.to_thread(run_with_session, dispatch_pending_notifications)
                 if sent:
                     logger.info("Dispatched %d notification(s)", sent)
                 await asyncio.sleep(30)
@@ -496,10 +494,7 @@ class PluginManager:
                 raise
             except Exception:
                 logger.exception("Notification dispatch failed")
-                db.rollback()
                 await asyncio.sleep(30)
-            finally:
-                db.close()
 
     async def shutdown(self) -> None:
         if not self.tasks:
@@ -526,18 +521,15 @@ class PluginManager:
         # API requests, MQTT socket connects up to 5s) and
         # must not freeze the event loop for that long.
         while True:
-            db = SessionLocal()
             try:
-                await asyncio.to_thread(self._run_health_tick, db, plugin)
+                await asyncio.to_thread(run_with_session, self._run_health_tick, plugin)
                 await asyncio.sleep(60)
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
                 logger.exception("Plugin %s health check failed", plugin.metadata.id)
-                await asyncio.to_thread(self._record_loop_error, db, plugin.metadata.id, str(exc))
+                await asyncio.to_thread(run_with_session, self._record_loop_error, plugin.metadata.id, str(exc))
                 await asyncio.sleep(60)
-            finally:
-                db.close()
 
     def _record_loop_error(self, db: Session, plugin_id: str, message: str, update_datasource: bool = False) -> None:
         """Persists a loop failure synchronously. Called via ``asyncio.to_thread``.
@@ -602,7 +594,6 @@ class PluginManager:
 
     async def _datasource_loop(self, plugin: DatasourcePlugin) -> None:
         while True:
-            db = SessionLocal()
             try:
                 # The whole tick (file I/O, event storage, commits) runs in a
                 # worker thread. A plugin's first run against a large existing
@@ -610,16 +601,14 @@ class PluginManager:
                 # for every visitor, since it shares one event loop with the
                 # web server. Batches are capped (see tail_text_file callers)
                 # so each threaded tick still finishes quickly.
-                interval, backlog_pending = await asyncio.to_thread(self._run_datasource_tick, db, plugin)
+                interval, backlog_pending = await asyncio.to_thread(run_with_session, self._run_datasource_tick, plugin)
                 await asyncio.sleep(self._next_datasource_delay(interval, backlog_pending))
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
                 logger.exception("Datasource plugin %s failed", plugin.metadata.id)
-                await asyncio.to_thread(self._record_loop_error, db, plugin.metadata.id, str(exc), True)
+                await asyncio.to_thread(run_with_session, self._record_loop_error, plugin.metadata.id, str(exc), True)
                 await asyncio.sleep(10)
-            finally:
-                db.close()
 
     def _run_datasource_tick(self, db: Session, plugin: DatasourcePlugin) -> tuple[int, bool]:
         """Runs one full datasource tick synchronously. Called via ``asyncio.to_thread``."""
@@ -719,18 +708,15 @@ class PluginManager:
         # JSON source fetches) and must not freeze the event loop for that
         # long - a slow tick used to make every page view hang with it.
         while True:
-            db = SessionLocal()
             try:
-                sleep_for = await asyncio.to_thread(self._run_periodic_tick, db, plugin)
+                sleep_for = await asyncio.to_thread(run_with_session, self._run_periodic_tick, plugin)
                 await asyncio.sleep(sleep_for)
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
                 logger.exception("Periodic plugin %s failed", plugin.metadata.id)
-                await asyncio.to_thread(self._record_loop_error, db, plugin.metadata.id, str(exc))
+                await asyncio.to_thread(run_with_session, self._record_loop_error, plugin.metadata.id, str(exc))
                 await asyncio.sleep(60)
-            finally:
-                db.close()
 
     def _run_periodic_tick(self, db: Session, plugin: PeriodicPlugin) -> int:
         """Runs one periodic tick synchronously. Called via ``asyncio.to_thread``."""

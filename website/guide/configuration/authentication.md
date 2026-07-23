@@ -3,7 +3,9 @@
 OpenSecDash is designed for an internal homelab network. The recommended setup keeps it
 behind a reverse proxy, optionally with an external identity provider such as Pocket ID,
 Authentik, or Authelia. Internal sign-in is optional and disabled by default, so existing
-deployments keep their current reverse-proxy trust model.
+deployments keep their current reverse-proxy trust model. Once internal sign-in is
+enabled, it can use local passwords, [single sign-on with OIDC](#single-sign-on-oidc), or
+both.
 
 ## Enable internal sign-in
 
@@ -58,6 +60,172 @@ Every signed-in user can change their own password and personal display preferen
 (language, live default, theme, accent color, and automatic page refresh) from the
 account link in the header.
 
+## Single sign-on (OIDC)
+
+Internal sign-in can additionally use one external OpenID Connect provider, for example
+Authentik, Authelia, Keycloak, or Pocket ID. Single sign-on is an extra sign-in method:
+after a successful provider sign-in, OpenSecDash creates its own revocable session, and
+roles, permissions, and personal settings stay exactly where they are today — local.
+
+OpenSecDash supports exactly one provider. Everything below happens under
+**Settings → Sign-in & users → Single sign-on (OIDC)**.
+
+### Before you start
+
+1. Internal sign-in is enabled and works with a local administrator.
+2. `OSD_TRUSTED_PROXIES` names your reverse proxy explicitly, and the proxy sends
+   `X-Forwarded-Proto: https`, `X-Forwarded-Port: 443`, and `X-Forwarded-Host`.
+3. Users reach OpenSecDash through HTTPS on external port 443 under the configured
+   hostname.
+4. The OpenSecDash container trusts the TLS certificate of your provider. OpenSecDash
+   has no option to skip certificate verification.
+
+Provider connections use the container's own trust store, so a homelab provider with a
+private CA works once that CA is trusted inside the container. With the hardened
+read-only Compose example, mount a PEM bundle and point `SSL_CERT_FILE` at it:
+
+```yaml
+services:
+  opensecdash:
+    volumes:
+      - ./homelab-ca.pem:/etc/opensecdash/ca-bundle.pem:ro
+    environment:
+      - SSL_CERT_FILE=/etc/opensecdash/ca-bundle.pem
+```
+
+`SSL_CERT_FILE` replaces the default certificate file, so put your private CA **and**
+the public CAs you still need into that one bundle — for example by appending your CA to
+a copy of the system bundle. Alternatively add the CA to the image's trust store in your
+own derived image.
+
+### 1. Register OpenSecDash with your provider
+
+Create a confidential client (authorization code flow with PKCE) at your provider and
+register exactly this redirect URL:
+
+```text
+https://dash.example.com/auth/oidc/callback
+```
+
+The redirect URL is always built from the configured authentication hostname, never from
+a request header. Settings shows the exact value to copy. Request the standard scopes
+`openid profile email`; no other scope, group, or role configuration is needed.
+
+### 2. Configure and check the provider
+
+Enter the provider's discovery URL, the client ID, and the client secret:
+
+```text
+Discovery URL:  https://id.example.com/.well-known/openid-configuration
+Client ID:      opensecdash
+Client secret:  <the secret from your provider>
+```
+
+**Check and save provider** fetches the discovery document before anything is stored.
+The document must be reachable over HTTPS, must belong to the same host as the issuer it
+declares, and must offer the authorization code flow and an asymmetric ID token
+signature. Private homelab addresses are allowed; loopback, link-local, and cloud
+metadata addresses are not. A failed check never replaces a working configuration.
+
+The client secret is stored encrypted and never shown again. Leaving the field empty
+keeps the stored secret; **Delete client secret** removes it and disables single sign-on.
+
+Then use **Enable single sign-on**. **Diagnostics → Single sign-on (OIDC)** shows the
+stored state of the last check without contacting the provider and without displaying
+addresses, issuers, or client IDs.
+
+### 3. Link your own admin account
+
+Open the account page from the header, then **Single sign-on (OIDC) → Link provider
+account**. This runs a complete provider sign-in and links the result to the account you
+are currently signed in with.
+
+OpenSecDash never matches accounts by email address, username, or display name. An
+account is identified only by the issuer and the immutable subject from the verified ID
+token, so a provider account with the same name as a local user cannot take that user
+over.
+
+### 4. Sign in through the provider once
+
+Sign out and use **Sign in with single sign-on** on the login page. Confirm that you are
+signed in with your admin role before you change anything else. Do this before switching
+password sign-in off — it is what proves the whole path works.
+
+### Create unknown users automatically
+
+**Create unknown users automatically** is off by default. While it is off, a provider
+account without a link is rejected and nothing is created.
+
+Switched on, an unknown provider account gets a new local account with the **Viewer**
+role, default preferences, and no local password. Roles are never taken from the
+provider: no group, role, or permission claim is read, and an automatically created user
+never becomes Operator or Admin. Promote users in the local user list when needed.
+
+The username comes from the provider's `preferred_username` when it is valid and still
+free. Otherwise OpenSecDash generates a stable, non-identifying name from the issuer and
+subject. A name collision never links or takes over an existing account.
+
+### Switch off password sign-in
+
+Password sign-in stays on by default. **Disable password sign-in** is only accepted when
+all of the following are true:
+
+1. internal sign-in is enabled;
+2. single sign-on is enabled and completely configured;
+3. your own admin account is linked to the configured provider;
+4. the session you are acting in was created by single sign-on itself;
+5. at least one active admin stays linked to that provider.
+
+Switching it off revokes all sessions that were created with a password, so everyone
+signs in through the provider afterwards. While password sign-in is off:
+
+- the discovery URL, client ID, client secret, and issuer are locked against changes —
+  enable password sign-in again before changing providers;
+- the last active admin linked to the current provider cannot be demoted, deactivated,
+  deleted, or unlinked.
+
+Disabling single sign-on always switches password sign-in back on in the same step, so
+the instance can never end up with no way in.
+
+### Change the provider or remove a link
+
+Saving a changed discovery URL, client ID, secret, or issuer revokes all sessions that
+were created with single sign-on. Existing links stay with the old issuer: after a real
+provider change, every user links their account again. Admins can remove another user's
+link under **Settings → Sign-in & users**, which also signs that user out everywhere.
+
+Users can remove their own link on the account page while password sign-in is available
+and their account has a local password. If a linked user has no local password, an admin
+can set one with the normal password reset.
+
+### Signing out
+
+Signing out of OpenSecDash ends the local OpenSecDash session only. The session at your
+provider stays open, so **Sign in with single sign-on** may sign you straight back in
+without a password prompt. OpenSecDash does not implement provider-initiated,
+back-channel, or front-channel logout. Sign out at the provider as well when you want to
+end that session, and use the provider's own controls to lock an account out
+immediately. OpenSecDash also stores no access or refresh tokens after sign-in and never
+calls provider APIs afterwards.
+
+### Provider outage or misconfiguration
+
+If the provider is unreachable, its certificate is not trusted, or its configuration is
+broken, single sign-on fails with a generic message and technical details stay in the
+container log. As long as password sign-in is still on, nothing else changes.
+
+If password sign-in is off, recover with the emergency switch:
+
+1. Set `OSD_AUTH_DISABLED=true` for the container and restart it.
+2. Restrict network access to the instance while the switch is active.
+3. Open **Settings → Sign-in & users** and use **Enable password sign-in**, and if
+   needed repair or disable the provider configuration or reset a local password.
+4. Remove `OSD_AUTH_DISABLED` and restart OpenSecDash.
+5. Sign in with username and password and repair single sign-on in normal operation.
+
+The emergency switch never deletes or rewrites the stored provider configuration or the
+existing links, so the repaired state is active again as soon as the variable is gone.
+
 ## Locked out of the web UI
 
 Set `OSD_AUTH_DISABLED=true` for the container and restart it. This temporarily disables
@@ -84,8 +252,10 @@ To repair a changed hostname:
    hostname.
 5. Remove `OSD_AUTH_DISABLED` and restart OpenSecDash.
 
-The database keeps `auth.enabled`, users, and password hashes while the environment
-override is active. Removing the override restores the saved authentication state.
+The database keeps `auth.enabled`, users, password hashes, the provider configuration,
+and existing provider links while the environment override is active. Removing the
+override restores the saved authentication state. If single sign-on is the only way in,
+follow [Provider outage or misconfiguration](#provider-outage-or-misconfiguration).
 
 ## Security notes
 
@@ -94,8 +264,16 @@ proxy's certificate. OpenSecDash requires trusted forwarded HTTPS metadata, bind
 authentication to the configured hostname on port 443, marks the session cookie
 `Secure`, and sends HTTP Strict Transport Security (HSTS). Sessions are stored
 server-side so sign-out, password resets, deactivation, and hostname recovery can revoke
-them. OpenSecDash does not provide built-in 2FA, OIDC, or password-recovery email; use an
-external identity provider in front of the proxy when those controls are required.
+them. Internal sign-in can additionally use one [OpenID Connect
+provider](#single-sign-on-oidc); OpenSecDash does not provide built-in 2FA or
+password-recovery email. Put an external identity provider in front of the proxy when
+those controls are required.
+
+Single sign-on uses the authorization code flow with PKCE, state, and nonce. The ID
+token is verified against the provider's published keys with a pinned issuer and
+audience; `none` and symmetric signatures are rejected. Provider tokens are never stored
+and never logged, and client secrets, codes, claims, and subjects appear in neither the
+UI, the diagnostics page, nor the debug report.
 
 Passwords use self-describing scrypt hashes. New and changed passwords use
 `N=2^14,r=8,p=5`, one of OWASP's equivalent minimum scrypt profiles. A 2026-07-22
