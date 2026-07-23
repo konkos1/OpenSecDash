@@ -14,8 +14,13 @@ from sqlalchemy.orm import Session
 
 from app.core.remote_urls import RemoteURLPolicyError, validate_remote_url
 from app.core.template_context import get_setting_value, get_setting_values
-from app.models.users import ExternalIdentity
-from app.services.auth import normalize_auth_hostname
+from app.models.users import ExternalIdentity, User
+from app.services.auth import (
+    active_admin_count,
+    active_oidc_admin_count,
+    find_user_external_identity,
+    normalize_auth_hostname,
+)
 
 OIDC_ENABLED_SETTING = "auth.oidc.enabled"
 OIDC_DISCOVERY_URL_SETTING = "auth.oidc.discovery_url"
@@ -127,8 +132,59 @@ def load_config(db: Session) -> OidcConfig:
 
 
 def password_login_enabled(db: Session) -> bool:
-    """Return whether the local username and password sign-in is offered."""
+    """Return the stored value of the local username and password sign-in switch."""
     return get_setting_value(db, PASSWORD_LOGIN_ENABLED_SETTING, "true") == "true"
+
+
+def oidc_login_available(config: OidcConfig) -> bool:
+    """Return whether the stored provider can actually carry a sign-in."""
+    return config.enabled and config.complete and bool(config.issuer)
+
+
+def effective_password_login_enabled(db: Session) -> bool:
+    """Return whether username and password sign-in may be offered right now.
+
+    Every page, route and check asks this helper instead of reading the setting
+    itself: a stored "off" only counts while a usable provider exists, so the
+    application can never end up with authentication on and no way in.
+    """
+    if not oidc_login_available(load_config(db)):
+        return True
+    return password_login_enabled(db)
+
+
+def admin_reachability_error(
+    db: Session,
+    user: User,
+    *,
+    role: str | None = None,
+    is_active: bool | None = None,
+    keeps_identity: bool = True,
+    deleted: bool = False,
+) -> str | None:
+    """Return an error code when a change would leave no administrator able to sign in.
+
+    This is the single check behind role changes, activation, deletion and
+    identity revocation, so none of them can be bypassed by a template that
+    happens to hide a button.
+    """
+    new_role = user.role if role is None else role
+    new_active = False if deleted else (user.is_active if is_active is None else is_active)
+    was_admin = user.role == "admin" and user.is_active
+    stays_admin = new_role == "admin" and new_active
+    if was_admin and not stays_admin and active_admin_count(db, exclude_user_id=user.id) == 0:
+        return "last_admin"
+    if effective_password_login_enabled(db):
+        return None
+    # Without password sign-in the only way back in is a provider account that
+    # belongs to the issuer currently configured.
+    config = load_config(db)
+    identity = find_user_external_identity(db, user.id)
+    reachable_now = was_admin and identity is not None and identity.issuer == config.issuer
+    reachable_after = stays_admin and keeps_identity and identity is not None and identity.issuer == config.issuer
+    if reachable_now and not reachable_after and active_oidc_admin_count(db, config.issuer, exclude_user_id=user.id) == 0:
+        return "last_oidc_admin"
+    return None
 
 
 def config_fingerprint(config: OidcConfig) -> str:
@@ -434,7 +490,7 @@ def provider_diagnostics(db: Session, hostname: str) -> dict[str, Any]:
     # Sign-in method switches are reported as plain on/off, not as health: an
     # intentionally disabled option is not a problem to fix.
     flags = [
-        ("password_login", "on" if password_login_enabled(db) else "off"),
+        ("password_login", "on" if effective_password_login_enabled(db) else "off"),
         ("jit", "on" if config.jit_enabled else "off"),
     ]
     return {

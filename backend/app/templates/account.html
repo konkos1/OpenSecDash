@@ -52,16 +52,26 @@
             <div class="flex items-end"><button class="btn" type="submit">{{ t("common.save_button") }}</button></div>
         </form>
 
-        {% if oidc_available %}
+        {% if auth_error == "password_login_disabled" %}<p class="text-amber-300 text-sm">{{ t("account.password_login_disabled") }}</p>{% endif %}
+
+        {% if oidc_available or oidc_linked %}
             <section class="grid gap-2 border-t border-slate-800 pt-4">
                 <h3 class="font-semibold">{{ t("account.oidc_title") }} <button type="button" class="help" data-tooltip="{{ t('account.help.oidc') }}">?</button></h3>
                 {% if oidc_error %}<p class="text-red-400 text-sm">{{ t("account.oidc_error." ~ oidc_error) }}</p>{% endif %}
                 {% if oidc_notice %}<p class="text-green-400 text-sm">{{ t("account.oidc_notice." ~ oidc_notice) }}</p>{% endif %}
                 <p class="text-sm">{{ t("common.status") }}: <b>{{ t("account.oidc_linked") if oidc_linked else t("account.oidc_not_linked") }}</b></p>
-                {% if not oidc_linked %}
+                {% if not oidc_linked and oidc_available %}
                     <form method="post" action="/account/oidc/link">
                         <button class="btn-small" type="submit">{{ t("account.oidc_link_button") }}</button>
                     </form>
+                {% endif %}
+                {% if oidc_can_unlink %}
+                    <form method="post" action="/account/oidc/unlink" data-confirm="{{ t('account.oidc_unlink_confirm') }}">
+                        <button class="btn-small" type="submit">{{ t("account.oidc_unlink_button") }}</button>
+                    </form>
+                    <p class="muted text-sm">{{ t("account.oidc_unlink_hint") }}</p>
+                {% elif oidc_linked %}
+                    <p class="muted text-sm">{{ t("account.oidc_unlink_blocked") }}</p>
                 {% endif %}
             </section>
         {% endif %}

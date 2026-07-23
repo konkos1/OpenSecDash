@@ -29,7 +29,7 @@ from app.services.auth import (
     resolve_session,
     verify_password,
 )
-from app.services.oidc import load_config
+from app.services.oidc import effective_password_login_enabled, load_config
 from app.services.user_preferences import normalize_preferences
 from app.web.auth import SESSION_COOKIE, set_session_cookie
 from app.web.proxy_headers import PROXY_STATE_PEER_ADDRESS
@@ -52,7 +52,17 @@ _MAX_LOGIN_BACKOFF_ENTRIES = 4096
 # Only these codes may come back from the OIDC routes as a query parameter, so
 # an arbitrary value can never be turned into a translation lookup.
 OIDC_LOGIN_ERRORS = ("unavailable", "provider_error", "session_expired", "login_failed")
-OIDC_ACCOUNT_ERRORS = ("unavailable", "provider_error", "session_expired", "identity_taken", "other_identity")
+OIDC_ACCOUNT_ERRORS = (
+    "unavailable",
+    "provider_error",
+    "session_expired",
+    "identity_taken",
+    "other_identity",
+    "unlink_needs_password_login",
+    "unlink_needs_password",
+    "unlink_last_admin",
+    "not_linked",
+)
 OIDC_ACCOUNT_NOTICES = ("linked", "already_linked")
 
 
@@ -128,6 +138,7 @@ def _login_response(request: Request, db: Session, next_path: str, *, error: boo
             "error": error,
             "error_key": error_key,
             "oidc_enabled": oidc_config.enabled and oidc_config.complete,
+            "password_login_enabled": effective_password_login_enabled(db),
             "app_version": get_app_version(),
         },
     )
@@ -152,6 +163,10 @@ def login(
 ):
     if not auth_enabled(db):
         return RedirectResponse("/", status_code=303)
+    if not effective_password_login_enabled(db):
+        # No hash is checked and no failure is counted: with password sign-in
+        # switched off this form is not an attempt, it is the wrong door.
+        return _login_response(request, db, next, error=True, error_key="auth.password_login_disabled", status_code=403)
     source_id = _source_id(request)
     if _login_locked(username, source_id):
         return _login_response(request, db, next, error=True, error_key="auth.login_locked", status_code=429)
@@ -193,6 +208,7 @@ def account_page(request: Request, db: Session = Depends(get_db)):
     oidc_config = load_config(db)
     oidc_error = request.query_params.get("oidc_error", "")
     oidc_notice = request.query_params.get("oidc_notice", "")
+    oidc_linked = find_user_external_identity(db, user.id) is not None
     return render(
         request,
         db,
@@ -202,9 +218,12 @@ def account_page(request: Request, db: Session = Depends(get_db)):
         auth_notice=request.query_params.get("auth_notice", ""),
         # Only whether a link exists is shown: never the subject, the issuer or
         # anything else the provider sent.
-        account_has_password=user.password_hash is not None,
+        account_has_password=user.password_hash is not None and effective_password_login_enabled(db),
         oidc_available=oidc_config.enabled and oidc_config.complete,
-        oidc_linked=find_user_external_identity(db, user.id) is not None,
+        oidc_linked=oidc_linked,
+        # Removing the link needs a local password to fall back on, and the
+        # password sign-in it belongs to has to be available.
+        oidc_can_unlink=oidc_linked and user.password_hash is not None and effective_password_login_enabled(db),
         oidc_error=oidc_error if oidc_error in OIDC_ACCOUNT_ERRORS else "",
         oidc_notice=oidc_notice if oidc_notice in OIDC_ACCOUNT_NOTICES else "",
     )
@@ -256,6 +275,8 @@ def change_password(
     session_user = getattr(request.state, "user", None)
     if session_user is None:
         return RedirectResponse("/login", status_code=303)
+    if not effective_password_login_enabled(db):
+        return RedirectResponse("/account?auth_error=password_login_disabled", status_code=303)
     user = db.query(User).filter(User.id == session_user.id).first()
     if user is None or not verify_password(current_password, user.password_hash):
         return RedirectResponse("/account?auth_error=wrong_password", status_code=303)

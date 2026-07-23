@@ -13,7 +13,13 @@ from starlette.responses import Response
 from app.core.template_context import build_template_context, get_setting_value
 from app.database.dependencies import get_db
 from app.database.session import SessionLocal
-from app.services.auth import AUTH_HOSTNAME_SETTING, SESSION_LIFETIME_DAYS, auth_enabled, normalize_auth_hostname, resolve_session
+from app.services.auth import (
+    AUTH_HOSTNAME_SETTING,
+    SESSION_LIFETIME_DAYS,
+    auth_enabled,
+    normalize_auth_hostname,
+    resolve_session_with_method,
+)
 from app.web.permissions import required_role
 from app.web.proxy_headers import (
     PROXY_STATE_EXPLICITLY_TRUSTED,
@@ -271,6 +277,7 @@ async def auth_gating_middleware(request: Request, call_next: Callable[[Request]
     try:
         enabled = auth_enabled(db)
         request.state.auth_enabled = enabled
+        request.state.auth_method = None
         if not enabled:
             request.state.user = None
         else:
@@ -282,7 +289,8 @@ async def auth_gating_middleware(request: Request, call_next: Callable[[Request]
             if _is_public_path(request.url.path):
                 return _protect_authenticated_response(await call_next(request))
             token = request.cookies.get(SESSION_COOKIE, "")
-            user = resolve_session(db, token) if token else None
+            resolved = resolve_session_with_method(db, token) if token else None
+            user = resolved[0] if resolved is not None else None
             if user is None:
                 if wants_json(request):
                     return _protect_authenticated_response(JSONResponse(status_code=401, content={"detail": "Not authenticated"}))
@@ -291,6 +299,9 @@ async def auth_gating_middleware(request: Request, call_next: Callable[[Request]
                     next_path = f"{next_path}?{request.url.query}"
                 return _protect_authenticated_response(RedirectResponse(f"/login?next={quote(next_path, safe='')}", status_code=303))
             request.state.user = user
+            # Switching off password sign-in requires a working provider
+            # session, so the method has to be resolved as reliably as the user.
+            request.state.auth_method = resolved[1] if resolved is not None else None
             if ROLE_ORDER[user.role] < ROLE_ORDER[required_role(request.method, request.url.path)]:
                 if wants_json(request):
                     return _protect_authenticated_response(JSONResponse(status_code=403, content={"detail": "Forbidden"}))

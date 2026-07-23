@@ -459,6 +459,9 @@ def test_provider_configuration_is_locked_while_password_login_is_off(oidc_clien
     db, clients = oidc_client
     _stub_check(monkeypatch)
     _save_provider(clients["admin"])
+    # Password sign-in can only be off while a usable provider exists, so the
+    # lock is only reachable with single sign-on actually enabled.
+    clients["admin"].post("/settings/auth/oidc/enable", follow_redirects=False)
     db.add(Setting(key=PASSWORD_LOGIN_ENABLED_SETTING, value="false"))
     db.commit()
 

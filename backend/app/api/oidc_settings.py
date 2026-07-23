@@ -8,11 +8,16 @@ from sqlalchemy.orm import Session
 from app.core.template_context import get_setting_value
 from app.core.time import utc_now
 from app.database.dependencies import get_db
+from app.models.users import UserSession
 from app.services.auth import (
     AUTH_HOSTNAME_SETTING,
     AUTH_METHOD_OIDC,
+    AUTH_METHOD_PASSWORD,
+    active_oidc_admin_count,
     auth_disabled_by_environment,
+    auth_enabled,
     delete_sessions_by_auth_method,
+    find_user_external_identity,
 )
 from app.services.oidc import (
     CHECK_STATUS_ERROR,
@@ -26,10 +31,13 @@ from app.services.oidc import (
     OIDC_ENABLED_SETTING,
     OIDC_ISSUER_SETTING,
     OIDC_JIT_ENABLED_SETTING,
+    PASSWORD_LOGIN_ENABLED_SETTING,
     OidcConfigurationError,
     check_provider,
+    effective_password_login_enabled,
     invalidate_provider_cache,
     load_config,
+    oidc_login_available,
     password_login_enabled,
 )
 from app.web.auth import auth_proxy_error
@@ -64,6 +72,23 @@ def _boundary_error(request: Request, db: Session) -> RedirectResponse | None:
     return RedirectResponse(f"/settings?auth_error={proxy_error}", status_code=303)
 
 
+def _enforce_login_methods(db: Session) -> None:
+    """Keep at least one sign-in method persisted, inside the caller's transaction.
+
+    Every route in this module ends here: a provider that was just switched off,
+    emptied or replaced must never be the only remaining way in.
+    """
+    db.flush()
+    if not oidc_login_available(load_config(db)) and not password_login_enabled(db):
+        save_setting(db, PASSWORD_LOGIN_ENABLED_SETTING, "true")
+
+
+def _revoke_all_sessions_during_recovery(db: Session) -> None:
+    """Drop every session when a change was made through emergency access."""
+    if auth_disabled_by_environment():
+        db.query(UserSession).delete()
+
+
 def _record_check(db: Session, status: str, *, issuer: str = "", error: str = "") -> None:
     save_setting(db, OIDC_CHECK_STATUS_SETTING, status)
     save_setting(db, OIDC_CHECK_AT_SETTING, utc_now().replace(microsecond=0).isoformat())
@@ -83,7 +108,9 @@ async def save_oidc_configuration(
     boundary_error = _boundary_error(request, db)
     if boundary_error is not None:
         return boundary_error
-    if not password_login_enabled(db):
+    # Changing the provider while it is the only sign-in method would lock every
+    # administrator out; emergency access is the one place it has to stay possible.
+    if not effective_password_login_enabled(db) and not auth_disabled_by_environment():
         return _error("password_login_locked")
 
     config = load_config(db)
@@ -104,10 +131,22 @@ async def save_oidc_configuration(
         logger.warning("OIDC provider check failed code=%s", exc.code)
         return _error(exc.code)
 
+    provider_changed = (
+        normalized_url != config.discovery_url
+        or normalized_client_id != config.client_id
+        or effective_secret != config.client_secret
+        or issuer != config.issuer
+    )
     save_setting(db, OIDC_DISCOVERY_URL_SETTING, normalized_url)
     save_setting(db, OIDC_CLIENT_ID_SETTING, normalized_client_id)
     save_setting(db, OIDC_CLIENT_SECRET_SETTING, effective_secret)
     _record_check(db, CHECK_STATUS_HEALTHY, issuer=issuer)
+    if provider_changed:
+        # Sessions were created against the old provider, and existing identity
+        # rows are never silently rewritten onto the new one.
+        delete_sessions_by_auth_method(db, AUTH_METHOD_OIDC)
+    _revoke_all_sessions_during_recovery(db)
+    _enforce_login_methods(db)
     db.commit()
     invalidate_provider_cache()
     return _notice("configuration_saved")
@@ -136,6 +175,7 @@ async def enable_oidc(request: Request, db: Session = Depends(get_db)):
 
     _record_check(db, CHECK_STATUS_HEALTHY, issuer=issuer)
     save_setting(db, OIDC_ENABLED_SETTING, "true")
+    _enforce_login_methods(db)
     db.commit()
     invalidate_provider_cache()
     return _notice("enabled")
@@ -148,6 +188,10 @@ def disable_oidc(request: Request, db: Session = Depends(get_db)):
         return boundary_error
     save_setting(db, OIDC_ENABLED_SETTING, "false")
     delete_sessions_by_auth_method(db, AUTH_METHOD_OIDC)
+    # Password sign-in comes back in the same transaction: the provider was just
+    # taken away, so it is the only method left.
+    _enforce_login_methods(db)
+    _revoke_all_sessions_during_recovery(db)
     db.commit()
     invalidate_provider_cache()
     return _notice("disabled")
@@ -158,12 +202,14 @@ def delete_oidc_client_secret(request: Request, db: Session = Depends(get_db)):
     boundary_error = _boundary_error(request, db)
     if boundary_error is not None:
         return boundary_error
-    if not password_login_enabled(db):
+    if not effective_password_login_enabled(db) and not auth_disabled_by_environment():
         return _error("password_login_locked")
     save_setting(db, OIDC_CLIENT_SECRET_SETTING, "")
     save_setting(db, OIDC_ENABLED_SETTING, "false")
     _record_check(db, CHECK_STATUS_ERROR, error="incomplete_config")
     delete_sessions_by_auth_method(db, AUTH_METHOD_OIDC)
+    _enforce_login_methods(db)
+    _revoke_all_sessions_during_recovery(db)
     db.commit()
     invalidate_provider_cache()
     return _notice("secret_deleted")
@@ -174,7 +220,54 @@ def save_oidc_jit(request: Request, jit_enabled: str = Form(""), db: Session = D
     boundary_error = _boundary_error(request, db)
     if boundary_error is not None:
         return boundary_error
+    # Switching this only decides what happens to future unknown identities: no
+    # existing user changes and no session is revoked.
     save_setting(db, OIDC_JIT_ENABLED_SETTING, "true" if jit_enabled == "true" else "false")
+    _enforce_login_methods(db)
     db.commit()
     invalidate_provider_cache()
     return _notice("jit_saved")
+
+
+@router.post("/settings/auth/password-login/disable")
+def disable_password_login(request: Request, db: Session = Depends(get_db)):
+    boundary_error = _boundary_error(request, db)
+    if boundary_error is not None:
+        return boundary_error
+    if not auth_enabled(db):
+        return _error("password_login_needs_auth")
+    config = load_config(db)
+    if not oidc_login_available(config):
+        return _error("password_login_needs_oidc")
+
+    user = getattr(request.state, "user", None)
+    if user is None or user.role != "admin" or not user.is_active:
+        return _error("password_login_needs_admin")
+    # The proof that single sign-on really works for this administrator is that
+    # the session they are acting in was created by it. A stored discovery
+    # answer alone would still allow locking everybody out.
+    if getattr(request.state, "auth_method", None) != AUTH_METHOD_OIDC:
+        return _error("password_login_needs_oidc_session")
+    identity = find_user_external_identity(db, user.id)
+    if identity is None or identity.issuer != config.issuer:
+        return _error("password_login_needs_link")
+    if active_oidc_admin_count(db, config.issuer) == 0:
+        return _error("password_login_needs_oidc_admin")
+
+    save_setting(db, PASSWORD_LOGIN_ENABLED_SETTING, "false")
+    delete_sessions_by_auth_method(db, AUTH_METHOD_PASSWORD)
+    db.commit()
+    return _notice("password_login_disabled")
+
+
+@router.post("/settings/auth/password-login/enable")
+def enable_password_login(request: Request, db: Session = Depends(get_db)):
+    boundary_error = _boundary_error(request, db)
+    if boundary_error is not None:
+        return boundary_error
+    # Turning a sign-in method back on is always allowed and revokes nothing,
+    # so a locked-out administrator can recover without losing provider sessions.
+    save_setting(db, PASSWORD_LOGIN_ENABLED_SETTING, "true")
+    _revoke_all_sessions_during_recovery(db)
+    db.commit()
+    return _notice("password_login_enabled")

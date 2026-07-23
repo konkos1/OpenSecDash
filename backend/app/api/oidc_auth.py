@@ -19,18 +19,23 @@ from app.services.auth import (
     auth_enabled,
     cleanup_expired_sessions,
     create_session,
+    delete_user_sessions,
     find_external_identity,
     find_user_external_identity,
     link_external_identity,
+    provision_external_user,
     resolve_session,
+    unlink_external_identity,
 )
 from app.services.oidc import (
     CLOCK_SKEW_SECONDS,
     MAX_SUBJECT_LENGTH,
     OidcConfig,
     OidcConfigurationError,
+    admin_reachability_error,
     build_oauth_client,
     callback_url,
+    effective_password_login_enabled,
     id_token_claims_options,
     load_config,
     load_provider_metadata,
@@ -140,6 +145,29 @@ async def oidc_link(request: Request, db: Session = Depends(get_db)):
     return _account_error(result) if isinstance(result, str) else result
 
 
+@router.post("/account/oidc/unlink")
+def oidc_unlink(request: Request, db: Session = Depends(get_db)):
+    if not auth_enabled(db):
+        return RedirectResponse("/", status_code=303)
+    user = getattr(request.state, "user", None)
+    if user is None:
+        return RedirectResponse("/login", status_code=303)
+    # Removing the link is only safe while the local password is a way back in.
+    if not effective_password_login_enabled(db):
+        return _account_error("unlink_needs_password_login")
+    if user.password_hash is None:
+        return _account_error("unlink_needs_password")
+    if admin_reachability_error(db, user, keeps_identity=False) is not None:
+        return _account_error("unlink_last_admin")
+    if not unlink_external_identity(db, user.id):
+        return _account_error("not_linked")
+    delete_user_sessions(db, user.id)
+    db.commit()
+    response = RedirectResponse("/login", status_code=303)
+    response.delete_cookie(SESSION_COOKIE, path="/")
+    return response
+
+
 def _verified_identity(config: OidcConfig, claims: dict[str, object]) -> tuple[str, str] | None:
     """Return the issuer and subject to log in with, if the claims are usable."""
     issuer = claims.get("iss")
@@ -151,14 +179,31 @@ def _verified_identity(config: OidcConfig, claims: dict[str, object]) -> tuple[s
     return issuer, subject
 
 
-def _complete_login(request: Request, db: Session, issuer: str, subject: str, next_path: str) -> RedirectResponse:
+def _complete_login(
+    request: Request,
+    db: Session,
+    config: OidcConfig,
+    claims: dict[str, object],
+    issuer: str,
+    subject: str,
+    next_path: str,
+) -> RedirectResponse:
     """Turn a verified external identity into a normal OpenSecDash session."""
     identity = find_external_identity(db, issuer, subject)
     if identity is None:
-        # Unknown identities are rejected without a hint that they are unknown,
-        # and without creating anything. Just-in-time users are a later step.
-        return _login_error("login_failed")
-    user = db.query(User).filter(User.id == identity.user_id).first()
+        if not config.jit_enabled:
+            # Unknown identities are rejected without a hint that they are
+            # unknown, and without creating anything.
+            return _login_error("login_failed")
+        # Only the provider's own name suggestion is looked at, and only as a
+        # username: no group, role or address claim reaches the local account.
+        provisioned = provision_external_user(db, issuer, subject, claims.get("preferred_username"))
+        if provisioned is None:
+            logger.warning("OIDC just-in-time provisioning found no free username")
+            return _login_error("login_failed")
+        user, identity = provisioned
+    else:
+        user = db.query(User).filter(User.id == identity.user_id).first()
     if user is None or not user.is_active:
         return _login_error("login_failed")
 
@@ -233,8 +278,9 @@ async def oidc_callback(request: Request, db: Session = Depends(get_db)):
         clear_flow(request)
         return fail("provider_error")
 
-    claims = token.get("userinfo") if isinstance(token, dict) else None
-    identity = _verified_identity(config, claims) if isinstance(claims, dict) else None
+    raw_claims = token.get("userinfo") if isinstance(token, dict) else None
+    claims: dict[str, object] = raw_claims if isinstance(raw_claims, dict) else {}
+    identity = _verified_identity(config, claims) if claims else None
     if identity is None:
         logger.warning("OIDC callback delivered an unusable ID token")
         clear_flow(request)
@@ -244,4 +290,4 @@ async def oidc_callback(request: Request, db: Session = Depends(get_db)):
     clear_flow(request)
     if is_link:
         return _complete_link(request, db, flow.get("user_id"), issuer, subject)
-    return _complete_login(request, db, issuer, subject, str(flow.get("next") or "/"))
+    return _complete_login(request, db, config, claims, issuer, subject, str(flow.get("next") or "/"))

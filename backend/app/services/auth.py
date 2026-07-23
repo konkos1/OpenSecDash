@@ -28,6 +28,13 @@ AUTH_METHODS = (AUTH_METHOD_PASSWORD, AUTH_METHOD_OIDC)
 
 IDENTITY_PROVIDER_OIDC = "oidc"
 
+# Usernames for automatically created external users. The hash is derived from
+# issuer and subject so the same provider account always produces the same
+# name, without putting a subject or an address into the username.
+JIT_USERNAME_PREFIX = "oidc-"
+JIT_USERNAME_HASH_LENGTH = 12
+JIT_USERNAME_ATTEMPTS = 5
+
 # OWASP lists this 16 MiB / five-pass profile as equivalent to its 128 MiB
 # scrypt minimum while keeping five concurrent logins within a 512 MB container.
 SCRYPT_N = 16384
@@ -182,8 +189,8 @@ def create_session(db: Session, user: User, auth_method: str) -> str:
     return token
 
 
-def resolve_session(db: Session, token: str) -> User | None:
-    """Return the active user for a valid session token, if any."""
+def resolve_session_with_method(db: Session, token: str) -> tuple[User, str] | None:
+    """Return the active user and the method the session was created with."""
     token_hash = hashlib.sha256(token.encode()).hexdigest()
     session = db.query(UserSession).filter(UserSession.token_hash == token_hash).first()
     if session is None:
@@ -192,7 +199,17 @@ def resolve_session(db: Session, token: str) -> User | None:
         db.delete(session)
         return None
     user = db.query(User).filter(User.id == session.user_id).first()
-    return user if user is not None and user.is_active else None
+    if user is None or not user.is_active:
+        return None
+    # An unknown stored method is treated as a password session: it must never
+    # pass as the proof that single sign-on works for this administrator.
+    return user, session.auth_method if session.auth_method in AUTH_METHODS else AUTH_METHOD_PASSWORD
+
+
+def resolve_session(db: Session, token: str) -> User | None:
+    """Return the active user for a valid session token, if any."""
+    resolved = resolve_session_with_method(db, token)
+    return resolved[0] if resolved is not None else None
 
 
 def delete_session(db: Session, token: str) -> None:
@@ -321,6 +338,57 @@ def unlink_external_identity(db: Session, user_id: int, provider: str = IDENTITY
 def delete_user_external_identities(db: Session, user_id: int) -> None:
     """Remove every external identity belonging to a user."""
     db.query(ExternalIdentity).filter(ExternalIdentity.user_id == user_id).delete()
+
+
+def jit_fallback_username(issuer: str, subject: str, attempt: int = 0) -> str:
+    """Return a stable, data-minimal username for one external identity."""
+    digest = hashlib.sha256(f"{issuer}\x00{subject}".encode()).hexdigest()
+    suffix = f"-{attempt + 1}" if attempt else ""
+    return f"{JIT_USERNAME_PREFIX}{digest[:JIT_USERNAME_HASH_LENGTH]}{suffix}"
+
+
+def _jit_usernames(db: Session, issuer: str, subject: str, preferred_username: object):
+    """Yield the usernames to try for a new external user, best first."""
+    candidate = normalize_username(preferred_username) if isinstance(preferred_username, str) else ""
+    # A provider name is only ever a convenience: it has to satisfy the local
+    # username contract and be free, and it never matches an existing account
+    # onto the external identity.
+    if _USERNAME_PATTERN.fullmatch(candidate) is not None and db.query(User).filter(User.username == candidate).first() is None:
+        yield candidate
+    for attempt in range(JIT_USERNAME_ATTEMPTS):
+        yield jit_fallback_username(issuer, subject, attempt)
+
+
+def provision_external_user(
+    db: Session,
+    issuer: str,
+    subject: str,
+    preferred_username: object = "",
+    provider: str = IDENTITY_PROVIDER_OIDC,
+) -> tuple[User, ExternalIdentity] | None:
+    """Create a passwordless viewer for a new external identity in one transaction.
+
+    User, preferences, saved views and the identity row are written inside a
+    single savepoint, so a concurrent first sign-in of the same identity can
+    never leave half of them behind.
+    """
+    for username in _jit_usernames(db, issuer, subject, preferred_username):
+        identity = ExternalIdentity(provider=provider, issuer=issuer, subject=subject)
+        try:
+            with db.begin_nested():
+                user = create_passwordless_user(db, username)
+                identity.user_id = user.id
+                db.add(identity)
+                db.flush()
+        except IntegrityError:
+            existing = find_external_identity(db, issuer, subject, provider)
+            if existing is None:
+                # Only the username collided, so try the next deterministic one.
+                continue
+            existing_user = db.query(User).filter(User.id == existing.user_id).first()
+            return (existing_user, existing) if existing_user is not None else None
+        return user, identity
+    return None
 
 
 def active_oidc_admin_count(db: Session, issuer: str, exclude_user_id: int | None = None) -> int:

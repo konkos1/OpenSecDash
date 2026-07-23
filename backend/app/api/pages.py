@@ -59,8 +59,8 @@ from app.services.oidc import (
     OIDC_CHECK_ERROR_SETTING,
     OIDC_CHECK_STATUS_SETTING,
     callback_url,
+    effective_password_login_enabled,
     load_config,
-    password_login_enabled,
     provider_diagnostics,
 )
 from app.services.asset_updates import refresh_asset_update
@@ -1583,7 +1583,7 @@ def _debug_authentication_lines(db: Session) -> list[str]:
     lines.append(_debug_line("OIDC enabled", oidc_config.enabled))
     lines.append(_debug_line("OIDC discovery check", get_setting_value(db, OIDC_CHECK_STATUS_SETTING, CHECK_STATUS_PENDING)))
     lines.append(_debug_line("OIDC just-in-time users", "on" if oidc_config.jit_enabled else "off"))
-    lines.append(_debug_line("Password sign-in", "on" if password_login_enabled(db) else "off"))
+    lines.append(_debug_line("Password sign-in", "on" if effective_password_login_enabled(db) else "off"))
     for auth_method in AUTH_METHODS:
         lines.append(
             _debug_line(
@@ -1903,7 +1903,10 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
         oidc_check_status=get_setting_value(db, OIDC_CHECK_STATUS_SETTING, CHECK_STATUS_PENDING),
         oidc_check_at=get_setting_value(db, OIDC_CHECK_AT_SETTING, ""),
         oidc_check_error=get_setting_value(db, OIDC_CHECK_ERROR_SETTING, ""),
-        oidc_password_login_enabled=password_login_enabled(db),
+        oidc_password_login_enabled=effective_password_login_enabled(db),
+        # Only whether an account is linked is shown, never an issuer or subject.
+        oidc_linked_user_ids=[identity.user_id for identity in db.query(ExternalIdentity).all()],
+        oidc_identity_count=db.query(ExternalIdentity).count(),
         oidc_error=request.query_params.get("oidc_error", ""),
         oidc_notice=request.query_params.get("oidc_notice", ""),
         global_language=preferences["language"],
