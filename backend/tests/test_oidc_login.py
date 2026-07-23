@@ -497,24 +497,52 @@ def test_a_rotated_signing_key_is_accepted_once_the_provider_publishes_it(oidc_a
     assert ACCESS_TOKEN not in "\n".join(setting.value for setting in db.query(Setting).all())
 
 
+def _break_endpoint(provider: FakeProvider, monkeypatch, path: str, response: httpx.Response) -> None:
+    """Let one provider endpoint answer with something broken."""
+    answer = provider._handle
+
+    def broken(request: httpx.Request) -> httpx.Response:
+        return response if request.url.path == path else answer(request)
+
+    monkeypatch.setattr(provider, "_handle", broken)
+
+
 @pytest.mark.parametrize("path", ["/token", "/jwks"])
 def test_an_oversized_provider_answer_never_reaches_the_process(oidc_app, provider, monkeypatch, path):
     db, client = oidc_app
-    answer = provider._handle
-
-    def oversized(request: httpx.Request) -> httpx.Response:
-        if request.url.path == path:
-            return httpx.Response(
-                200,
-                content=b"x" * (oidc.MAX_PROVIDER_RESPONSE_BYTES + 1),
-                headers={"content-type": "application/json"},
-            )
-        return answer(request)
-
-    monkeypatch.setattr(provider, "_handle", oversized)
+    oversized = httpx.Response(
+        200,
+        content=b"x" * (oidc.MAX_PROVIDER_RESPONSE_BYTES + 1),
+        headers={"content-type": "application/json"},
+    )
+    _break_endpoint(provider, monkeypatch, path, oversized)
 
     response = _login(client, provider)
 
+    assert response.headers["location"] == "/login?oidc_error=provider_error"
+    assert db.query(UserSession).count() == 0
+
+
+@pytest.mark.parametrize(
+    "path,payload",
+    [
+        pytest.param("/token", 7, id="token-number"),
+        pytest.param("/token", [], id="token-list"),
+        pytest.param("/token", {"access_token": []}, id="token-wrong-field-type"),
+        pytest.param("/jwks", 7, id="jwks-number"),
+        pytest.param("/jwks", [], id="jwks-list"),
+        pytest.param("/jwks", {"keys": 7}, id="jwks-wrong-field-type"),
+    ],
+)
+def test_valid_json_with_the_wrong_shape_is_a_failed_sign_in(oidc_app, provider, monkeypatch, path, payload):
+    db, client = oidc_app
+    _break_endpoint(provider, monkeypatch, path, httpx.Response(200, json=payload))
+
+    response = _login(client, provider)
+
+    # A provider answer the parser cannot work with is a failed sign-in, never
+    # an error page.
+    assert response.status_code == 303
     assert response.headers["location"] == "/login?oidc_error=provider_error"
     assert db.query(UserSession).count() == 0
 

@@ -1,12 +1,9 @@
 """OIDC sign-in, callback handling and self-service account linking."""
 import logging
 
-import httpx
-from authlib.common.errors import AuthlibBaseError
 from authlib.integrations.starlette_client import StarletteOAuth2App
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import RedirectResponse
-from joserfc.errors import JoseError
 from sqlalchemy.orm import Session
 
 from app.core.template_context import get_setting_value
@@ -55,17 +52,14 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["oidc"])
 
-# Anything the provider or the network can raise on the way to a verified ID
-# token, including an answer that broke the size limit. They all end in the same
-# generic message: the distinction only ever reaches the log, never the browser.
-_PROVIDER_FAILURES = (
-    AuthlibBaseError,
-    JoseError,
-    httpx.HTTPError,
-    OidcConfigurationError,
-    ValueError,
-    KeyError,
-)
+# Everything between the callback and a verified ID token is provider data
+# parsed by a library, so the failure list is deliberately the whole boundary
+# instead of a list of exception classes: valid JSON with the wrong shape - a
+# token response of `7`, a JWKS document of `[]` - raises whatever the parser
+# happens to raise, and a provider must never be able to turn that into an
+# error page. The exception class reaches the log, the browser gets one
+# generic message.
+_PROVIDER_FAILURES = Exception
 
 
 def _login_error(code: str) -> RedirectResponse:

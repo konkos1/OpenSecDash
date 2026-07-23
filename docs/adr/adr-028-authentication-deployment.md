@@ -526,7 +526,9 @@ certificate bundle, so a homelab CA can be trusted through the image or
 `SSL_CERT_FILE`/`SSL_CERT_DIR`; proxy environment variables stay disabled, and there is
 no switch to skip certificate verification. The same transport caps every answer Authlib
 reads on its own — token, JWKS, and userinfo — at the size already used for discovery, so
-a broken or hostile provider cannot make the process buffer an unbounded response.
+a broken or hostile provider cannot make the process buffer an unbounded response. Any
+failure on the way to a verified ID token — including valid JSON in an unexpected shape —
+ends as the same generic failed sign-in, never as an error page.
 
 The redirect URL is always `https://<auth.hostname>/auth/oidc/callback`, built from the
 validated hostname instead of a request header. The short-lived transaction state uses a
