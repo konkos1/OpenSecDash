@@ -13,9 +13,9 @@ types, not formatting:
 ```bash
 cd backend
 uv lock --check
-uv sync --frozen --group dev
+uv sync --python "$(cat .python-version)" --frozen --group dev
 .venv/bin/python -m pytest tests/ -q
-.venv/bin/pyright --pythonversion 3.13 app tests ../plugins
+.venv/bin/pyright --pythonversion "$(cut -d. -f1,2 .python-version)" app tests ../plugins
 ```
 
 Both must pass with zero errors before a PR is opened. If you did not run them, say so in
@@ -23,7 +23,8 @@ the PR description.
 
 ## Python
 
-- **Python 3.13+, fully type-hinted.** Public functions carry parameter and return
+- **Python 3.13+, fully type-hinted.** Development and production use the exact patch
+  version recorded in `backend/.python-version`. Public functions carry parameter and return
   annotations. Pyright is the type checker; new `# type: ignore` comments need a reason on
   the same line.
 - **Naming:** `snake_case` for functions/variables, `PascalCase` for classes,

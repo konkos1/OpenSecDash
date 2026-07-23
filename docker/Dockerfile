@@ -9,9 +9,10 @@ COPY --from=uv /uv /uvx /bin/
 
 WORKDIR /app/backend
 
-COPY backend/pyproject.toml backend/uv.lock ./
+COPY backend/pyproject.toml backend/uv.lock backend/.python-version ./
 
-RUN uv sync --frozen --no-dev --no-editable --no-install-project
+RUN test "$(python -c 'import platform; print(platform.python_version())')" = "$(cat .python-version)" \
+    && uv sync --python /usr/local/bin/python --frozen --no-dev --no-editable --no-install-project
 
 FROM python:3.14.6-slim-trixie@sha256:cea0e6040540fb2b965b6e7fb5ffa00871e632eef63719f0ea54bca189ce14a6 AS runtime
 

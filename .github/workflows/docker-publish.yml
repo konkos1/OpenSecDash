@@ -26,23 +26,35 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      - name: Verify development and production runtime parity
+        run: python3 docker/verify-runtime-parity.py
+
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.13"
+          python-version-file: backend/.python-version
 
       - name: Set up uv
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
         with:
-          version: "0.11.23"
+          version: "0.11.31"
           enable-cache: true
           cache-dependency-glob: backend/uv.lock
 
       - name: Audit locked Python runtime dependencies
         working-directory: backend
+        shell: bash
         run: |
+          set -euo pipefail
+          expected_python="$(tr -d '[:space:]' < .python-version)"
+          python_path="$(command -v python)"
           uv lock --check
-          uv sync --frozen --group dev
+          uv sync --python "${python_path}" --frozen --group dev
+          actual_python="$(.venv/bin/python -c 'import platform; print(platform.python_version())')"
+          if [[ "${actual_python}" != "${expected_python}" ]]; then
+            echo "::error::Expected Python ${expected_python}, got ${actual_python}"
+            exit 1
+          fi
           uv export --quiet --frozen --no-dev --no-emit-project --output-file runtime-requirements.txt
           uv run --frozen pip-audit --requirement runtime-requirements.txt --format json --output ../pip-audit.json
 
@@ -67,7 +79,8 @@ jobs:
           mkdir -p release-gate-reports
           cd backend
           .venv/bin/python -m pytest tests/ -q --junitxml=../release-gate-reports/pytest.xml
-          .venv/bin/pyright --pythonversion 3.13 app tests ../plugins \
+          python_version="$(tr -d '[:space:]' < .python-version)"
+          .venv/bin/pyright --pythonversion "${python_version%.*}" app tests ../plugins \
             > ../release-gate-reports/pyright.txt
           scratch_dir="$(mktemp -d)"
           trap 'rm -rf "${scratch_dir}"' EXIT
