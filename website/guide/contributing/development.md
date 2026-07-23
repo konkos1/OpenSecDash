@@ -5,10 +5,15 @@ Install backend dependencies and run checks:
 ```bash
 cd backend
 uv lock --check
-uv sync --frozen --group dev
+uv sync --python "$(cat .python-version)" --frozen --group dev
 .venv/bin/python -m pytest tests/ -q
-.venv/bin/pyright --pythonversion 3.13 app tests ../plugins
+.venv/bin/pyright --pythonversion "$(cut -d. -f1,2 .python-version)" app tests ../plugins
 ```
+
+The exact Python patch version in `backend/.python-version` is shared by local
+development, CI, release validation, and the production image. `uv.lock` supplies the
+same application dependencies to development and production; development additionally
+installs the tools from the `dev` dependency group.
 
 Run the app locally:
 

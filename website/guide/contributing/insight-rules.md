@@ -180,9 +180,9 @@ After editing rules, run:
 ```bash
 cd backend
 uv lock --check
-uv sync --frozen --group dev
+uv sync --python "$(cat .python-version)" --frozen --group dev
 .venv/bin/python -m pytest tests/ -q
-.venv/bin/pyright --pythonversion 3.13 app tests ../plugins
+.venv/bin/pyright --pythonversion "$(cut -d. -f1,2 .python-version)" app tests ../plugins
 ```
 
 Then build the website to verify the public JSON is included:

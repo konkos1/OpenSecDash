@@ -432,9 +432,9 @@ Run checks from the repository root/backend:
 ```bash
 cd backend
 uv lock --check
-uv sync --frozen --group dev
+uv sync --python "$(cat .python-version)" --frozen --group dev
 .venv/bin/python -m pytest tests/ -q
-.venv/bin/pyright --pythonversion 3.13 app tests ../plugins
+.venv/bin/pyright --pythonversion "$(cut -d. -f1,2 .python-version)" app tests ../plugins
 ```
 
 For parser-heavy plugins, add focused unit tests that call `parse_line()` or equivalent helper methods directly.
