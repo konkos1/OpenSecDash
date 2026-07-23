@@ -38,6 +38,11 @@
                 <p class="alert-error" role="alert">{{ t(error_key) }}</p>
             {% endif %}
 
+            {% if break_glass %}
+                {# No form at all while the break-glass variable is set: the
+                   setup stays open and continues once it is removed. #}
+                <p class="alert-error mt-5" role="status">{{ t("onboarding.break_glass_notice") }}</p>
+            {% else %}
             <form method="post" action="/onboarding" class="grid gap-4 mt-5" data-unsaved-warning="{{ t('settings.unsaved_changes') }}">
                 <input type="hidden" name="language" value="{{ language }}">
                 <label class="grid gap-1">
@@ -63,6 +68,7 @@
                 <button class="btn" type="submit">{{ t("onboarding.submit") if account_required else t("onboarding.submit_legacy") }}</button>
                 <p class="muted text-sm">{{ t("onboarding.after_submit") }}</p>
             </form>
+            {% endif %}
 
             <section class="mt-6 border-t border-slate-800 pt-5">
                 <div class="flex flex-wrap items-center justify-between gap-2">

@@ -18,7 +18,16 @@
     <div id="diagnostics-results" hx-get="{{ request.url.path }}" hx-select="#diagnostics-results" hx-target="this" hx-swap="outerHTML" {% if live_page_refresh %}hx-trigger="every 15s"{% endif %}>
     <section id="auth-transport" class="card mb-5">
         <h3 class="font-semibold mb-3">{{ t("diagnostics.internal_user_management") }} <button type="button" class="help" data-tooltip="{{ t('diagnostics.auth_transport_relevance_help') }} {{ t('diagnostics.auth_transport_help') }}">?</button></h3>
-        <div class="flex items-start justify-between gap-4 mb-3">
+        {# Plain state values on purpose: an open setup or a pending review is a
+           decision, not a failing check. #}
+        <h4 class="font-semibold mb-3">{{ t("diagnostics.auth_state") }} <button type="button" class="help" data-tooltip="{{ t('diagnostics.auth_state_help') }}">?</button></h4>
+        {% for row in auth_state_rows %}
+            <div class="row">
+                <span>{{ t("diagnostics.auth_state." ~ row.key) }}</span>
+                <b>{{ t(row.value_key) }}</b>
+            </div>
+        {% endfor %}
+        <div class="flex items-start justify-between gap-4 mt-5 mb-3">
             <div>
                 <h4 class="font-semibold">{{ t("diagnostics.auth_transport") }}</h4>
             </div>

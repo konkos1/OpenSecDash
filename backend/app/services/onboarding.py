@@ -37,6 +37,18 @@ ERROR_INCONSISTENT_STATE = "inconsistent_state"
 ERROR_SETUP_FAILED = "setup_failed"
 
 
+def store_activation(db: Session, hostname: str) -> None:
+    """Persist the settings every activation shares, without committing.
+
+    The onboarding completion and the settings activation of an upgraded open
+    installation write exactly the same three values, so both end in a state
+    where only ``OSD_AUTH_DISABLED`` can still bypass internal sign-in.
+    """
+    save_setting(db, AUTH_HOSTNAME_SETTING, hostname)
+    save_setting(db, AUTH_ENABLED_SETTING, "true")
+    save_setting(db, AUTH_ONBOARDING_STATE_SETTING, AUTH_ONBOARDING_COMPLETE)
+
+
 def account_required(db: Session, state: str) -> bool:
     """Return whether the completion has to create the first administrator.
 
@@ -98,9 +110,7 @@ def complete_onboarding(
         save_setting(db, "language", language)
         if creates_admin:
             create_user(db, username, password, "admin")
-        save_setting(db, AUTH_HOSTNAME_SETTING, hostname)
-        save_setting(db, AUTH_ENABLED_SETTING, "true")
-        save_setting(db, AUTH_ONBOARDING_STATE_SETTING, AUTH_ONBOARDING_COMPLETE)
+        store_activation(db, hostname)
         db.commit()
     except SQLAlchemyError:
         logger.exception("Onboarding completion failed; the installation stays in its previous state")

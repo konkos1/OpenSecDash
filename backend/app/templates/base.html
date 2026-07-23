@@ -29,7 +29,7 @@
             <link rel="apple-touch-icon" href="/static/img/pwa/icon-192.png">
         {% endif %}
         <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials">
-        <link rel="stylesheet" href="/static/css/app.css?v={{ app_version }}-save-feedback-banner">
+        <link rel="stylesheet" href="/static/css/app.css?v={{ app_version }}-upgrade-security-prompt">
         {# tailwind.css must come AFTER app.css: the Play CDN used to inject
            its styles at runtime (i.e. last), so utilities like .grid always
            won equal-specificity fights against app.css rules - e.g. the
@@ -106,6 +106,21 @@
             <aside class="auth-disabled-warning" role="status">
                 <strong>{{ t("auth.disabled_warning_title") }}</strong>
                 <span>{{ t("auth.disabled_warning_message") }}</span>
+            </aside>
+        {% endif %}
+
+        {# Shown on every full page of an installation that stayed open across
+           the update, until internal sign-in is set up or OSD_AUTH_DISABLED is
+           set deliberately. There is no close, later or dismiss action: the
+           middleware clears this flag only when one of the two decisions was
+           actually made. #}
+        {% if onboarding_review_required %}
+            <aside class="auth-review-prompt" role="status">
+                <strong>{{ t("auth.review_prompt_title") }}</strong>
+                <span>{{ t("auth.review_prompt_message") }}</span>
+                <span><a href="/onboarding">{{ t("auth.review_prompt_setup") }}</a></span>
+                <span>{{ t("auth.review_prompt_bypass") }}</span>
+                <span>{{ t("auth.review_prompt_stays") }}</span>
             </aside>
         {% endif %}
 

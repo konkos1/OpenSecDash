@@ -123,7 +123,6 @@ ROUTE_PERMISSIONS = (
         ("POST", "/settings/branding/remove"),
         ("POST", "/settings/auth/enable"),
         ("POST", "/settings/auth/hostname"),
-        ("POST", "/settings/auth/disable"),
         ("POST", "/settings/auth/oidc"),
         ("POST", "/settings/auth/oidc/enable"),
         ("POST", "/settings/auth/oidc/disable"),

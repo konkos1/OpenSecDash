@@ -351,23 +351,6 @@ def test_operator_and_viewer_cannot_manage_users(user_management_client):
         viewer_client.close()
 
 
-def test_disabling_authentication_removes_sessions_and_opens_app(user_management_client):
-    db, client = user_management_client
-    _enable_auth(client)
-    assert db.query(UserSession).count() == 1
-
-    response = client.post("/settings/auth/disable", follow_redirects=False)
-
-    assert response.status_code == 303
-    assert get_setting_value(db, "auth.enabled", "true") == "false"
-    assert db.query(UserSession).count() == 0
-    anonymous = TestClient(app, base_url="https://testserver")
-    try:
-        assert anonymous.get("/").status_code == 200
-    finally:
-        anonymous.close()
-
-
 def test_account_password_change_replaces_sessions(user_management_client):
     db, client = user_management_client
     _enable_auth(client)

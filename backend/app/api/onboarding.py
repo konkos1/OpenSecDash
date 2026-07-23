@@ -9,6 +9,7 @@ from app.core.version import get_app_version
 from app.database.dependencies import get_db
 from app.services.auth import (
     AUTH_ONBOARDING_COMPLETE,
+    auth_disabled_by_environment,
     auth_enabled,
     normalize_auth_hostname,
     onboarding_state,
@@ -66,6 +67,9 @@ def _onboarding_page(
             "language": language,
             "t": lambda key: translate(key, language),
             "language_options": language_options(),
+            # While the break-glass variable is set the page only explains the
+            # situation: nothing here may complete or change the stored state.
+            "break_glass": auth_disabled_by_environment(),
             # Only whether an account has to be created is shown, never how many
             # accounts exist, their names, roles or any other detail.
             "account_required": account_required(db, state),
@@ -116,6 +120,11 @@ def complete_onboarding_form(
             status_code=400,
         )
 
+    if auth_disabled_by_environment():
+        # Break-glass keeps the installation open on purpose. Completing the
+        # setup from here would silently take that decision away again, so the
+        # stored state stays untouched until the variable is removed.
+        return rejected("break_glass_active")
     if not is_available_language(language):
         return rejected("invalid_language")
     normalized_hostname = normalize_auth_hostname(hostname)

@@ -48,10 +48,15 @@ from app.services.rollups import combine_rollup_values
 from app.services.saved_views import VIEW_SCOPES, clean_view_name, plugin_views_for_scope, view_filters_from_query, view_query_state_from_query, view_to_query
 from app.services.auth import (
     AUTH_DISABLED_ENV,
+    AUTH_ENABLED_SETTING,
     AUTH_HOSTNAME_SETTING,
     AUTH_METHODS,
+    AUTH_ONBOARDING_COMPLETE,
+    AUTH_ONBOARDING_LEGACY_REVIEW_REQUIRED,
+    AUTH_ONBOARDING_PENDING,
     auth_disabled_by_environment,
     auth_enabled,
+    onboarding_state,
 )
 from app.services.oidc import (
     CHECK_STATUS_PENDING,
@@ -1558,11 +1563,27 @@ def _debug_runtime_lines(db: Session) -> list[str]:
     ]
 
 
+def _effective_onboarding_status(state: str, break_glass: bool) -> str:
+    """Describe what the stored onboarding state means for this process."""
+    if break_glass:
+        return "suspended by break-glass"
+    return {
+        AUTH_ONBOARDING_PENDING: "setup required",
+        AUTH_ONBOARDING_LEGACY_REVIEW_REQUIRED: "review required",
+    }.get(state, "complete")
+
+
 def _debug_authentication_lines(db: Session) -> list[str]:
     break_glass = os.environ.get(AUTH_DISABLED_ENV, "").lower() in ("1", "true", "yes")
+    # onboarding_state() already reduces an unknown stored value to a known
+    # state, so only pending, legacy_review_required or complete is reported.
+    stored_onboarding_state = onboarding_state(db)
     lines = [
+        _debug_line("Stored authentication", get_setting_value(db, AUTH_ENABLED_SETTING, "false")),
         _debug_line("Effective authentication", "enabled" if auth_enabled(db) else "disabled"),
         _debug_line("Break-glass override", "active" if break_glass else "inactive"),
+        _debug_line("Onboarding state", stored_onboarding_state),
+        _debug_line("Effective onboarding", _effective_onboarding_status(stored_onboarding_state, break_glass)),
         _debug_line("Users total", db.query(User).count()),
         _debug_line("Users active", db.query(User).filter(User.is_active == True).count()),  # noqa: E712
         _debug_line(
@@ -1764,6 +1785,22 @@ def diagnostics_debug_report(db: Session = Depends(get_db)):
     )
 
 
+def _auth_state_rows(db: Session) -> list[dict[str, str]]:
+    """Explain stored auth, break-glass and onboarding separately.
+
+    These are plain state values, not health checks: an open setup or a pending
+    review is a decision to make, not a broken provider or a failed count.
+    """
+    break_glass = auth_disabled_by_environment()
+    state = onboarding_state(db)
+    stored_enabled = get_setting_value(db, AUTH_ENABLED_SETTING, "false") == "true"
+    return [
+        {"key": "stored", "value_key": f"diagnostics.auth_state.stored.{'enabled' if stored_enabled else 'disabled'}"},
+        {"key": "break_glass", "value_key": f"diagnostics.auth_state.break_glass.{'active' if break_glass else 'inactive'}"},
+        {"key": "onboarding", "value_key": f"diagnostics.auth_state.onboarding.{state}"},
+    ]
+
+
 @router.get("/diagnostics")
 def diagnostics_page(request: Request, db: Session = Depends(get_db)):
     # A plugin disabled via OSD_PLUGIN_*_DISABLED is not loaded, so its stale
@@ -1815,6 +1852,7 @@ def diagnostics_page(request: Request, db: Session = Depends(get_db)):
         db,
         "diagnostics.html",
         plugin_rows=plugin_rows,
+        auth_state_rows=_auth_state_rows(db),
         auth_transport=auth_transport_diagnostics(request, get_setting_value(db, AUTH_HOSTNAME_SETTING, "")),
         oidc_transport=provider_diagnostics(db, get_setting_value(db, AUTH_HOSTNAME_SETTING, "")),
         datasources=datasources,
@@ -1876,6 +1914,7 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
     }
     authentication_enabled = auth_enabled(db)
     authentication_break_glass = auth_disabled_by_environment()
+    stored_onboarding_state = onboarding_state(db)
     oidc_config = load_config(db)
     preferences = global_preferences(db)
     return render(
@@ -1889,6 +1928,10 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
         branding_error=request.query_params.get("branding_error", ""),
         auth_enabled=authentication_enabled,
         auth_break_glass=authentication_break_glass,
+        # The stored state, not the effective one: break-glass hides the review
+        # prompt but the setup still has to be continued once it is removed.
+        auth_onboarding_pending=stored_onboarding_state == AUTH_ONBOARDING_PENDING,
+        auth_onboarding_review_required=stored_onboarding_state == AUTH_ONBOARDING_LEGACY_REVIEW_REQUIRED,
         auth_hostname=get_setting_value(db, AUTH_HOSTNAME_SETTING, ""),
         users=db.query(User).order_by(User.username).all(),
         auth_error=request.query_params.get("auth_error", ""),
