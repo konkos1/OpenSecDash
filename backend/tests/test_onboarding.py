@@ -398,6 +398,30 @@ def test_legacy_review_with_an_existing_admin_only_confirms_the_hostname(onboard
     assert value(db_session, AUTH_ONBOARDING_STATE_SETTING) == AUTH_ONBOARDING_COMPLETE
 
 
+def test_legacy_review_intro_addresses_the_upgraded_installation(onboarding_client):
+    db_session, client, _ = onboarding_client
+    set_state(db_session, AUTH_ONBOARDING_LEGACY_REVIEW_REQUIRED, auth_enabled="false")
+    create_user(db_session, "olduser", "password123", "admin")
+    db_session.commit()
+
+    page = client.get("/onboarding")
+
+    assert "This installation is still open after the update." in page.text
+    assert "An administrator already exists." in page.text
+    assert "This installation has no administrator yet." not in page.text
+
+
+def test_pending_intro_addresses_the_new_installation(onboarding_client):
+    db_session, client, _ = onboarding_client
+    set_state(db_session, AUTH_ONBOARDING_PENDING)
+
+    page = client.get("/onboarding")
+
+    assert "This installation has no administrator yet." in page.text
+    assert "This installation is still open after the update." not in page.text
+    assert "An administrator already exists." not in page.text
+
+
 def test_inactive_operator_and_viewer_accounts_do_not_count_as_an_admin(onboarding_client):
     db_session, client, _ = onboarding_client
     set_state(db_session, AUTH_ONBOARDING_LEGACY_REVIEW_REQUIRED, auth_enabled="false")

@@ -9,6 +9,7 @@ from app.core.version import get_app_version
 from app.database.dependencies import get_db
 from app.services.auth import (
     AUTH_ONBOARDING_COMPLETE,
+    AUTH_ONBOARDING_LEGACY_REVIEW_REQUIRED,
     auth_disabled_by_environment,
     auth_enabled,
     normalize_auth_hostname,
@@ -70,6 +71,9 @@ def _onboarding_page(
             # While the break-glass variable is set the page only explains the
             # situation: nothing here may complete or change the stored state.
             "break_glass": auth_disabled_by_environment(),
+            # An upgraded open installation is addressed differently than a new
+            # one, but the state itself stays the only thing the page reveals.
+            "legacy_review": state == AUTH_ONBOARDING_LEGACY_REVIEW_REQUIRED,
             # Only whether an account has to be created is shown, never how many
             # accounts exist, their names, roles or any other detail.
             "account_required": account_required(db, state),
