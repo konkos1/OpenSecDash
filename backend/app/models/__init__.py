@@ -15,7 +15,7 @@ from app.models.events import Event
 from app.models.saved_views import SavedView
 from app.models.settings import InstanceFile, Setting
 from app.models.systems import System
-from app.models.users import ApiToken, User, UserPreference, UserSession
+from app.models.users import ApiToken, ExternalIdentity, User, UserPreference, UserSession
 
 __all__ = [
     "Action",
@@ -26,6 +26,7 @@ __all__ = [
     "Datasource",
     "Diagnostic",
     "Event",
+    "ExternalIdentity",
     "GeoIPCache",
     "Insight",
     "InstanceFile",

@@ -148,7 +148,7 @@ For the best install experience, serve OpenSecDash through HTTPS via your revers
 
 ## Optional sign-in and personal workspace
 
-Internal authentication is optional and disabled by default. When enabled, OpenSecDash provides Viewer, Operator, and Admin roles with revocable server-side sessions. Administrators can create users, reset passwords, change roles, and deactivate accounts.
+Internal authentication is optional and disabled by default. When enabled, OpenSecDash provides Viewer, Operator, and Admin roles with revocable server-side sessions. Administrators can create users, reset passwords, change roles, and deactivate accounts. Sign-in can use local passwords, one optional OpenID Connect provider, or both; roles always stay local to OpenSecDash.
 
 Each signed-in user can keep their own:
 

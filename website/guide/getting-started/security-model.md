@@ -39,6 +39,23 @@ second password prompt while keeping access protected at the reverse proxy.
 See [Authentication](../configuration/authentication.md) to enable internal sign-in and
 recover from an administrator lockout.
 
+## Forward auth in front vs. built-in single sign-on
+
+Both setups can use the same identity provider, but they protect different things:
+
+- **Forward auth in front of the proxy** (Authentik, Authelia, Pocket ID, …): the proxy
+  decides who reaches OpenSecDash at all. OpenSecDash itself sees an already authorized
+  visitor and, with internal sign-in disabled, treats everyone as an Admin. There are no
+  per-user roles, no personal preferences, and no per-user audit trail.
+- **Built-in single sign-on**: internal sign-in is enabled and uses the provider as an
+  additional sign-in method. Every user gets a local account with its own role, and
+  provider accounts are matched only by the provider's immutable subject.
+
+Use built-in single sign-on when different people should have different roles. Keep the
+forward-auth layer in front when you only want to keep unauthorized visitors away, and
+combine both when you want the outer gate plus local roles. Roles always come from the
+local user list — OpenSecDash reads no group or role claims from the provider.
+
 ## Trusted reverse proxies
 
 Forwarded client IP, scheme, and host headers are accepted only from configured trusted proxy addresses. This prevents an arbitrary direct client from spoofing `X-Forwarded-For` or making an HTTP request appear to be HTTPS.

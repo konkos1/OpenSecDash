@@ -28,6 +28,18 @@ uv sync --frozen --no-dev
 sudo systemctl restart opensecdash
 ```
 
+## Optional single sign-on (OIDC)
+
+The release that adds [single sign-on](../configuration/authentication.md#single-sign-on-oidc)
+migrates the database once: it adds a table for linked provider accounts, records for
+every session whether it was created with a password or with a provider, and allows
+local accounts without a password. Existing sessions are classified as password
+sessions, so nobody is signed out by the upgrade.
+
+No action is required. Internal sign-in stays disabled by default, single sign-on and
+automatic user creation are off, and password sign-in stays on. Existing local users,
+roles, and password hashes are unchanged.
+
 ## Upgrading from v0.3.1 or earlier
 
 The releases after `v0.3.1` add database migrations for notifications, saved views, personal preferences, instance branding, and optional internal users. These migrations run automatically with the default `AUTO_MIGRATE=true` setting. Internal authentication remains disabled until an administrator explicitly enables it, so the upgrade does not create a surprise login requirement.
