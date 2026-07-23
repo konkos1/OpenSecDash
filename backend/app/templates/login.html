@@ -18,18 +18,26 @@
             {% if error %}
                 <p class="alert-error" role="alert">{{ t(error_key) }}</p>
             {% endif %}
-            <form method="post" action="/login" class="grid gap-4 mt-5">
-                <input type="hidden" name="next" value="{{ next }}">
-                <label class="grid gap-1">
-                    <span>{{ t("auth.username") }}</span>
-                    <input class="input" type="text" name="username" autocomplete="username" autofocus required>
-                </label>
-                <label class="grid gap-1">
-                    <span>{{ t("auth.password") }}</span>
-                    <input class="input" type="password" name="password" autocomplete="current-password" required>
-                </label>
-                <button class="btn" type="submit">{{ t("auth.login_button") }}</button>
-            </form>
+            {% if password_login_enabled %}
+                <form method="post" action="/login" class="grid gap-4 mt-5">
+                    <input type="hidden" name="next" value="{{ next }}">
+                    <label class="grid gap-1">
+                        <span>{{ t("auth.username") }}</span>
+                        <input class="input" type="text" name="username" autocomplete="username" autofocus required>
+                    </label>
+                    <label class="grid gap-1">
+                        <span>{{ t("auth.password") }}</span>
+                        <input class="input" type="password" name="password" autocomplete="current-password" required>
+                    </label>
+                    <button class="btn" type="submit">{{ t("auth.login_button") }}</button>
+                </form>
+            {% endif %}
+            {% if oidc_enabled %}
+                <div class="mt-5 grid gap-2 {% if password_login_enabled %}border-t border-slate-800 pt-5{% endif %}">
+                    {% if password_login_enabled %}<p class="text-sm text-slate-400">{{ t("auth.oidc_or") }}</p>{% else %}<p class="text-sm text-slate-400">{{ t("auth.oidc_only") }}</p>{% endif %}
+                    <a class="btn text-center" href="/auth/oidc/login?next={{ next|urlencode }}">{{ t("auth.oidc_login_button") }}</a>
+                </div>
+            {% endif %}
         </main>
     </body>
 </html>
