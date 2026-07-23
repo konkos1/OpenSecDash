@@ -53,8 +53,8 @@ jobs:
           echo "Changed files:"
           echo "${changed}"
           # Markdown-only changes (READMEs, docs) don't need the test suite;
-          # anything else under backend/, plugins/, or the workflows does.
-          if echo "${changed}" | grep -vE '\.md$' | grep -qE '^(backend/|plugins/|\.github/workflows/)'; then
+          # anything else affecting the app or production image does.
+          if echo "${changed}" | grep -vE '\.md$' | grep -qE '^(backend/|plugins/|docker/|\.github/workflows/)'; then
             echo "code=true" >> "$GITHUB_OUTPUT"
           else
             echo "Only documentation/unrelated files changed - skipping tests."
@@ -64,7 +64,7 @@ jobs:
   backend:
     name: Backend tests
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     needs: changes
     if: needs.changes.outputs.code == 'true'
 
@@ -72,30 +72,45 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      - name: Verify development and production runtime parity
+        run: python3 docker/verify-runtime-parity.py
+
       - name: Set up Python
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.13"
+          python-version-file: backend/.python-version
 
       - name: Set up uv
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
         with:
-          version: "0.11.23"
+          version: "0.11.31"
           enable-cache: true
           cache-dependency-glob: backend/uv.lock
 
       - name: Verify and install locked dependencies
         working-directory: backend
+        shell: bash
         run: |
+          set -euo pipefail
+          expected_python="$(tr -d '[:space:]' < .python-version)"
+          python_path="$(command -v python)"
           uv lock --check
-          uv sync --frozen --group dev
+          uv sync --python "${python_path}" --frozen --group dev
+          actual_python="$(.venv/bin/python -c 'import platform; print(platform.python_version())')"
+          if [[ "${actual_python}" != "${expected_python}" ]]; then
+            echo "::error::Expected Python ${expected_python}, got ${actual_python}"
+            exit 1
+          fi
 
       - name: Run tests
         working-directory: backend
         run: .venv/bin/python -m pytest tests/ -q
 
       - name: Run Pyright
-        run: backend/.venv/bin/pyright --pythonversion 3.13 backend/app backend/tests plugins
+        shell: bash
+        run: |
+          python_version="$(tr -d '[:space:]' < backend/.python-version)"
+          backend/.venv/bin/pyright --pythonversion "${python_version%.*}" backend/app backend/tests plugins
 
       - name: Check pre-built Tailwind CSS is up to date
         working-directory: backend
@@ -106,3 +121,55 @@ jobs:
             echo "::error::cd backend && npx -y tailwindcss@3.4.17 -c tailwind.config.js -i tailwind.input.css -o app/static/css/tailwind.css --minify"
             exit 1
           fi
+
+      - name: Build production image
+        run: docker build --file docker/Dockerfile --tag opensecdash:ci .
+
+      - name: Smoke test production image
+        shell: bash
+        run: |
+          set -euo pipefail
+          cleanup() {
+            docker rm -f opensecdash-ci-smoke >/dev/null 2>&1 || true
+            docker volume rm opensecdash-ci-smoke >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          expected_python="$(tr -d '[:space:]' < backend/.python-version)"
+          actual_python="$(docker run --rm --entrypoint python opensecdash:ci \
+            -c 'import platform; print(platform.python_version())')"
+          if [[ "${actual_python}" != "${expected_python}" ]]; then
+            echo "::error::Production image uses Python ${actual_python}, expected ${expected_python}"
+            exit 1
+          fi
+          docker volume create opensecdash-ci-smoke
+          docker run --rm --user root --entrypoint sh \
+            -v opensecdash-ci-smoke:/data \
+            opensecdash:ci \
+            -c 'touch /data/root-owned && chown root:root /data/root-owned'
+          docker run -d --name opensecdash-ci-smoke \
+            --read-only \
+            --tmpfs /tmp:size=16m,mode=1777 \
+            --security-opt no-new-privileges:true \
+            --cap-drop ALL --cap-add CHOWN --cap-add SETGID --cap-add SETUID \
+            --pids-limit 256 --memory 1g --cpus 2 \
+            -p 127.0.0.1:18765:8000 \
+            -v opensecdash-ci-smoke:/data \
+            opensecdash:ci
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:18765/ready >/dev/null; then
+              break
+            fi
+            if [[ "${attempt}" == "30" ]]; then
+              docker logs opensecdash-ci-smoke
+              exit 1
+            fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:18765/health >/dev/null
+          curl --fail --silent http://127.0.0.1:18765/ready >/dev/null
+          curl --fail --silent http://127.0.0.1:18765/static/css/app.css >/dev/null
+          docker exec opensecdash-ci-smoke sh -c \
+            'test "$(awk "/^Uid:/ {print \$2}" /proc/1/status)" != "0" && test "$(stat -c %U /data/root-owned)" = "opensecdash"'
+          docker exec --user opensecdash opensecdash-ci-smoke sh -c \
+            'touch /data/write-test && touch /tmp/write-test && ! touch /app/rootfs-write-test'
+          docker logs opensecdash-ci-smoke 2>&1 | grep -Eq 'Starting [0-9]+ plugin task groups'

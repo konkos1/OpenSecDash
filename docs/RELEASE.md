@@ -24,11 +24,12 @@ v*.*.*
 2. Run tests and type checks:
 
 ```bash
+python3 docker/verify-runtime-parity.py
 cd backend
 uv lock --check
-uv sync --frozen --group dev
+uv sync --python "$(cat .python-version)" --frozen --group dev
 .venv/bin/python -m pytest tests/ -q
-.venv/bin/pyright --pythonversion 3.13 app tests ../plugins
+.venv/bin/pyright --pythonversion "$(cut -d. -f1,2 .python-version)" app tests ../plugins
 .venv/bin/alembic heads
 .venv/bin/alembic check
 ```
@@ -66,7 +67,19 @@ release. Publication does not proceed when a gate fails.
 ## Automated release gate
 
 The Docker publish workflow is the authoritative release gate. It runs against the
-tagged commit and the exact release-candidate image:
+tagged commit and passes one exact release-candidate image artifact through three jobs:
+
+1. `Build and verify Docker image` runs tests, audits, reproducibility checks, profiles,
+   and the hardened runtime smoke test, then saves the verified image for one day.
+2. `Generate and verify supply-chain reports` scans that image and generates its SPDX
+   SBOM. A failed SBOM action is retried once with the same pinned generator; the result
+   must still pass structural SPDX validation.
+3. `Publish verified Docker image` runs only after both previous jobs succeed and pushes
+   that same downloaded image. There is no alternate SBOM-generator fallback.
+
+This separation keeps successful build evidence distinct from a transient SBOM failure
+while preserving the strict rule that an image without a valid SBOM is never published.
+Build reports and supply-chain reports are retained as separate artifacts:
 
 | Gate | Evidence retained by CI |
 | --- | --- |
@@ -82,7 +95,8 @@ Fresh and Small are limited to 1 vCPU/512 MiB. Large and Upgrade are limited to
 2 vCPU/1 GiB. Search publication gates are p95 below 250 ms for initial lists, 750 ms
 for typical terms, and 1,000 ms for no-match searches; serial and parallel readiness
 must remain below 250 ms and must not change the database. Reports are uploaded even
-when a later gate fails.
+when a later gate fails. The release-candidate image transfer artifact expires after
+one day and is not release evidence.
 
 ## Time-bounded release risks
 

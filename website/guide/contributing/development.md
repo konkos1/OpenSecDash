@@ -5,10 +5,15 @@ Install backend dependencies and run checks:
 ```bash
 cd backend
 uv lock --check
-uv sync --frozen --group dev
+uv sync --python "$(cat .python-version)" --frozen --group dev
 .venv/bin/python -m pytest tests/ -q
-.venv/bin/pyright --pythonversion 3.13 app tests ../plugins
+.venv/bin/pyright --pythonversion "$(cut -d. -f1,2 .python-version)" app tests ../plugins
 ```
+
+The exact Python patch version in `backend/.python-version` is shared by local
+development, CI, release validation, and the production image. `uv.lock` supplies the
+same application dependencies to development and production; development additionally
+installs the tools from the `dev` dependency group.
 
 Run the app locally:
 
@@ -41,12 +46,18 @@ exception must name each CVE/advisory, explain why it is not fixable, limit the 
 scope, and include an expiry date; exceptions must be reviewed in the workflow rather
 than implemented by globally hiding scanner findings.
 
-The publish workflow also runs the complete backend/security suite, Pyright, Alembic,
-Tailwind, and the documentation build before exercising Fresh, Small, Large, and
-Upgrade profiles inside the release-candidate image. The profile JSON reports enforce
-the documented readiness and search thresholds and are retained with the SBOM and scan
-reports. Local profile commands live in `backend/tests/performance/README.md`; they use
-temporary SQLite databases and must never be pointed at a development database.
+The workflow separates build validation, supply-chain checks, and publication. It
+passes one short-lived release-candidate image artifact between those jobs so the
+scanned image is exactly the image that is published. SBOM generation retries the same
+pinned generator once and validates the resulting SPDX document; there is no alternate
+generator fallback, and publication remains blocked without a valid SBOM.
+
+The build job also runs the complete backend/security suite, Pyright, Alembic, Tailwind,
+and the documentation build before exercising Fresh, Small, Large, and Upgrade profiles
+inside the release-candidate image. The profile JSON reports enforce the documented
+readiness and search thresholds. Build reports and supply-chain reports are retained
+separately. Local profile commands live in `backend/tests/performance/README.md`; they
+use temporary SQLite databases and must never be pointed at a development database.
 
 Before contributing, read the repository's `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, and CLA notes.
 

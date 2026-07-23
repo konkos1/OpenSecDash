@@ -49,6 +49,11 @@ compares all installed Python package versions, verifies core runtime versions a
 critical image findings block the push. The package lists, audit reports, image scan,
 and SBOM are retained as workflow artifacts.
 
+Build validation, supply-chain checks, and publication are separate jobs that exchange
+the same short-lived release-candidate image artifact. The pinned SBOM generator is
+retried once when it fails, its SPDX output is validated, and publication runs only
+after the supply-chain gate passes. No alternate generator fallback is used.
+
 Release notes are generated from pull requests associated with the tagged changes. The notes list PR number, title, and contributor instead of dumping every commit.
 
 ## Code style and review
@@ -60,9 +65,9 @@ fixes. Before opening a pull request, run the required checks:
 ```bash
 cd backend
 uv lock --check
-uv sync --frozen --group dev
+uv sync --python "$(cat .python-version)" --frozen --group dev
 .venv/bin/python -m pytest tests/ -q
-.venv/bin/pyright --pythonversion 3.13 app tests ../plugins
+.venv/bin/pyright --pythonversion "$(cut -d. -f1,2 .python-version)" app tests ../plugins
 ```
 
 Both checks must pass without errors. If a check was not run, state that clearly in the
