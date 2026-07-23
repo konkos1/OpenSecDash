@@ -27,6 +27,12 @@
 > backend check rejects drift, installs the development environment with that exact
 > interpreter, and builds and smoke-tests the hardened production image for changes
 > affecting the backend, plugins, Docker assets, or workflows.
+> Update (2026-07-23): release build/validation, supply-chain checks, and publication
+> are separate jobs connected by one short-lived release-candidate image artifact.
+> SBOM generation retries the same pinned generator once and validates the SPDX document.
+> A persistent SBOM or vulnerability-gate failure leaves the verified build evidence
+> intact but prevents the publication job from running; no alternate generator fallback
+> is used.
 > Update (2026-07-23): optional OpenID Connect sign-in exists for exactly one generic
 > discovery provider. It is a sign-in method only: a verified callback creates the same
 > revocable server-side OpenSecDash session, and local roles remain the only source of
