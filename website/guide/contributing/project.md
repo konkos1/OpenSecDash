@@ -49,6 +49,11 @@ compares all installed Python package versions, verifies core runtime versions a
 critical image findings block the push. The package lists, audit reports, image scan,
 and SBOM are retained as workflow artifacts.
 
+Build validation, supply-chain checks, and publication are separate jobs that exchange
+the same short-lived release-candidate image artifact. The pinned SBOM generator is
+retried once when it fails, its SPDX output is validated, and publication runs only
+after the supply-chain gate passes. No alternate generator fallback is used.
+
 Release notes are generated from pull requests associated with the tagged changes. The notes list PR number, title, and contributor instead of dumping every commit.
 
 ## Code style and review
