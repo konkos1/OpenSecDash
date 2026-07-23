@@ -2,6 +2,7 @@
 import hashlib
 import hmac
 import ipaddress
+import logging
 import os
 import re
 import secrets
@@ -16,10 +17,22 @@ from app.models.users import ExternalIdentity, User, UserSession
 from app.services.saved_views import copy_legacy_views_to_user
 from app.services.user_preferences import create_user_preferences
 
+logger = logging.getLogger(__name__)
+
 PASSWORD_MIN_LENGTH = 8
 SESSION_LIFETIME_DAYS = 30
 AUTH_DISABLED_ENV = "OSD_AUTH_DISABLED"
+AUTH_ENABLED_SETTING = "auth.enabled"
 AUTH_HOSTNAME_SETTING = "auth.hostname"
+AUTH_ONBOARDING_STATE_SETTING = "auth.onboarding_state"
+AUTH_ONBOARDING_PENDING = "pending"
+AUTH_ONBOARDING_LEGACY_REVIEW_REQUIRED = "legacy_review_required"
+AUTH_ONBOARDING_COMPLETE = "complete"
+AUTH_ONBOARDING_STATES = (
+    AUTH_ONBOARDING_PENDING,
+    AUTH_ONBOARDING_LEGACY_REVIEW_REQUIRED,
+    AUTH_ONBOARDING_COMPLETE,
+)
 ROLES = ("viewer", "operator", "admin")
 
 AUTH_METHOD_PASSWORD = "password"
@@ -239,12 +252,39 @@ def auth_enabled(db: Session) -> bool:
     """Return whether internal authentication is enabled for this process."""
     if auth_disabled_by_environment():
         return False
-    return get_setting_value(db, "auth.enabled", "false") == "true"
+    return get_setting_value(db, AUTH_ENABLED_SETTING, "false") == "true"
 
 
 def auth_disabled_by_environment() -> bool:
     """Return whether the break-glass environment override is active."""
     return os.environ.get(AUTH_DISABLED_ENV, "").lower() in ("1", "true", "yes")
+
+
+def onboarding_state(db: Session) -> str:
+    """Return the persisted onboarding state; a missing key is conservatively complete.
+
+    An unknown stored value is a configuration error: it is logged without any
+    settings content and treated fail-closed as complete, so a damaged or
+    tampered database never becomes a publicly claimable onboarding.
+    ``OSD_AUTH_DISABLED`` is deliberately not mixed in here; whether the
+    blocking onboarding mode or the non-blocking review prompt is effective is
+    decided later at the central request edge.
+    """
+    value = get_setting_value(db, AUTH_ONBOARDING_STATE_SETTING, AUTH_ONBOARDING_COMPLETE)
+    if value not in AUTH_ONBOARDING_STATES:
+        logger.error("Unknown %s value; treating installation as complete", AUTH_ONBOARDING_STATE_SETTING)
+        return AUTH_ONBOARDING_COMPLETE
+    return value
+
+
+def onboarding_required(db: Session) -> bool:
+    """Return whether a new installation still needs its first admin."""
+    return onboarding_state(db) == AUTH_ONBOARDING_PENDING
+
+
+def onboarding_review_required(db: Session) -> bool:
+    """Return whether an upgraded open installation still needs a security decision."""
+    return onboarding_state(db) == AUTH_ONBOARDING_LEGACY_REVIEW_REQUIRED
 
 
 def active_admin_count(db: Session, exclude_user_id: int | None = None) -> int:

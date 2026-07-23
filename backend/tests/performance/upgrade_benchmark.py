@@ -25,6 +25,12 @@ from app.database import session as session_module
 from app.database.migrations import alembic_config
 from app.models.events import Event
 from app.models.settings import Setting
+from app.models.users import User, UserSession
+from app.services.auth import (
+    AUTH_ENABLED_SETTING,
+    AUTH_ONBOARDING_LEGACY_REVIEW_REQUIRED,
+    AUTH_ONBOARDING_STATE_SETTING,
+)
 
 
 LEGACY_REVISION = "7f4a4a9c2b1e"
@@ -109,7 +115,10 @@ def run(event_count: int) -> dict[str, object]:
             db = session_factory()
             try:
                 events_after = db.query(func.count(Event.id)).scalar() or 0
-                auth_enabled = db.query(Setting).filter(Setting.key == "auth.enabled").first()
+                auth_enabled = db.query(Setting).filter(Setting.key == AUTH_ENABLED_SETTING).first()
+                onboarding = db.query(Setting).filter(Setting.key == AUTH_ONBOARDING_STATE_SETTING).first()
+                users_after = db.query(func.count(User.id)).scalar() or 0
+                sessions_after = db.query(func.count(UserSession.id)).scalar() or 0
                 password = db.query(Setting).filter(Setting.key == "mqtt_password").one().value
                 marker = (
                     db.query(Setting)
@@ -122,8 +131,13 @@ def run(event_count: int) -> dict[str, object]:
                 engine.dispose()
 
             gates = {
+                # The open legacy install stays open and fully readable, proving
+                # the review state blocks no data path.
                 "all_legacy_events_preserved": events_after == event_count,
-                "auth_remains_disabled": auth_enabled is None or auth_enabled.value != "true",
+                "auth_remains_disabled": auth_enabled is not None and auth_enabled.value == "false",
+                "onboarding_review_required": onboarding is not None
+                and onboarding.value == AUTH_ONBOARDING_LEGACY_REVIEW_REQUIRED,
+                "no_admin_or_session_created": users_after == 0 and sessions_after == 0,
                 "legacy_secret_encrypted": password.startswith("enc:v1:"),
                 "dedupe_marker_written": marker == init_db_module.EVENT_DEDUPE_MAINTENANCE_VERSION,
                 "second_start_skips_event_scan": not any(" from events" in statement for statement in statements),

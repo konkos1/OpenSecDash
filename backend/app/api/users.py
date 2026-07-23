@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.database.dependencies import get_db
 from app.models.users import User, UserPreference, UserSession
 from app.services.auth import (
+    AUTH_ENABLED_SETTING,
     AUTH_HOSTNAME_SETTING,
     AUTH_METHOD_PASSWORD,
     PASSWORD_MIN_LENGTH,
@@ -62,7 +63,7 @@ def enable_authentication(
             return _settings_error(error)
         user = create_user(db, username, password, "admin")
         save_setting(db, AUTH_HOSTNAME_SETTING, normalized_hostname)
-        save_setting(db, "auth.enabled", "true")
+        save_setting(db, AUTH_ENABLED_SETTING, "true")
         token = create_session(db, user, AUTH_METHOD_PASSWORD)
         db.commit()
         response = RedirectResponse("/settings", status_code=303)
@@ -71,7 +72,7 @@ def enable_authentication(
     if active_admin_count(db) == 0:
         return _settings_error("no_admin")
     save_setting(db, AUTH_HOSTNAME_SETTING, normalized_hostname)
-    save_setting(db, "auth.enabled", "true")
+    save_setting(db, AUTH_ENABLED_SETTING, "true")
     db.commit()
     return RedirectResponse("/login", status_code=303)
 
@@ -91,7 +92,7 @@ def repair_authentication_hostname(hostname: str = Form(""), db: Session = Depen
 
 @router.post("/settings/auth/disable")
 def disable_authentication(db: Session = Depends(get_db)):
-    save_setting(db, "auth.enabled", "false")
+    save_setting(db, AUTH_ENABLED_SETTING, "false")
     db.query(UserSession).delete()
     db.commit()
     return RedirectResponse("/settings", status_code=303)
