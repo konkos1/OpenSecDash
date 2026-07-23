@@ -17,12 +17,23 @@ features. Anyone who can reach an unprotected dashboard can trigger actions, cha
 integration settings, or obtain access to connected-system capabilities.
 :::
 
-## Optional internal sign-in
+## Internal sign-in
 
-OpenSecDash includes optional internal sign-in with Viewer, Operator, and Admin roles.
-It is disabled by default, so treat the dashboard as sensitive even when internal
-sign-in is not enabled. A dashboard-wide warning makes this state visible: every visitor
-who can reach an unprotected instance has full Viewer, Operator, and Admin access.
+OpenSecDash includes internal sign-in with Viewer, Operator, and Admin roles. A new
+installation starts with it enabled and asks the first visitor to create the first
+administrator. An installation that is updated keeps whatever state it had: enabled stays
+enabled, open stays open.
+
+Treat the dashboard as sensitive whenever internal sign-in is not active. Two permanent,
+non-dismissible notices make that state visible: an installation that stayed open across
+an update asks you to decide between internal sign-in and a deliberate bypass, and an
+instance running with `OSD_AUTH_DISABLED=true` shows the stronger warning that every
+visitor who can reach it has full Viewer, Operator, and Admin access.
+
+`OSD_AUTH_DISABLED=true` is the only way to bypass internal sign-in, and it is a
+container setting on purpose — there is no button for it in the UI. Use it when a VPN, a
+network boundary, or a forward-auth layer already protects the instance, and keep it set
+for as long as you want that.
 
 Recommended placement:
 

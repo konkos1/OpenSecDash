@@ -42,6 +42,11 @@
 > `OSD_AUTH_DISABLED=true` remains the provider-independent break-glass path. Internal
 > authentication itself is unchanged: still optional and still disabled by default, with
 > no onboarding and no group or role claim mapping.
+> Update (2026-07-24): new decision — only brand-new installations now start with
+> internal authentication enabled and a first-admin onboarding. Existing installations
+> keep their effective authentication state on upgrade. `OSD_AUTH_DISABLED` is the only
+> remaining opt-out; the persistent "disable internal sign-in" action in Settings is
+> gone. See "Decision (2026-07-24)" below.
 
 
 
@@ -553,3 +558,84 @@ local user with a unique `issuer + subject`, and `user_sessions.auth_method` rec
 whether a session came from a password or from the provider. Existing sessions were
 classified as `password` by the migration; existing local users and their sessions keep
 working unchanged.
+
+## Decision (2026-07-24): default-on authentication and first-admin onboarding
+
+This is a new decision, not a rewrite of the earlier ones. The sections above keep
+their original wording, including "disabled by default" and "no onboarding"; they
+describe the state before this date.
+
+**New installations start protected.** A database whose `settings` table is still empty
+is a new installation. It persists `auth.enabled=true` and `auth.onboarding_state=pending`
+in the same transaction as its other default settings. Until that onboarding is
+finished, the instance is in a narrow setup mode: `/health`, `/ready`, `/onboarding`, and
+the static files that page needs are reachable, every other HTML request is redirected to
+`/onboarding` with `303`, JSON requests get a stable `503 Setup required`, and WebSocket
+connections are closed before any data is read. Dashboard, APIs, plugins, login, OIDC,
+account, settings, and instance files are not reachable.
+
+**Existing installations keep their state.** On the first start of this version, an
+installation whose `settings` table already has rows keeps its effective authentication
+state and never gets an admin created or a session revoked:
+
+* stored `auth.enabled=true` stays active and is marked `auth.onboarding_state=complete`;
+* stored `auth.enabled=false` stays open and is marked
+  `auth.onboarding_state=legacy_review_required`;
+* a missing `auth.enabled` is stored explicitly as `false` and also marked
+  `legacy_review_required`, because older installations often relied on the old default
+  implicitly. A missing key alone is therefore never a new-installation signal.
+
+`legacy_review_required` is deliberately not blocking. Pages, APIs, plugins, WebSockets,
+and any external authentication in front keep working exactly as before. It only shows a
+permanent, non-dismissible security prompt on every full page, offering the two real
+decisions: set internal sign-in up through `/onboarding`, or set `OSD_AUTH_DISABLED=true`
+deliberately. There is no "later", no "do not show again", and no acknowledgement marker.
+An unknown stored onboarding value is a configuration error: it is logged and treated
+fail-closed as `complete`, so a damaged database never becomes a publicly claimable
+setup.
+
+**Anyone may see the setup page; only the trusted edge may finish it.** There is
+deliberately no setup token. The first visitor can open `/onboarding` and fill the form
+in, which grants no access to data, settings, or plugins. `POST /onboarding` validates
+hostname, username, password, and confirmation, normalizes the hostname, and then applies
+the same boundary that already governed activation: `OSD_TRUSTED_PROXIES` explicitly
+configured, the direct peer inside it, `X-Forwarded-Proto: https`, `X-Forwarded-Port: 443`,
+and an exactly matching `X-Forwarded-Host`. `OSD_TRUSTED_PROXIES` stays infrastructure
+configuration and is never written from the form.
+
+**Completion is atomic and single-use.** The completion lives in a service function that
+first claims the open state with a conditional update
+(`pending` or `legacy_review_required` → `claiming` → `complete`). Only an update that
+touched exactly one row continues. In the same transaction it stores the chosen language,
+creates exactly one active local `admin`, and writes `auth.hostname`, `auth.enabled=true`,
+and `auth.onboarding_state=complete`. Any error rolls the claim back with everything
+else. A second concurrent first visitor serializes on the database write lock and gets a
+harmless "already completed" answer instead of a second administrator. A `pending`
+installation that already contains users is inconsistent and fails closed rather than
+adopting an existing account. An upgraded open installation that still has an active
+admin confirms only its hostname; no account is created, and no account detail is shown.
+
+**A real sign-in follows.** Completion creates no `UserSession` and sets no session
+cookie. It answers `303` to `/login`, where hostname boundary, throttling, password
+verification, session creation, and roles apply immediately. The first admin therefore
+proves the full login path instead of being signed in by owning an open form tab.
+
+**`OSD_AUTH_DISABLED` is the only opt-out.** It keeps its meaning: internal
+authentication and the hostname boundary are off while it is set, the stored
+`auth.enabled` and onboarding state are untouched, an open onboarding is neither shown
+nor completed, and removing the variable restores the saved state — including a still
+open onboarding. Consequently the persistent UI disable was removed: there is no
+`POST /settings/auth/disable` and no "Disable internal sign-in" button any more.
+Installations that already have `auth.enabled=false` stay open and can still activate
+deliberately. Running a new installation permanently without internal sign-in requires
+setting `OSD_AUTH_DISABLED=true` permanently.
+
+**OIDC stays downstream.** The first account is always a local password admin. Single
+sign-on is configured and linked after the first local sign-in, so the OIDC conditions
+and recovery path above are unchanged, and roles remain local.
+
+The setup page is standalone like the login page: no navigation, instance identity,
+branding, plugin, or account data. It shows the product name, a language chooser built
+from the registered core locales, the form, the sanitized transport status, and a
+non-actionable explanation of the deliberate `OSD_AUTH_DISABLED` bypass. The chosen
+language is stored only when the setup actually completes.

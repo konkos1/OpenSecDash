@@ -146,6 +146,27 @@ For the release that first includes internal user management, use this note:
 > Enable it in Settings, and use `OSD_AUTH_DISABLED` as an emergency lockout-recovery
 > switch. See the authentication guide for setup and recovery steps.
 
+### Default-on authentication release note
+
+For the release that first makes internal sign-in the default, use this note:
+
+> New installations now start with internal sign-in enabled and guide the first visitor
+> through a one-time setup for the first Admin account. That setup only completes through
+> your reverse proxy over HTTPS on port 443 with `OSD_TRUSTED_PROXIES` naming the proxy,
+> so configure the proxy before the first start.
+>
+> Existing installations keep their current sign-in state. Instances with internal
+> sign-in enabled continue unchanged. Instances that were open stay fully reachable and
+> show a permanent prompt to choose between setting internal sign-in up and running open
+> deliberately.
+>
+> `OSD_AUTH_DISABLED=true` is now the only way to bypass internal sign-in; the "Disable
+> internal sign-in" button in Settings was removed. See the authentication guide.
+
+Mention in the same release that the setup page and both notices appear in every
+available core language, and that the language chosen during setup becomes the global
+default.
+
 ## After publishing
 
 1. Verify the generated GitHub Release notes.

@@ -70,6 +70,14 @@ proxy network. The defaults and `*` do not qualify for enabling internal sign-in
 OpenSecDash also requires the trusted proxy to provide `X-Forwarded-Proto: https`,
 `X-Forwarded-Port: 443`, and `X-Forwarded-Host`.
 
+Configure all of this **before the first start of a new installation**. A new
+installation shows a one-time setup page for the first administrator, and that setup can
+only be completed through this boundary. The page itself is readable from anywhere and
+shows which of the requirements the current request meets, but a submission from an
+untrusted peer, over plain HTTP, from a port other than 443, or under a different
+hostname is rejected without creating anything. See
+[Authentication](../configuration/authentication.md#first-time-setup-new-installations).
+
 Only requests that pass this boundary receive OpenSecDash's HSTS header. Direct HTTP
 health checks and auth-disabled HTTP access do not receive HSTS, so an incorrect proxy
 configuration cannot pin an unvalidated direct hostname to HTTPS.

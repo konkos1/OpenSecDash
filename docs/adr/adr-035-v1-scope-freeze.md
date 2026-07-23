@@ -205,3 +205,17 @@ Scope decision (2026-07-11): Torblock remains excluded from V1. The Torblock ent
 
 Optional internal user management and multi-user roles were added after this scope decision.
 The feature is disabled by default; see ADR-028.
+
+## Implementation notes (2026-07-24)
+
+The "Not V1" list above stays as written; it records the original scope freeze. Since
+that freeze, internal user management, multi-user roles, and one optional OpenID Connect
+sign-in method have been implemented anyway and are part of the shipped product.
+
+As of this date they are no longer opt-in for new installations: a brand-new installation
+starts with internal authentication enabled and guides the first visitor through a
+one-time first-admin setup. Existing installations keep their current authentication
+state across the upgrade — active installations continue unchanged, open ones stay
+reachable and only receive a permanent security prompt. `OSD_AUTH_DISABLED` is the single
+deliberate opt-out. See ADR-028 for the full decision, the boundary conditions, and the
+upgrade behavior.
