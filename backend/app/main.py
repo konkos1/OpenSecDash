@@ -20,7 +20,7 @@ from app.core.version import get_app_version
 
 setup_service_logging()
 
-from app.api import action_forms_router, actions_router, assets_router, auth_router, events_router, instance_router, oidc_auth_router, oidc_settings_router, pages_router, settings_router, users_router
+from app.api import action_forms_router, actions_router, assets_router, auth_router, events_router, instance_router, oidc_auth_router, oidc_settings_router, onboarding_router, pages_router, settings_router, users_router
 from app.database.init_db import init_db
 from app.database.migrations import run_auto_migrations_if_enabled, update_migration_diagnostic
 from app.core.template_context import build_template_context
@@ -28,7 +28,7 @@ from app.database.session import SessionLocal, engine
 from app.core.template_context import get_setting_value
 from app.models.events import Event
 from app.plugins.manager import get_plugin_manager
-from app.services.auth import AUTH_HOSTNAME_SETTING, auth_enabled, resolve_session
+from app.services.auth import AUTH_HOSTNAME_SETTING, auth_disabled_by_environment, auth_enabled, onboarding_required, resolve_session
 from app.services.event_broadcaster import EventBroadcaster
 from app.services.insight_rules import refresh_insight_rules
 from app.services.notifications import seed_default_notification_rules
@@ -107,6 +107,7 @@ app.include_router(action_forms_router)
 app.include_router(assets_router)
 app.include_router(instance_router)
 app.include_router(auth_router)
+app.include_router(onboarding_router)
 app.include_router(users_router)
 app.include_router(oidc_auth_router)
 app.include_router(oidc_settings_router)
@@ -284,6 +285,12 @@ def _websocket_session_is_valid(websocket: WebSocket, token: str) -> bool:
     """Return whether a websocket may connect under the current auth setting."""
     db = SessionLocal()
     try:
+        # An installation whose first admin does not exist yet transfers no
+        # event data at all; the connection is closed with the same policy code
+        # (1008) as any other rejected connection, before the broadcaster runs.
+        # A legacy review is deliberately not blocking and behaves as before.
+        if onboarding_required(db) and not auth_disabled_by_environment():
+            return False
         if not auth_enabled(db):
             return True
         hostname = get_setting_value(db, AUTH_HOSTNAME_SETTING, "")

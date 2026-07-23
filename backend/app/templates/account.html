@@ -18,8 +18,7 @@
             {% if auth_notice == "preferences_saved" %}<p class="text-green-400 text-sm md:col-span-2">{{ t("account.preferences_saved") }}</p>{% endif %}
             <label>{{ t("settings.language") }} <button type="button" class="help" data-tooltip="{{ t('account.help.language') }}">?</button>
                 <select class="input" name="language">
-                    <option value="en" {% if language == 'en' %}selected{% endif %}>English</option>
-                    <option value="de" {% if language == 'de' %}selected{% endif %}>Deutsch</option>
+                    {% for option in language_options %}<option value="{{ option.code }}" {% if language == option.code %}selected{% endif %}>{{ option.label }}</option>{% endfor %}
                 </select>
             </label>
             <label>{{ t("settings.live_default") }} <button type="button" class="help" data-tooltip="{{ t('account.help.live_default') }}">?</button>
