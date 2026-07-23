@@ -8,7 +8,7 @@ dependencies = [
     "alembic>=1.18.5",
     "authlib>=1.7.2",
     "cryptography>=44.0.0",
-    "fastapi>=0.138.2",
+    "fastapi>=0.139.2",
     "httpx>=0.28.1",
     "itsdangerous>=2.2.0",
     "jinja2>=3.1.6",
@@ -17,15 +17,15 @@ dependencies = [
     "python-multipart>=0.0.32",
     "requests>=2.34.2",
     "sqlalchemy>=2.0.51",
-    "uvicorn>=0.49.0",
-    "websockets>=14.0",
+    "uvicorn>=0.51.0",
+    "websockets>=16.1.1",
 ]
 
 [dependency-groups]
 dev = [
     "pytest>=9.0.2",
     "pyright>=1.1.411",
-    "httpx2>=2.5.0",
+    "httpx2>=2.9.0",
     "pip-audit==2.10.1",
 ]
 
