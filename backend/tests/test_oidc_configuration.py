@@ -1,11 +1,18 @@
 import asyncio
 import io
 import json
+import ssl
 import zipfile
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import certifi
 import httpx
 import pytest
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.x509.oid import NameOID
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -558,6 +565,72 @@ def test_provider_metadata_cache_is_invalidated_by_a_configuration_change():
 
     oidc.invalidate_provider_cache()
     assert oidc.cached_provider_metadata(config) is None
+
+
+def _self_signed_ca(path: Path) -> str:
+    """Write a throwaway CA certificate and return its common name."""
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "OpenSecDash Test Homelab CA")])
+    certificate = (
+        x509.CertificateBuilder()
+        .subject_name(name)
+        .issuer_name(name)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(datetime.now(timezone.utc) - timedelta(days=1))
+        .not_valid_after(datetime.now(timezone.utc) + timedelta(days=1))
+        .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+        .sign(key, hashes.SHA256())
+    )
+    path.write_bytes(certificate.public_bytes(serialization.Encoding.PEM))
+    return "OpenSecDash Test Homelab CA"
+
+
+def test_a_homelab_certificate_authority_is_trusted(tmp_path: Path, monkeypatch):
+    common_name = _self_signed_ca(tmp_path / "homelab-ca.pem")
+    monkeypatch.setenv("SSL_CERT_FILE", str(tmp_path / "homelab-ca.pem"))
+
+    trusted = {
+        entry[0][1] for certificate in oidc._ssl_context().get_ca_certs() for entry in certificate["subject"]
+    }
+    bundled = {
+        entry[0][1]
+        for certificate in ssl.create_default_context(cafile=certifi.where()).get_ca_certs()
+        for entry in certificate["subject"]
+    }
+
+    # The bundled certifi list can never contain a homelab CA, so provider
+    # connections have to use the container's own trust store instead.
+    assert common_name in trusted
+    assert common_name not in bundled
+
+
+def test_provider_connections_verify_against_that_trust_store(monkeypatch):
+    captured: dict[str, object] = {}
+    real_client = httpx.AsyncClient
+
+    def spy(*args, **kwargs):
+        captured.update(kwargs)
+        return real_client(*args, **kwargs)
+
+    monkeypatch.setattr(httpx, "AsyncClient", spy)
+    _fetch(DISCOVERY_URL, lambda request: _json_response(_metadata()))
+    client_kwargs = oidc.build_oauth_client(
+        oidc.OidcConfig(
+            enabled=True,
+            discovery_url=DISCOVERY_URL,
+            client_id="dashboard-client-1234",
+            client_secret="provider-secret",
+            jit_enabled=False,
+            issuer=ISSUER,
+        ),
+        _metadata(),
+    ).client_kwargs
+
+    for kwargs in (captured, client_kwargs):
+        assert isinstance(kwargs["verify"], ssl.SSLContext)
+        # Proxy environment variables stay out of provider requests.
+        assert kwargs["trust_env"] is False
 
 
 def test_authlib_client_uses_pkce_and_the_openid_scopes():

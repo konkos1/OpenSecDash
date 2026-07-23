@@ -78,8 +78,25 @@ OpenSecDash supports exactly one provider. Everything below happens under
 3. Users reach OpenSecDash through HTTPS on external port 443 under the configured
    hostname.
 4. The OpenSecDash container trusts the TLS certificate of your provider. OpenSecDash
-   has no option to skip certificate verification. Providers with a private CA need that
-   CA in the container's trust store.
+   has no option to skip certificate verification.
+
+Provider connections use the container's own trust store, so a homelab provider with a
+private CA works once that CA is trusted inside the container. With the hardened
+read-only Compose example, mount a PEM bundle and point `SSL_CERT_FILE` at it:
+
+```yaml
+services:
+  opensecdash:
+    volumes:
+      - ./homelab-ca.pem:/etc/opensecdash/ca-bundle.pem:ro
+    environment:
+      - SSL_CERT_FILE=/etc/opensecdash/ca-bundle.pem
+```
+
+`SSL_CERT_FILE` replaces the default certificate file, so put your private CA **and**
+the public CAs you still need into that one bundle — for example by appending your CA to
+a copy of the system bundle. Alternatively add the CA to the image's trust store in your
+own derived image.
 
 ### 1. Register OpenSecDash with your provider
 

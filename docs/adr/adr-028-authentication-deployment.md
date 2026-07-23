@@ -520,7 +520,11 @@ re-validates every redirect target against the same URL policy, and keeps connec
 timeouts and a response size limit. Private homelab addresses stay allowed; loopback,
 link-local, and cloud metadata addresses do not. Client secrets, codes, tokens, claims,
 subjects, and provider responses appear in neither the UI, the logs, the diagnostics
-page, nor the debug report; only stable error codes and exception class names do.
+page, nor the debug report; only stable error codes and exception class names do. Provider
+connections verify TLS against the container's own trust store rather than a library
+certificate bundle, so a homelab CA can be trusted through the image or
+`SSL_CERT_FILE`/`SSL_CERT_DIR`; proxy environment variables stay disabled, and there is
+no switch to skip certificate verification.
 
 The redirect URL is always `https://<auth.hostname>/auth/oidc/callback`, built from the
 validated hostname instead of a request header. The short-lived transaction state uses a

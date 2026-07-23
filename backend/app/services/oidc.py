@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import ssl
 import time
 from dataclasses import dataclass
 from typing import Any, cast
@@ -221,6 +222,18 @@ def validate_provider_url(url: str, *, resolve: bool = True) -> str:
         raise OidcConfigurationError("blocked_url") from exc
 
 
+def _ssl_context() -> ssl.SSLContext:
+    """Return the TLS context used for every connection to the provider.
+
+    Without this, HTTPX verifies against its bundled certifi list, which can
+    never contain a homelab CA. The default context uses the container's own
+    trust store instead - including a CA an administrator added there or
+    pointed to with SSL_CERT_FILE/SSL_CERT_DIR - while ``trust_env=False``
+    keeps proxy environment variables out of provider requests.
+    """
+    return ssl.create_default_context()
+
+
 def _timeout() -> httpx.Timeout:
     return httpx.Timeout(
         connect=CONNECT_TIMEOUT_SECONDS,
@@ -259,7 +272,13 @@ async def fetch_discovery_document(
 ) -> tuple[str, dict[str, Any]]:
     """Load a discovery document, re-checking every redirect target against the policy."""
     current = discovery_url
-    async with httpx.AsyncClient(timeout=_timeout(), follow_redirects=False, transport=transport, trust_env=False) as client:
+    async with httpx.AsyncClient(
+        timeout=_timeout(),
+        follow_redirects=False,
+        transport=transport,
+        trust_env=False,
+        verify=_ssl_context(),
+    ) as client:
         for redirect_count in range(MAX_REDIRECTS + 1):
             try:
                 current = validate_provider_url(current, resolve=resolve)
@@ -452,6 +471,7 @@ def build_oauth_client(
         "timeout": _timeout(),
         "follow_redirects": False,
         "trust_env": False,
+        "verify": _ssl_context(),
     }
     if transport is not None:
         client_kwargs["transport"] = transport

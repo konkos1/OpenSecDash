@@ -53,9 +53,10 @@ Check in this order:
 1. Does **Settings → Sign-in & users** report a successful last provider check? Use
    **Check and save provider** to repeat it.
 2. Does the registered redirect URL match the value shown in Settings exactly?
-3. Can the container reach the provider and trust its certificate? A private CA must be
-   present in the container's trust store; OpenSecDash has no option to skip
-   certificate verification.
+3. Can the container reach the provider and trust its certificate? Provider connections
+   use the container's trust store, so a private CA has to be trusted there — mount a
+   PEM bundle and set `SSL_CERT_FILE`, or add the CA to your own derived image.
+   OpenSecDash has no option to skip certificate verification.
 4. Is the discovery URL an HTTPS address without credentials, query, or fragment, and
    does it live on the same host as the issuer it declares? Loopback and cloud metadata
    addresses are rejected on purpose; private homelab addresses are allowed.
