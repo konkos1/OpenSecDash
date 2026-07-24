@@ -70,6 +70,7 @@ from app.services.oidc import (
 )
 from app.services.asset_updates import refresh_asset_update
 from app.services.onboarding import account_required
+from app.services.settings import save_setting
 from app.services.user_preferences import global_preferences, normalize_preferences
 from app.plugins.manager import get_plugin_manager
 from app.services.asset_actions import (
@@ -101,7 +102,6 @@ from app.web.tables import (
     clean_url_value,
     column_redirect_url,
     parse_snapshot_before,
-    save_setting,
     save_table_columns,
     table_columns,
     time_range_start,

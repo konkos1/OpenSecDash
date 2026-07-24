@@ -43,7 +43,7 @@ from app.services.oidc import (
     load_config,
 )
 from app.web import auth as auth_web
-from app.web.tables import save_setting
+from app.services.settings import save_setting
 
 ISSUER = "https://idp.example.test"
 DISCOVERY_URL = f"{ISSUER}/.well-known/openid-configuration"

@@ -21,8 +21,8 @@ from app.services.auth import (
 )
 from app.services.oidc import admin_reachability_error
 from app.services.onboarding import account_required, complete_onboarding
+from app.services.settings import save_setting
 from app.web.auth import auth_proxy_error
-from app.web.tables import save_setting
 
 router = APIRouter(tags=["users"])
 

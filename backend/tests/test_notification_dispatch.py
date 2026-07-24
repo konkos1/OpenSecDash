@@ -18,7 +18,7 @@ from app.services import notifications
 from app.services.events import store_event
 from app.services.notification_channels import EmailChannel
 from app.services.notifications import dispatch_pending_notifications, invalidate_rules_cache, seed_default_notification_rules
-from app.web.tables import save_setting
+from app.services.settings import save_setting
 
 
 class FakeChannel:

@@ -40,8 +40,8 @@ from app.services.oidc import (
     oidc_login_available,
     password_login_enabled,
 )
+from app.services.settings import save_setting
 from app.web.auth import auth_proxy_error
-from app.web.tables import save_setting
 
 logger = logging.getLogger(__name__)
 

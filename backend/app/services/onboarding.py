@@ -23,7 +23,7 @@ from app.services.auth import (
     create_user,
     validate_new_user,
 )
-from app.web.tables import save_setting
+from app.services.settings import save_setting
 
 logger = logging.getLogger(__name__)
 
