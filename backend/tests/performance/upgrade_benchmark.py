@@ -37,12 +37,29 @@ LEGACY_REVISION = "7f4a4a9c2b1e"
 DEFAULT_EVENT_COUNT = 10_000
 
 
+# A real v0.4.2 install carries its general settings but predates auth, so the
+# settings table is populated yet never holds auth.enabled. The migration to the
+# legacy revision creates an empty settings table, so the fixture must insert
+# these rows itself - an UPDATE would match nothing and leave the table empty,
+# which init_db() would then (correctly) treat as a brand-new installation.
+LEGACY_SETTINGS = {
+    "language": "en",
+    "domain": "",
+    "retention_days": "30",
+    "theme": "auto",
+    "mqtt_enabled": "true",
+    "mqtt_host": "broker.example.test",
+    "mqtt_username": "legacy",
+    "mqtt_password": "synthetic-legacy-password",
+}
+
+
 def _insert_legacy_rows(database_path: Path, event_count: int) -> None:
     end_time = datetime(2026, 7, 22, 12)
     with sqlite3.connect(database_path) as connection:
-        connection.execute(
-            "UPDATE settings SET value = ? WHERE key = ?",
-            ("synthetic-legacy-password", "mqtt_password"),
+        connection.executemany(
+            "INSERT INTO settings (key, value) VALUES (?, ?)",
+            list(LEGACY_SETTINGS.items()),
         )
         connection.executemany(
             """
