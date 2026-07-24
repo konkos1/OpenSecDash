@@ -2,7 +2,7 @@
 import time
 import hashlib
 from collections import OrderedDict
-from threading import Lock
+from threading import BoundedSemaphore, Lock
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
@@ -17,6 +17,7 @@ from app.models.users import User, UserPreference
 from app.services.auth import (
     AUTH_METHOD_PASSWORD,
     PASSWORD_MIN_LENGTH,
+    SCRYPT_MAX_CONCURRENCY,
     auth_enabled,
     authenticate,
     cleanup_expired_sessions,
@@ -41,24 +42,31 @@ router = APIRouter(tags=["auth"])
 
 _LOGIN_BACKOFF: OrderedDict[str, tuple[int, float, float]] = OrderedDict()
 _LOGIN_BACKOFF_LOCK = Lock()
+_PASSWORD_CHECK_SLOTS = BoundedSemaphore(SCRYPT_MAX_CONCURRENCY)
+_ACTIVE_ACCOUNT_CHECKS: set[str] = set()
 # Three independent buckets throttle password logins:
 #
 # * account  - keyed on the normalized username only. It throttles *failed*
-#   guesses against one account regardless of client address, but never blocks a
-#   correct password (see ``login``), so knowing a username cannot lock its
-#   owner out.
+#   guesses against one account regardless of client address.
 # * source   - keyed on the resolved downstream client address (never a shared
-#   proxy), so a noisy client is throttled without locking out everyone behind
-#   the proxy. Depends on X-Forwarded-For and can be rotated under an overly
+#   proxy). It depends on X-Forwarded-For and can be rotated under an overly
 #   broad trusted-proxy configuration.
 # * peer     - keyed on the immediate TCP peer, captured before X-Forwarded-For
-#   is applied. It cannot be rotated by a request header and uses the highest
-#   threshold, so it tolerates normal shared-proxy traffic while still bounding
-#   forwarded-address spraying that slips past the source bucket.
+#   is applied. A reverse proxy is shared by all downstream users, so this is
+#   only a high-threshold signal for slowing failed guesses - never a reason to
+#   reject a correct password.
+#
+# Password verification itself is bounded separately: at most the documented
+# number of memory-hard scrypt checks may run from the public login endpoint,
+# and only one check per account may be in flight. Once any failure bucket is
+# locked, a wrong password keeps its verification slot for a short delay. This
+# bounds both concurrency and sustained guessing without a persistent account,
+# NAT or proxy-wide lockout for correct credentials.
 _MAX_ACCOUNT_LOGIN_FAILURES = 5
 _MAX_SOURCE_LOGIN_FAILURES = 100
 _MAX_PEER_LOGIN_FAILURES = 200
 _LOGIN_LOCK_SECONDS = 60
+_LOGIN_FAILURE_DELAY_SECONDS = 1.0
 _LOGIN_BACKOFF_TTL_SECONDS = 300
 _MAX_LOGIN_BACKOFF_ENTRIES = 4096
 
@@ -116,10 +124,9 @@ def _peer_id(request: Request) -> str | None:
 
 
 def _flood_buckets(source_id: str | None, peer_id: str | None) -> list[tuple[str, int]]:
-    # Buckets a third party cannot fill on a victim's behalf: the source is the
-    # victim's own resolved address and the peer their own reverse proxy. They
-    # therefore block even a correct password while flooding, without ever
-    # letting an attacker lock out a remote account.
+    # Source and peer state detects sustained or rotated spraying. Both can be
+    # shared (for example by a NAT or reverse proxy), so they only slow failed
+    # attempts after verification and never pre-empt a potentially correct one.
     buckets: list[tuple[str, int]] = []
     if source_id is not None:
         buckets.append((_source_backoff_key(source_id), _MAX_SOURCE_LOGIN_FAILURES))
@@ -136,6 +143,7 @@ def reset_login_backoff() -> None:
     """Clear the in-memory login backoff state for tests."""
     with _LOGIN_BACKOFF_LOCK:
         _LOGIN_BACKOFF.clear()
+        _ACTIVE_ACCOUNT_CHECKS.clear()
 
 
 def _keys_locked(keys: list[str]) -> bool:
@@ -148,8 +156,36 @@ def _login_locked(username: str, source_id: str | None, peer_id: str | None) -> 
     return _keys_locked([key for key, _threshold in _all_buckets(username, source_id, peer_id)])
 
 
-def _flood_locked(source_id: str | None, peer_id: str | None) -> bool:
-    return _keys_locked([key for key, _threshold in _flood_buckets(source_id, peer_id)])
+def _begin_password_check(username: str) -> str | None:
+    """Reserve bounded verification capacity and one in-flight slot per account."""
+    if not _PASSWORD_CHECK_SLOTS.acquire(blocking=False):
+        return None
+    account_key = _account_backoff_key(username)
+    with _LOGIN_BACKOFF_LOCK:
+        if account_key in _ACTIVE_ACCOUNT_CHECKS:
+            _PASSWORD_CHECK_SLOTS.release()
+            return None
+        _ACTIVE_ACCOUNT_CHECKS.add(account_key)
+    return account_key
+
+
+def _end_password_check(account_key: str) -> None:
+    with _LOGIN_BACKOFF_LOCK:
+        _ACTIVE_ACCOUNT_CHECKS.discard(account_key)
+    _PASSWORD_CHECK_SLOTS.release()
+
+
+def _throttled_login_response(request: Request, db: Session, next_path: str):
+    response = _login_response(
+        request,
+        db,
+        next_path,
+        error=True,
+        error_key="auth.login_locked",
+        status_code=429,
+    )
+    response.headers["Retry-After"] = str(max(1, int(_LOGIN_FAILURE_DELAY_SECONDS)))
+    return response
 
 
 def _record_failed_login(username: str, source_id: str | None, peer_id: str | None) -> None:
@@ -220,32 +256,36 @@ def login(
         return _login_response(request, db, next, error=True, error_key="auth.password_login_disabled", status_code=403)
     source_id = _source_id(request)
     peer_id = _peer_id(request)
-    # A flooding source or proxy peer is rejected before any password hashing.
-    # These buckets cannot be filled on a remote victim's behalf, so blocking
-    # them outright is safe.
-    if _flood_locked(source_id, peer_id):
-        return _login_response(request, db, next, error=True, error_key="auth.login_locked", status_code=429)
+    account_check = _begin_password_check(username)
+    if account_check is None:
+        return _throttled_login_response(request, db, next)
+    try:
+        user = authenticate(db, username, password)
+        if user is None:
+            # A locked account, source, or peer delays only this verified failure.
+            # The bounded slot is deliberately held during the delay, turning the
+            # bucket into an actual rate limit instead of response-code masking.
+            if _login_locked(username, source_id, peer_id):
+                if _LOGIN_FAILURE_DELAY_SECONDS > 0:
+                    time.sleep(_LOGIN_FAILURE_DELAY_SECONDS)
+                return _throttled_login_response(request, db, next)
+            _record_failed_login(username, source_id, peer_id)
+            return _login_response(request, db, next, error=True, status_code=401)
 
-    user = authenticate(db, username, password)
-    if user is None:
-        # The account bucket only throttles failed guesses; already-locked
-        # attempts are refused without extending the backoff further.
-        if _login_locked(username, source_id, peer_id):
-            return _login_response(request, db, next, error=True, error_key="auth.login_locked", status_code=429)
-        _record_failed_login(username, source_id, peer_id)
-        return _login_response(request, db, next, error=True, status_code=401)
-
-    # Correct credentials are always honored here: the account backoff never
-    # blocks them, so a known username cannot be locked out by guessing.
-    with _LOGIN_BACKOFF_LOCK:
-        _LOGIN_BACKOFF.pop(_account_backoff_key(username), None)
-    cleanup_expired_sessions(db)
-    user.last_login_at = utc_now().replace(tzinfo=None)
-    token = create_session(db, user, AUTH_METHOD_PASSWORD)
-    db.commit()
-    response = RedirectResponse(safe_local_path(next), status_code=303)
-    set_session_cookie(response, request, token)
-    return response
+        # No failure bucket may reject a verified password. This prevents a
+        # guessed username, shared NAT or shared proxy from becoming a persistent
+        # lockout while the bounded verifier still protects CPU and memory.
+        with _LOGIN_BACKOFF_LOCK:
+            _LOGIN_BACKOFF.pop(_account_backoff_key(username), None)
+        cleanup_expired_sessions(db)
+        user.last_login_at = utc_now().replace(tzinfo=None)
+        token = create_session(db, user, AUTH_METHOD_PASSWORD)
+        db.commit()
+        response = RedirectResponse(safe_local_path(next), status_code=303)
+        set_session_cookie(response, request, token)
+        return response
+    finally:
+        _end_password_check(account_check)
 
 
 @router.post("/auth/logout")

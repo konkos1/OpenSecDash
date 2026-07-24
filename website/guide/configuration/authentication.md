@@ -387,6 +387,14 @@ one hash and 1.194 seconds for five parallel hashes at roughly 98 MiB peak RSS. 
 `N=2^17,r=8,p=1` alternative used about 509 MiB during the same parallel test. Existing
 `N=2^14,r=8,p=1` hashes remain valid and are upgraded only after a successful sign-in.
 
+OpenSecDash runs at most five memory-hard password operations at once and accepts only
+one in-flight login check for the same normalized username. Additional concurrent checks
+receive `429 Too Many Requests` with `Retry-After` before hashing. Repeated failures are
+tracked independently by account, resolved client address, and direct proxy peer. Once a
+threshold is reached, further verified failures are delayed, but the stored failure state
+never rejects a correct password; a shared NAT or reverse proxy therefore cannot become a
+persistent login lockout.
+
 All responses receive anti-sniffing, referrer, framing, permissions, and Content
 Security Policy headers. Login, Settings, and authenticated HTML/API responses are not
 cached. HSTS is sent only after the configured trusted HTTPS/443 authentication boundary

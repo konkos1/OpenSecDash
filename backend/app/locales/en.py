@@ -99,7 +99,7 @@ EN = {
     "auth.password": "Password",
     "auth.login_button": "Sign in",
     "auth.login_failed": "Wrong username or password.",
-    "auth.login_locked": "Too many failed attempts. Please wait a minute and try again.",
+    "auth.login_locked": "Too many login attempts. Please wait briefly and try again.",
     "auth.logout": "Sign out",
     "auth.disabled_warning_title": "Internal sign-in is disabled.",
     "auth.disabled_warning_message": "Every visitor who can reach OpenSecDash has full access; protect it with a trusted external provider or enable internal sign-in.",

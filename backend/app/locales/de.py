@@ -99,7 +99,7 @@ DE = {
     "auth.password": "Passwort",
     "auth.login_button": "Anmelden",
     "auth.login_failed": "Benutzername oder Passwort ist falsch.",
-    "auth.login_locked": "Zu viele fehlgeschlagene Versuche. Bitte warte eine Minute und versuche es erneut.",
+    "auth.login_locked": "Zu viele Anmeldeversuche. Bitte warte kurz und versuche es erneut.",
     "auth.logout": "Abmelden",
     "auth.disabled_warning_title": "Die interne Anmeldung ist deaktiviert.",
     "auth.disabled_warning_message": "Jeder erreichbare Besucher hat vollständigen Zugriff; schütze OpenSecDash mit einem vertrauenswürdigen externen Anbieter oder aktiviere die interne Anmeldung.",
