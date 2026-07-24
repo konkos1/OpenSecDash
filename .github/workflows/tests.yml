@@ -177,5 +177,5 @@ jobs:
           docker exec opensecdash-ci-smoke sh -c \
             'test "$(awk "/^Uid:/ {print \$2}" /proc/1/status)" != "0" && test "$(stat -c %U /data/root-owned)" = "opensecdash"'
           docker exec --user opensecdash opensecdash-ci-smoke sh -c \
-            'touch /data/write-test && touch /tmp/write-test && ! touch /app/rootfs-write-test'
-          docker logs opensecdash-ci-smoke 2>&1 | grep -Eq 'Starting [0-9]+ plugin task groups'
+            'touch /data/write-test && touch /tmp/write-test && ! touch /app/rootfs-write-test 2>/dev/null'
+          docker logs opensecdash-ci-smoke 2>&1 | grep -E 'Starting [0-9]+ plugin task groups' >/dev/null
