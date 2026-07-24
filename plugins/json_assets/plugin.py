@@ -128,9 +128,8 @@ class Plugin(PeriodicPlugin):
         if inventory_interval > 0 and self._is_due(self._last_inventory_import, inventory_interval, now):
             # Take the same lock as the manual Import button so the periodic
             # import can never interleave with a user-triggered one - both
-            # write the same system/asset rows, and asset external_ids carry
-            # no unique constraint to catch a race after the fact. If an
-            # asset action is busy right now, skip; the next tick retries.
+            # write the same system/asset rows. If an asset action is busy
+            # right now, skip; the next tick retries.
             from app.services.asset_actions import AssetActionAlreadyRunning, run_asset_action
 
             try:

@@ -30,6 +30,7 @@ from app.services.oidc import (
     OidcConfig,
     OidcConfigurationError,
     admin_reachability_error,
+    admin_reachability_mutation,
     build_oauth_client,
     callback_url,
     effective_password_login_enabled,
@@ -150,20 +151,25 @@ async def oidc_link(request: Request, db: Session = Depends(get_db)):
 def oidc_unlink(request: Request, db: Session = Depends(get_db)):
     if not auth_enabled(db):
         return RedirectResponse("/", status_code=303)
-    user = getattr(request.state, "user", None)
-    if user is None:
+    request_user = getattr(request.state, "user", None)
+    if request_user is None:
         return RedirectResponse("/login", status_code=303)
-    # Removing the link is only safe while the local password is a way back in.
-    if not effective_password_login_enabled(db):
-        return _account_error("unlink_needs_password_login")
-    if user.password_hash is None:
-        return _account_error("unlink_needs_password")
-    if admin_reachability_error(db, user, keeps_identity=False) is not None:
-        return _account_error("unlink_last_admin")
-    if not unlink_external_identity(db, user.id):
-        return _account_error("not_linked")
-    delete_user_sessions(db, user.id)
-    db.commit()
+    with admin_reachability_mutation(db):
+        user = db.query(User).filter(User.id == request_user.id).first()
+        if user is None or not user.is_active:
+            return RedirectResponse("/login", status_code=303)
+        # Removing the link is only safe while the local password is a way back
+        # in. Check the current persisted state under the mutation guard.
+        if not effective_password_login_enabled(db):
+            return _account_error("unlink_needs_password_login")
+        if user.password_hash is None:
+            return _account_error("unlink_needs_password")
+        if admin_reachability_error(db, user, keeps_identity=False) is not None:
+            return _account_error("unlink_last_admin")
+        if not unlink_external_identity(db, user.id):
+            return _account_error("not_linked")
+        delete_user_sessions(db, user.id)
+        db.commit()
     response = RedirectResponse("/login", status_code=303)
     response.delete_cookie(SESSION_COOKIE, path="/")
     return response

@@ -1,4 +1,6 @@
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Barrier
 
 import pytest
 from fastapi.testclient import TestClient
@@ -6,6 +8,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.api import auth as auth_api
+from app.api.users import change_user_role
 from app.core.template_context import get_setting_value
 from app.database.base import Base
 from app.database.dependencies import get_db
@@ -377,6 +380,56 @@ def test_last_admin_and_self_delete_protections(user_management_client):
     assert response.status_code == 303
     assert db.query(User).filter(User.id == second_admin.id).first() is None
     assert db.query(UserPreference).filter(UserPreference.user_id == second_admin.id).count() == 0
+
+
+def test_concurrent_admin_demotions_keep_one_reachable_admin(tmp_path: Path):
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'concurrent-admin-demotions.db'}",
+        connect_args={"check_same_thread": False},
+    )
+    session_factory = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    Base.metadata.create_all(bind=engine)
+    setup_db = session_factory()
+    try:
+        first_admin = create_user(setup_db, "firstadmin", "password123", "admin")
+        second_admin = create_user(setup_db, "secondadmin", "password123", "admin")
+        setup_db.commit()
+        admin_ids = (first_admin.id, second_admin.id)
+    finally:
+        setup_db.close()
+
+    ready = Barrier(2)
+
+    def demote(user_id: int) -> str:
+        db = session_factory()
+        try:
+            # Model the reads performed earlier in a real request. The route
+            # must discard this stale transaction after waiting for the guard.
+            assert db.query(User).count() == 2
+            ready.wait()
+            response = change_user_role(user_id, "viewer", db)
+            return response.headers["location"]
+        finally:
+            db.close()
+
+    try:
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            locations = list(executor.map(demote, admin_ids))
+
+        verification_db = session_factory()
+        try:
+            assert sorted(locations) == ["/settings", "/settings?auth_error=last_admin"]
+            assert (
+                verification_db.query(User)
+                .filter(User.role == "admin", User.is_active == True)  # noqa: E712
+                .count()
+                == 1
+            )
+        finally:
+            verification_db.close()
+    finally:
+        Base.metadata.drop_all(bind=engine)
+        engine.dispose()
 
 
 def test_deleting_a_user_removes_sessions_preferences_and_external_identities(user_management_client):

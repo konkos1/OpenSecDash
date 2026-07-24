@@ -19,7 +19,7 @@ from app.services.auth import (
     unlink_external_identity,
     validate_new_user,
 )
-from app.services.oidc import admin_reachability_error
+from app.services.oidc import admin_reachability_error, admin_reachability_mutation
 from app.services.onboarding import account_required, complete_onboarding
 from app.services.settings import save_setting
 from app.web.auth import auth_proxy_error
@@ -109,14 +109,15 @@ def create_managed_user(
 def change_user_role(user_id: int, role: str = Form(), db: Session = Depends(get_db)):
     if role not in ROLES:
         return _settings_error("invalid_role")
-    user = _user_or_error(db, user_id)
-    if isinstance(user, RedirectResponse):
-        return user
-    error = admin_reachability_error(db, user, role=role)
-    if error is not None:
-        return _settings_error(error)
-    user.role = role
-    db.commit()
+    with admin_reachability_mutation(db):
+        user = _user_or_error(db, user_id)
+        if isinstance(user, RedirectResponse):
+            return user
+        error = admin_reachability_error(db, user, role=role)
+        if error is not None:
+            return _settings_error(error)
+        user.role = role
+        db.commit()
     return RedirectResponse("/settings", status_code=303)
 
 
@@ -140,55 +141,58 @@ def reset_selected_user_password(user_id: int = Form(), password: str = Form(), 
 
 @router.post("/settings/users/{user_id}/toggle")
 def toggle_user(user_id: int, db: Session = Depends(get_db)):
-    user = _user_or_error(db, user_id)
-    if isinstance(user, RedirectResponse):
-        return user
-    error = admin_reachability_error(db, user, is_active=not user.is_active)
-    if error is not None:
-        return _settings_error(error)
-    user.is_active = not user.is_active
-    if not user.is_active:
-        delete_user_sessions(db, user.id)
-    db.commit()
+    with admin_reachability_mutation(db):
+        user = _user_or_error(db, user_id)
+        if isinstance(user, RedirectResponse):
+            return user
+        error = admin_reachability_error(db, user, is_active=not user.is_active)
+        if error is not None:
+            return _settings_error(error)
+        user.is_active = not user.is_active
+        if not user.is_active:
+            delete_user_sessions(db, user.id)
+        db.commit()
     return RedirectResponse("/settings", status_code=303)
 
 
 @router.post("/settings/users/{user_id}/oidc/unlink")
 def revoke_user_external_identity(request: Request, user_id: int, db: Session = Depends(get_db)):
-    user = _user_or_error(db, user_id)
-    if isinstance(user, RedirectResponse):
-        return user
-    current_user = getattr(request.state, "user", None)
-    if current_user is not None and current_user.id == user.id:
-        # Removing your own link has stricter conditions and lives on the
-        # account page, so it cannot be used to walk around them here.
-        return _settings_error("self_unlink")
-    error = admin_reachability_error(db, user, keeps_identity=False)
-    if error is not None:
-        return _settings_error(error)
-    if not unlink_external_identity(db, user.id):
-        return _settings_error("not_linked")
-    # Revoking a link is a deliberate withdrawal of access, so the sessions it
-    # created end with it.
-    delete_user_sessions(db, user.id)
-    db.commit()
+    with admin_reachability_mutation(db):
+        user = _user_or_error(db, user_id)
+        if isinstance(user, RedirectResponse):
+            return user
+        current_user = getattr(request.state, "user", None)
+        if current_user is not None and current_user.id == user.id:
+            # Removing your own link has stricter conditions and lives on the
+            # account page, so it cannot be used to walk around them here.
+            return _settings_error("self_unlink")
+        error = admin_reachability_error(db, user, keeps_identity=False)
+        if error is not None:
+            return _settings_error(error)
+        if not unlink_external_identity(db, user.id):
+            return _settings_error("not_linked")
+        # Revoking a link is a deliberate withdrawal of access, so the sessions
+        # it created end with it.
+        delete_user_sessions(db, user.id)
+        db.commit()
     return RedirectResponse("/settings", status_code=303)
 
 
 @router.post("/settings/users/{user_id}/delete")
 def delete_managed_user(request: Request, user_id: int, db: Session = Depends(get_db)):
-    user = _user_or_error(db, user_id)
-    if isinstance(user, RedirectResponse):
-        return user
-    current_user = getattr(request.state, "user", None)
-    if current_user is not None and current_user.id == user.id:
-        return _settings_error("self_delete")
-    error = admin_reachability_error(db, user, deleted=True)
-    if error is not None:
-        return _settings_error(error)
-    delete_user_sessions(db, user.id)
-    delete_user_external_identities(db, user.id)
-    db.query(UserPreference).filter(UserPreference.user_id == user.id).delete()
-    db.delete(user)
-    db.commit()
+    with admin_reachability_mutation(db):
+        user = _user_or_error(db, user_id)
+        if isinstance(user, RedirectResponse):
+            return user
+        current_user = getattr(request.state, "user", None)
+        if current_user is not None and current_user.id == user.id:
+            return _settings_error("self_delete")
+        error = admin_reachability_error(db, user, deleted=True)
+        if error is not None:
+            return _settings_error(error)
+        delete_user_sessions(db, user.id)
+        delete_user_external_identities(db, user.id)
+        db.query(UserPreference).filter(UserPreference.user_id == user.id).delete()
+        db.delete(user)
+        db.commit()
     return RedirectResponse("/settings", status_code=303)

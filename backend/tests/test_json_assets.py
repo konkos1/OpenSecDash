@@ -61,6 +61,31 @@ def test_import_json_assets_creates_updates_and_marks_missing_assets_inactive(db
     assert db_session.query(Asset).filter_by(system_id=system.id, name="crowdsec").one().is_active is False
 
 
+def test_import_json_assets_skips_duplicate_normalized_app_ids(db_session, caplog):
+    result = import_json_assets(
+        db_session,
+        {
+            "systems": [
+                {
+                    "vmid": "100",
+                    "hostname": "edge-01",
+                    "type": "vm",
+                    "apps": [
+                        {"name": "My App", "version": "1.0"},
+                        {"name": "my app", "version": "2.0"},
+                    ],
+                }
+            ]
+        },
+    )
+
+    assert result == {"systems_created": 1, "assets_created": 1, "assets_updated": 0, "assets_inactive": 0}
+    asset = db_session.query(Asset).one()
+    assert asset.name == "My App"
+    assert asset.external_id == "json_assets:system:100:app:my-app"
+    assert "Skipping duplicate JSON asset identity" in caplog.text
+
+
 def test_asset_search_matches_system_and_app_fields(db_session):
     system = System(vmid="104", hostname="proxy-lxc", system_type="lxc", source_plugin="proxmox_assets", external_id="proxmox:pve:guest:pve1:104")
     db_session.add(system)

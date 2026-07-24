@@ -54,6 +54,9 @@ inventory is not partially imported.
 ## Source behavior
 
 JSON Assets and Proxmox Assets can run in parallel. The JSON importer generates stable source IDs and only marks its own imported systems and apps inactive.
+App names are normalized for those IDs. If one inventory contains names that
+normalize to the same ID, such as `My App` and `my app`, the first entry is
+imported and later duplicates are skipped with a warning.
 
 ## Update checks
 

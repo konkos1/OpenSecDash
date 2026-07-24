@@ -1,3 +1,4 @@
+import logging
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -17,6 +18,7 @@ from app.models.assets import Asset
 from app.models.systems import System
 
 SOURCE_PLUGIN = "json_assets"
+logger = logging.getLogger(__name__)
 
 
 def _inventory_strings(value: Any):
@@ -78,6 +80,7 @@ def import_json_assets(
     imported_assets = 0
     updated_assets = 0
     inactive_assets = 0
+    processed_asset_ids: set[str] = set()
 
     now = utc_now().replace(tzinfo=None)
     external_master = get_setting_value(db, "plugin.json_assets.apps_master", get_setting_value(db, "apps_master", "opensecdash")) == "external"
@@ -112,7 +115,7 @@ def import_json_assets(
             system.source_plugin = system.source_plugin or SOURCE_PLUGIN
             system.external_id = system.external_id or system_external_id
 
-        seen_asset_names: set[str] = set()
+        seen_asset_ids: set[str] = set()
 
         for app_data in system_data.get("apps", []):
             name = str(app_data.get("name", "")).strip()
@@ -124,9 +127,12 @@ def import_json_assets(
             if not name:
                 continue
 
-            seen_asset_names.add(name)
-
             asset_external_id = _asset_external_id(system_external_id, name)
+            seen_asset_ids.add(asset_external_id)
+            if asset_external_id in processed_asset_ids:
+                logger.warning("Skipping duplicate JSON asset identity %s", asset_external_id)
+                continue
+            processed_asset_ids.add(asset_external_id)
             asset = (
                 db.query(Asset)
                 .filter(Asset.source_plugin == SOURCE_PLUGIN, Asset.external_id == asset_external_id)
@@ -179,7 +185,7 @@ def import_json_assets(
         )
 
         for asset in existing_assets:
-            if asset.name not in seen_asset_names and asset.is_active:
+            if asset.external_id not in seen_asset_ids and asset.is_active:
                 asset.is_active = False
                 inactive_assets += 1
 

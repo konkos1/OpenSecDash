@@ -46,6 +46,21 @@ class FakeClusterClient:
         raise AssertionError(f"unexpected path: {path}")
 
 
+class FakeDuplicateAppsClient(FakeClusterClient):
+    def get(self, path):
+        if path == "/nodes/pve1/lxc/104/config":
+            return {
+                "description": (
+                    "<!-- opensecdash\n"
+                    "apps:\n"
+                    "  - name: My App\n"
+                    "  - name: my app\n"
+                    "-->"
+                )
+            }
+        return super().get(path)
+
+
 class FakeEmptyClient:
     def get(self, path):
         if path == "/cluster/resources":
@@ -85,6 +100,23 @@ def test_sync_proxmox_assets_prefers_cluster_resources(monkeypatch, db_session):
     assert imported_guest.hostname == "proxy-lxc"
     assert imported_guest.vmid == "pve1:104"
     assert db_session.query(Asset).filter(Asset.name == "Traefik").one().external_id == "proxmox:pve.local:8006:guest:pve1:104:app:traefik"
+
+
+def test_sync_proxmox_assets_skips_duplicate_normalized_app_ids(monkeypatch, db_session, caplog):
+    monkeypatch.setattr(proxmox_assets, "ProxmoxClient", FakeDuplicateAppsClient)
+
+    result = sync_proxmox_assets(
+        db_session,
+        api_url="https://pve.local:8006",
+        token_id="id",
+        token_secret="secret",
+    )
+
+    assert result["assets_created"] == 1
+    asset = db_session.query(Asset).one()
+    assert asset.name == "My App"
+    assert asset.external_id == "proxmox:pve.local:8006:guest:pve1:104:app:my-app"
+    assert "Skipping duplicate Proxmox asset identity" in caplog.text
 
 
 def test_proxmox_visibility_message_explains_empty_guest_lists():

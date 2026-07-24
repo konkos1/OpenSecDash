@@ -252,6 +252,9 @@ def sync_proxmox_assets(db: Session, *, api_url: str, token_id: str, token_secre
             if not app_name:
                 continue
             asset_external_id = f"{external_id}:app:{slug(app_name)}"
+            if asset_external_id in seen_asset_ids:
+                logger.warning("Skipping duplicate Proxmox asset identity %s", asset_external_id)
+                continue
             seen_asset_ids.add(asset_external_id)
             asset = db.query(Asset).filter(Asset.source_plugin == SOURCE_PLUGIN, Asset.external_id == asset_external_id).first()
             raw_update_check = app.get("update_check")

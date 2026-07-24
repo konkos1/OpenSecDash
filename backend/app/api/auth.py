@@ -58,15 +58,14 @@ _ACTIVE_ACCOUNT_CHECKS: set[str] = set()
 #
 # Password verification itself is bounded separately: at most the documented
 # number of memory-hard scrypt checks may run from the public login endpoint,
-# and only one check per account may be in flight. Once any failure bucket is
-# locked, a wrong password keeps its verification slot for a short delay. This
-# bounds both concurrency and sustained guessing without a persistent account,
-# NAT or proxy-wide lockout for correct credentials.
+# and only one check per account may be in flight. A reservation covers only
+# password work; retaining it while delaying a failed response would let one
+# attacker turn that delay into an account-specific or global login lockout.
 _MAX_ACCOUNT_LOGIN_FAILURES = 5
 _MAX_SOURCE_LOGIN_FAILURES = 100
 _MAX_PEER_LOGIN_FAILURES = 200
 _LOGIN_LOCK_SECONDS = 60
-_LOGIN_FAILURE_DELAY_SECONDS = 1.0
+_LOGIN_RETRY_SECONDS = 1
 _LOGIN_BACKOFF_TTL_SECONDS = 300
 _MAX_LOGIN_BACKOFF_ENTRIES = 4096
 
@@ -184,7 +183,7 @@ def _throttled_login_response(request: Request, db: Session, next_path: str):
         error_key="auth.login_locked",
         status_code=429,
     )
-    response.headers["Retry-After"] = str(max(1, int(_LOGIN_FAILURE_DELAY_SECONDS)))
+    response.headers["Retry-After"] = str(_LOGIN_RETRY_SECONDS)
     return response
 
 
@@ -261,31 +260,30 @@ def login(
         return _throttled_login_response(request, db, next)
     try:
         user = authenticate(db, username, password)
-        if user is None:
-            # A locked account, source, or peer delays only this verified failure.
-            # The bounded slot is deliberately held during the delay, turning the
-            # bucket into an actual rate limit instead of response-code masking.
-            if _login_locked(username, source_id, peer_id):
-                if _LOGIN_FAILURE_DELAY_SECONDS > 0:
-                    time.sleep(_LOGIN_FAILURE_DELAY_SECONDS)
-                return _throttled_login_response(request, db, next)
-            _record_failed_login(username, source_id, peer_id)
-            return _login_response(request, db, next, error=True, status_code=401)
-
-        # No failure bucket may reject a verified password. This prevents a
-        # guessed username, shared NAT or shared proxy from becoming a persistent
-        # lockout while the bounded verifier still protects CPU and memory.
-        with _LOGIN_BACKOFF_LOCK:
-            _LOGIN_BACKOFF.pop(_account_backoff_key(username), None)
-        cleanup_expired_sessions(db)
-        user.last_login_at = utc_now().replace(tzinfo=None)
-        token = create_session(db, user, AUTH_METHOD_PASSWORD)
-        db.commit()
-        response = RedirectResponse(safe_local_path(next), status_code=303)
-        set_session_cookie(response, request, token)
-        return response
     finally:
+        # Release account and global admission immediately after the expensive
+        # password operation. Rendering, backoff responses and session writes
+        # must not keep correct credentials out of the verifier.
         _end_password_check(account_check)
+
+    if user is None:
+        if _login_locked(username, source_id, peer_id):
+            return _throttled_login_response(request, db, next)
+        _record_failed_login(username, source_id, peer_id)
+        return _login_response(request, db, next, error=True, status_code=401)
+
+    # No failure bucket may reject a verified password. This prevents a
+    # guessed username, shared NAT or shared proxy from becoming a persistent
+    # lockout while the bounded verifier still protects CPU and memory.
+    with _LOGIN_BACKOFF_LOCK:
+        _LOGIN_BACKOFF.pop(_account_backoff_key(username), None)
+    cleanup_expired_sessions(db)
+    user.last_login_at = utc_now().replace(tzinfo=None)
+    token = create_session(db, user, AUTH_METHOD_PASSWORD)
+    db.commit()
+    response = RedirectResponse(safe_local_path(next), status_code=303)
+    set_session_cookie(response, request, token)
+    return response
 
 
 @router.post("/auth/logout")

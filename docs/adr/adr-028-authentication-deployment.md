@@ -271,6 +271,10 @@ The rules are:
 * While password sign-in is off, the last active admin linked to the current issuer
   cannot be demoted, deactivated, deleted, or unlinked, and the provider configuration
   and issuer are locked against changes.
+* Checks and commits that can remove the final active or OIDC-reachable administrator
+  are serialized as one guarded mutation. The request transaction is restarted inside
+  that guard before counts and identities are read, so concurrent changes cannot both
+  act on the same pre-mutation state.
 * `OSD_AUTH_DISABLED=true` also recovers a broken or unreachable provider: it never
   deletes or rewrites the stored OIDC configuration or identities, and it allows
   password sign-in to be switched back on, the provider to be repaired or disabled, and
@@ -580,9 +584,11 @@ No failure bucket is a pre-verification hard lock. A correct password is accepte
 regardless of account, NAT/source, or shared-proxy failure state; otherwise any
 of those shared identities could become a persistent third-party login DoS.
 Once a bucket reaches its threshold, a subsequently verified wrong password
-holds its bounded verification slot for a short delay and returns `429` with
-`Retry-After`. This turns the state into a real limit on sustained failed
-verification throughput without treating the shared peer as a victim-safe key.
+returns `429` with `Retry-After`. Its bounded verification slot and per-account
+reservation are released immediately after the memory-hard password operation,
+before the response is rendered. Holding either reservation through a delay
+would let a low request rate deny the named account or consume all global
+verification capacity.
 
 Memory-hard password operations have a separate process-wide ceiling of five
 concurrent scrypt calls, matching the measured 512 MiB resource profile. The
@@ -590,7 +596,8 @@ public login route reserves one of five non-blocking verification slots and
 allows only one in-flight check for a normalized account; excess work receives
 a transient `429` before hashing. These admission limits bound a concurrent
 burst before any failure counter could be updated. They are capacity protection,
-not stored account locks.
+not stored account locks or a substitute for request-rate limits at the reverse
+proxy.
 
 Deployments must still restrict `OSD_TRUSTED_PROXIES` to individual proxy
 addresses or the narrowest practical dedicated proxy network. An ambiguous

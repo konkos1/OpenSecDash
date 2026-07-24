@@ -1,4 +1,5 @@
 """Admin routes for the single generic OIDC provider configuration."""
+import asyncio
 import logging
 
 from fastapi import APIRouter, Depends, Form, Request
@@ -8,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.template_context import get_setting_value
 from app.core.time import utc_now
 from app.database.dependencies import get_db
-from app.models.users import UserSession
+from app.models.users import User, UserSession
 from app.services.auth import (
     AUTH_HOSTNAME_SETTING,
     AUTH_METHOD_OIDC,
@@ -33,6 +34,7 @@ from app.services.oidc import (
     OIDC_JIT_ENABLED_SETTING,
     PASSWORD_LOGIN_ENABLED_SETTING,
     OidcConfigurationError,
+    admin_reachability_mutation,
     check_provider,
     effective_password_login_enabled,
     invalidate_provider_cache,
@@ -97,6 +99,45 @@ def _record_check(db: Session, status: str, *, issuer: str = "", error: str = ""
         save_setting(db, OIDC_ISSUER_SETTING, issuer)
 
 
+def _persist_oidc_configuration(
+    db: Session,
+    *,
+    normalized_url: str,
+    normalized_client_id: str,
+    submitted_secret: str,
+    issuer: str,
+) -> RedirectResponse | None:
+    """Persist a verified provider without racing the final login method."""
+    with admin_reachability_mutation(db):
+        # The provider check awaited network I/O. Re-read every value involved
+        # in reachability before committing so a concurrent login-method change
+        # cannot make this stale request remove the final way back in.
+        config = load_config(db)
+        if not effective_password_login_enabled(db) and not auth_disabled_by_environment():
+            return _error("password_login_locked")
+        effective_secret = submitted_secret if submitted_secret else config.client_secret
+        if not effective_secret:
+            return _error("incomplete_config")
+        provider_changed = (
+            normalized_url != config.discovery_url
+            or normalized_client_id != config.client_id
+            or effective_secret != config.client_secret
+            or issuer != config.issuer
+        )
+        save_setting(db, OIDC_DISCOVERY_URL_SETTING, normalized_url)
+        save_setting(db, OIDC_CLIENT_ID_SETTING, normalized_client_id)
+        save_setting(db, OIDC_CLIENT_SECRET_SETTING, effective_secret)
+        _record_check(db, CHECK_STATUS_HEALTHY, issuer=issuer)
+        if provider_changed:
+            # Sessions were created against the old provider, and existing
+            # identity rows are never silently rewritten onto the new one.
+            delete_sessions_by_auth_method(db, AUTH_METHOD_OIDC)
+        _revoke_all_sessions_during_recovery(db)
+        _enforce_login_methods(db)
+        db.commit()
+    return None
+
+
 @router.post("/settings/auth/oidc")
 async def save_oidc_configuration(
     request: Request,
@@ -131,23 +172,16 @@ async def save_oidc_configuration(
         logger.warning("OIDC provider check failed code=%s", exc.code)
         return _error(exc.code)
 
-    provider_changed = (
-        normalized_url != config.discovery_url
-        or normalized_client_id != config.client_id
-        or effective_secret != config.client_secret
-        or issuer != config.issuer
+    mutation_error = await asyncio.to_thread(
+        _persist_oidc_configuration,
+        db,
+        normalized_url=normalized_url,
+        normalized_client_id=normalized_client_id,
+        submitted_secret=client_secret,
+        issuer=issuer,
     )
-    save_setting(db, OIDC_DISCOVERY_URL_SETTING, normalized_url)
-    save_setting(db, OIDC_CLIENT_ID_SETTING, normalized_client_id)
-    save_setting(db, OIDC_CLIENT_SECRET_SETTING, effective_secret)
-    _record_check(db, CHECK_STATUS_HEALTHY, issuer=issuer)
-    if provider_changed:
-        # Sessions were created against the old provider, and existing identity
-        # rows are never silently rewritten onto the new one.
-        delete_sessions_by_auth_method(db, AUTH_METHOD_OIDC)
-    _revoke_all_sessions_during_recovery(db)
-    _enforce_login_methods(db)
-    db.commit()
+    if mutation_error is not None:
+        return mutation_error
     invalidate_provider_cache()
     return _notice("configuration_saved")
 
@@ -202,15 +236,16 @@ def delete_oidc_client_secret(request: Request, db: Session = Depends(get_db)):
     boundary_error = _boundary_error(request, db)
     if boundary_error is not None:
         return boundary_error
-    if not effective_password_login_enabled(db) and not auth_disabled_by_environment():
-        return _error("password_login_locked")
-    save_setting(db, OIDC_CLIENT_SECRET_SETTING, "")
-    save_setting(db, OIDC_ENABLED_SETTING, "false")
-    _record_check(db, CHECK_STATUS_ERROR, error="incomplete_config")
-    delete_sessions_by_auth_method(db, AUTH_METHOD_OIDC)
-    _enforce_login_methods(db)
-    _revoke_all_sessions_during_recovery(db)
-    db.commit()
+    with admin_reachability_mutation(db):
+        if not effective_password_login_enabled(db) and not auth_disabled_by_environment():
+            return _error("password_login_locked")
+        save_setting(db, OIDC_CLIENT_SECRET_SETTING, "")
+        save_setting(db, OIDC_ENABLED_SETTING, "false")
+        _record_check(db, CHECK_STATUS_ERROR, error="incomplete_config")
+        delete_sessions_by_auth_method(db, AUTH_METHOD_OIDC)
+        _enforce_login_methods(db)
+        _revoke_all_sessions_during_recovery(db)
+        db.commit()
     invalidate_provider_cache()
     return _notice("secret_deleted")
 
@@ -234,29 +269,33 @@ def disable_password_login(request: Request, db: Session = Depends(get_db)):
     boundary_error = _boundary_error(request, db)
     if boundary_error is not None:
         return boundary_error
-    if not auth_enabled(db):
-        return _error("password_login_needs_auth")
-    config = load_config(db)
-    if not oidc_login_available(config):
-        return _error("password_login_needs_oidc")
+    request_user = getattr(request.state, "user", None)
+    with admin_reachability_mutation(db):
+        if not auth_enabled(db):
+            return _error("password_login_needs_auth")
+        config = load_config(db)
+        if not oidc_login_available(config):
+            return _error("password_login_needs_oidc")
 
-    user = getattr(request.state, "user", None)
-    if user is None or user.role != "admin" or not user.is_active:
-        return _error("password_login_needs_admin")
-    # The proof that single sign-on really works for this administrator is that
-    # the session they are acting in was created by it. A stored discovery
-    # answer alone would still allow locking everybody out.
-    if getattr(request.state, "auth_method", None) != AUTH_METHOD_OIDC:
-        return _error("password_login_needs_oidc_session")
-    identity = find_user_external_identity(db, user.id)
-    if identity is None or identity.issuer != config.issuer:
-        return _error("password_login_needs_link")
-    if active_oidc_admin_count(db, config.issuer) == 0:
-        return _error("password_login_needs_oidc_admin")
+        user = None
+        if request_user is not None:
+            user = db.query(User).filter(User.id == request_user.id).first()
+        if user is None or user.role != "admin" or not user.is_active:
+            return _error("password_login_needs_admin")
+        # The proof that single sign-on really works for this administrator is
+        # that the session they are acting in was created by it. A stored
+        # discovery answer alone would still allow locking everybody out.
+        if getattr(request.state, "auth_method", None) != AUTH_METHOD_OIDC:
+            return _error("password_login_needs_oidc_session")
+        identity = find_user_external_identity(db, user.id)
+        if identity is None or identity.issuer != config.issuer:
+            return _error("password_login_needs_link")
+        if active_oidc_admin_count(db, config.issuer) == 0:
+            return _error("password_login_needs_oidc_admin")
 
-    save_setting(db, PASSWORD_LOGIN_ENABLED_SETTING, "false")
-    delete_sessions_by_auth_method(db, AUTH_METHOD_PASSWORD)
-    db.commit()
+        save_setting(db, PASSWORD_LOGIN_ENABLED_SETTING, "false")
+        delete_sessions_by_auth_method(db, AUTH_METHOD_PASSWORD)
+        db.commit()
     return _notice("password_login_disabled")
 
 

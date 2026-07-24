@@ -5,7 +5,10 @@ import hashlib
 import json
 import ssl
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
+from threading import Lock
 from typing import Any, cast
 from urllib.parse import urljoin, urlsplit
 
@@ -111,6 +114,22 @@ class _CachedMetadata:
 
 
 _metadata_cache: _CachedMetadata | None = None
+_ADMIN_REACHABILITY_MUTATION_LOCK = Lock()
+
+
+@contextmanager
+def admin_reachability_mutation(db: Session) -> Iterator[None]:
+    """Serialize a reachability check with the mutation it protects.
+
+    OpenSecDash runs as one application process. The lock closes the gap between
+    counting reachable administrators and committing a removal, so concurrent
+    requests cannot both act on the same pre-mutation count. Restarting the
+    request transaction inside the lock also discards objects cached by reads
+    that happened before the request acquired it.
+    """
+    with _ADMIN_REACHABILITY_MUTATION_LOCK:
+        db.rollback()
+        yield
 
 
 def load_config(db: Session) -> OidcConfig:
