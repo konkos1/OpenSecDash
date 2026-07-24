@@ -7,6 +7,7 @@ import os
 import re
 import secrets
 from datetime import timedelta
+from threading import BoundedSemaphore
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -55,25 +56,39 @@ SCRYPT_R = 8
 SCRYPT_P = 5
 SCRYPT_DKLEN = 32
 SCRYPT_MAXMEM = 32 * 1024 * 1024
+SCRYPT_MAX_CONCURRENCY = 5
 _LEGACY_SCRYPT_COST = (16384, 8, 1)
 _CURRENT_SCRYPT_COST = (SCRYPT_N, SCRYPT_R, SCRYPT_P)
 _SUPPORTED_SCRYPT_COSTS = {_LEGACY_SCRYPT_COST, _CURRENT_SCRYPT_COST}
+_SCRYPT_SLOTS = BoundedSemaphore(SCRYPT_MAX_CONCURRENCY)
 
 _USERNAME_PATTERN = re.compile(r"[a-z0-9._-]{1,64}")
 _HOSTNAME_LABEL_PATTERN = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?")
 
 
+def _scrypt(password: bytes, *, salt: bytes, n: int, r: int, p: int) -> bytes:
+    """Run one memory-hard password operation within the process-wide limit."""
+    with _SCRYPT_SLOTS:
+        return hashlib.scrypt(
+            password,
+            salt=salt,
+            n=n,
+            r=r,
+            p=p,
+            dklen=SCRYPT_DKLEN,
+            maxmem=SCRYPT_MAXMEM,
+        )
+
+
 def hash_password(password: str) -> str:
     """Return a versioned scrypt password hash with a random salt."""
     salt = secrets.token_bytes(16)
-    password_hash = hashlib.scrypt(
+    password_hash = _scrypt(
         password.encode(),
         salt=salt,
         n=SCRYPT_N,
         r=SCRYPT_R,
         p=SCRYPT_P,
-        dklen=SCRYPT_DKLEN,
-        maxmem=SCRYPT_MAXMEM,
     )
     return f"scrypt${SCRYPT_N}${SCRYPT_R}${SCRYPT_P}${salt.hex()}${password_hash.hex()}"
 
@@ -96,14 +111,12 @@ def verify_password(password: str, stored: str | None) -> bool:
         expected_hash = bytes.fromhex(hash_hex)
         if len(salt) != 16 or len(expected_hash) != SCRYPT_DKLEN:
             return False
-        calculated_hash = hashlib.scrypt(
+        calculated_hash = _scrypt(
             password.encode(),
             salt=salt,
             n=n,
             r=r,
             p=p,
-            dklen=SCRYPT_DKLEN,
-            maxmem=SCRYPT_MAXMEM,
         )
     except (MemoryError, TypeError, ValueError):
         return False

@@ -1,5 +1,8 @@
+from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 import hashlib
+from threading import Lock
+import time
 
 import pytest
 
@@ -58,6 +61,32 @@ def test_password_hashes_are_salted_and_reject_invalid_values():
     assert verify_password("password123", "bcrypt$anything") is False
     assert verify_password("password123", first_hash[:-1]) is False
     assert password_needs_rehash(first_hash) is False
+
+
+def test_scrypt_operations_are_process_wide_concurrency_bounded(monkeypatch):
+    state_lock = Lock()
+    active = 0
+    maximum_active = 0
+
+    def measured_scrypt(*args, **kwargs):
+        nonlocal active, maximum_active
+        with state_lock:
+            active += 1
+            maximum_active = max(maximum_active, active)
+        try:
+            time.sleep(0.02)
+            return b"x" * auth_service.SCRYPT_DKLEN
+        finally:
+            with state_lock:
+                active -= 1
+
+    monkeypatch.setattr(hashlib, "scrypt", measured_scrypt)
+
+    with ThreadPoolExecutor(max_workers=20) as pool:
+        hashes = list(pool.map(lambda index: hash_password(f"password-{index}"), range(20)))
+
+    assert len(hashes) == 20
+    assert maximum_active == auth_service.SCRYPT_MAX_CONCURRENCY
 
 
 def test_legacy_password_hash_is_rehashed_only_after_successful_authentication(db_session):

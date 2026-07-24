@@ -31,6 +31,7 @@ def auth_client(tmp_path, monkeypatch):
     monkeypatch.setattr(auth_web, "SessionLocal", session_factory)
     monkeypatch.setattr("app.main.SessionLocal", session_factory)
     monkeypatch.setattr("app.main.init_db", lambda: None)
+    monkeypatch.setattr(auth_api, "_LOGIN_FAILURE_DELAY_SECONDS", 0.0)
     app.dependency_overrides[get_db] = get_test_db
     auth_api.reset_login_backoff()
     client = TestClient(app, base_url="https://testserver")
@@ -197,9 +198,12 @@ def test_login_logout_and_cookie_flags_gate_browser_requests(auth_client):
     assert client.get("/", follow_redirects=False).status_code == 303
 
 
-def test_login_backoff_and_open_redirect_protection(auth_client):
+def test_login_backoff_and_open_redirect_protection(auth_client, monkeypatch):
     db_session, client = auth_client
     enable_auth(db_session)
+    delays = []
+    monkeypatch.setattr(auth_api, "_LOGIN_FAILURE_DELAY_SECONDS", 1.0)
+    monkeypatch.setattr(auth_api.time, "sleep", delays.append)
 
     for _ in range(5):
         response = client.post("/login", data={"username": "admin", "password": "wrong-password"}, follow_redirects=False)
@@ -209,11 +213,14 @@ def test_login_backoff_and_open_redirect_protection(auth_client):
     # Further wrong guesses stay throttled...
     response = client.post("/login", data={"username": "admin", "password": "wrong-password"}, follow_redirects=False)
     assert response.status_code == 429
-    assert "Too many failed attempts." in response.text
+    assert "Too many login attempts." in response.text
+    assert response.headers["retry-after"] == "1"
+    assert delays == [1.0]
 
     # ...but the account backoff must never lock out the real owner.
     response = client.post("/login", data={"username": "admin", "password": "password123"}, follow_redirects=False)
     assert response.status_code == 303
+    assert delays == [1.0]
     client.post("/auth/logout", follow_redirects=False)
 
     auth_api.reset_login_backoff()
@@ -269,7 +276,7 @@ def test_account_backoff_survives_rotating_forwarded_ips_without_locking_out_own
     assert response.status_code == 303
 
 
-def test_login_backoff_throttles_one_client_behind_a_trusted_proxy(auth_client, monkeypatch):
+def test_login_backoff_delays_one_client_without_rejecting_correct_password(auth_client, monkeypatch):
     db_session, client = auth_client
     enable_auth(db_session)
     monkeypatch.setattr(auth_api, "_MAX_SOURCE_LOGIN_FAILURES", 3)
@@ -285,15 +292,26 @@ def test_login_backoff_throttles_one_client_behind_a_trusted_proxy(auth_client, 
         )
         assert response.status_code == 401
 
+    # Source state slows further wrong guesses...
+    wrong = client.post(
+        "/login",
+        headers={"x-forwarded-for": "203.0.113.7"},
+        data={"username": "another-user", "password": "wrong-password"},
+        follow_redirects=False,
+    )
+    assert wrong.status_code == 429
+
+    # ...without turning that address into a hard lock for correct credentials.
     response = client.post(
         "/login",
         headers={"x-forwarded-for": "203.0.113.7"},
         data={"username": "admin", "password": "password123"},
         follow_redirects=False,
     )
-    assert response.status_code == 429
+    assert response.status_code == 303
+    client.post("/auth/logout", follow_redirects=False)
 
-    # ...while a different client behind the same proxy stays unaffected.
+    # A different client behind the same proxy stays unaffected as well.
     response = client.post(
         "/login",
         headers={"x-forwarded-for": "203.0.113.8"},
@@ -352,7 +370,7 @@ def test_account_backoff_never_locks_out_correct_credentials(auth_client):
     assert response.status_code == 303
 
 
-def test_login_backoff_direct_peer_bounds_rotating_forwarded_ips(auth_client, monkeypatch):
+def test_login_backoff_direct_peer_delays_failures_without_global_lockout(auth_client, monkeypatch):
     db_session, client = auth_client
     enable_auth(db_session)
     monkeypatch.setattr(auth_api, "_MAX_PEER_LOGIN_FAILURES", 3)
@@ -369,13 +387,42 @@ def test_login_backoff_direct_peer_bounds_rotating_forwarded_ips(auth_client, mo
         )
         assert response.status_code == 401
 
-    response = client.post(
+    wrong = client.post(
         "/login",
         headers={"x-forwarded-for": "203.0.113.250"},
+        data={"username": "another-user", "password": "wrong-password"},
+        follow_redirects=False,
+    )
+    assert wrong.status_code == 429
+
+    # The peer is the shared reverse proxy, so its state may slow failures but
+    # must never reject a verified password from another downstream client.
+    correct = client.post(
+        "/login",
+        headers={"x-forwarded-for": "203.0.113.251"},
         data={"username": "admin", "password": "password123"},
         follow_redirects=False,
     )
-    assert response.status_code == 429
+    assert correct.status_code == 303
+
+
+def test_password_check_capacity_is_bounded_and_single_flight_per_account():
+    reservations = []
+    try:
+        first = auth_api._begin_password_check("user-0")
+        assert first is not None
+        reservations.append(first)
+        assert auth_api._begin_password_check("user-0") is None
+
+        for index in range(1, auth_api.SCRYPT_MAX_CONCURRENCY):
+            reservation = auth_api._begin_password_check(f"user-{index}")
+            assert reservation is not None
+            reservations.append(reservation)
+
+        assert auth_api._begin_password_check("one-too-many") is None
+    finally:
+        for reservation in reservations:
+            auth_api._end_password_check(reservation)
 
 
 def test_login_backoff_state_is_bounded_and_uses_fixed_size_keys(monkeypatch):

@@ -564,34 +564,38 @@ working unchanged.
 This supersedes the login-throttling description in the 2026-07-17 note; that
 paragraph keeps its original wording and describes the state before this date.
 
-Login throttling now uses three independent buckets instead of two:
+Login throttling records failures in three independent buckets:
 
-* **Account** – keyed on the normalized username only. It throttles *failed*
-  guesses against one account regardless of forwarded client IP, but it no
-  longer blocks a correct password. Refusing a correct password on this bucket
-  turned five failed attempts into a permanent, account-name-targeted login
-  DoS: anyone who knew the admin username could keep that account locked out
-  with a handful of requests per minute. Correct credentials are therefore
-  always honored against the account backoff; only failed guesses are delayed.
-* **Source** – keyed on the resolved downstream client address (never a shared
-  proxy), so one noisy client is throttled without locking out everyone behind
-  the proxy. Because it depends on `X-Forwarded-For`, an overly broad
-  trusted-proxy configuration lets a request rotate this identity.
+* **Account** – keyed on the normalized username, so distributed guesses against
+  one account contribute to the same state.
+* **Source** – keyed on the resolved downstream client address. Because it
+  depends on `X-Forwarded-For`, an overly broad trusted-proxy configuration can
+  make this identity rotatable.
 * **Direct peer** – keyed on the immediate TCP peer, preserved before
-  `X-Forwarded-For` is applied. It cannot be rotated through a request header
-  and carries the highest threshold, so it tolerates normal shared-proxy
-  traffic while still bounding forwarded-address spraying that slips past the
-  source bucket. This replaces the earlier note's single "direct-peer bucket"
-  with a peer bucket that keys throttling on the TCP peer separately from the
-  resolved client identity.
+  `X-Forwarded-For` is applied. It cannot be rotated through a request header,
+  but in the standard deployment it is the shared reverse proxy and therefore
+  deliberately has the highest threshold.
 
-The source and peer buckets block even a correct password while flooding; unlike
-the account bucket, a third party cannot fill them on a remote victim's behalf.
+No failure bucket is a pre-verification hard lock. A correct password is accepted
+regardless of account, NAT/source, or shared-proxy failure state; otherwise any
+of those shared identities could become a persistent third-party login DoS.
+Once a bucket reaches its threshold, a subsequently verified wrong password
+holds its bounded verification slot for a short delay and returns `429` with
+`Retry-After`. This turns the state into a real limit on sustained failed
+verification throughput without treating the shared peer as a victim-safe key.
+
+Memory-hard password operations have a separate process-wide ceiling of five
+concurrent scrypt calls, matching the measured 512 MiB resource profile. The
+public login route reserves one of five non-blocking verification slots and
+allows only one in-flight check for a normalized account; excess work receives
+a transient `429` before hashing. These admission limits bound a concurrent
+burst before any failure counter could be updated. They are capacity protection,
+not stored account locks.
+
 Deployments must still restrict `OSD_TRUSTED_PROXIES` to individual proxy
-addresses or the narrowest practical dedicated proxy network — under a broad
-range the source bucket becomes rotatable and the peer bucket is the only
-backstop, so an ambiguous `X-Forwarded-For` chain should additionally be bounded
-at the reverse proxy.
+addresses or the narrowest practical dedicated proxy network. An ambiguous
+`X-Forwarded-For` chain should additionally be bounded or overwritten at the
+reverse proxy.
 
 ## Decision (2026-07-24): default-on authentication and first-admin onboarding
 
