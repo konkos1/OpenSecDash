@@ -604,6 +604,28 @@ addresses or the narrowest practical dedicated proxy network. An ambiguous
 `X-Forwarded-For` chain should additionally be bounded or overwritten at the
 reverse proxy.
 
+## Implementation notes (2026-07-24): pre-verification cooldown
+
+This supersedes the "no pre-verification hard lock" behavior in the login-throttling
+revision above. The earlier text remains as the record of the previous implementation.
+
+Once the account, resolved source, or direct-peer failure threshold is reached, the
+bucket now rejects requests before acquiring verifier capacity or running scrypt. The
+response remains `429` with `Retry-After: 1`, and the cooldown is one second for every
+bucket. Account state still follows a normalized username across rotating addresses;
+the source and direct-peer thresholds remain much higher because those identities may
+be shared by a NAT or the reverse proxy. Failure counts are retained until their normal
+five-minute inactivity expiry, so the first admitted failed verification after a
+cooldown immediately starts the next cooldown instead of restoring a full burst.
+
+This deliberately trades a bounded one-second delay for potentially correct
+credentials against protection from sequential CPU exhaustion. The former behavior
+reported requests as throttled only after performing the expensive operation, so an
+attacker could continue consuming one scrypt calculation per request indefinitely.
+Successful verification clears the account state; source and peer state expire through
+the bounded in-memory cache. Reverse-proxy rate limits remain recommended for stricter
+throughput control and distributed deployments.
+
 ## Decision (2026-07-24): default-on authentication and first-admin onboarding
 
 This is a new decision, not a rewrite of the earlier ones. The sections above keep

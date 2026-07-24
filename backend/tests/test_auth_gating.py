@@ -200,33 +200,44 @@ def test_login_logout_and_cookie_flags_gate_browser_requests(auth_client):
 def test_login_backoff_and_open_redirect_protection(auth_client, monkeypatch):
     db_session, client = auth_client
     enable_auth(db_session)
+    now = [1000.0]
+    monkeypatch.setattr(auth_api, "_monotonic", lambda: now[0])
+    original_authenticate = auth_api.authenticate
+    password_checks = []
+
+    def counted_authenticate(*args, **kwargs):
+        password_checks.append(True)
+        return original_authenticate(*args, **kwargs)
+
+    monkeypatch.setattr(auth_api, "authenticate", counted_authenticate)
 
     for _ in range(5):
         response = client.post("/login", data={"username": "admin", "password": "wrong-password"}, follow_redirects=False)
         assert response.status_code == 401
         assert "Wrong username or password." in response.text
 
-    original_throttled_response = auth_api._throttled_login_response
-    capacity_released = []
-
-    def throttled_response_after_capacity_check(request, db, next_path):
-        reservation = auth_api._begin_password_check("admin")
-        capacity_released.append(reservation is not None)
-        if reservation is not None:
-            auth_api._end_password_check(reservation)
-        return original_throttled_response(request, db, next_path)
-
-    monkeypatch.setattr(auth_api, "_throttled_login_response", throttled_response_after_capacity_check)
-
-    # Further wrong guesses stay throttled, after their password-check
-    # reservations have been released.
+    # Further guesses are throttled before scrypt and before reserving verifier
+    # capacity.
     response = client.post("/login", data={"username": "admin", "password": "wrong-password"}, follow_redirects=False)
     assert response.status_code == 429
     assert "Too many login attempts." in response.text
     assert response.headers["retry-after"] == "1"
-    assert capacity_released == [True]
+    assert len(password_checks) == 5
+    assert not auth_api._ACTIVE_ACCOUNT_CHECKS
 
-    # The account backoff must never lock out the real owner.
+    # After the cooldown one failed verification is admitted and immediately
+    # re-arms the bucket, rather than restoring a five-attempt burst.
+    now[0] += auth_api._LOGIN_LOCK_SECONDS + 0.1
+    response = client.post("/login", data={"username": "admin", "password": "wrong-password"}, follow_redirects=False)
+    assert response.status_code == 401
+    assert len(password_checks) == 6
+    response = client.post("/login", data={"username": "admin", "password": "wrong-password"}, follow_redirects=False)
+    assert response.status_code == 429
+    assert len(password_checks) == 6
+
+    # The cooldown is deliberately short; after it expires the real owner can
+    # verify normally.
+    now[0] += auth_api._LOGIN_LOCK_SECONDS + 0.1
     response = client.post("/login", data={"username": "admin", "password": "password123"}, follow_redirects=False)
     assert response.status_code == 303
     client.post("/auth/logout", follow_redirects=False)
@@ -250,9 +261,11 @@ def test_login_backoff_and_open_redirect_protection(auth_client, monkeypatch):
         client.post("/auth/logout", follow_redirects=False)
 
 
-def test_account_backoff_survives_rotating_forwarded_ips_without_locking_out_owner(auth_client):
+def test_account_backoff_survives_rotating_forwarded_ips_with_short_cooldown(auth_client, monkeypatch):
     db_session, client = auth_client
     enable_auth(db_session)
+    now = [1000.0]
+    monkeypatch.setattr(auth_api, "_monotonic", lambda: now[0])
 
     for index in range(5):
         response = client.post(
@@ -273,8 +286,17 @@ def test_account_backoff_survives_rotating_forwarded_ips_without_locking_out_own
     )
     assert response.status_code == 429
 
-    # The very same backoff must not become an account-name lockout: the owner's
-    # correct credentials still pass, even while guessing continues.
+    # A potentially correct password is delayed during the cooldown because the
+    # server cannot know it is correct without performing the expensive hash.
+    response = client.post(
+        "/login",
+        headers={"x-forwarded-for": "203.0.113.123"},
+        data={"username": "admin", "password": "password123"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 429
+
+    now[0] += auth_api._LOGIN_LOCK_SECONDS + 0.1
     response = client.post(
         "/login",
         headers={"x-forwarded-for": "203.0.113.123"},
@@ -288,6 +310,8 @@ def test_login_backoff_throttles_one_client_without_rejecting_correct_password(a
     db_session, client = auth_client
     enable_auth(db_session)
     monkeypatch.setattr(auth_api, "_MAX_SOURCE_LOGIN_FAILURES", 3)
+    now = [1000.0]
+    monkeypatch.setattr(auth_api, "_monotonic", lambda: now[0])
 
     # The test peer is a trusted proxy, so the real client is taken from
     # X-Forwarded-For. One client's own bucket fills across rotating usernames...
@@ -309,7 +333,16 @@ def test_login_backoff_throttles_one_client_without_rejecting_correct_password(a
     )
     assert wrong.status_code == 429
 
-    # ...without turning that address into a hard lock for correct credentials.
+    # ...including a potentially correct credential until the one-second
+    # cooldown has elapsed.
+    response = client.post(
+        "/login",
+        headers={"x-forwarded-for": "203.0.113.7"},
+        data={"username": "admin", "password": "password123"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 429
+    now[0] += auth_api._LOGIN_LOCK_SECONDS + 0.1
     response = client.post(
         "/login",
         headers={"x-forwarded-for": "203.0.113.7"},
@@ -355,9 +388,11 @@ def test_login_backoff_does_not_lock_out_everyone_behind_a_trusted_proxy(auth_cl
     assert response.status_code == 303
 
 
-def test_account_backoff_never_locks_out_correct_credentials(auth_client):
+def test_account_backoff_delays_correct_credentials_only_for_short_cooldown(auth_client, monkeypatch):
     db_session, client = auth_client
     enable_auth(db_session)
+    now = [1000.0]
+    monkeypatch.setattr(auth_api, "_monotonic", lambda: now[0])
 
     # An attacker who knows the admin username hammers it with wrong passwords
     # well past the account threshold, from a single client.
@@ -369,7 +404,15 @@ def test_account_backoff_never_locks_out_correct_credentials(auth_client):
         )
         assert response.status_code in (401, 429)
 
-    # The owner is never a victim of that guessing: correct credentials still win.
+    # The owner is delayed during the active cooldown.
+    response = client.post(
+        "/login",
+        data={"username": "admin", "password": "password123"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 429
+
+    now[0] += auth_api._LOGIN_LOCK_SECONDS + 0.1
     response = client.post(
         "/login",
         data={"username": "admin", "password": "password123"},
@@ -382,6 +425,8 @@ def test_login_backoff_direct_peer_throttles_failures_without_global_lockout(aut
     db_session, client = auth_client
     enable_auth(db_session)
     monkeypatch.setattr(auth_api, "_MAX_PEER_LOGIN_FAILURES", 3)
+    now = [1000.0]
+    monkeypatch.setattr(auth_api, "_monotonic", lambda: now[0])
 
     # Spray distinct usernames while rotating the forwarded client IP so neither
     # the account nor the source bucket ever trips. The immediate TCP peer is
@@ -403,8 +448,16 @@ def test_login_backoff_direct_peer_throttles_failures_without_global_lockout(aut
     )
     assert wrong.status_code == 429
 
-    # The peer is the shared reverse proxy, so its state may throttle failures but
-    # must never reject a verified password from another downstream client.
+    # The peer is the shared reverse proxy, so its high-threshold cooldown also
+    # delays another downstream client, but only for one second.
+    correct = client.post(
+        "/login",
+        headers={"x-forwarded-for": "203.0.113.251"},
+        data={"username": "admin", "password": "password123"},
+        follow_redirects=False,
+    )
+    assert correct.status_code == 429
+    now[0] += auth_api._LOGIN_LOCK_SECONDS + 0.1
     correct = client.post(
         "/login",
         headers={"x-forwarded-for": "203.0.113.251"},

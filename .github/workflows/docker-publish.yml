@@ -224,6 +224,8 @@ jobs:
           docker exec --user opensecdash opensecdash-release-smoke sh -c \
             'touch /data/write-test && touch /tmp/write-test && ! touch /app/rootfs-write-test 2>/dev/null'
           docker logs opensecdash-release-smoke 2>&1 | grep -E 'Starting [0-9]+ plugin task groups' >/dev/null
+          docker stop --time 10 opensecdash-release-smoke >/dev/null
+          test "$(docker inspect --format '{{.State.ExitCode}}' opensecdash-release-smoke)" = "0"
 
       - name: Save verified release candidate
         run: docker save --output release-candidate.tar opensecdash:release-candidate-a

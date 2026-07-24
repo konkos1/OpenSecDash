@@ -1,4 +1,5 @@
 import asyncio
+import json
 from pathlib import Path
 from typing import Any
 
@@ -24,13 +25,16 @@ sync_crowdsec_decisions = decisions.sync_crowdsec_decisions
 
 
 class FakeResponse:
-    def __init__(self, status_code=200, payload: Any = None, text: str = ""):
+    def __init__(self, status_code=200, payload: Any = None, headers: dict[str, str] | None = None):
         self.status_code = status_code
-        self._payload = payload
-        self.text = text
+        self.headers = headers or {}
+        self.body = json.dumps(payload).encode()
 
-    def json(self):
-        return self._payload
+    def iter_content(self, chunk_size):
+        yield from (self.body[index : index + chunk_size] for index in range(0, len(self.body), chunk_size))
+
+    def close(self):
+        pass
 
     def raise_for_status(self):
         if self.status_code >= 400:
@@ -40,10 +44,11 @@ class FakeResponse:
 
 
 def test_lapi_login_returns_token_and_maps_errors(monkeypatch):
-    def fake_post(url, json, timeout, allow_redirects):
+    def fake_post(url, json, timeout, allow_redirects, stream):
         assert url == "http://lapi:8080/v1/watchers/login"
         assert json == {"machine_id": "opensecdash", "password": "pw"}
         assert allow_redirects is False
+        assert stream is True
         return FakeResponse(payload={"token": "jwt-token"})
 
     monkeypatch.setattr(lapi_module.requests, "post", fake_post)
@@ -83,6 +88,17 @@ def test_lapi_login_rejects_redirect(monkeypatch):
         lapi_login("http://lapi:8080", "opensecdash", "pw")
 
 
+def test_lapi_login_rejects_oversized_response(monkeypatch):
+    response = FakeResponse(
+        payload={"token": "secret"},
+        headers={"Content-Length": str(lapi_module.LAPI_LOGIN_RESPONSE_MAX_BYTES + 1)},
+    )
+    monkeypatch.setattr(lapi_module.requests, "post", lambda *args, **kwargs: response)
+
+    with pytest.raises(LapiError, match="too large"):
+        lapi_login("http://lapi:8080", "opensecdash", "pw")
+
+
 def test_lapi_mutations_reject_redirects(monkeypatch):
     monkeypatch.setattr(lapi_module.requests, "post", lambda *args, **kwargs: FakeResponse(status_code=307))
     with pytest.raises(LapiError, match="refused an HTTP redirect"):
@@ -104,11 +120,12 @@ def test_lapi_active_ban_decisions_flattens_alerts(monkeypatch):
         },
     ]
 
-    def fake_get(url, params, headers, timeout, allow_redirects):
+    def fake_get(url, params, headers, timeout, allow_redirects, stream):
         assert url == "http://lapi:8080/v1/alerts"
         assert params["has_active_decision"] == "true"
         assert headers == {"Authorization": "Bearer jwt-token"}
         assert allow_redirects is False
+        assert stream is True
         return FakeResponse(payload=alerts)
 
     monkeypatch.setattr(lapi_module.requests, "get", fake_get)

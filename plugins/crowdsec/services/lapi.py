@@ -7,11 +7,14 @@ from urllib.parse import urlsplit
 
 import requests
 
+from app.core.http_responses import ResponseBodyError, read_capped_json
 from app.core.time import utc_now
 
 logger = logging.getLogger(__name__)
 
 LAPI_TIMEOUT_SECONDS = 10
+LAPI_LOGIN_RESPONSE_MAX_BYTES = 64 * 1024
+LAPI_ALERTS_RESPONSE_MAX_BYTES = 8 * 1024 * 1024
 # Origin recorded on decisions created through OpenSecDash. A distinct origin
 # keeps manual OpenSecDash bans identifiable in CrowdSec's own tooling;
 # bouncers apply decisions regardless of origin.
@@ -67,15 +70,25 @@ def lapi_login(url: str, machine_id: str, password: str) -> str:
             json={"machine_id": machine_id, "password": password},
             timeout=LAPI_TIMEOUT_SECONDS,
             allow_redirects=False,
+            stream=True,
         )
     except requests.RequestException as exc:
         raise LapiError(f"CrowdSec LAPI not reachable at {url}: {exc}") from exc
-    _reject_redirect(response, "login")
-    if response.status_code == 403:
-        raise LapiError("CrowdSec LAPI rejected the credentials (machine not registered or wrong password)")
-    if response.status_code >= 400:
-        raise LapiError(f"CrowdSec LAPI login failed with HTTP {response.status_code}")
-    token = str((response.json() or {}).get("token") or "")
+    try:
+        _reject_redirect(response, "login")
+        if response.status_code == 403:
+            raise LapiError("CrowdSec LAPI rejected the credentials (machine not registered or wrong password)")
+        if response.status_code >= 400:
+            raise LapiError(f"CrowdSec LAPI login failed with HTTP {response.status_code}")
+        try:
+            payload = read_capped_json(response, max_bytes=LAPI_LOGIN_RESPONSE_MAX_BYTES, source="CrowdSec LAPI login")
+        except ResponseBodyError as exc:
+            raise LapiError(str(exc)) from exc
+        except requests.RequestException as exc:
+            raise LapiError("CrowdSec LAPI login response could not be read") from exc
+    finally:
+        response.close()
+    token = str((payload if isinstance(payload, dict) else {}).get("token") or "")
     if not token:
         raise LapiError("CrowdSec LAPI login returned no token")
     return token
@@ -99,10 +112,16 @@ def lapi_active_ban_decisions(url: str, token: str) -> list[dict[str, Any]]:
             headers=_auth_headers(token),
             timeout=LAPI_TIMEOUT_SECONDS,
             allow_redirects=False,
+            stream=True,
         )
-        _reject_redirect(response, "alerts query")
-        response.raise_for_status()
-        alerts = response.json() or []
+        try:
+            _reject_redirect(response, "alerts query")
+            response.raise_for_status()
+            alerts = read_capped_json(response, max_bytes=LAPI_ALERTS_RESPONSE_MAX_BYTES, source="CrowdSec LAPI alerts")
+        finally:
+            response.close()
+    except ResponseBodyError as exc:
+        raise LapiError(str(exc)) from exc
     except requests.RequestException as exc:
         raise LapiError(f"CrowdSec LAPI alerts query failed: {exc}") from exc
 
@@ -170,9 +189,13 @@ def lapi_add_ban(url: str, token: str, ip: str, duration: str, reason: str) -> N
             headers=_auth_headers(token),
             timeout=LAPI_TIMEOUT_SECONDS,
             allow_redirects=False,
+            stream=True,
         )
-        _reject_redirect(response, "ban")
-        response.raise_for_status()
+        try:
+            _reject_redirect(response, "ban")
+            response.raise_for_status()
+        finally:
+            response.close()
     except requests.RequestException as exc:
         raise LapiError(f"CrowdSec LAPI ban failed: {exc}") from exc
     logger.info("Created CrowdSec ban via LAPI for %s (%s)", ip, duration)
@@ -186,9 +209,13 @@ def lapi_delete_decision(url: str, token: str, decision_id: str) -> None:
             headers=_auth_headers(token),
             timeout=LAPI_TIMEOUT_SECONDS,
             allow_redirects=False,
+            stream=True,
         )
-        _reject_redirect(response, "unban")
-        response.raise_for_status()
+        try:
+            _reject_redirect(response, "unban")
+            response.raise_for_status()
+        finally:
+            response.close()
     except requests.RequestException as exc:
         raise LapiError(f"CrowdSec LAPI unban failed: {exc}") from exc
     logger.info("Deleted CrowdSec decision %s via LAPI", decision_id)

@@ -54,7 +54,11 @@ cp docker/docker-compose.example.yml docker-compose.yml
 docker compose up -d
 ```
 
-Then open `http://localhost:8765`.
+New installations start with internal sign-in enabled. Complete the first-admin
+setup through a trusted HTTPS reverse proxy as described in the
+[Quickstart](https://opensecdash.app/guide/getting-started/quickstart). For an
+intentional local-only trial at `http://localhost:8765`, set
+`OSD_AUTH_DISABLED=true` in the Compose environment before starting the app.
 
 See the [Docker installation guide](https://opensecdash.app/guide/installation/docker) for host requirements, ports, persistent data, and plugin file mounts.
 
@@ -85,10 +89,11 @@ saved settings are kept and return when the variable is removed.
 
 ## Security note
 
-OpenSecDash includes optional built-in user management, disabled by default. Do **not**
-expose it directly to the public internet. Keep it on your LAN, behind a VPN, or behind
-a trusted auth reverse proxy such as Authentik, Authelia, Pocket ID, or another
-forward-auth solution. See the [authentication guide](https://opensecdash.app/guide/configuration/authentication) to enable internal sign-in.
+OpenSecDash includes built-in user management, enabled by default for new
+installations. Do **not** expose it directly to the public internet. Keep it on your
+LAN, behind a VPN, or behind a trusted reverse proxy. See the
+[authentication guide](https://opensecdash.app/guide/configuration/authentication)
+for first-time setup, external sign-in, and deliberate open-mode deployments.
 
 ## Support
 

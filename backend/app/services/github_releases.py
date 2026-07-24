@@ -2,6 +2,10 @@ import re
 
 import requests
 
+from app.core.http_responses import read_capped_json
+
+GITHUB_RELEASE_RESPONSE_MAX_BYTES = 256 * 1024
+
 
 def github_repo_from_url(url: str | None) -> str | None:
     if not url:
@@ -33,10 +37,15 @@ def get_latest_github_release(
         f"https://api.github.com/repos/{repo}/releases/latest",
         headers=headers,
         timeout=15,
+        stream=True,
     )
 
-    response.raise_for_status()
-
-    data = response.json()
+    try:
+        response.raise_for_status()
+        data = read_capped_json(response, max_bytes=GITHUB_RELEASE_RESPONSE_MAX_BYTES, source="GitHub releases API")
+    finally:
+        response.close()
+    if not isinstance(data, dict):
+        return None
 
     return data.get("tag_name")

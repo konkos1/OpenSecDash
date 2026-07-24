@@ -8,12 +8,14 @@ from typing import Any
 import requests
 from sqlalchemy.orm import Session
 
+from app.core.http_responses import read_capped_json
 from app.core.template_context import get_setting_value
 from app.core.time import utc_now
 from app.models.core import GeoIPCache
 from app.models.events import Event
 
 logger = logging.getLogger(__name__)
+GEOIP_RESPONSE_MAX_BYTES = 64 * 1024
 
 ERROR_CACHE_TTL = timedelta(hours=1)
 
@@ -158,9 +160,15 @@ def _lookup_provider_geoip(db: Session, provider: str, lookup_ip: str) -> tuple[
             f"http://ip-api.com/json/{lookup_ip}",
             params={"fields": "status,countryCode,city,as,isp,message"},
             timeout=timeout,
+            stream=True,
         )
-        response.raise_for_status()
-        payload = response.json()
+        try:
+            response.raise_for_status()
+            payload = read_capped_json(response, max_bytes=GEOIP_RESPONSE_MAX_BYTES, source="GeoIP provider")
+        finally:
+            response.close()
+        if not isinstance(payload, dict):
+            raise RuntimeError("GeoIP provider returned an invalid response")
         if payload.get("status") != "success":
             raise RuntimeError(str(payload.get("message") or "GeoIP lookup failed"))
         country = str(payload.get("countryCode") or "").upper()

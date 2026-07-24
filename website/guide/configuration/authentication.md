@@ -390,12 +390,14 @@ one hash and 1.194 seconds for five parallel hashes at roughly 98 MiB peak RSS. 
 OpenSecDash runs at most five memory-hard password operations at once and accepts only
 one in-flight login check for the same normalized username. Additional concurrent checks
 receive `429 Too Many Requests` with `Retry-After` before hashing. Repeated failures are
-tracked independently by account, resolved client address, and direct proxy peer. Once a
-threshold is reached, further verified failures receive `429` with `Retry-After`, but
-their verification slot and per-account reservation are released immediately after the
-password check. The stored failure state never rejects a correct password; a shared NAT
-or reverse proxy therefore cannot become a persistent login lockout. Apply request-rate
-limits at the reverse proxy when stricter throughput control is required.
+tracked independently by account, resolved client address, and direct proxy peer. Once
+a threshold is reached, requests in that bucket receive `429` with `Retry-After: 1`
+before hashing. The one-second cooldown is deliberately short because an address or
+direct proxy peer can be shared; after it expires, a potentially correct credential is
+verified normally. A failed verification immediately starts the next cooldown; failure
+counts expire after five minutes without an admitted failure. Apply request-rate limits
+at the reverse proxy when stricter throughput control is required, especially for
+multi-process or multi-instance deployments where the in-memory buckets are not shared.
 
 All responses receive anti-sniffing, referrer, framing, permissions, and Content
 Security Policy headers. Login, Settings, and authenticated HTML/API responses are not
