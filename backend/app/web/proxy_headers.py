@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 TRUSTED_PROXIES_ENV = "OSD_TRUSTED_PROXIES"
 PROXY_STATE_EXPLICITLY_TRUSTED = "osd_proxy_explicitly_trusted"
-PROXY_STATE_PEER_ADDRESS = "osd_proxy_peer_address"
+PROXY_STATE_CLIENT_ADDRESS = "osd_proxy_client_address"
 PROXY_STATE_FORWARDED_PROTO = "osd_proxy_forwarded_proto"
 PROXY_STATE_FORWARDED_HOST = "osd_proxy_forwarded_host"
 PROXY_STATE_FORWARDED_PORT = "osd_proxy_forwarded_port"
@@ -70,6 +70,22 @@ def _is_trusted_address(host: str, trusted_proxies: TrustedProxies) -> bool:
     return any(address in network for address in addresses for network in trusted_proxies)
 
 
+def _throttle_client_address(client: Any, trusted_proxies: TrustedProxies) -> str | None:
+    """Client address safe to key a per-source login-throttling bucket on.
+
+    Returns the normalized downstream client host only when it is a distinct
+    client. A trusted reverse proxy (or a missing peer) is never returned:
+    using the shared proxy address as a bucket would let a single client fill
+    it and lock out everyone behind that proxy.
+    """
+    if not (isinstance(client, tuple) and client and isinstance(client[0], str)):
+        return None
+    host = client[0]
+    if _is_trusted_address(host, trusted_proxies):
+        return None
+    return host
+
+
 def _first_forwarded_header(headers: list[tuple[bytes, bytes]], name: bytes) -> str | None:
     for header_name, value in headers:
         if header_name.lower() == name:
@@ -118,16 +134,15 @@ class ProxyHeadersMiddleware:
         headers = list(scope.get("headers", []))
         state = scope.setdefault("state", {})
         state[PROXY_STATE_EXPLICITLY_TRUSTED] = False
-        state[PROXY_STATE_PEER_ADDRESS] = None
+        state[PROXY_STATE_CLIENT_ADDRESS] = None
         state[PROXY_STATE_FORWARDED_PROTO] = None
         state[PROXY_STATE_FORWARDED_HOST] = None
         state[PROXY_STATE_FORWARDED_PORT] = None
         client = scope.get("client")
-        if isinstance(client, tuple) and client and isinstance(client[0], str):
-            state[PROXY_STATE_PEER_ADDRESS] = client[0]
         trusted = isinstance(client, tuple) and bool(client) and _is_trusted_address(client[0], self.trusted_proxies)
         if not trusted:
             scope["headers"] = [(name, value) for name, value in headers if name.lower() not in _FORWARDED_HEADERS]
+            state[PROXY_STATE_CLIENT_ADDRESS] = _throttle_client_address(scope.get("client"), self.trusted_proxies)
             await self.app(scope, receive, send)
             return
 
@@ -158,4 +173,5 @@ class ProxyHeadersMiddleware:
             if port.isdigit():
                 state[PROXY_STATE_FORWARDED_PORT] = port
 
+        state[PROXY_STATE_CLIENT_ADDRESS] = _throttle_client_address(scope.get("client"), self.trusted_proxies)
         await self.app(scope, receive, send)
