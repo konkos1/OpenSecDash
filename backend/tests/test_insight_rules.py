@@ -12,6 +12,10 @@ from app.services.insight_rules import RULE_MANIFEST_URL, RULE_SOURCE_URL, parse
 class _StreamedResponse:
     """Mimics a streamed ``requests`` response backed by ``self.content``."""
 
+    @property
+    def content(self) -> bytes:
+        raise NotImplementedError
+
     def __enter__(self):
         return self
 
