@@ -7,23 +7,21 @@ from app.database.dependencies import get_db
 from app.models.users import User, UserPreference, UserSession
 from app.services.auth import (
     AUTH_HOSTNAME_SETTING,
-    AUTH_METHOD_PASSWORD,
     PASSWORD_MIN_LENGTH,
     ROLES,
-    active_admin_count,
     auth_disabled_by_environment,
-    create_session,
     create_user,
     delete_user_external_identities,
     delete_user_sessions,
     hash_password,
     normalize_auth_hostname,
+    onboarding_state,
     unlink_external_identity,
     validate_new_user,
 )
 from app.services.oidc import admin_reachability_error
-from app.services.onboarding import store_activation
-from app.web.auth import auth_proxy_error, set_session_cookie
+from app.services.onboarding import account_required, complete_onboarding
+from app.web.auth import auth_proxy_error
 from app.web.tables import save_setting
 
 router = APIRouter(tags=["users"])
@@ -47,6 +45,12 @@ def enable_authentication(
     hostname: str = Form(""),
     db: Session = Depends(get_db),
 ):
+    """Activate internal sign-in on an installation that is still open.
+
+    This is the settings entrance to the same guided setup as ``/onboarding``.
+    It writes through the same claiming service, so both paths create at most
+    one first administrator and neither of them signs anybody in.
+    """
     if auth_disabled_by_environment():
         return _settings_error("env_disabled")
     normalized_hostname = normalize_auth_hostname(hostname)
@@ -55,23 +59,19 @@ def enable_authentication(
     proxy_error = auth_proxy_error(request, normalized_hostname)
     if proxy_error is not None:
         return _settings_error(proxy_error)
-    if username or password or password_confirm:
+    if account_required(db, onboarding_state(db)):
         if password != password_confirm:
             return _settings_error("password_mismatch")
-        error = validate_new_user(db, username, password)
-        if error is not None:
-            return _settings_error(error)
-        user = create_user(db, username, password, "admin")
-        store_activation(db, normalized_hostname)
-        token = create_session(db, user, AUTH_METHOD_PASSWORD)
-        db.commit()
-        response = RedirectResponse("/settings", status_code=303)
-        set_session_cookie(response, request, token)
-        return response
-    if active_admin_count(db) == 0:
-        return _settings_error("no_admin")
-    store_activation(db, normalized_hostname)
-    db.commit()
+    elif username or password or password_confirm:
+        # With an active admin this form only confirms the hostname; submitted
+        # account data is refused instead of silently dropped, so the form never
+        # looks like an account change.
+        return _settings_error("account_not_allowed")
+    error = complete_onboarding(db, hostname=normalized_hostname, username=username, password=password)
+    if error is not None:
+        return _settings_error(error)
+    # Deliberately no session and no cookie: the activation ends at the normal
+    # login, exactly like the setup page.
     return RedirectResponse("/login", status_code=303)
 
 

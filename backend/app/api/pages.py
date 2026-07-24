@@ -69,6 +69,7 @@ from app.services.oidc import (
     provider_diagnostics,
 )
 from app.services.asset_updates import refresh_asset_update
+from app.services.onboarding import account_required
 from app.services.user_preferences import global_preferences, normalize_preferences
 from app.plugins.manager import get_plugin_manager
 from app.services.asset_actions import (
@@ -1932,6 +1933,9 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
         # prompt but the setup still has to be continued once it is removed.
         auth_onboarding_pending=stored_onboarding_state == AUTH_ONBOARDING_PENDING,
         auth_onboarding_review_required=stored_onboarding_state == AUTH_ONBOARDING_LEGACY_REVIEW_REQUIRED,
+        # Only whether the activation still has to create the first admin, never
+        # who the existing one is.
+        auth_activation_account_required=account_required(db, stored_onboarding_state),
         auth_hostname=get_setting_value(db, AUTH_HOSTNAME_SETTING, ""),
         users=db.query(User).order_by(User.username).all(),
         auth_error=request.query_params.get("auth_error", ""),

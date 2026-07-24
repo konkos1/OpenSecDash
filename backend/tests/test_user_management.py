@@ -13,8 +13,12 @@ from app.main import app
 from app.models.settings import Setting
 from app.models.users import ExternalIdentity, User, UserPreference, UserSession
 from app.services.auth import (
+    AUTH_ENABLED_SETTING,
     AUTH_METHOD_OIDC,
     AUTH_METHOD_PASSWORD,
+    AUTH_ONBOARDING_COMPLETE,
+    AUTH_ONBOARDING_LEGACY_REVIEW_REQUIRED,
+    AUTH_ONBOARDING_STATE_SETTING,
     create_session,
     create_user,
     link_external_identity,
@@ -28,6 +32,15 @@ def user_management_client(tmp_path: Path, monkeypatch):
     session_factory = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     Base.metadata.create_all(bind=engine)
     db = session_factory()
+    # An upgraded installation that is still open: the only state in which the
+    # settings activation is offered and can claim the open setup.
+    db.add_all(
+        [
+            Setting(key=AUTH_ENABLED_SETTING, value="false"),
+            Setting(key=AUTH_ONBOARDING_STATE_SETTING, value=AUTH_ONBOARDING_LEGACY_REVIEW_REQUIRED),
+        ]
+    )
+    db.commit()
 
     def get_test_db():
         session = session_factory()
@@ -54,13 +67,14 @@ def user_management_client(tmp_path: Path, monkeypatch):
 
 
 def _enable_auth(client: TestClient):
+    """Activate internal sign-in and sign the new admin in through the login."""
     response = client.post(
         "/settings/auth/enable",
         data={"hostname": "testserver", "username": "admin", "password": "password123", "password_confirm": "password123"},
         follow_redirects=False,
     )
-    assert response.status_code == 303
-    return response
+    assert response.headers["location"] == "/login"
+    return _login(client, "admin", "password123")
 
 
 def _login(client: TestClient, username: str, password: str):
@@ -69,16 +83,65 @@ def _login(client: TestClient, username: str, password: str):
     return response
 
 
-def test_activation_creates_admin_session_and_allows_settings(user_management_client):
+def test_activation_creates_the_first_admin_but_signs_nobody_in(user_management_client):
     db, client = user_management_client
 
-    response = _enable_auth(client)
+    response = client.post(
+        "/settings/auth/enable",
+        data={"hostname": "testserver", "username": "admin", "password": "password123", "password_confirm": "password123"},
+        follow_redirects=False,
+    )
 
-    assert "osd_session=" in response.headers["set-cookie"]
+    assert response.headers["location"] == "/login"
+    assert "set-cookie" not in response.headers
+    assert db.query(UserSession).count() == 0
     assert get_setting_value(db, "auth.enabled", "false") == "true"
     assert get_setting_value(db, "auth.hostname", "") == "testserver"
+    assert get_setting_value(db, AUTH_ONBOARDING_STATE_SETTING, "") == AUTH_ONBOARDING_COMPLETE
     assert db.query(User).filter(User.username == "admin", User.role == "admin").count() == 1
+    # Only the normal login gets in afterwards.
+    assert client.get("/settings", follow_redirects=False).status_code == 303
+    _login(client, "admin", "password123")
     assert client.get("/settings").status_code == 200
+
+
+def test_activation_with_an_active_admin_only_confirms_the_hostname(user_management_client):
+    db, client = user_management_client
+    create_user(db, "admin", "password123", "admin")
+    db.commit()
+    page = client.get("/settings")
+
+    refused = client.post(
+        "/settings/auth/enable",
+        data={"hostname": "testserver", "username": "second", "password": "password123", "password_confirm": "password123"},
+        follow_redirects=False,
+    )
+
+    assert 'name="password_confirm"' not in page.text
+    assert "An administrator already exists" in page.text
+    assert refused.headers["location"] == "/settings?auth_error=account_not_allowed"
+    assert get_setting_value(db, "auth.enabled", "false") == "false"
+    assert db.query(User).count() == 1
+
+    response = client.post("/settings/auth/enable", data={"hostname": "testserver"}, follow_redirects=False)
+
+    assert response.headers["location"] == "/login"
+    assert "set-cookie" not in response.headers
+    assert db.query(User).count() == 1
+    assert db.query(UserSession).count() == 0
+    assert get_setting_value(db, "auth.enabled", "false") == "true"
+    assert get_setting_value(db, AUTH_ONBOARDING_STATE_SETTING, "") == AUTH_ONBOARDING_COMPLETE
+
+
+def test_a_second_activation_finds_the_setup_already_claimed(user_management_client):
+    db, client = user_management_client
+    _enable_auth(client)
+
+    response = client.post("/settings/auth/enable", data={"hostname": "testserver"}, follow_redirects=False)
+
+    assert response.headers["location"] == "/settings?auth_error=already_completed"
+    assert get_setting_value(db, "auth.hostname", "") == "testserver"
+    assert db.query(User).filter(User.role == "admin").count() == 1
 
 
 @pytest.mark.parametrize(
@@ -233,8 +296,9 @@ def test_activation_without_admin_or_when_environment_disabled_is_rejected(user_
     db, client = user_management_client
 
     response = client.post("/settings/auth/enable", data={"hostname": "testserver"}, follow_redirects=False)
-    assert response.headers["location"] == "/settings?auth_error=no_admin"
+    assert response.headers["location"] == "/settings?auth_error=invalid_username"
     assert get_setting_value(db, "auth.enabled", "false") == "false"
+    assert get_setting_value(db, AUTH_ONBOARDING_STATE_SETTING, "") == AUTH_ONBOARDING_LEGACY_REVIEW_REQUIRED
 
     monkeypatch.setenv("OSD_AUTH_DISABLED", "true")
     response = client.post(

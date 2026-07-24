@@ -167,11 +167,14 @@ def test_activation_completes_the_review_and_leaves_no_way_back_in_the_ui(review
 
     response = client.post("/settings/auth/enable", data=ACTIVATION, follow_redirects=False)
 
-    assert response.status_code == 303
+    # Like the setup page the activation ends at the login, without a session.
+    assert response.headers["location"] == "/login"
+    assert db_session.query(UserSession).count() == 0
     assert value(db_session, AUTH_ENABLED_SETTING) == "true"
     assert value(db_session, AUTH_HOSTNAME_SETTING) == "testserver"
     assert value(db_session, AUTH_ONBOARDING_STATE_SETTING) == AUTH_ONBOARDING_COMPLETE
 
+    client.post("/login", data={"username": "admin", "password": "password123"}, follow_redirects=False)
     page = client.get("/settings")
     assert page.status_code == 200
     assert REVIEW_BANNER not in page.text

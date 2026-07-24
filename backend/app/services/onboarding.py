@@ -75,8 +75,8 @@ def _claim_open_onboarding(db: Session) -> str | None:
 def complete_onboarding(
     db: Session,
     *,
-    language: str,
     hostname: str,
+    language: str = "",
     username: str = "",
     password: str = "",
 ) -> str | None:
@@ -84,7 +84,8 @@ def complete_onboarding(
 
     The caller has already validated the input and the trusted proxy boundary;
     this function owns everything that writes. No session is created: the first
-    administrator signs in through the normal login afterwards.
+    administrator signs in through the normal login afterwards. The settings
+    activation of a running installation passes no language and keeps its own.
     """
     try:
         claimed_state = _claim_open_onboarding(db)
@@ -107,7 +108,8 @@ def complete_onboarding(
         # The global language is stored before the account, so the new
         # administrator's personal preferences start in the language of this
         # form and the following login looks the same as the setup.
-        save_setting(db, "language", language)
+        if language:
+            save_setting(db, "language", language)
         if creates_admin:
             create_user(db, username, password, "admin")
         store_activation(db, hostname)
