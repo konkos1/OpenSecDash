@@ -32,7 +32,7 @@ from app.services.auth import (
 from app.services.oidc import effective_password_login_enabled, load_config
 from app.services.user_preferences import normalize_preferences
 from app.web.auth import SESSION_COOKIE, set_session_cookie
-from app.web.proxy_headers import PROXY_STATE_PEER_ADDRESS
+from app.web.proxy_headers import PROXY_STATE_CLIENT_ADDRESS
 from app.web.redirects import safe_local_path
 from app.web.render import render
 from app.web.templates import templates
@@ -41,8 +41,10 @@ router = APIRouter(tags=["auth"])
 
 _LOGIN_BACKOFF: OrderedDict[str, tuple[int, float, float]] = OrderedDict()
 _LOGIN_BACKOFF_LOCK = Lock()
-# Account throttling stops distributed guessing; the higher peer threshold is a
-# backstop for password spraying without penalizing a shared homelab proxy quickly.
+# Account throttling stops distributed guessing against one user. The source
+# bucket is keyed on the trustworthy, normalized per-client address and never on
+# a shared reverse proxy, so a noisy client is throttled without ever locking out
+# everyone behind the proxy.
 _MAX_ACCOUNT_LOGIN_FAILURES = 5
 _MAX_SOURCE_LOGIN_FAILURES = 100
 _LOGIN_LOCK_SECONDS = 60
@@ -74,11 +76,14 @@ def _account_backoff_key(username: str) -> str:
     return _login_backoff_key("account", normalize_username(username))
 
 
-def _source_id(request: Request) -> str:
-    peer_address = getattr(request.state, PROXY_STATE_PEER_ADDRESS, None)
-    if isinstance(peer_address, str) and peer_address:
-        return peer_address
-    return request.client.host if request.client is not None else "unknown"
+def _source_id(request: Request) -> str | None:
+    # The proxy middleware resolves the trustworthy downstream client address and
+    # deliberately leaves this unset when the only identifiable peer is a trusted
+    # reverse proxy, so that a shared proxy never becomes an instance-wide bucket.
+    client_address = getattr(request.state, PROXY_STATE_CLIENT_ADDRESS, None)
+    if isinstance(client_address, str) and client_address:
+        return client_address
+    return None
 
 
 def _source_backoff_key(source_id: str) -> str:
@@ -91,14 +96,16 @@ def reset_login_backoff() -> None:
         _LOGIN_BACKOFF.clear()
 
 
-def _login_locked(username: str, source_id: str) -> bool:
-    keys = (_account_backoff_key(username), _source_backoff_key(source_id))
+def _login_locked(username: str, source_id: str | None) -> bool:
+    keys = [_account_backoff_key(username)]
+    if source_id is not None:
+        keys.append(_source_backoff_key(source_id))
     with _LOGIN_BACKOFF_LOCK:
         now = time.monotonic()
         return any((attempt := _LOGIN_BACKOFF.get(key)) is not None and attempt[1] > now for key in keys)
 
 
-def _record_failed_login(username: str, source_id: str) -> None:
+def _record_failed_login(username: str, source_id: str | None) -> None:
     now = time.monotonic()
     with _LOGIN_BACKOFF_LOCK:
         while _LOGIN_BACKOFF:
@@ -106,10 +113,10 @@ def _record_failed_login(username: str, source_id: str) -> None:
             if last_seen > now - _LOGIN_BACKOFF_TTL_SECONDS:
                 break
             _LOGIN_BACKOFF.popitem(last=False)
-        for key, threshold in (
-            (_account_backoff_key(username), _MAX_ACCOUNT_LOGIN_FAILURES),
-            (_source_backoff_key(source_id), _MAX_SOURCE_LOGIN_FAILURES),
-        ):
+        buckets = [(_account_backoff_key(username), _MAX_ACCOUNT_LOGIN_FAILURES)]
+        if source_id is not None:
+            buckets.append((_source_backoff_key(source_id), _MAX_SOURCE_LOGIN_FAILURES))
+        for key, threshold in buckets:
             failures, locked_until, _last_seen = _LOGIN_BACKOFF.get(key, (0, 0.0, 0.0))
             if locked_until and locked_until <= now:
                 failures = 0

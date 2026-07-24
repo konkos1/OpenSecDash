@@ -252,12 +252,49 @@ def test_login_backoff_cannot_be_bypassed_with_rotating_forwarded_ips(auth_clien
     assert response.status_code == 429
 
 
-def test_login_backoff_limits_password_spraying_from_one_proxy_peer(auth_client, monkeypatch):
+def test_login_backoff_throttles_one_client_behind_a_trusted_proxy(auth_client, monkeypatch):
     db_session, client = auth_client
     enable_auth(db_session)
     monkeypatch.setattr(auth_api, "_MAX_SOURCE_LOGIN_FAILURES", 3)
 
+    # The test peer is a trusted proxy, so the real client is taken from
+    # X-Forwarded-For. One client's own bucket fills across rotating usernames...
     for index in range(3):
+        response = client.post(
+            "/login",
+            headers={"x-forwarded-for": "203.0.113.7"},
+            data={"username": f"unknown-{index}", "password": "wrong-password"},
+            follow_redirects=False,
+        )
+        assert response.status_code == 401
+
+    response = client.post(
+        "/login",
+        headers={"x-forwarded-for": "203.0.113.7"},
+        data={"username": "admin", "password": "password123"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 429
+
+    # ...while a different client behind the same proxy stays unaffected.
+    response = client.post(
+        "/login",
+        headers={"x-forwarded-for": "203.0.113.8"},
+        data={"username": "admin", "password": "password123"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+
+
+def test_login_backoff_does_not_lock_out_everyone_behind_a_trusted_proxy(auth_client, monkeypatch):
+    db_session, client = auth_client
+    enable_auth(db_session)
+    monkeypatch.setattr(auth_api, "_MAX_SOURCE_LOGIN_FAILURES", 3)
+
+    # A single attacker sprays many accounts through the shared proxy, each
+    # request carrying a different real client IP. No instance-wide proxy bucket
+    # may form, or every user behind the proxy would be locked out.
+    for index in range(10):
         response = client.post(
             "/login",
             headers={"x-forwarded-for": f"203.0.113.{index + 1}"},
@@ -268,12 +305,11 @@ def test_login_backoff_limits_password_spraying_from_one_proxy_peer(auth_client,
 
     response = client.post(
         "/login",
-        headers={"x-forwarded-for": "203.0.113.99"},
+        headers={"x-forwarded-for": "203.0.113.200"},
         data={"username": "admin", "password": "password123"},
         follow_redirects=False,
     )
-
-    assert response.status_code == 429
+    assert response.status_code == 303
 
 
 def test_login_backoff_state_is_bounded_and_uses_fixed_size_keys(monkeypatch):

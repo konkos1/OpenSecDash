@@ -7,11 +7,11 @@ from starlette.requests import Request
 from app.web.auth import auth_transport_diagnostics
 from app.web.proxy_headers import (
     DEFAULT_TRUSTED_NETWORKS,
+    PROXY_STATE_CLIENT_ADDRESS,
     PROXY_STATE_EXPLICITLY_TRUSTED,
     PROXY_STATE_FORWARDED_HOST,
     PROXY_STATE_FORWARDED_PORT,
     PROXY_STATE_FORWARDED_PROTO,
-    PROXY_STATE_PEER_ADDRESS,
     ProxyHeadersMiddleware,
     parse_trusted_proxies,
 )
@@ -78,10 +78,27 @@ def test_x_forwarded_for_sets_the_client_ip_for_a_trusted_peer():
     _apply(scope)
 
     assert scope["client"] == ("203.0.113.9", 0)
-    assert scope["state"][PROXY_STATE_PEER_ADDRESS] == "10.0.0.2"
+    assert scope["state"][PROXY_STATE_CLIENT_ADDRESS] == "203.0.113.9"
     request_client = Request(scope).client
     assert request_client is not None
     assert request_client.host == "203.0.113.9"
+
+
+def test_client_address_never_reuses_a_trusted_proxy_as_a_throttle_bucket():
+    # A trusted proxy peer with no downstream client to resolve must not leak the
+    # shared proxy address into the throttling bucket, or one client could lock
+    # out everyone behind the proxy.
+    without_forwarded = _scope(headers=[(b"host", b"internal.example")])
+    with_public_client = _scope(headers=[(b"host", b"internal.example"), (b"X-Forwarded-For", b"203.0.113.9")])
+    with_only_trusted_client = _scope(headers=[(b"host", b"internal.example"), (b"X-Forwarded-For", b"192.168.1.5")])
+
+    _apply(without_forwarded)
+    _apply(with_public_client)
+    _apply(with_only_trusted_client)
+
+    assert without_forwarded["state"][PROXY_STATE_CLIENT_ADDRESS] is None
+    assert with_public_client["state"][PROXY_STATE_CLIENT_ADDRESS] == "203.0.113.9"
+    assert with_only_trusted_client["state"][PROXY_STATE_CLIENT_ADDRESS] is None
 
 
 def test_x_forwarded_for_ignores_spoofed_leftmost_entries():
@@ -116,7 +133,7 @@ def test_untrusted_peers_and_missing_clients_fail_closed():
 
     for scope, client in ((public_scope, ("203.0.113.50", 4242)), (missing_client_scope, None)):
         assert scope["client"] == client
-        assert scope["state"][PROXY_STATE_PEER_ADDRESS] == (client[0] if client is not None else None)
+        assert scope["state"][PROXY_STATE_CLIENT_ADDRESS] == (client[0] if client is not None else None)
         assert scope["scheme"] == "http"
         assert dict(scope["headers"])[b"host"] == b"internal.example"
         assert not _header_names(scope) & {b"x-forwarded-for", b"x-forwarded-proto", b"x-forwarded-host", b"x-forwarded-port"}
