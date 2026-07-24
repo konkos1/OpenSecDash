@@ -106,6 +106,12 @@ jobs:
         working-directory: backend
         run: .venv/bin/python -m pytest tests/ -q
 
+      - name: Run upgrade benchmark gate
+        # Catch migration/startup regressions in PR CI, not only at release time.
+        # The 10k-event benchmark takes ~240ms locally, so it is a cheap gate.
+        working-directory: backend
+        run: .venv/bin/python -m tests.performance.upgrade_benchmark --events 10000 --enforce-gates
+
       - name: Run Pyright
         shell: bash
         run: |
