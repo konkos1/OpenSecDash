@@ -54,7 +54,7 @@ jobs:
           echo "${changed}"
           # Markdown-only changes (READMEs, docs) don't need the test suite;
           # anything else affecting the app or production image does.
-          if echo "${changed}" | grep -vE '\.md$' | grep -qE '^(backend/|plugins/|docker/|\.github/workflows/)'; then
+          if echo "${changed}" | grep -vE '\.md$' | grep -E '^(backend/|plugins/|docker/|\.github/workflows/)' >/dev/null; then
             echo "code=true" >> "$GITHUB_OUTPUT"
           else
             echo "Only documentation/unrelated files changed - skipping tests."

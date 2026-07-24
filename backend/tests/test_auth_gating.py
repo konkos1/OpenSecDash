@@ -31,7 +31,6 @@ def auth_client(tmp_path, monkeypatch):
     monkeypatch.setattr(auth_web, "SessionLocal", session_factory)
     monkeypatch.setattr("app.main.SessionLocal", session_factory)
     monkeypatch.setattr("app.main.init_db", lambda: None)
-    monkeypatch.setattr(auth_api, "_LOGIN_FAILURE_DELAY_SECONDS", 0.0)
     app.dependency_overrides[get_db] = get_test_db
     auth_api.reset_login_backoff()
     client = TestClient(app, base_url="https://testserver")
@@ -201,26 +200,35 @@ def test_login_logout_and_cookie_flags_gate_browser_requests(auth_client):
 def test_login_backoff_and_open_redirect_protection(auth_client, monkeypatch):
     db_session, client = auth_client
     enable_auth(db_session)
-    delays = []
-    monkeypatch.setattr(auth_api, "_LOGIN_FAILURE_DELAY_SECONDS", 1.0)
-    monkeypatch.setattr(auth_api.time, "sleep", delays.append)
 
     for _ in range(5):
         response = client.post("/login", data={"username": "admin", "password": "wrong-password"}, follow_redirects=False)
         assert response.status_code == 401
         assert "Wrong username or password." in response.text
 
-    # Further wrong guesses stay throttled...
+    original_throttled_response = auth_api._throttled_login_response
+    capacity_released = []
+
+    def throttled_response_after_capacity_check(request, db, next_path):
+        reservation = auth_api._begin_password_check("admin")
+        capacity_released.append(reservation is not None)
+        if reservation is not None:
+            auth_api._end_password_check(reservation)
+        return original_throttled_response(request, db, next_path)
+
+    monkeypatch.setattr(auth_api, "_throttled_login_response", throttled_response_after_capacity_check)
+
+    # Further wrong guesses stay throttled, after their password-check
+    # reservations have been released.
     response = client.post("/login", data={"username": "admin", "password": "wrong-password"}, follow_redirects=False)
     assert response.status_code == 429
     assert "Too many login attempts." in response.text
     assert response.headers["retry-after"] == "1"
-    assert delays == [1.0]
+    assert capacity_released == [True]
 
-    # ...but the account backoff must never lock out the real owner.
+    # The account backoff must never lock out the real owner.
     response = client.post("/login", data={"username": "admin", "password": "password123"}, follow_redirects=False)
     assert response.status_code == 303
-    assert delays == [1.0]
     client.post("/auth/logout", follow_redirects=False)
 
     auth_api.reset_login_backoff()
@@ -276,7 +284,7 @@ def test_account_backoff_survives_rotating_forwarded_ips_without_locking_out_own
     assert response.status_code == 303
 
 
-def test_login_backoff_delays_one_client_without_rejecting_correct_password(auth_client, monkeypatch):
+def test_login_backoff_throttles_one_client_without_rejecting_correct_password(auth_client, monkeypatch):
     db_session, client = auth_client
     enable_auth(db_session)
     monkeypatch.setattr(auth_api, "_MAX_SOURCE_LOGIN_FAILURES", 3)
@@ -292,7 +300,7 @@ def test_login_backoff_delays_one_client_without_rejecting_correct_password(auth
         )
         assert response.status_code == 401
 
-    # Source state slows further wrong guesses...
+    # Source state throttles further wrong guesses...
     wrong = client.post(
         "/login",
         headers={"x-forwarded-for": "203.0.113.7"},
@@ -370,7 +378,7 @@ def test_account_backoff_never_locks_out_correct_credentials(auth_client):
     assert response.status_code == 303
 
 
-def test_login_backoff_direct_peer_delays_failures_without_global_lockout(auth_client, monkeypatch):
+def test_login_backoff_direct_peer_throttles_failures_without_global_lockout(auth_client, monkeypatch):
     db_session, client = auth_client
     enable_auth(db_session)
     monkeypatch.setattr(auth_api, "_MAX_PEER_LOGIN_FAILURES", 3)
@@ -395,7 +403,7 @@ def test_login_backoff_direct_peer_delays_failures_without_global_lockout(auth_c
     )
     assert wrong.status_code == 429
 
-    # The peer is the shared reverse proxy, so its state may slow failures but
+    # The peer is the shared reverse proxy, so its state may throttle failures but
     # must never reject a verified password from another downstream client.
     correct = client.post(
         "/login",
