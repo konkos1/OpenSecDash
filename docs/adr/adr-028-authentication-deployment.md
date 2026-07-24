@@ -559,6 +559,40 @@ whether a session came from a password or from the provider. Existing sessions w
 classified as `password` by the migration; existing local users and their sessions keep
 working unchanged.
 
+## Implementation notes (2026-07-24): login throttling revision
+
+This supersedes the login-throttling description in the 2026-07-17 note; that
+paragraph keeps its original wording and describes the state before this date.
+
+Login throttling now uses three independent buckets instead of two:
+
+* **Account** – keyed on the normalized username only. It throttles *failed*
+  guesses against one account regardless of forwarded client IP, but it no
+  longer blocks a correct password. Refusing a correct password on this bucket
+  turned five failed attempts into a permanent, account-name-targeted login
+  DoS: anyone who knew the admin username could keep that account locked out
+  with a handful of requests per minute. Correct credentials are therefore
+  always honored against the account backoff; only failed guesses are delayed.
+* **Source** – keyed on the resolved downstream client address (never a shared
+  proxy), so one noisy client is throttled without locking out everyone behind
+  the proxy. Because it depends on `X-Forwarded-For`, an overly broad
+  trusted-proxy configuration lets a request rotate this identity.
+* **Direct peer** – keyed on the immediate TCP peer, preserved before
+  `X-Forwarded-For` is applied. It cannot be rotated through a request header
+  and carries the highest threshold, so it tolerates normal shared-proxy
+  traffic while still bounding forwarded-address spraying that slips past the
+  source bucket. This replaces the earlier note's single "direct-peer bucket"
+  with a peer bucket that keys throttling on the TCP peer separately from the
+  resolved client identity.
+
+The source and peer buckets block even a correct password while flooding; unlike
+the account bucket, a third party cannot fill them on a remote victim's behalf.
+Deployments must still restrict `OSD_TRUSTED_PROXIES` to individual proxy
+addresses or the narrowest practical dedicated proxy network — under a broad
+range the source bucket becomes rotatable and the peer bucket is the only
+backstop, so an ambiguous `X-Forwarded-For` chain should additionally be bounded
+at the reverse proxy.
+
 ## Decision (2026-07-24): default-on authentication and first-admin onboarding
 
 This is a new decision, not a rewrite of the earlier ones. The sections above keep

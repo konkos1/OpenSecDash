@@ -32,7 +32,7 @@ from app.services.auth import (
 from app.services.oidc import effective_password_login_enabled, load_config
 from app.services.user_preferences import normalize_preferences
 from app.web.auth import SESSION_COOKIE, set_session_cookie
-from app.web.proxy_headers import PROXY_STATE_CLIENT_ADDRESS
+from app.web.proxy_headers import PROXY_STATE_CLIENT_ADDRESS, PROXY_STATE_PEER_ADDRESS
 from app.web.redirects import safe_local_path
 from app.web.render import render
 from app.web.templates import templates
@@ -41,12 +41,23 @@ router = APIRouter(tags=["auth"])
 
 _LOGIN_BACKOFF: OrderedDict[str, tuple[int, float, float]] = OrderedDict()
 _LOGIN_BACKOFF_LOCK = Lock()
-# Account throttling stops distributed guessing against one user. The source
-# bucket is keyed on the trustworthy, normalized per-client address and never on
-# a shared reverse proxy, so a noisy client is throttled without ever locking out
-# everyone behind the proxy.
+# Three independent buckets throttle password logins:
+#
+# * account  - keyed on the normalized username only. It throttles *failed*
+#   guesses against one account regardless of client address, but never blocks a
+#   correct password (see ``login``), so knowing a username cannot lock its
+#   owner out.
+# * source   - keyed on the resolved downstream client address (never a shared
+#   proxy), so a noisy client is throttled without locking out everyone behind
+#   the proxy. Depends on X-Forwarded-For and can be rotated under an overly
+#   broad trusted-proxy configuration.
+# * peer     - keyed on the immediate TCP peer, captured before X-Forwarded-For
+#   is applied. It cannot be rotated by a request header and uses the highest
+#   threshold, so it tolerates normal shared-proxy traffic while still bounding
+#   forwarded-address spraying that slips past the source bucket.
 _MAX_ACCOUNT_LOGIN_FAILURES = 5
 _MAX_SOURCE_LOGIN_FAILURES = 100
+_MAX_PEER_LOGIN_FAILURES = 200
 _LOGIN_LOCK_SECONDS = 60
 _LOGIN_BACKOFF_TTL_SECONDS = 300
 _MAX_LOGIN_BACKOFF_ENTRIES = 4096
@@ -90,22 +101,58 @@ def _source_backoff_key(source_id: str) -> str:
     return _login_backoff_key("source", source_id)
 
 
+def _peer_backoff_key(peer_id: str) -> str:
+    return _login_backoff_key("peer", peer_id)
+
+
+def _peer_id(request: Request) -> str | None:
+    # The immediate TCP peer, preserved by the proxy middleware before it applies
+    # X-Forwarded-For. It cannot be rotated through a request header, so it caps
+    # forwarded-address spraying even when trusted proxies are configured broadly.
+    peer_address = getattr(request.state, PROXY_STATE_PEER_ADDRESS, None)
+    if isinstance(peer_address, str) and peer_address:
+        return peer_address
+    return None
+
+
+def _flood_buckets(source_id: str | None, peer_id: str | None) -> list[tuple[str, int]]:
+    # Buckets a third party cannot fill on a victim's behalf: the source is the
+    # victim's own resolved address and the peer their own reverse proxy. They
+    # therefore block even a correct password while flooding, without ever
+    # letting an attacker lock out a remote account.
+    buckets: list[tuple[str, int]] = []
+    if source_id is not None:
+        buckets.append((_source_backoff_key(source_id), _MAX_SOURCE_LOGIN_FAILURES))
+    if peer_id is not None:
+        buckets.append((_peer_backoff_key(peer_id), _MAX_PEER_LOGIN_FAILURES))
+    return buckets
+
+
+def _all_buckets(username: str, source_id: str | None, peer_id: str | None) -> list[tuple[str, int]]:
+    return [(_account_backoff_key(username), _MAX_ACCOUNT_LOGIN_FAILURES), *_flood_buckets(source_id, peer_id)]
+
+
 def reset_login_backoff() -> None:
     """Clear the in-memory login backoff state for tests."""
     with _LOGIN_BACKOFF_LOCK:
         _LOGIN_BACKOFF.clear()
 
 
-def _login_locked(username: str, source_id: str | None) -> bool:
-    keys = [_account_backoff_key(username)]
-    if source_id is not None:
-        keys.append(_source_backoff_key(source_id))
+def _keys_locked(keys: list[str]) -> bool:
     with _LOGIN_BACKOFF_LOCK:
         now = time.monotonic()
         return any((attempt := _LOGIN_BACKOFF.get(key)) is not None and attempt[1] > now for key in keys)
 
 
-def _record_failed_login(username: str, source_id: str | None) -> None:
+def _login_locked(username: str, source_id: str | None, peer_id: str | None) -> bool:
+    return _keys_locked([key for key, _threshold in _all_buckets(username, source_id, peer_id)])
+
+
+def _flood_locked(source_id: str | None, peer_id: str | None) -> bool:
+    return _keys_locked([key for key, _threshold in _flood_buckets(source_id, peer_id)])
+
+
+def _record_failed_login(username: str, source_id: str | None, peer_id: str | None) -> None:
     now = time.monotonic()
     with _LOGIN_BACKOFF_LOCK:
         while _LOGIN_BACKOFF:
@@ -113,10 +160,7 @@ def _record_failed_login(username: str, source_id: str | None) -> None:
             if last_seen > now - _LOGIN_BACKOFF_TTL_SECONDS:
                 break
             _LOGIN_BACKOFF.popitem(last=False)
-        buckets = [(_account_backoff_key(username), _MAX_ACCOUNT_LOGIN_FAILURES)]
-        if source_id is not None:
-            buckets.append((_source_backoff_key(source_id), _MAX_SOURCE_LOGIN_FAILURES))
-        for key, threshold in buckets:
+        for key, threshold in _all_buckets(username, source_id, peer_id):
             failures, locked_until, _last_seen = _LOGIN_BACKOFF.get(key, (0, 0.0, 0.0))
             if locked_until and locked_until <= now:
                 failures = 0
@@ -175,14 +219,24 @@ def login(
         # switched off this form is not an attempt, it is the wrong door.
         return _login_response(request, db, next, error=True, error_key="auth.password_login_disabled", status_code=403)
     source_id = _source_id(request)
-    if _login_locked(username, source_id):
+    peer_id = _peer_id(request)
+    # A flooding source or proxy peer is rejected before any password hashing.
+    # These buckets cannot be filled on a remote victim's behalf, so blocking
+    # them outright is safe.
+    if _flood_locked(source_id, peer_id):
         return _login_response(request, db, next, error=True, error_key="auth.login_locked", status_code=429)
 
     user = authenticate(db, username, password)
     if user is None:
-        _record_failed_login(username, source_id)
+        # The account bucket only throttles failed guesses; already-locked
+        # attempts are refused without extending the backoff further.
+        if _login_locked(username, source_id, peer_id):
+            return _login_response(request, db, next, error=True, error_key="auth.login_locked", status_code=429)
+        _record_failed_login(username, source_id, peer_id)
         return _login_response(request, db, next, error=True, status_code=401)
 
+    # Correct credentials are always honored here: the account backoff never
+    # blocks them, so a known username cannot be locked out by guessing.
     with _LOGIN_BACKOFF_LOCK:
         _LOGIN_BACKOFF.pop(_account_backoff_key(username), None)
     cleanup_expired_sessions(db)

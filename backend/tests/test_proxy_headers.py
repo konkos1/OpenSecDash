@@ -9,6 +9,7 @@ from app.web.proxy_headers import (
     DEFAULT_TRUSTED_NETWORKS,
     PROXY_STATE_CLIENT_ADDRESS,
     PROXY_STATE_EXPLICITLY_TRUSTED,
+    PROXY_STATE_PEER_ADDRESS,
     PROXY_STATE_FORWARDED_HOST,
     PROXY_STATE_FORWARDED_PORT,
     PROXY_STATE_FORWARDED_PROTO,
@@ -99,6 +100,12 @@ def test_client_address_never_reuses_a_trusted_proxy_as_a_throttle_bucket():
     assert without_forwarded["state"][PROXY_STATE_CLIENT_ADDRESS] is None
     assert with_public_client["state"][PROXY_STATE_CLIENT_ADDRESS] == "203.0.113.9"
     assert with_only_trusted_client["state"][PROXY_STATE_CLIENT_ADDRESS] is None
+
+    # The immediate TCP peer is preserved for the rotation-proof throttling
+    # bucket even when the resolved downstream client is a trusted proxy.
+    assert without_forwarded["state"][PROXY_STATE_PEER_ADDRESS] == "10.0.0.2"
+    assert with_public_client["state"][PROXY_STATE_PEER_ADDRESS] == "10.0.0.2"
+    assert with_only_trusted_client["state"][PROXY_STATE_PEER_ADDRESS] == "10.0.0.2"
 
 
 def test_x_forwarded_for_ignores_spoofed_leftmost_entries():

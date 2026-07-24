@@ -206,9 +206,15 @@ def test_login_backoff_and_open_redirect_protection(auth_client):
         assert response.status_code == 401
         assert "Wrong username or password." in response.text
 
-    response = client.post("/login", data={"username": "admin", "password": "password123"}, follow_redirects=False)
+    # Further wrong guesses stay throttled...
+    response = client.post("/login", data={"username": "admin", "password": "wrong-password"}, follow_redirects=False)
     assert response.status_code == 429
     assert "Too many failed attempts." in response.text
+
+    # ...but the account backoff must never lock out the real owner.
+    response = client.post("/login", data={"username": "admin", "password": "password123"}, follow_redirects=False)
+    assert response.status_code == 303
+    client.post("/auth/logout", follow_redirects=False)
 
     auth_api.reset_login_backoff()
     for target in (
@@ -229,7 +235,7 @@ def test_login_backoff_and_open_redirect_protection(auth_client):
         client.post("/auth/logout", follow_redirects=False)
 
 
-def test_login_backoff_cannot_be_bypassed_with_rotating_forwarded_ips(auth_client):
+def test_account_backoff_survives_rotating_forwarded_ips_without_locking_out_owner(auth_client):
     db_session, client = auth_client
     enable_auth(db_session)
 
@@ -242,14 +248,25 @@ def test_login_backoff_cannot_be_bypassed_with_rotating_forwarded_ips(auth_clien
         )
         assert response.status_code == 401
 
+    # The account bucket is keyed on the username, not the client address, so a
+    # further wrong guess stays throttled no matter which forwarded IP it rides.
     response = client.post(
         "/login",
         headers={"x-forwarded-for": "203.0.113.99"},
+        data={"username": "admin", "password": "wrong-password"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 429
+
+    # The very same backoff must not become an account-name lockout: the owner's
+    # correct credentials still pass, even while guessing continues.
+    response = client.post(
+        "/login",
+        headers={"x-forwarded-for": "203.0.113.123"},
         data={"username": "admin", "password": "password123"},
         follow_redirects=False,
     )
-
-    assert response.status_code == 429
+    assert response.status_code == 303
 
 
 def test_login_backoff_throttles_one_client_behind_a_trusted_proxy(auth_client, monkeypatch):
@@ -312,12 +329,61 @@ def test_login_backoff_does_not_lock_out_everyone_behind_a_trusted_proxy(auth_cl
     assert response.status_code == 303
 
 
+def test_account_backoff_never_locks_out_correct_credentials(auth_client):
+    db_session, client = auth_client
+    enable_auth(db_session)
+
+    # An attacker who knows the admin username hammers it with wrong passwords
+    # well past the account threshold, from a single client.
+    for _ in range(20):
+        response = client.post(
+            "/login",
+            data={"username": "admin", "password": "wrong-password"},
+            follow_redirects=False,
+        )
+        assert response.status_code in (401, 429)
+
+    # The owner is never a victim of that guessing: correct credentials still win.
+    response = client.post(
+        "/login",
+        data={"username": "admin", "password": "password123"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+
+
+def test_login_backoff_direct_peer_bounds_rotating_forwarded_ips(auth_client, monkeypatch):
+    db_session, client = auth_client
+    enable_auth(db_session)
+    monkeypatch.setattr(auth_api, "_MAX_PEER_LOGIN_FAILURES", 3)
+
+    # Spray distinct usernames while rotating the forwarded client IP so neither
+    # the account nor the source bucket ever trips. The immediate TCP peer is
+    # fixed, so the rotation-proof peer bucket still bounds the spray.
+    for index in range(3):
+        response = client.post(
+            "/login",
+            headers={"x-forwarded-for": f"203.0.113.{index + 1}"},
+            data={"username": f"unknown-{index}", "password": "wrong-password"},
+            follow_redirects=False,
+        )
+        assert response.status_code == 401
+
+    response = client.post(
+        "/login",
+        headers={"x-forwarded-for": "203.0.113.250"},
+        data={"username": "admin", "password": "password123"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 429
+
+
 def test_login_backoff_state_is_bounded_and_uses_fixed_size_keys(monkeypatch):
     auth_api.reset_login_backoff()
     monkeypatch.setattr(auth_api, "_MAX_LOGIN_BACKOFF_ENTRIES", 3)
 
     for index in range(4):
-        auth_api._record_failed_login("x" * 10_000 + str(index), "192.0.2.1")
+        auth_api._record_failed_login("x" * 10_000 + str(index), "192.0.2.1", "198.51.100.1")
 
     assert len(auth_api._LOGIN_BACKOFF) == 3
     assert all(len(key) == 64 for key in auth_api._LOGIN_BACKOFF)

@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 TRUSTED_PROXIES_ENV = "OSD_TRUSTED_PROXIES"
 PROXY_STATE_EXPLICITLY_TRUSTED = "osd_proxy_explicitly_trusted"
 PROXY_STATE_CLIENT_ADDRESS = "osd_proxy_client_address"
+PROXY_STATE_PEER_ADDRESS = "osd_proxy_peer_address"
 PROXY_STATE_FORWARDED_PROTO = "osd_proxy_forwarded_proto"
 PROXY_STATE_FORWARDED_HOST = "osd_proxy_forwarded_host"
 PROXY_STATE_FORWARDED_PORT = "osd_proxy_forwarded_port"
@@ -71,12 +72,17 @@ def _is_trusted_address(host: str, trusted_proxies: TrustedProxies) -> bool:
 
 
 def _throttle_client_address(client: Any, trusted_proxies: TrustedProxies) -> str | None:
-    """Client address safe to key a per-source login-throttling bucket on.
+    """Resolved downstream client address safe to key a per-source bucket on.
 
     Returns the normalized downstream client host only when it is a distinct
     client. A trusted reverse proxy (or a missing peer) is never returned:
     using the shared proxy address as a bucket would let a single client fill
     it and lock out everyone behind that proxy.
+
+    This is the fine-grained bucket and it depends on X-Forwarded-For. When the
+    trusted-proxy range is configured too broadly a request can rotate this
+    identity; the rotation-proof peer address from :func:`_peer_address` is the
+    backstop for that case.
     """
     if not (isinstance(client, tuple) and client and isinstance(client[0], str)):
         return None
@@ -84,6 +90,20 @@ def _throttle_client_address(client: Any, trusted_proxies: TrustedProxies) -> st
     if _is_trusted_address(host, trusted_proxies):
         return None
     return host
+
+
+def _peer_address(client: Any) -> str | None:
+    """Immediate TCP peer host, captured before X-Forwarded-For is applied.
+
+    Unlike the resolved downstream client this can never be rotated through a
+    request header, so it still bounds forwarded-address spraying when the
+    trusted-proxy range is configured too broadly. The peer of a trusted proxy
+    is deliberately kept: it feeds a separate, higher-threshold bucket that
+    tolerates normal shared-proxy traffic while capping sustained abuse.
+    """
+    if not (isinstance(client, tuple) and client and isinstance(client[0], str)):
+        return None
+    return client[0]
 
 
 def _first_forwarded_header(headers: list[tuple[bytes, bytes]], name: bytes) -> str | None:
@@ -135,10 +155,14 @@ class ProxyHeadersMiddleware:
         state = scope.setdefault("state", {})
         state[PROXY_STATE_EXPLICITLY_TRUSTED] = False
         state[PROXY_STATE_CLIENT_ADDRESS] = None
+        state[PROXY_STATE_PEER_ADDRESS] = None
         state[PROXY_STATE_FORWARDED_PROTO] = None
         state[PROXY_STATE_FORWARDED_HOST] = None
         state[PROXY_STATE_FORWARDED_PORT] = None
         client = scope.get("client")
+        # Preserve the immediate TCP peer before X-Forwarded-For rewrites
+        # scope["client"]; it keys the rotation-proof throttling bucket.
+        state[PROXY_STATE_PEER_ADDRESS] = _peer_address(client)
         trusted = isinstance(client, tuple) and bool(client) and _is_trusted_address(client[0], self.trusted_proxies)
         if not trusted:
             scope["headers"] = [(name, value) for name, value in headers if name.lower() not in _FORWARDED_HEADERS]
