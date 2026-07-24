@@ -84,4 +84,4 @@ cp docker/docker-compose.example.yml docker-compose.yml
 docker compose up -d
 ```
 
-OpenSecDash includes optional internal sign-in with Viewer, Operator, and Admin roles. It is disabled by default so existing deployments keep their current access model. Even with internal sign-in enabled, keep the dashboard internal, behind a VPN, or behind a trusted HTTPS reverse proxy.
+OpenSecDash includes internal sign-in with Viewer, Operator, and Admin roles. A new installation starts with it enabled and guides the first visit through a one-time setup for the first Admin account; existing deployments keep their current access model when they are updated. Even with internal sign-in enabled, keep the dashboard internal, behind a VPN, or behind a trusted HTTPS reverse proxy.

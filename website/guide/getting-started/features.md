@@ -146,9 +146,9 @@ OpenSecDash includes a web app manifest, so modern browsers can add it as an app
 
 For the best install experience, serve OpenSecDash through HTTPS via your reverse proxy.
 
-## Optional sign-in and personal workspace
+## Sign-in and personal workspace
 
-Internal authentication is optional and disabled by default. When enabled, OpenSecDash provides Viewer, Operator, and Admin roles with revocable server-side sessions. Administrators can create users, reset passwords, change roles, and deactivate accounts. Sign-in can use local passwords, one optional OpenID Connect provider, or both; roles always stay local to OpenSecDash.
+Internal authentication is on for a new installation, which sets its first Admin account up on the first visit; an updated installation keeps whatever it had, and `OSD_AUTH_DISABLED=true` runs OpenSecDash open on purpose. OpenSecDash provides Viewer, Operator, and Admin roles with revocable server-side sessions. Administrators can create users, reset passwords, change roles, and deactivate accounts. Sign-in can use local passwords, one optional OpenID Connect provider, or both; roles always stay local to OpenSecDash.
 
 Each signed-in user can keep their own:
 

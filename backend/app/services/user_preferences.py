@@ -3,6 +3,7 @@ from collections.abc import Mapping
 
 from sqlalchemy.orm import Session
 
+from app.core.i18n import available_languages
 from app.core.secrets import decrypt_setting_value
 from app.models.settings import Setting
 from app.models.users import User, UserPreference
@@ -22,7 +23,6 @@ _GLOBAL_SETTING_KEYS = {
     "live_page_refresh": "live_page_refresh",
 }
 _ALLOWED_VALUES = {
-    "language": {"de", "en"},
     "live_default": {"true", "false"},
     "theme": {"auto", "dark", "light"},
     "accent_color": {"blue", "green", "orange", "red"},
@@ -30,11 +30,21 @@ _ALLOWED_VALUES = {
 }
 
 
+def allowed_preference_values(key: str) -> set[str]:
+    """Return the accepted values for one preference.
+
+    The languages come from the locale registry instead of a second allowlist,
+    so registering another complete core locale makes it selectable everywhere
+    without touching this validation.
+    """
+    return set(available_languages()) if key == "language" else _ALLOWED_VALUES[key]
+
+
 def normalize_preferences(values: Mapping[str, object]) -> dict[str, str]:
     """Return the five preferences with invalid or missing values defaulted."""
     return {
         key: str(values.get(key, PREFERENCE_DEFAULTS[key]))
-        if str(values.get(key, PREFERENCE_DEFAULTS[key])) in _ALLOWED_VALUES[key]
+        if str(values.get(key, PREFERENCE_DEFAULTS[key])) in allowed_preference_values(key)
         else PREFERENCE_DEFAULTS[key]
         for key in PREFERENCE_DEFAULTS
     }

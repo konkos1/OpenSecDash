@@ -2,20 +2,29 @@
 
 OpenSecDash is designed for an internal homelab network. The recommended setup keeps it
 behind a reverse proxy, optionally with an external identity provider such as Pocket ID,
-Authentik, or Authelia. Internal sign-in is optional and disabled by default, so existing
-deployments keep their current reverse-proxy trust model. Once internal sign-in is
-enabled, it can use local passwords, [single sign-on with OIDC](#single-sign-on-oidc), or
-both.
+Authentik, or Authelia. A new installation starts with internal sign-in enabled and asks
+the first visitor to create the first administrator. Existing installations keep whatever
+they had when they were updated. Internal sign-in uses local passwords,
+[single sign-on with OIDC](#single-sign-on-oidc), or both.
 
-## Enable internal sign-in
+Which of the three situations applies to you:
 
-Before enabling internal sign-in:
+| Situation | What happens |
+| --- | --- |
+| New installation | The first visit shows the [first-time setup](#first-time-setup-new-installations). Nothing else is reachable until it is finished. |
+| Update of an installation with internal sign-in already enabled | Nothing changes. No extra step, no banner. |
+| Update of an installation that was still open | Everything keeps working, and a permanent [security prompt](#updated-installations-that-are-still-open) asks you to decide. |
+
+## Prepare the reverse proxy first
+
+Setting internal sign-in up needs a correctly configured reverse proxy. Do this before
+the first start of a new installation:
 
 1. Publish OpenSecDash through a reverse proxy using HTTPS on external port 443.
 2. Configure a certificate that the users' browsers trust and that is valid for the
    OpenSecDash hostname.
 3. Set `OSD_TRUSTED_PROXIES` explicitly to the proxy IP or the narrowest practical proxy
-   network. The default private-network trust and `*` are not accepted for activation.
+   network. The default private-network trust and `*` are not accepted here.
 4. Ensure that the proxy sends `X-Forwarded-Proto: https`, `X-Forwarded-Port: 443`, and
    `X-Forwarded-Host`.
 
@@ -23,20 +32,104 @@ Do not trust an entire LAN or a broad private range. Every address in
 `OSD_TRUSTED_PROXIES` can supply forwarded client metadata, so prefer the individual
 reverse-proxy IP or a small dedicated proxy network.
 
-Open **Diagnostics → Authentication transport** through the intended hostname to verify
-the current proxy peer and forwarded HTTPS, port, and hostname checks. The page reports
-only statuses and remediation guidance; it does not display configured proxy IPs or
-network ranges.
+The setup page itself lists these requirements with a live status for the request you
+are looking at it with. On an already running instance, **Diagnostics → Authentication
+transport** shows the same checks. Both report only statuses and remediation guidance;
+neither displays configured proxy IPs or network ranges.
 
-Open **Settings → Sign-in & users** through that HTTPS hostname. Enter the hostname
-without `https://`, a port, path, or trailing dot, then enter the username and password
-for the first administrator. OpenSecDash verifies the trusted proxy, HTTPS port 443, and
-hostname before it creates the admin and enables sign-in.
+## First-time setup (new installations)
 
-Once enabled, visitors must sign in before opening the dashboard. Administrators can add
-more users in the same Settings section. All user-facing pages, static files, APIs, and
-the event WebSocket remain bound to the configured HTTPS hostname. `/health` and
-`/ready` stay available for direct internal container and proxy health checks.
+A brand-new installation starts in a narrow setup mode. Every page request is redirected
+to `/onboarding`, API requests answer `503`, and the event WebSocket is closed before any
+data is read. `/health` and `/ready` stay available for container and proxy health
+checks. Dashboard, settings, plugins, and the login page are not reachable yet.
+
+The setup page shows no instance data, navigation, or account information. Anyone who can
+reach the instance may look at it and fill the form in — that alone gives no access to
+anything. Only a submission that arrives through the trusted HTTPS/443 proxy boundary
+with the matching hostname is accepted.
+
+1. Pick your language at the top of the page. The page then appears completely and only
+   in that language. Switching just reloads the page; nothing is stored yet.
+2. Enter the **authentication hostname**: the HTTPS hostname your browser reaches
+   OpenSecDash with, for example `dash.example.com`. Enter it without `https://`, a port,
+   a path, or a trailing dot. It has to match `X-Forwarded-Host` from your proxy exactly.
+3. Enter username, password, and password confirmation for the first administrator. The
+   password needs at least 8 characters. Keep it safe — without a second admin there is
+   no password reset except the emergency switch below.
+4. Submit. Hostname, the first administrator, the chosen language, the enabled sign-in,
+   and the finished setup are stored together in one transaction. If anything fails,
+   nothing is stored and the setup stays open.
+
+Finishing the setup does **not** sign you in. OpenSecDash redirects to `/login` in the
+language you chose, and you sign in there with the account you just created. That first
+sign-in is what proves the whole path works.
+
+If two people open the setup at the same time, only one submission wins. The other gets a
+harmless "already finished" answer, and no second administrator is created.
+
+Afterwards, visitors must sign in before opening the dashboard. Administrators add more
+users under **Settings → Sign-in & users**. All user-facing pages, static files, APIs, and
+the event WebSocket are bound to the configured HTTPS hostname. Single sign-on is
+configured after this first local sign-in; see
+[Single sign-on (OIDC)](#single-sign-on-oidc).
+
+## Updated installations that are still open
+
+An installation that was running without internal sign-in stays exactly as it was after
+the update. Dashboard, APIs, plugins, WebSockets, and any authentication proxy in front
+of it keep working, and no account is created for you.
+
+What is added is a security prompt on every page that cannot be dismissed. There is no
+"later" and no "do not show again", because leaving the instance open is a decision, not
+a state to postpone. It disappears when you take one of the two decisions:
+
+- **Set internal sign-in up.** Follow the link in the prompt, or open
+  **Settings → Sign-in & users**. The guided setup asks for the hostname and — if no
+  administrator exists yet — the first admin account, using the same trusted HTTPS/443
+  boundary as a new installation. If your installation still has an active administrator
+  from an earlier activation, only the hostname is confirmed; no account is created,
+  changed, or shown. Afterwards you sign in normally.
+- **Stay open deliberately.** Set `OSD_AUTH_DISABLED=true` and restart; see
+  [Deliberately running without internal sign-in](#deliberately-running-without-internal-sign-in).
+
+An installation that already had internal sign-in enabled is marked as finished during
+the update and shows neither the setup nor the prompt.
+
+## Deliberately running without internal sign-in
+
+You do not have to use internal sign-in. If a VPN, a network boundary, or an
+authentication proxy already protects OpenSecDash, you can keep it open on purpose:
+
+```yaml
+services:
+  opensecdash:
+    environment:
+      - OSD_AUTH_DISABLED=true # runs OpenSecDash without internal sign-in
+```
+
+This is the only way to bypass internal sign-in, and it is deliberately a container
+setting rather than a button in the UI. Before you choose it, understand what it means:
+
+- the variable is set in your Docker or Compose configuration and needs a restart;
+- everyone who can reach OpenSecDash then has full access to all pages, APIs, and
+  actions;
+- internal roles, sign-in, sessions, and the authentication hostname boundary no longer
+  protect the instance;
+- you have to protect access yourself, with network boundaries or an external
+  authentication proxy;
+- an unfinished first-time setup stays open: removing the variable and restarting brings
+  the setup page back, and a still-open installation gets its security prompt back;
+- for permanently open operation the variable has to stay set permanently;
+- while it is set, the warning about unprotected full access stays visible on every page.
+
+Nothing stored changes while the variable is active. `auth.enabled`, the onboarding
+state, users, password hashes, provider configuration, and links are all left alone, so
+removing the variable restores the saved state exactly.
+
+Internal sign-in cannot be switched off in Settings any more. The former "Disable
+internal sign-in" button is gone, so an open instance is always either an explicit
+`OSD_AUTH_DISABLED` decision or an installation that was never activated.
 
 ## Roles
 
@@ -239,8 +332,11 @@ services:
       - OSD_AUTH_DISABLED=true # emergency switch: disables the internal sign-in
 ```
 
-Keep the switch only for recovery. While it is set, every visitor who can reach
-OpenSecDash has the same access as before internal sign-in was enabled.
+This is the same switch as
+[Deliberately running without internal sign-in](#deliberately-running-without-internal-sign-in),
+used temporarily. While it is set, every visitor who can reach OpenSecDash has the same
+access as before internal sign-in was enabled, so restrict network access until you
+remove it again.
 
 To repair a changed hostname:
 
@@ -268,6 +364,15 @@ them. Internal sign-in can additionally use one [OpenID Connect
 provider](#single-sign-on-oidc); OpenSecDash does not provide built-in 2FA or
 password-recovery email. Put an external identity provider in front of the proxy when
 those controls are required.
+
+The first-time setup uses no setup token, invitation code, or one-time password. Instead,
+it grants nothing: the page is readable, but only a submission through the explicitly
+trusted HTTPS/443 proxy boundary with the matching hostname is accepted, and the first
+administrator, the hostname, and the finished state are written in one transaction.
+Finishing it creates no session and sets no cookie, so the first sign-in goes through the
+normal login with its throttling and hostname checks. Two concurrent submissions are
+serialized in the database, so exactly one administrator is created. A setup that is
+still open while accounts already exist is refused instead of adopting one of them.
 
 Single sign-on uses the authorization code flow with PKCE, state, and nonce. The ID
 token is verified against the provider's published keys with a pinned issuer and

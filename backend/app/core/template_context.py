@@ -3,7 +3,7 @@ from collections.abc import Callable
 from sqlalchemy.orm import Session
 
 from app.core import plugin_registry
-from app.core.i18n import translate
+from app.core.i18n import language_options, translate
 from app.core.version import get_app_version, is_newer_version
 from app.models.core import Datasource
 from app.models.settings import Setting
@@ -106,6 +106,7 @@ def build_template_context(db: Session, current_user: User | None = None) -> dic
 
     return {
         "language": language,
+        "language_options": language_options(),
         "domain": domain,
         "timezone": timezone,
         "theme": theme,

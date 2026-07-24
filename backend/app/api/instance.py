@@ -16,7 +16,8 @@ from app.services.instance_branding import (
     save_instance_file,
     validate_upload,
 )
-from app.web.tables import clean_url_value, save_setting
+from app.services.settings import save_setting
+from app.web.tables import clean_url_value
 
 router = APIRouter(tags=["instance"])
 

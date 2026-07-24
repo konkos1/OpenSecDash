@@ -15,9 +15,13 @@ from app.database.dependencies import get_db
 from app.database.session import SessionLocal
 from app.services.auth import (
     AUTH_HOSTNAME_SETTING,
+    AUTH_ONBOARDING_LEGACY_REVIEW_REQUIRED,
+    AUTH_ONBOARDING_PENDING,
     SESSION_LIFETIME_DAYS,
+    auth_disabled_by_environment,
     auth_enabled,
     normalize_auth_hostname,
+    onboarding_state,
     resolve_session_with_method,
 )
 from app.web.permissions import required_role
@@ -34,6 +38,9 @@ SESSION_COOKIE = "osd_session"
 ROLE_ORDER = {"viewer": 0, "operator": 1, "admin": 2}
 _OPERATIONAL_PATHS = {"/health", "/ready"}
 _PUBLIC_PATHS = {"/login", "/auth/oidc/login", "/auth/oidc/callback", "/manifest.webmanifest", "/sw.js"}
+# Reachable only while the onboarding is actually open - deliberately not part
+# of the permanently public allowlist above.
+_ONBOARDING_PATH = "/onboarding"
 _UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 _DEFAULT_ORIGIN_PORTS = {"http": 80, "https": 443}
 _HSTS_VALUE = "max-age=31536000"
@@ -275,6 +282,25 @@ async def auth_gating_middleware(request: Request, call_next: Callable[[Request]
 
     db, dependency_generator, close_db = _auth_database(request)
     try:
+        state = onboarding_state(db)
+        break_glass = auth_disabled_by_environment()
+        # The stronger global break-glass warning replaces the review prompt
+        # while the override is active, so every page can tell the two apart.
+        request.state.auth_break_glass = break_glass
+        # Not blocking: an upgraded open installation keeps working exactly as
+        # before and only shows the permanent security prompt.
+        request.state.onboarding_review_required = state == AUTH_ONBOARDING_LEGACY_REVIEW_REQUIRED and not break_glass
+        if state == AUTH_ONBOARDING_PENDING and not break_glass:
+            request.state.auth_enabled = False
+            request.state.auth_method = None
+            request.state.user = None
+            if request.url.path.startswith("/static/"):
+                return await call_next(request)
+            if request.url.path == _ONBOARDING_PATH:
+                return _protect_authenticated_response(await call_next(request))
+            if wants_json(request):
+                return JSONResponse(status_code=503, content={"detail": "Setup required"})
+            return RedirectResponse(_ONBOARDING_PATH, status_code=303)
         enabled = auth_enabled(db)
         request.state.auth_enabled = enabled
         request.state.auth_method = None

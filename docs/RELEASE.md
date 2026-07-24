@@ -137,15 +137,6 @@ rules before then: older app versions reject the entire remote ruleset.
 Update `website/public/rules/insights-rules-v1.sha256.json` whenever the public ruleset
 changes. Verify the digest and expiry before tagging.
 
-### Internal authentication release note
-
-For the release that first includes internal user management, use this note:
-
-> OpenSecDash now offers optional internal sign-in with Viewer, Operator, and Admin
-> roles. It remains disabled by default, so existing installations need no changes.
-> Enable it in Settings, and use `OSD_AUTH_DISABLED` as an emergency lockout-recovery
-> switch. See the authentication guide for setup and recovery steps.
-
 ## After publishing
 
 1. Verify the generated GitHub Release notes.

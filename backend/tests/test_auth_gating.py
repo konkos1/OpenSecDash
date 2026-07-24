@@ -137,15 +137,16 @@ def test_diagnostics_show_sanitized_auth_transport_status(auth_client):
     assert 'data-tooltip="This check is only relevant when internal user management is being enabled or is already enabled.' in page.text
     auth_transport_section = page.text.split('<section id="auth-transport"', maxsplit=1)[1].split("</section>", maxsplit=1)[0]
     assert "Internal user management" in auth_transport_section
-    # The transport help plus the OIDC sub-section help, nothing else.
-    assert auth_transport_section.count("data-tooltip=") == 2
+    # The sign-in state help, the transport help and the OIDC sub-section help,
+    # nothing else.
+    assert auth_transport_section.count("data-tooltip=") == 3
     assert 'data-tooltip="Configuration status: whether a plugin is enabled in Settings' in page.text
     assert 'data-tooltip="Runtime health: whether an enabled plugin is currently running without errors.' in page.text
     assert 'data-tooltip="Runtime status of datasource plugins' in page.text
     assert 'data-tooltip="Shows manually triggered actions' in page.text
     assert '<p class="muted mb-3 text-sm">Shows the newest 20 manual actions.</p>' in page.text
     diagnostics_results = page.text.split('<div id="diagnostics-results"', maxsplit=1)[1]
-    assert diagnostics_results.count("data-tooltip=") == 6
+    assert diagnostics_results.count("data-tooltip=") == 7
     assert "The stored authentication hostname matches" in page.text
     assert "127.0.0.1" not in page.text
 

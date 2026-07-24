@@ -8,7 +8,7 @@ from app.models.events import Event
 from app.plugins.manager import get_plugin_manager
 from app.services.events import store_event
 from app.services.notifications import handle_insight, invalidate_rules_cache, seed_default_notification_rules
-from app.web.tables import save_setting
+from app.services.settings import save_setting
 
 
 @pytest.fixture(autouse=True)

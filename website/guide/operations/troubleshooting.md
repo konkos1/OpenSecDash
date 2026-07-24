@@ -25,9 +25,55 @@ docker compose logs opensecdash --tail=500
 
 `GET /ready` is the readiness check. After startup has completed, it performs one read-only `SELECT 1` database ping. It does not run migrations, seed defaults, rotate secrets, or perform event maintenance. A database error returns `503 Service Unavailable` without database paths or exception details.
 
+## A setup page appears instead of the dashboard
+
+A new installation starts with internal sign-in enabled and asks for the first
+administrator once. Until that is done, every page redirects to the setup, APIs answer
+`503`, and the event WebSocket is closed; `/health` and `/ready` keep working. This is
+expected — finish the setup, or run OpenSecDash open on purpose with
+`OSD_AUTH_DISABLED=true`.
+
+An updated installation never shows this page. If it appears after an update, the
+database was replaced or is empty, not migrated.
+
+## The setup cannot be completed
+
+The form can be filled in from anywhere, but it is only accepted through the trusted
+HTTPS/443 proxy boundary. The **Connection requirements** section on the page shows which
+check fails. Usual causes:
+
+| What the page reports | Usual cause |
+| --- | --- |
+| The proxy is not trusted | `OSD_TRUSTED_PROXIES` is unset, still on the defaults, or `*`. Name the proxy IP or a small dedicated CIDR explicitly. |
+| HTTPS is required | The proxy does not send `X-Forwarded-Proto: https`, or you opened OpenSecDash directly over HTTP. |
+| Port 443 is required | The proxy does not send `X-Forwarded-Port: 443`, or it publishes OpenSecDash on a different external port. |
+| The hostname does not match | The hostname in the form differs from `X-Forwarded-Host`. Enter it without `https://`, a port, a path, or a trailing dot. |
+
+See [Reverse proxy](../installation/reverse-proxy.md) for the proxy settings and
+[Authentication](../configuration/authentication.md#prepare-the-reverse-proxy-first) for
+the full list.
+
+If `OSD_AUTH_DISABLED` is set, the setup deliberately cannot be completed at all. Remove
+the variable and restart, and the setup continues where it left off.
+
+## A prompt asks to decide how the installation is protected
+
+An installation that was still open when it was updated keeps working exactly as before —
+pages, APIs, plugins, WebSockets, and any authentication proxy in front of it. The prompt
+cannot be dismissed because staying open is a decision. Either set internal sign-in up
+through the link in the prompt, or set `OSD_AUTH_DISABLED=true` and restart. See
+[Updated installations that are still open](../configuration/authentication.md#updated-installations-that-are-still-open).
+
+## Internal sign-in cannot be switched off in Settings
+
+That is intentional. `OSD_AUTH_DISABLED=true` plus a restart is the only way to bypass
+internal sign-in; see
+[Deliberately running without internal sign-in](../configuration/authentication.md#deliberately-running-without-internal-sign-in).
+Removing the variable restores the stored state, including a setup that is still open.
+
 ## Locked out of the web UI
 
-If optional internal sign-in is enabled and no administrator can sign in, use the
+If internal sign-in is enabled and no administrator can sign in, use the
 `OSD_AUTH_DISABLED=true` recovery switch to temporarily open the UI, reset access, or
 repair a changed authentication hostname. Restrict network access while the switch is
 active: every client that can reach OpenSecDash has full access. Remove the variable and

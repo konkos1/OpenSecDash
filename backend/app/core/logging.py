@@ -8,13 +8,18 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from sqlalchemy.orm import Session
 
 from app.core.template_context import get_setting_value
+from app.services.auth import (
+    AUTH_ENABLED_SETTING,
+    AUTH_ONBOARDING_STATE_SETTING,
+    AUTH_ONBOARDING_STATES,
+)
 
 SERVICE_HANDLER_NAME = "opensecdash-service"
 FILE_HANDLER_NAME = "opensecdash-file"
 DEFAULT_FORMAT = "%(asctime)s %(levelname)s [%(name)s] %(message)s"
 LEVELS = {"DEBUG": logging.DEBUG, "INFO": logging.INFO, "WARNING": logging.WARNING, "ERROR": logging.ERROR, "CRITICAL": logging.CRITICAL}
 SENSITIVE_WORDS = ("password", "passwd", "pwd", "secret", "token", "apikey", "api_key", "access_key", "auth", "credential")
-NON_SENSITIVE_SETTING_KEYS = {"auth.enabled"}
+NON_SENSITIVE_SETTING_KEYS = {AUTH_ENABLED_SETTING, AUTH_ONBOARDING_STATE_SETTING}
 SECRET_PATTERNS = [
     re.compile(r"(?i)(Authorization\s*:\s*Bearer\s+)([^\s,;]+)"),
     re.compile(r"(?i)(password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key|authorization|bearer)\s*[:=]\s*([^\s,;]+)"),
@@ -59,6 +64,10 @@ def redact_sensitive(value: object) -> str:
 
 def redacted_setting_value(key: str, value: str | None) -> str:
     normalized_key = key.lower()
+    if normalized_key == AUTH_ONBOARDING_STATE_SETTING:
+        # A non-sensitive status value, but only its known states are surfaced;
+        # an unexpected value is a misconfiguration and must not leak verbatim.
+        return str(value) if value in AUTH_ONBOARDING_STATES else "<redacted>"
     if normalized_key not in NON_SENSITIVE_SETTING_KEYS and any(part in normalized_key for part in SENSITIVE_WORDS):
         return "<redacted>" if value else ""
     return redact_sensitive(str(value or ""))

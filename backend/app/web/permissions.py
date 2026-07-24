@@ -95,6 +95,16 @@ ROUTE_PERMISSIONS = (
         ("POST", "/assets/{asset_id}/mqtt"),
         ("POST", "/assets/refresh-updates"),
     ),
+    # While the onboarding is open it is reached before any role check runs (see
+    # the gating middleware); afterwards it is an ordinary administration route
+    # that only redirects to the normal sign-in.
+    *_permissions(
+        "core",
+        "administration",
+        "admin",
+        ("GET", "/onboarding"),
+        ("POST", "/onboarding"),
+    ),
     *_permissions(
         "core",
         "administration",
@@ -113,7 +123,6 @@ ROUTE_PERMISSIONS = (
         ("POST", "/settings/branding/remove"),
         ("POST", "/settings/auth/enable"),
         ("POST", "/settings/auth/hostname"),
-        ("POST", "/settings/auth/disable"),
         ("POST", "/settings/auth/oidc"),
         ("POST", "/settings/auth/oidc/enable"),
         ("POST", "/settings/auth/oidc/disable"),

@@ -147,11 +147,38 @@ Start the app:
 docker compose up -d
 ```
 
-Then open:
+Then open OpenSecDash through the hostname your reverse proxy serves:
 
 ```text
-http://localhost:8765
+https://dash.example.com
 ```
+
+## First start of a new installation
+
+A new installation starts with internal sign-in enabled. The first visit shows a one-time
+setup page that creates the first Admin account; nothing else is reachable until it is
+finished, apart from `/health` and `/ready`.
+
+Configure the reverse proxy before that first visit. The setup can only be completed when
+the request arrives over HTTPS on external port 443, from a proxy listed explicitly in
+`OSD_TRUSTED_PROXIES`, under the hostname you enter:
+
+```yaml
+environment:
+  # The reverse proxy in front of OpenSecDash, as an IP or a small CIDR.
+  OSD_TRUSTED_PROXIES: 192.0.2.10
+```
+
+See [Reverse proxy](reverse-proxy.md) and
+[Authentication](../configuration/authentication.md#first-time-setup-new-installations).
+
+To run OpenSecDash open on purpose instead — behind a VPN, an authentication proxy, or
+for a quick local trial on `http://localhost:8765` — set `OSD_AUTH_DISABLED=true` and
+restart. Every visitor who can reach the instance then has full access.
+
+Updating an existing installation does not change its sign-in state. An installation with
+internal sign-in enabled continues unchanged; one that was open stays reachable and shows
+a permanent prompt to decide between internal sign-in and the deliberate bypass.
 
 ## Ports
 
@@ -202,7 +229,8 @@ You normally do not need to set these values in `docker-compose.yml`.
 | `LOG_LEVEL` | `INFO` | Use `DEBUG` temporarily for troubleshooting; it can create much more output. |
 | `OSD_HOST` | `0.0.0.0` | Internal bind address for uvicorn. Usually leave unchanged in Docker. |
 | `OSD_PORT` | `8000` | Internal uvicorn port. Usually leave unchanged and only change the host-side port mapping. |
-| `OSD_TRUSTED_PROXIES` | loopback + private ranges | Comma-separated IPs/CIDRs of reverse proxies whose `X-Forwarded-*` headers are trusted. Empty disables processing; `*` trusts all. See the [reverse proxy guide](reverse-proxy.md). |
+| `OSD_TRUSTED_PROXIES` | loopback + private ranges | Comma-separated IPs/CIDRs of reverse proxies whose `X-Forwarded-*` headers are trusted. Empty disables processing; `*` trusts all. Must name the proxy explicitly for internal sign-in. See the [reverse proxy guide](reverse-proxy.md). |
+| `OSD_AUTH_DISABLED` | not set | Set to `true` to run OpenSecDash without internal sign-in, and to recover from a lockout. Every visitor then has full access; protect it another way. See [Authentication](../configuration/authentication.md#deliberately-running-without-internal-sign-in). |
 
 Logging settings are stored in the app database after initial setup. Changing `LOG_FILE_ENABLED`, `LOG_FILE_PATH`, or `LOG_LEVEL` later may not override an already-saved Settings value; use the Settings page for runtime logging changes.
 

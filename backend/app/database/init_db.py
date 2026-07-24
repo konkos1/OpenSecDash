@@ -9,6 +9,13 @@ from app.database.session import engine
 from app.models import *  # noqa: F401,F403 - import models for metadata registration
 from app.models.core import Diagnostic, PluginRecord
 from app.models.settings import Setting
+from app.services.auth import (
+    AUTH_ENABLED_SETTING,
+    AUTH_ONBOARDING_COMPLETE,
+    AUTH_ONBOARDING_LEGACY_REVIEW_REQUIRED,
+    AUTH_ONBOARDING_PENDING,
+    AUTH_ONBOARDING_STATE_SETTING,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -176,17 +183,53 @@ def encrypt_legacy_plaintext_secrets(db: Session) -> None:
         )
 
 
+def _add_missing_setting(db: Session, key: str, value: str) -> None:
+    if db.query(Setting).filter(Setting.key == key).first() is None:
+        db.add(Setting(key=key, value=value))
+
+
+def _seed_auth_defaults(db: Session, settings_were_present: bool) -> None:
+    """Seed auth activation and onboarding state for a new or upgraded install.
+
+    A brand-new installation (empty settings table) starts with internal auth
+    enabled and an open onboarding. An upgraded installation keeps its effective
+    auth state: an existing activation completes onboarding, while an open legacy
+    install is marked for the one-time security review. Existing values are never
+    overwritten.
+    """
+    if not settings_were_present:
+        _add_missing_setting(db, AUTH_ENABLED_SETTING, "true")
+        _add_missing_setting(db, AUTH_ONBOARDING_STATE_SETTING, AUTH_ONBOARDING_PENDING)
+        return
+    # Classify from the stored value, not auth_enabled(): OSD_AUTH_DISABLED must
+    # not downgrade an already active installation to a legacy review on upgrade.
+    stored_auth_enabled = db.query(Setting).filter(Setting.key == AUTH_ENABLED_SETTING).first()
+    _add_missing_setting(db, AUTH_ENABLED_SETTING, "false")
+    if stored_auth_enabled is not None and stored_auth_enabled.value == "true":
+        review_state = AUTH_ONBOARDING_COMPLETE
+    else:
+        review_state = AUTH_ONBOARDING_LEGACY_REVIEW_REQUIRED
+    _add_missing_setting(db, AUTH_ONBOARDING_STATE_SETTING, review_state)
+
+
 def seed_defaults(db: Session) -> None:
     # ASN enrichment is implemented by the bundled GeoIP plugin. Remove the old
     # placeholder core record if an earlier development database contains it.
     db.query(Diagnostic).filter(Diagnostic.plugin == "asn").delete()
     db.query(PluginRecord).filter(PluginRecord.id == "asn").delete()
 
+    # A brand-new installation is recognized before any settings are written:
+    # older databases may lack auth.enabled but always carry the general default
+    # settings, so an empty settings table is the only safe new-install signal.
+    settings_were_present = db.query(Setting).first() is not None
+
     _migrate_asset_update_settings(db)
 
     for key, value in DEFAULT_SETTINGS.items():
         if db.query(Setting).filter(Setting.key == key).first() is None:
             db.add(Setting(key=key, value=value))
+
+    _seed_auth_defaults(db, settings_were_present)
 
     for plugin_id, name, capabilities in CORE_PLUGINS:
         plugin = db.query(PluginRecord).filter(PluginRecord.id == plugin_id).first()

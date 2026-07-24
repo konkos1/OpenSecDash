@@ -11,7 +11,7 @@ from app.main import app
 from app.models.core import Notification, NotificationRule
 from app.models.settings import Setting
 from app.services.notifications import seed_default_notification_rules
-from app.web.tables import save_setting
+from app.services.settings import save_setting
 
 
 @pytest.fixture()

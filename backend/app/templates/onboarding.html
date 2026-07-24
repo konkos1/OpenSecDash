@@ -1,0 +1,107 @@
+<!doctype html>
+{# Standalone like login.html: before the first administrator exists, no
+   navigation, instance identity, plugin or account data may be visible. #}
+<html lang="{{ language }}">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>{{ t("onboarding.title") }} · OpenSecDash</title>
+        <link rel="icon" href="/static/img/opensecdash-icon.svg" type="image/svg+xml">
+        <link rel="stylesheet" href="/static/css/app.css?v={{ app_version }}">
+        <link rel="stylesheet" href="/static/css/tailwind.css?v={{ app_version }}">
+    </head>
+    <body class="bg-slate-950 text-slate-100 min-h-screen flex items-start justify-center p-4">
+        <main class="card w-full max-w-2xl my-6">
+            <div class="flex items-center gap-3 mb-6">
+                <img src="/static/img/opensecdash-icon.svg" alt="" class="app-icon" aria-hidden="true">
+                <span class="text-xl font-bold">OpenSecDash</span>
+            </div>
+
+            {# The chooser comes before every other field and reloads the whole
+               page in exactly one language; it never carries form input. #}
+            <form method="get" action="/onboarding" class="grid gap-2 mb-6" data-language-form>
+                <label class="grid gap-1">
+                    <span>{{ t("onboarding.language") }}</span>
+                    <select class="input" name="language" data-language-select>
+                        {% for option in language_options %}<option value="{{ option.code }}" {% if option.code == language %}selected{% endif %}>{{ option.label }}</option>{% endfor %}
+                    </select>
+                </label>
+                <div><button class="btn btn-small" type="submit">{{ t("onboarding.language_apply") }}</button></div>
+            </form>
+
+            <h1 class="text-lg font-bold">{{ t("onboarding.title") }}</h1>
+            <p class="muted text-sm mt-2">{{ t("onboarding.intro_legacy") if legacy_review else t("onboarding.intro") }}</p>
+            {% if legacy_review and not account_required %}
+                <p class="muted text-sm mt-2">{{ t("onboarding.intro_legacy_admin") }}</p>
+            {% endif %}
+            {% if error %}
+                <p class="alert-error" role="alert">{{ t(error_key) }}</p>
+            {% endif %}
+
+            {% if break_glass %}
+                {# No form at all while the break-glass variable is set: the
+                   setup stays open and continues once it is removed. #}
+                <p class="alert-error mt-5" role="status">{{ t("onboarding.break_glass_notice") }}</p>
+            {% else %}
+            <form method="post" action="/onboarding" class="grid gap-4 mt-5" data-unsaved-warning="{{ t('settings.unsaved_changes') }}">
+                <input type="hidden" name="language" value="{{ language }}">
+                <label class="grid gap-1">
+                    <span>{{ t("onboarding.hostname") }}</span>
+                    <input class="input" type="text" name="hostname" value="{{ hostname }}" autocomplete="url" autocapitalize="none" spellcheck="false" placeholder="dash.example.com" required>
+                    <small class="muted">{{ t("onboarding.hostname_help") }}</small>
+                </label>
+                {% if account_required %}
+                    <label class="grid gap-1">
+                        <span>{{ t("onboarding.username") }}</span>
+                        <input class="input" type="text" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+                    </label>
+                    <label class="grid gap-1">
+                        <span>{{ t("onboarding.password") }}</span>
+                        <input class="input" type="password" name="password" autocomplete="new-password" required>
+                        <small class="muted">{{ t("onboarding.password_help") }}</small>
+                    </label>
+                    <label class="grid gap-1">
+                        <span>{{ t("onboarding.password_confirm") }}</span>
+                        <input class="input" type="password" name="password_confirm" autocomplete="new-password" required>
+                    </label>
+                {% endif %}
+                <button class="btn" type="submit">{{ t("onboarding.submit") if account_required else t("onboarding.submit_legacy") }}</button>
+                <p class="muted text-sm">{{ t("onboarding.after_submit") }}</p>
+            </form>
+            {% endif %}
+
+            <section class="mt-6 border-t border-slate-800 pt-5">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <h2 class="font-semibold">{{ t("onboarding.transport_title") }}</h2>
+                    <b class="status-badge status-{{ auth_transport.status }}">{{ t("diagnostics.status." ~ auth_transport.status) }}</b>
+                </div>
+                <p class="muted text-sm mt-2">{{ t("onboarding.transport_help") }}</p>
+                {% for row in auth_transport.rows %}
+                    <div class="row">
+                        <span>{{ t("diagnostics.auth_transport." ~ row.key) }}<br><small class="muted">{{ t(row.message_key) }}</small></span>
+                        <b class="status-badge status-{{ row.status }}">{{ t("diagnostics.status." ~ row.status) }}</b>
+                    </div>
+                {% endfor %}
+                <p class="text-sm mt-3"><a class="underline underline-offset-2" href="https://opensecdash.app/guide/installation/reverse-proxy" target="_blank" rel="noopener noreferrer">{{ t("onboarding.transport_docs") }}</a></p>
+            </section>
+
+            {# Deliberately last and without any action: this page explains the
+               break-glass variable, it never sets it. #}
+            <section class="mt-6 border-t border-slate-800 pt-5">
+                <h2 class="font-semibold">{{ t("onboarding.bypass_title") }}</h2>
+                <p class="muted text-sm mt-2">{{ t("onboarding.bypass_intro") }}</p>
+                <ul class="muted text-sm mt-2 grid gap-1 list-disc pl-5">
+                    <li>{{ t("onboarding.bypass_env") }}</li>
+                    <li>{{ t("onboarding.bypass_access") }}</li>
+                    <li>{{ t("onboarding.bypass_protection") }}</li>
+                    <li>{{ t("onboarding.bypass_external") }}</li>
+                    <li>{{ t("onboarding.bypass_pending") }}</li>
+                    <li>{{ t("onboarding.bypass_permanent") }}</li>
+                    <li>{{ t("onboarding.bypass_warning") }}</li>
+                </ul>
+                <p class="text-sm mt-3"><a class="underline underline-offset-2" href="https://opensecdash.app/guide/configuration/authentication" target="_blank" rel="noopener noreferrer">{{ t("onboarding.bypass_docs") }}</a></p>
+            </section>
+        </main>
+        <script src="/static/js/onboarding.js?v={{ app_version }}"></script>
+    </body>
+</html>

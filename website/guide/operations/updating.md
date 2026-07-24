@@ -36,9 +36,38 @@ every session whether it was created with a password or with a provider, and all
 local accounts without a password. Existing sessions are classified as password
 sessions, so nobody is signed out by the upgrade.
 
-No action is required. Internal sign-in stays disabled by default, single sign-on and
-automatic user creation are off, and password sign-in stays on. Existing local users,
-roles, and password hashes are unchanged.
+No action is required by that release: single sign-on and automatic user creation are
+off, password sign-in stays on, and existing local users, roles, and password hashes are
+unchanged.
+
+## Internal sign-in becomes the default for new installations
+
+The release that makes internal sign-in the default does not change your installation's
+sign-in state. The first start after the update classifies the existing database once:
+
+- an installation with internal sign-in **enabled** keeps it enabled and is marked as
+  finished. No setup, no prompt, no change for your users;
+- an installation that was **open** stays open and fully usable — pages, APIs, plugins,
+  WebSockets, and any authentication proxy in front of it keep working. It is marked for
+  a one-time security decision;
+- no administrator is created, no session is revoked, and users, password hashes, roles,
+  hostname, and provider configuration stay untouched.
+
+An open installation then shows a permanent prompt on every page. It cannot be dismissed,
+because leaving OpenSecDash open is a decision:
+
+1. **Set internal sign-in up.** The prompt links to a guided setup that asks for the
+   authentication hostname and, if no administrator exists yet, the first admin account.
+   It only completes through your reverse proxy over HTTPS on port 443 with
+   `OSD_TRUSTED_PROXIES` naming that proxy. Afterwards everyone signs in normally.
+2. **Stay open deliberately.** Set `OSD_AUTH_DISABLED=true` and restart. Every visitor
+   who can reach the instance then has full access, so protect it with a network boundary
+   or an authentication proxy. The stronger permanent warning replaces the prompt, and
+   removing the variable brings the prompt back unchanged.
+
+Internal sign-in can no longer be switched off in Settings; `OSD_AUTH_DISABLED` is the
+only bypass. See
+[Authentication](../configuration/authentication.md#updated-installations-that-are-still-open).
 
 ## Upgrading from v0.3.1 or earlier
 

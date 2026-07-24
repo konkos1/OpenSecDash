@@ -9,7 +9,7 @@
         <summary class="font-semibold cursor-pointer">{{ t("settings.core") }}</summary>
         <form id="settings-core-form" class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4" method="post" action="/settings/core" hx-post="/settings/core" hx-target="this" hx-select="#settings-core-form" hx-swap="outerHTML" data-save-feedback data-unsaved-warning="{{ t('settings.unsaved_changes') }}" x-data='{ logFileEnabled: {{ log_file_enabled | tojson }} }'>
             {% if not auth_enabled %}
-            <label>{{ t("settings.language") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.language') }}">?</button><select class="input" name="language"><option value="en" {% if global_language == 'en' %}selected{% endif %}>English</option><option value="de" {% if global_language == 'de' %}selected{% endif %}>Deutsch</option></select></label>
+            <label>{{ t("settings.language") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.language') }}">?</button><select class="input" name="language">{% for option in language_options %}<option value="{{ option.code }}" {% if global_language == option.code %}selected{% endif %}>{{ option.label }}</option>{% endfor %}</select></label>
             <label>{{ t("settings.live_default") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.live_default') }}">?</button><select class="input" name="live_default"><option value="true" {% if global_live_default == 'true' %}selected{% endif %}>{{ t("settings.live_on") }}</option><option value="false" {% if global_live_default == 'false' %}selected{% endif %}>{{ t("settings.snapshot") }}</option></select></label>
             <label>{{ t("settings.theme") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.theme') }}">?</button><select class="input" name="theme"><option value="auto" {% if global_theme == 'auto' %}selected{% endif %}>{{ t("settings.theme_auto") }}</option><option value="dark" {% if global_theme == 'dark' %}selected{% endif %}>{{ t("settings.theme_dark") }}</option><option value="light" {% if global_theme == 'light' %}selected{% endif %}>{{ t("settings.theme_light") }}</option></select></label>
             <label>{{ t("settings.accent_color") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.accent_color') }}">?</button><select class="input" name="accent_color"><option value="blue" {% if global_accent_color == 'blue' %}selected{% endif %}>{{ t("settings.accent_blue") }}</option><option value="green" {% if global_accent_color == 'green' %}selected{% endif %}>{{ t("settings.accent_green") }}</option><option value="orange" {% if global_accent_color == 'orange' %}selected{% endif %}>{{ t("settings.accent_orange") }}</option><option value="red" {% if global_accent_color == 'red' %}selected{% endif %}>{{ t("settings.accent_red") }}</option></select></label>
@@ -51,6 +51,8 @@
             {% if not auth_enabled %}
                 {% if auth_break_glass %}
                     <p class="text-amber-300 text-sm">{{ t("settings.auth_recovery_warning") }}</p>
+                    <p class="muted text-sm">{{ t("settings.auth_break_glass_restore") }}</p>
+                    {% if auth_onboarding_pending %}<p class="text-amber-300 text-sm">{{ t("settings.auth_break_glass_pending") }}</p>{% endif %}
                     <form class="grid grid-cols-1 md:grid-cols-2 gap-4" method="post" action="/settings/auth/hostname" data-unsaved-warning="{{ t('settings.unsaved_changes') }}"><label>{{ t("settings.auth_hostname") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.auth_hostname') }}">?</button><input class="input" name="hostname" value="{{ auth_hostname }}" autocomplete="off" autocapitalize="none" spellcheck="false" required></label><div class="flex items-end"><button class="btn" type="submit">{{ t("settings.auth_recovery_save") }}</button></div></form>
                     <div class="border-t border-slate-800 pt-4 space-y-4">
                         <h4 class="font-semibold">{{ t("settings.auth_recovery_login_methods") }}</h4>
@@ -73,8 +75,15 @@
                         <p class="text-amber-300 text-sm">{{ t("settings.auth_recovery_finish") }}</p>
                     </div>
                 {% else %}
+                    {% if auth_onboarding_review_required %}
+                        <p class="text-amber-300 text-sm">{{ t("settings.auth_review_required") }} <a class="underline underline-offset-2" href="/onboarding">{{ t("settings.auth_review_open_setup") }}</a></p>
+                    {% endif %}
                     <p class="muted text-sm">{{ t("settings.auth_intro") }}</p>
-                    <form class="grid grid-cols-1 md:grid-cols-2 gap-4" method="post" action="/settings/auth/enable" data-unsaved-warning="{{ t('settings.unsaved_changes') }}"><label>{{ t("settings.auth_hostname") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.auth_hostname') }}">?</button><input class="input" name="hostname" autocomplete="off" autocapitalize="none" spellcheck="false" required></label><label>{{ t("auth.username") }}<input class="input" name="username"></label><label>{{ t("auth.password") }}<input class="input" type="password" name="password"></label><label>{{ t("account.confirm_password") }}<input class="input" type="password" name="password_confirm"></label><div class="flex items-end"><button class="btn" type="submit">{{ t("settings.auth_enable") }}</button></div></form>
+                    <p class="muted text-sm">{{ t("settings.auth_enable_only_env_bypass") }}</p>
+                    {# With an active admin this form only confirms the hostname, so it neither offers nor accepts account data. #}
+                    {% if not auth_activation_account_required %}<p class="muted text-sm">{{ t("settings.auth_enable_existing_admin") }}</p>{% endif %}
+                    <form class="grid grid-cols-1 md:grid-cols-2 gap-4" method="post" action="/settings/auth/enable" data-unsaved-warning="{{ t('settings.unsaved_changes') }}"><label>{{ t("settings.auth_hostname") }} <button type="button" class="help" data-tooltip="{{ t('settings.help.auth_hostname') }}">?</button><input class="input" name="hostname" autocomplete="off" autocapitalize="none" spellcheck="false" required></label>{% if auth_activation_account_required %}<label>{{ t("auth.username") }}<input class="input" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required></label><label>{{ t("auth.password") }}<input class="input" type="password" name="password" autocomplete="new-password" required></label><label>{{ t("account.confirm_password") }}<input class="input" type="password" name="password_confirm" autocomplete="new-password" required></label>{% endif %}<div class="flex items-end"><button class="btn" type="submit">{{ t("settings.auth_enable") }}</button></div></form>
+                    <p class="muted text-sm">{{ t("onboarding.after_submit") }}</p>
                 {% endif %}
                 {% if users %}<div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr><th>{{ t("auth.username") }}</th><th>{{ t("settings.auth_role") }}</th><th>{{ t("common.status") }}</th></tr></thead><tbody>{% for user in users %}<tr><td>{{ user.username }}</td><td>{{ t("auth.role." ~ user.role) }}</td><td>{{ t("settings.auth_active") if user.is_active else t("settings.auth_inactive") }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
             {% else %}
@@ -121,7 +130,9 @@
                         <p class="muted text-sm">{{ t("settings.oidc_password_login_recovery") }}</p>
                     </div>
                 </div>
-                <form class="border-t border-slate-800 pt-4" method="post" action="/settings/auth/disable" data-confirm="{{ t('settings.auth_disable_warning') }}"><p class="text-amber-300 text-sm mb-3">{{ t("settings.auth_disable_warning") }}</p><button class="btn" type="submit">{{ t("settings.auth_disable") }}</button></form>
+                {# Internal sign-in can no longer be switched off here: only the
+                   deliberate OSD_AUTH_DISABLED break-glass variable bypasses it. #}
+                <p class="muted text-sm border-t border-slate-800 pt-4">{{ t("settings.auth_only_env_bypass") }}</p>
             {% endif %}
         </div>
     </details>
