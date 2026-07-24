@@ -18,4 +18,13 @@ if ! chown -R opensecdash:opensecdash /data 2>/tmp/opensecdash-chown.log; then
 fi
 rm -f /tmp/opensecdash-chown.log
 
-exec setpriv --reuid=opensecdash --regid=opensecdash --init-groups sh -c "$*"
+if [ "$#" -eq 0 ] || [ "$1" = "opensecdash" ]; then
+    set -- uvicorn app.main:app \
+        --host "${OSD_HOST}" \
+        --port "${OSD_PORT}" \
+        --no-proxy-headers
+fi
+
+# Execute the application directly as PID 1 so SIGTERM reaches Uvicorn and
+# Docker can wait for its graceful shutdown instead of killing a child shell.
+exec setpriv --reuid=opensecdash --regid=opensecdash --init-groups "$@"

@@ -52,20 +52,19 @@ _ACTIVE_ACCOUNT_CHECKS: set[str] = set()
 #   proxy). It depends on X-Forwarded-For and can be rotated under an overly
 #   broad trusted-proxy configuration.
 # * peer     - keyed on the immediate TCP peer, captured before X-Forwarded-For
-#   is applied. A reverse proxy is shared by all downstream users, so this is
-#   only a high-threshold signal for slowing failed guesses - never a reason to
-#   reject a correct password.
+#   is applied. A reverse proxy is shared by all downstream users, so this uses
+#   the highest threshold and the same short cooldown as the other buckets.
 #
 # Password verification itself is bounded separately: at most the documented
 # number of memory-hard scrypt checks may run from the public login endpoint,
 # and only one check per account may be in flight. A reservation covers only
-# password work; retaining it while delaying a failed response would let one
-# attacker turn that delay into an account-specific or global login lockout.
+# password work. Once a bucket reaches its threshold, the short cooldown is
+# checked before admission so repeated failures cannot keep consuming scrypt.
 _MAX_ACCOUNT_LOGIN_FAILURES = 5
 _MAX_SOURCE_LOGIN_FAILURES = 100
 _MAX_PEER_LOGIN_FAILURES = 200
-_LOGIN_LOCK_SECONDS = 60
 _LOGIN_RETRY_SECONDS = 1
+_LOGIN_LOCK_SECONDS = _LOGIN_RETRY_SECONDS
 _LOGIN_BACKOFF_TTL_SECONDS = 300
 _MAX_LOGIN_BACKOFF_ENTRIES = 4096
 
@@ -84,6 +83,10 @@ OIDC_ACCOUNT_ERRORS = (
     "not_linked",
 )
 OIDC_ACCOUNT_NOTICES = ("linked", "already_linked")
+
+
+def _monotonic() -> float:
+    return time.monotonic()
 
 
 def _login_backoff_key(bucket: str, identity: str) -> str:
@@ -124,8 +127,9 @@ def _peer_id(request: Request) -> str | None:
 
 def _flood_buckets(source_id: str | None, peer_id: str | None) -> list[tuple[str, int]]:
     # Source and peer state detects sustained or rotated spraying. Both can be
-    # shared (for example by a NAT or reverse proxy), so they only slow failed
-    # attempts after verification and never pre-empt a potentially correct one.
+    # shared (for example by a NAT or reverse proxy), so their thresholds are
+    # deliberately high and their pre-verification cooldown lasts only one
+    # second.
     buckets: list[tuple[str, int]] = []
     if source_id is not None:
         buckets.append((_source_backoff_key(source_id), _MAX_SOURCE_LOGIN_FAILURES))
@@ -147,7 +151,7 @@ def reset_login_backoff() -> None:
 
 def _keys_locked(keys: list[str]) -> bool:
     with _LOGIN_BACKOFF_LOCK:
-        now = time.monotonic()
+        now = _monotonic()
         return any((attempt := _LOGIN_BACKOFF.get(key)) is not None and attempt[1] > now for key in keys)
 
 
@@ -188,7 +192,7 @@ def _throttled_login_response(request: Request, db: Session, next_path: str):
 
 
 def _record_failed_login(username: str, source_id: str | None, peer_id: str | None) -> None:
-    now = time.monotonic()
+    now = _monotonic()
     with _LOGIN_BACKOFF_LOCK:
         while _LOGIN_BACKOFF:
             _oldest_key, (_failures, _locked_until, last_seen) = next(iter(_LOGIN_BACKOFF.items()))
@@ -196,9 +200,7 @@ def _record_failed_login(username: str, source_id: str | None, peer_id: str | No
                 break
             _LOGIN_BACKOFF.popitem(last=False)
         for key, threshold in _all_buckets(username, source_id, peer_id):
-            failures, locked_until, _last_seen = _LOGIN_BACKOFF.get(key, (0, 0.0, 0.0))
-            if locked_until and locked_until <= now:
-                failures = 0
+            failures, _locked_until, _last_seen = _LOGIN_BACKOFF.get(key, (0, 0.0, 0.0))
             failures += 1
             _LOGIN_BACKOFF[key] = (
                 failures,
@@ -255,6 +257,8 @@ def login(
         return _login_response(request, db, next, error=True, error_key="auth.password_login_disabled", status_code=403)
     source_id = _source_id(request)
     peer_id = _peer_id(request)
+    if _login_locked(username, source_id, peer_id):
+        return _throttled_login_response(request, db, next)
     account_check = _begin_password_check(username)
     if account_check is None:
         return _throttled_login_response(request, db, next)
@@ -267,14 +271,11 @@ def login(
         _end_password_check(account_check)
 
     if user is None:
-        if _login_locked(username, source_id, peer_id):
-            return _throttled_login_response(request, db, next)
         _record_failed_login(username, source_id, peer_id)
         return _login_response(request, db, next, error=True, status_code=401)
 
-    # No failure bucket may reject a verified password. This prevents a
-    # guessed username, shared NAT or shared proxy from becoming a persistent
-    # lockout while the bounded verifier still protects CPU and memory.
+    # A successful verification clears the account bucket. Source and peer
+    # buckets are shared signals and age out independently.
     with _LOGIN_BACKOFF_LOCK:
         _LOGIN_BACKOFF.pop(_account_backoff_key(username), None)
     cleanup_expired_sessions(db)

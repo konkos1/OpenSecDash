@@ -81,7 +81,11 @@ class _Response:
     def __init__(self, status: int, body: bytes = b"{}", headers: dict[str, str] | None = None):
         self.status_code = status
         self.headers = headers or {"Content-Type": "application/json"}
+        self._body = body
         self.raw = _RawBody(body)
+
+    def iter_content(self, chunk_size):
+        yield from (self._body[index : index + chunk_size] for index in range(0, len(self._body), chunk_size))
 
     def close(self):
         pass
@@ -252,6 +256,23 @@ def test_proxmox_client_rejects_redirect_with_credentials(monkeypatch):
 
     assert session.trust_env is False
     assert session.calls[0][1]["allow_redirects"] is False
+    assert session.calls[0][1]["stream"] is True
+
+
+def test_proxmox_client_rejects_oversized_response(monkeypatch):
+    session = _Session(
+        [
+            _Response(
+                200,
+                headers={"Content-Length": str(proxmox_module.PROXMOX_RESPONSE_MAX_BYTES + 1)},
+            )
+        ]
+    )
+    monkeypatch.setattr(proxmox_module.requests, "Session", lambda: session)
+    client = proxmox_module.ProxmoxClient("https://pve.example.test:8006", "token-id", "token-secret")
+
+    with pytest.raises(proxmox_module.ProxmoxConnectionError, match="too large"):
+        client.get("/nodes")
 
 
 def test_mqtt_tls_publish_requires_certificate_verification(monkeypatch):

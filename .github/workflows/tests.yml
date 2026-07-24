@@ -129,7 +129,14 @@ jobs:
           fi
 
       - name: Build production image
-        run: docker build --file docker/Dockerfile --tag opensecdash:ci .
+        shell: bash
+        run: |
+          mkdir -p backend/logs
+          printf 'ci-secret-sentinel' > backend/opensecdash.secret
+          printf 'ci-log-sentinel' > backend/logs/opensecdash.log
+          printf 'ci-database-sentinel' > backend/opensecdash.db
+          printf 'CI_SECRET=sentinel' > backend/.env
+          docker build --file docker/Dockerfile --tag opensecdash:ci .
 
       - name: Smoke test production image
         shell: bash
@@ -147,6 +154,8 @@ jobs:
             echo "::error::Production image uses Python ${actual_python}, expected ${expected_python}"
             exit 1
           fi
+          docker run --rm --entrypoint sh opensecdash:ci -c \
+            'test ! -e /app/backend/opensecdash.secret && test ! -e /app/backend/logs/opensecdash.log && test ! -e /app/backend/opensecdash.db && test ! -e /app/backend/.env'
           docker volume create opensecdash-ci-smoke
           docker run --rm --user root --entrypoint sh \
             -v opensecdash-ci-smoke:/data \
@@ -179,3 +188,5 @@ jobs:
           docker exec --user opensecdash opensecdash-ci-smoke sh -c \
             'touch /data/write-test && touch /tmp/write-test && ! touch /app/rootfs-write-test 2>/dev/null'
           docker logs opensecdash-ci-smoke 2>&1 | grep -E 'Starting [0-9]+ plugin task groups' >/dev/null
+          docker stop --time 10 opensecdash-ci-smoke >/dev/null
+          test "$(docker inspect --format '{{.State.ExitCode}}' opensecdash-ci-smoke)" = "0"

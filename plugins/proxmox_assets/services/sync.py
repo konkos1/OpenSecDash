@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 import requests
 from sqlalchemy.orm import Session
 
+from app.core.http_responses import ResponseBodyError, read_capped_json
 from app.core.time import utc_now
 from app.core.remote_urls import RemoteURLPolicyError, validate_credentialed_http_url
 from app.models.assets import Asset
@@ -16,6 +17,7 @@ from app.models.systems import System
 SOURCE_PLUGIN = "proxmox_assets"
 NOTES_RE = re.compile(r"<!--\s*opensecdash\s*(.*?)\s*-->", re.IGNORECASE | re.DOTALL)
 logger = logging.getLogger(__name__)
+PROXMOX_RESPONSE_MAX_BYTES = 4 * 1024 * 1024
 
 
 class ProxmoxConnectionError(RuntimeError):
@@ -97,17 +99,23 @@ class ProxmoxClient:
                 timeout=self.timeout,
                 verify=self.verify_tls,
                 allow_redirects=False,
+                stream=True,
             )
         except requests.RequestException as exc:
             raise ProxmoxConnectionError("Proxmox API is not reachable") from exc
-        if 300 <= response.status_code < 400:
-            raise ProxmoxConnectionError("Proxmox API refused an HTTP redirect")
-        if response.status_code >= 400:
-            raise ProxmoxConnectionError(f"Proxmox API request failed with HTTP {response.status_code}")
         try:
-            payload = response.json()
-        except requests.JSONDecodeError as exc:
-            raise ProxmoxConnectionError("Proxmox API returned invalid JSON") from exc
+            if 300 <= response.status_code < 400:
+                raise ProxmoxConnectionError("Proxmox API refused an HTTP redirect")
+            if response.status_code >= 400:
+                raise ProxmoxConnectionError(f"Proxmox API request failed with HTTP {response.status_code}")
+            try:
+                payload = read_capped_json(response, max_bytes=PROXMOX_RESPONSE_MAX_BYTES, source="Proxmox API")
+            except ResponseBodyError as exc:
+                raise ProxmoxConnectionError(str(exc)) from exc
+            except requests.RequestException as exc:
+                raise ProxmoxConnectionError("Proxmox API response could not be read") from exc
+        finally:
+            response.close()
         return payload.get("data", []) if isinstance(payload, dict) else []
 
 

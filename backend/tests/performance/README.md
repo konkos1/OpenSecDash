@@ -76,19 +76,23 @@ the decision gate did not open.
 
 ## Fan-out results
 
-The fan-out helper performs five polling ticks against a scratch SQLite database. Each
-poll executes the plugin-setting query and `max(events.id)` query.
+The fan-out helper performs five polling ticks and five session-validation ticks against
+a scratch SQLite database. Each shared event poll executes the plugin-setting query and
+`max(events.id)` query. Each authenticated client validation models the runtime's five
+lookups for onboarding state, authentication state, hostname, session, and user.
 
-| Simulated clients | Legacy queries / worker threads | Broadcaster queries / worker threads |
-| ---: | ---: | ---: |
-| 1 | 10 / 1 | 10 / 1 |
-| 10 | 100 / 10 | 8 / 4 |
-| 50 | 500 / 14 | 10 / 5 |
+The JSON report separates `poll_queries`, `session_validation_queries`, and
+`total_queries`. Event polling remains one shared stream, while session validation is
+intentionally linear: five checks × five SQL lookups × connected clients. That cost is
+required so revoking a session closes its WebSocket within about five seconds. Capacity
+planning must therefore use the report's total, not only its shared poll count.
 
 Worker assignment varies with the Python executor, but the relevant result is stable:
-legacy queries grow directly with client count while broadcaster queries remain one
-poll stream. Every subscriber has a one-item queue, so a slow client retains only the
-latest state and cannot block the poller or another client.
+legacy event queries grow directly with client count while broadcaster event queries
+remain one poll stream. Every subscriber has a one-item queue, so a slow client retains
+only the latest state and cannot block the poller or another client. The separate
+session-validation count makes the runtime's remaining per-client database work
+explicit instead of implying that all WebSocket database load is constant.
 
 ## Browser smoke from 2026-07-22
 

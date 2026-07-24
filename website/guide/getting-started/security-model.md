@@ -104,6 +104,10 @@ unpacked sizes are both checked. The API and all other writing routes also have
 server-side body limits; the global default is 12 MiB and can be lowered with
 `MAX_REQUEST_BODY_BYTES`. Event API fields follow the database field sizes,
 `data_json` and `raw_data` are each limited to 1 MiB, and JSON depth is limited to 20.
+Remote JSON responses are bounded as well: 64 KiB for GeoIP and CrowdSec login,
+256 KiB for GitHub release checks, 4 MiB per Proxmox request, and 8 MiB for CrowdSec
+alerts. These responses are streamed and rejected before JSON decoding when either
+their declared or observed size exceeds the limit.
 
 ## Action simulation
 
