@@ -284,6 +284,9 @@ async def auth_gating_middleware(request: Request, call_next: Callable[[Request]
     try:
         state = onboarding_state(db)
         break_glass = auth_disabled_by_environment()
+        # The stronger global break-glass warning replaces the review prompt
+        # while the override is active, so every page can tell the two apart.
+        request.state.auth_break_glass = break_glass
         # Not blocking: an upgraded open installation keeps working exactly as
         # before and only shows the permanent security prompt.
         request.state.onboarding_review_required = state == AUTH_ONBOARDING_LEGACY_REVIEW_REQUIRED and not break_glass

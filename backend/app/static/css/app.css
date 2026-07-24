@@ -105,8 +105,7 @@ tbody tr:hover { background: rgba(15, 23, 42, .65); }
 .badge-warning { background: #451a03; border-color: #b45309; color: #fed7aa; }
 .backlog-banner { background: #451a03; border-bottom: 1px solid #b45309; color: #fed7aa; }
 .backlog-banner-item { white-space: nowrap; }
-.auth-disabled-warning { background: #450a0a; border-bottom: 1px solid #dc2626; color: #fecaca; padding: .75rem 1rem; text-align: center; }
-.auth-disabled-warning strong { margin-right: .35rem; }
+.auth-disabled-warning { background: #450a0a; border-bottom: 1px solid #dc2626; color: #fecaca; display: grid; gap: .35rem; justify-items: center; padding: .75rem 1rem; text-align: center; }
 /* Wraps down to 320px and never blocks the page below it - there is no close
    button on purpose (see the upgrade prompt in base.html). */
 .auth-review-prompt { background: #451a03; border-bottom: 1px solid #b45309; color: #fed7aa; display: grid; gap: .35rem; justify-items: center; padding: .75rem 1rem; text-align: center; }

@@ -102,25 +102,36 @@
             </nav>
         </header>
 
-        {% if not auth_enabled %}
+        {# Exactly one global security banner per state. Break-glass is the
+           strongest: while OSD_AUTH_DISABLED is set it names the override, the
+           lost role and hostname boundaries, the external protection the
+           operator now owns, and the restart that restores the saved state. It
+           deliberately does not suggest enabling sign-in, which the override
+           blocks. It replaces the review prompt and cannot be dismissed. #}
+        {% if auth_break_glass %}
             <aside class="auth-disabled-warning" role="status">
-                <strong>{{ t("auth.disabled_warning_title") }}</strong>
-                <span>{{ t("auth.disabled_warning_message") }}</span>
+                <strong>{{ t("auth.break_glass_warning_title") }}</strong>
+                <span>{{ t("auth.break_glass_warning_access") }}</span>
+                <span>{{ t("auth.break_glass_warning_protect") }}</span>
+                <span>{{ t("auth.break_glass_warning_restore") }}</span>
             </aside>
-        {% endif %}
-
-        {# Shown on every full page of an installation that stayed open across
-           the update, until internal sign-in is set up or OSD_AUTH_DISABLED is
-           set deliberately. There is no close, later or dismiss action: the
-           middleware clears this flag only when one of the two decisions was
-           actually made. #}
-        {% if onboarding_review_required %}
+        {% elif onboarding_review_required %}
+            {# Shown on every full page of an installation that stayed open across
+               the update, until internal sign-in is set up or OSD_AUTH_DISABLED is
+               set deliberately. There is no close, later or dismiss action: the
+               middleware clears this flag only when one of the two decisions was
+               actually made. #}
             <aside class="auth-review-prompt" role="status">
                 <strong>{{ t("auth.review_prompt_title") }}</strong>
                 <span>{{ t("auth.review_prompt_message") }}</span>
                 <span><a href="/onboarding">{{ t("auth.review_prompt_setup") }}</a></span>
                 <span>{{ t("auth.review_prompt_bypass") }}</span>
                 <span>{{ t("auth.review_prompt_stays") }}</span>
+            </aside>
+        {% elif not auth_enabled %}
+            <aside class="auth-disabled-warning" role="status">
+                <strong>{{ t("auth.disabled_warning_title") }}</strong>
+                <span>{{ t("auth.disabled_warning_message") }}</span>
             </aside>
         {% endif %}
 

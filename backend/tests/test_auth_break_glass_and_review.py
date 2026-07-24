@@ -136,6 +136,9 @@ def test_an_open_upgraded_installation_stays_usable_and_shows_the_review_prompt(
 
     # Permanent and without any way out: no close, later or dismiss control.
     assert REVIEW_BANNER in dashboard.text
+    # Exactly one global banner: without the override the review prompt stands
+    # alone and the break-glass warning does not appear alongside it.
+    assert BREAK_GLASS_BANNER not in dashboard.text
     assert "Decide how this installation is protected." in dashboard.text
     assert 'href="/onboarding"' in dashboard.text
     assert "OSD_AUTH_DISABLED=true" in dashboard.text
@@ -258,6 +261,13 @@ def test_break_glass_warning_stays_on_every_page_and_cannot_be_dismissed(review_
         assert BREAK_GLASS_BANNER in page.text, path
         warning = page.text.split(BREAK_GLASS_BANNER, maxsplit=1)[1].split("</aside>", maxsplit=1)[0]
         assert "<button" not in warning.lower(), path
+        # The core statements the plan requires on every page, and no advice to
+        # enable sign-in, which the override blocks.
+        assert "OSD_AUTH_DISABLED is set" in warning, path
+        assert "internal roles and the authentication hostname boundary no longer apply" in warning, path
+        assert "external authentication proxy" in warning, path
+        assert "restart to restore the saved sign-in state" in warning, path
+        assert "enable internal sign-in" not in warning.lower(), path
 
     assert "the saved authentication state applies again" in client.get("/settings").text
 
