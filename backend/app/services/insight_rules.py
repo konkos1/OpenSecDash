@@ -26,6 +26,7 @@ RULE_REFRESH_INTERVAL = timedelta(hours=24)
 RULE_TIMEOUT_SECONDS = 5
 RULE_MANIFEST_MAX_BYTES = 8 * 1024
 RULESET_MAX_BYTES = 256 * 1024
+_READ_CHUNK_BYTES = 32 * 1024
 SUPPORTED_SCHEMA_MAJOR = 1
 RULE_FETCHED_AT_KEY = "insight_rules.fetched_at"
 RULE_VERSION_KEY = "insight_rules.version"
@@ -84,11 +85,33 @@ def _load_default_ruleset() -> dict[str, Any]:
     return json.loads(DEFAULT_RULES_PATH.read_text(encoding="utf-8"))
 
 
+def _read_capped_content(response: requests.Response, *, max_bytes: int) -> bytes:
+    # Stream the body so a faulty or hostile source cannot exhaust the 512 MiB
+    # container by returning a huge payload: reject early on a declared
+    # Content-Length over the limit, then read block-wise and stop as soon as
+    # the accumulated size passes the cap instead of buffering everything first.
+    declared = response.headers.get("Content-Length")
+    if declared:
+        try:
+            declared_length = int(declared)
+        except ValueError as exc:
+            raise ValueError("Remote insight rules returned an invalid Content-Length") from exc
+        if declared_length > max_bytes:
+            raise ValueError("Remote insight rules response is too large")
+    chunks: list[bytes] = []
+    total = 0
+    for chunk in response.iter_content(chunk_size=_READ_CHUNK_BYTES):
+        if not chunk:
+            continue
+        total += len(chunk)
+        if total > max_bytes:
+            raise ValueError("Remote insight rules response is too large")
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
 def _response_json(response: requests.Response, *, max_bytes: int) -> dict[str, Any]:
-    content = response.content
-    if len(content) > max_bytes:
-        raise ValueError("Remote insight rules response is too large")
-    data = json.loads(content)
+    data = json.loads(_read_capped_content(response, max_bytes=max_bytes))
     if not isinstance(data, dict):
         raise ValueError("Remote insight rules response must be an object")
     return data
@@ -315,23 +338,21 @@ def refresh_insight_rules(db: Session, *, force: bool = False) -> dict[str, Any]
         headers["If-None-Match"] = etag
 
     try:
-        manifest_response = requests.get(RULE_MANIFEST_URL, timeout=RULE_TIMEOUT_SECONDS)
-        manifest_response.raise_for_status()
-        expected_hash = _expected_ruleset_hash(
-            _response_json(manifest_response, max_bytes=RULE_MANIFEST_MAX_BYTES)
-        )
-        response = requests.get(RULE_SOURCE_URL, timeout=RULE_TIMEOUT_SECONDS, headers=headers)
-        if response.status_code == 304:
-            if stored_hash != expected_hash:
-                raise ValueError("Remote insight rules manifest changed without ruleset content")
-            _save_setting(db, RULE_FETCHED_AT_KEY, utc_now().replace(tzinfo=None).isoformat())
-            _update_diagnostic(db, "healthy", f"Insights engine rules unchanged: {_ruleset_state_message(db)}")
-            db.commit()
-            return {"status": "unchanged", "source": "database", "version": _setting(db, RULE_VERSION_KEY, str(bundled["version"])), "count": len(active_rules(db))}
-        response.raise_for_status()
-        ruleset_content = response.content
-        if len(ruleset_content) > RULESET_MAX_BYTES:
-            raise ValueError("Remote insight rules response is too large")
+        with requests.get(RULE_MANIFEST_URL, timeout=RULE_TIMEOUT_SECONDS, stream=True) as manifest_response:
+            manifest_response.raise_for_status()
+            expected_hash = _expected_ruleset_hash(
+                _response_json(manifest_response, max_bytes=RULE_MANIFEST_MAX_BYTES)
+            )
+        with requests.get(RULE_SOURCE_URL, timeout=RULE_TIMEOUT_SECONDS, headers=headers, stream=True) as response:
+            if response.status_code == 304:
+                if stored_hash != expected_hash:
+                    raise ValueError("Remote insight rules manifest changed without ruleset content")
+                _save_setting(db, RULE_FETCHED_AT_KEY, utc_now().replace(tzinfo=None).isoformat())
+                _update_diagnostic(db, "healthy", f"Insights engine rules unchanged: {_ruleset_state_message(db)}")
+                db.commit()
+                return {"status": "unchanged", "source": "database", "version": _setting(db, RULE_VERSION_KEY, str(bundled["version"])), "count": len(active_rules(db))}
+            response.raise_for_status()
+            ruleset_content = _read_capped_content(response, max_bytes=RULESET_MAX_BYTES)
         actual_hash = hashlib.sha256(ruleset_content).hexdigest()
         if actual_hash != expected_hash:
             raise ValueError("Remote insight rules SHA-256 verification failed")

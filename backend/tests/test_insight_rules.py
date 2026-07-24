@@ -9,7 +9,22 @@ from app.services.events import store_event
 from app.services.insight_rules import RULE_MANIFEST_URL, RULE_SOURCE_URL, parse_rules, refresh_insight_rules
 
 
-class _Response:
+class _StreamedResponse:
+    """Mimics a streamed ``requests`` response backed by ``self.content``."""
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def iter_content(self, chunk_size):
+        content = self.content
+        for start in range(0, len(content), chunk_size):
+            yield content[start : start + chunk_size]
+
+
+class _Response(_StreamedResponse):
     status_code = 200
     headers = {"ETag": "test-etag"}
 
@@ -41,7 +56,7 @@ class _Response:
         ).encode()
 
 
-class _ManifestResponse:
+class _ManifestResponse(_StreamedResponse):
     status_code = 200
     headers = {}
 
@@ -89,7 +104,7 @@ def test_default_declarative_rules_create_web_insight(db_session):
 def test_refresh_insight_rules_uses_hardcoded_source_url(monkeypatch, db_session):
     calls = []
 
-    def fake_get(url, timeout, headers=None):
+    def fake_get(url, timeout, headers=None, stream=False):
         calls.append((url, timeout, headers))
         return _remote_response(url)
 
@@ -118,7 +133,7 @@ def _ruleset_diagnostic(db_session):
 def test_refresh_insight_rules_reports_bundled_only_fallback_on_first_ever_failure(monkeypatch, db_session):
     # No RULE_FETCHED_AT_KEY/RULE_VERSION_KEY yet - a remote fetch has never
     # succeeded, so the fallback is unambiguously "bundled rules only".
-    def fake_get(url, timeout, headers=None):
+    def fake_get(url, timeout, headers=None, stream=False):
         raise ConnectionError("network unreachable")
 
     monkeypatch.setattr("app.services.insight_rules.requests.get", fake_get)
@@ -138,12 +153,12 @@ def test_refresh_insight_rules_reports_last_known_good_remote_on_later_failure(m
     # "using database/bundled rules" message.
     monkeypatch.setattr(
         "app.services.insight_rules.requests.get",
-        lambda url, timeout, headers=None: _remote_response(url),
+        lambda url, timeout, headers=None, stream=False: _remote_response(url),
     )
     first = refresh_insight_rules(db_session, force=True)
     assert first["status"] == "updated"
 
-    def fake_get_fails(url, timeout, headers=None):
+    def fake_get_fails(url, timeout, headers=None, stream=False):
         raise ConnectionError("network unreachable")
 
     monkeypatch.setattr("app.services.insight_rules.requests.get", fake_get_fails)
@@ -160,7 +175,7 @@ def test_refresh_insight_rules_reports_last_known_good_remote_on_later_failure(m
 def test_refresh_insight_rules_reports_source_versions_from_cache(monkeypatch, db_session):
     monkeypatch.setattr(
         "app.services.insight_rules.requests.get",
-        lambda url, timeout, headers=None: _remote_response(url),
+        lambda url, timeout, headers=None, stream=False: _remote_response(url),
     )
     first = refresh_insight_rules(db_session, force=True)
     assert first["status"] == "updated"
@@ -190,7 +205,7 @@ def test_refresh_insight_rules_rejects_ruleset_with_wrong_hash(monkeypatch, db_s
                 }
             ).encode()
 
-    def fake_get(url, timeout, headers=None):
+    def fake_get(url, timeout, headers=None, stream=False):
         return _WrongHashManifest() if url == RULE_MANIFEST_URL else _Response()
 
     monkeypatch.setattr("app.services.insight_rules.requests.get", fake_get)
@@ -200,6 +215,54 @@ def test_refresh_insight_rules_rejects_ruleset_with_wrong_hash(monkeypatch, db_s
     assert result["status"] == "failed"
     assert "SHA-256 verification failed" in result["error"]
     assert db_session.query(Setting).filter_by(key="insight_rules.version").first() is None
+
+
+def test_refresh_insight_rules_rejects_oversized_ruleset_without_buffering(monkeypatch, db_session):
+    from app.services import insight_rules
+
+    class _OversizedRuleset(_Response):
+        # Simulate a hostile source that keeps streaming past the cap. The
+        # body is never fully materialised: iteration must stop once the limit
+        # is exceeded, so we assert only a bounded prefix is ever requested.
+        chunks_read = 0
+
+        def iter_content(self, chunk_size):
+            while True:
+                type(self).chunks_read += 1
+                yield b"x" * chunk_size
+
+    def fake_get(url, timeout, headers=None, stream=False):
+        assert stream is True
+        return _ManifestResponse() if url == RULE_MANIFEST_URL else _OversizedRuleset()
+
+    monkeypatch.setattr("app.services.insight_rules.requests.get", fake_get)
+
+    result = refresh_insight_rules(db_session, force=True)
+
+    assert result["status"] == "failed"
+    assert "too large" in result["error"]
+    # Reading stops as soon as the cap is passed - a couple of chunks, not the
+    # unbounded stream a full buffer would have consumed.
+    assert _OversizedRuleset.chunks_read <= (insight_rules.RULESET_MAX_BYTES // insight_rules._READ_CHUNK_BYTES) + 2
+    assert db_session.query(Setting).filter_by(key="insight_rules.version").first() is None
+
+
+def test_refresh_insight_rules_rejects_oversized_content_length(monkeypatch, db_session):
+    class _DeclaredOversized(_Response):
+        headers = {"ETag": "test-etag", "Content-Length": str(10 * 1024 * 1024)}
+
+        def iter_content(self, chunk_size):
+            raise AssertionError("body must not be read once Content-Length exceeds the cap")
+
+    def fake_get(url, timeout, headers=None, stream=False):
+        return _ManifestResponse() if url == RULE_MANIFEST_URL else _DeclaredOversized()
+
+    monkeypatch.setattr("app.services.insight_rules.requests.get", fake_get)
+
+    result = refresh_insight_rules(db_session, force=True)
+
+    assert result["status"] == "failed"
+    assert "too large" in result["error"]
 
 
 def test_schema_version_allows_same_major_minor_updates():
