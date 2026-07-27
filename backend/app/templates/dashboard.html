@@ -80,8 +80,12 @@
   {% endfor %}
 
   {% if not dashboard_widgets %}
-    <section class="card">
-      <p class="muted">{{ t("dashboard.no_visible_widgets") if dashboard_layout_widgets or event_data_plugins_enabled else t("dashboard.no_enabled_widgets") }}</p>
+    <section class="card border border-amber-700 bg-amber-950/30 sm:col-span-2 lg:col-span-12">
+      {% if dashboard_layout_widgets or event_data_plugins_enabled %}
+        <p>{{ t("dashboard.no_visible_widgets") }}</p>
+      {% else %}
+        <p>{{ t("dashboard.no_enabled_widgets") }}{% if can_admin %} <a href="/settings">{{ t("dashboard.open_settings") }}</a>{% endif %}</p>
+      {% endif %}
     </section>
   {% endif %}
 
