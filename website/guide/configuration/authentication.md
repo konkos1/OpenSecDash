@@ -407,7 +407,10 @@ has been validated.
 OpenSecDash rejects state-changing browser requests from a different origin even while
 internal sign-in is disabled. This prevents a website opened in the browser from
 silently changing dashboard settings or enabling sign-in. Such requests must provide a
-same-origin `Origin` header or, as a legacy fallback, a same-origin `Referer` header.
+same-origin `Origin` header or, as fallbacks, a same-origin `Referer` header or the
+browser-managed `Sec-Fetch-Site: same-origin` signal. A concrete `Origin` or `Referer`
+always takes precedence over Fetch Metadata. The opaque `Origin: null` value is not a
+concrete origin and is accepted only with that same-origin Fetch Metadata signal.
 Requests without verifiable origin information are rejected. Browser forms must use the
 same scheme, hostname, and port as the dashboard; submitting from an alternate dashboard
 hostname is intentionally rejected.
