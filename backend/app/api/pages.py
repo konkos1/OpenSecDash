@@ -54,18 +54,23 @@ from app.services.auth import (
     AUTH_ONBOARDING_COMPLETE,
     AUTH_ONBOARDING_LEGACY_REVIEW_REQUIRED,
     AUTH_ONBOARDING_PENDING,
+    active_oidc_admin_count,
     auth_disabled_by_environment,
     auth_enabled,
     onboarding_state,
 )
 from app.services.oidc import (
+    CHECK_STATUS_ERROR,
+    CHECK_STATUS_HEALTHY,
     CHECK_STATUS_PENDING,
     OIDC_CHECK_AT_SETTING,
+    OIDC_CHECK_ERROR_CODES,
     OIDC_CHECK_ERROR_SETTING,
     OIDC_CHECK_STATUS_SETTING,
     callback_url,
     effective_password_login_enabled,
     load_config,
+    oidc_login_available,
     provider_diagnostics,
 )
 from app.services.asset_updates import refresh_asset_update
@@ -1574,11 +1579,30 @@ def _effective_onboarding_status(state: str, break_glass: bool) -> str:
     }.get(state, "complete")
 
 
+def _debug_oidc_check_time(db: Session) -> str:
+    value = get_setting_value(db, OIDC_CHECK_AT_SETTING, "")
+    if not value:
+        return "not available"
+    try:
+        return datetime.fromisoformat(value).isoformat()
+    except ValueError:
+        return "invalid"
+
+
 def _debug_authentication_lines(db: Session) -> list[str]:
     break_glass = os.environ.get(AUTH_DISABLED_ENV, "").lower() in ("1", "true", "yes")
+    now = utc_now().replace(tzinfo=None)
     # onboarding_state() already reduces an unknown stored value to a known
     # state, so only pending, legacy_review_required or complete is reported.
     stored_onboarding_state = onboarding_state(db)
+    password_login_available = effective_password_login_enabled(db)
+    oidc_config = load_config(db)
+    oidc_check_status = get_setting_value(db, OIDC_CHECK_STATUS_SETTING, CHECK_STATUS_PENDING)
+    if oidc_check_status not in (CHECK_STATUS_PENDING, CHECK_STATUS_HEALTHY, CHECK_STATUS_ERROR):
+        oidc_check_status = CHECK_STATUS_PENDING
+    oidc_check_error = get_setting_value(db, OIDC_CHECK_ERROR_SETTING, "")
+    if oidc_check_error not in OIDC_CHECK_ERROR_CODES:
+        oidc_check_error = "none" if not oidc_check_error else "unknown"
     lines = [
         _debug_line("Stored authentication", get_setting_value(db, AUTH_ENABLED_SETTING, "false")),
         _debug_line("Effective authentication", "enabled" if auth_enabled(db) else "disabled"),
@@ -1589,28 +1613,55 @@ def _debug_authentication_lines(db: Session) -> list[str]:
         _debug_line("Users active", db.query(User).filter(User.is_active == True).count()),  # noqa: E712
         _debug_line(
             "Active sessions",
-            db.query(UserSession).filter(UserSession.expires_at > utc_now().replace(tzinfo=None)).count(),
+            db.query(UserSession).filter(UserSession.expires_at > now).count(),
         ),
     ]
     for role in ("admin", "operator", "viewer"):
         lines.append(_debug_line(f"Users role {role}", db.query(User).filter(User.role == role).count()))
+        lines.append(
+            _debug_line(
+                f"Users active role {role}",
+                db.query(User).filter(User.role == role, User.is_active == True).count(),  # noqa: E712
+            )
+        )
     # Aggregates only: issuers, subjects and claims never belong in a debug report.
     lines.append(
         _debug_line("Users without local password", db.query(User).filter(User.password_hash.is_(None)).count())
     )
     lines.append(_debug_line("External identities", db.query(ExternalIdentity).count()))
+    password_admins = 0
+    if password_login_available:
+        password_admins = (
+            db.query(User)
+            .filter(User.role == "admin", User.is_active == True, User.password_hash.is_not(None))  # noqa: E712
+            .count()
+        )
+    lines.append(_debug_line("Password-reachable admins", password_admins))
     # Never the discovery URL, issuer, client ID, subjects or the client secret.
-    oidc_config = load_config(db)
     lines.append(_debug_line("OIDC configured", oidc_config.complete))
     lines.append(_debug_line("OIDC enabled", oidc_config.enabled))
-    lines.append(_debug_line("OIDC discovery check", get_setting_value(db, OIDC_CHECK_STATUS_SETTING, CHECK_STATUS_PENDING)))
+    lines.append(_debug_line("OIDC discovery check", oidc_check_status))
+    lines.append(_debug_line("OIDC discovery checked at", _debug_oidc_check_time(db)))
+    lines.append(_debug_line("OIDC discovery error", oidc_check_error))
     lines.append(_debug_line("OIDC just-in-time users", "on" if oidc_config.jit_enabled else "off"))
-    lines.append(_debug_line("Password sign-in", "on" if effective_password_login_enabled(db) else "off"))
+    lines.append(_debug_line("Password sign-in", "on" if password_login_available else "off"))
+    lines.append(
+        _debug_line(
+            "OIDC-reachable admins",
+            active_oidc_admin_count(db, oidc_config.issuer) if oidc_login_available(oidc_config) else 0,
+        )
+    )
     for auth_method in AUTH_METHODS:
         lines.append(
             _debug_line(
                 f"Sessions method {auth_method}",
                 db.query(UserSession).filter(UserSession.auth_method == auth_method).count(),
+            )
+        )
+        lines.append(
+            _debug_line(
+                f"Active sessions method {auth_method}",
+                db.query(UserSession).filter(UserSession.auth_method == auth_method, UserSession.expires_at > now).count(),
             )
         )
     return lines

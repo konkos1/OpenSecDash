@@ -44,6 +44,24 @@ OIDC_CHECK_ERROR_SETTING = "auth.oidc.check_error"
 CHECK_STATUS_PENDING = "pending"
 CHECK_STATUS_HEALTHY = "healthy"
 CHECK_STATUS_ERROR = "error"
+OIDC_CHECK_ERROR_CODES = frozenset(
+    {
+        "blocked_endpoint",
+        "blocked_redirect",
+        "blocked_url",
+        "incomplete_config",
+        "insecure_url",
+        "invalid_issuer",
+        "invalid_metadata",
+        "invalid_response",
+        "invalid_url",
+        "response_too_large",
+        "unreachable",
+        "unsupported_algorithms",
+        "unsupported_flow",
+        "url_not_plain",
+    }
+)
 
 OIDC_CLIENT_NAME = "oidc"
 OIDC_SCOPE = "openid profile email"
