@@ -7,6 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.api import auth as auth_api
+from app.core.template_context import get_setting_value
 from app.database.base import Base
 from app.database.dependencies import get_db
 from app.main import app
@@ -87,7 +88,11 @@ def test_settings_blocks_are_independent_and_use_non_nested_forms(settings_clien
     )
     branding_response = client.post("/settings/branding", data={"domain": "after.example"}, follow_redirects=False)
     notification_response = client.post("/settings/notifications", data={"notifications_enabled": "true"}, follow_redirects=False)
-    asset_response = client.post("/settings/asset-updates", data={"asset_updates_github_interval": "7200"}, follow_redirects=False)
+    asset_response = client.post(
+        "/settings/asset-updates",
+        data={"asset_updates_github_token": "test-token", "asset_updates_github_interval": "7200"},
+        follow_redirects=False,
+    )
 
     parser = _FormNestingParser()
     parser.feed(page.text)
@@ -104,6 +109,7 @@ def test_settings_blocks_are_independent_and_use_non_nested_forms(settings_clien
     assert db.query(Setting).filter_by(key="live_page_refresh").one().value == "false"
     assert db.query(Setting).filter_by(key="timezone").one().value == "Europe/Berlin"
     assert db.query(Setting).filter_by(key="notifications.enabled").one().value == "true"
+    assert get_setting_value(db, "asset_updates.github_token") == "test-token"
     assert db.query(Setting).filter_by(key="asset_updates.github_interval").one().value == "7200"
     assert db.query(Setting).filter_by(key="plugin.crowdsec.enabled").one().value == "true"
     assert 'action="/settings"' not in page.text
