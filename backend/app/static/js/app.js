@@ -45,6 +45,7 @@ function initializeResponsiveNavigation() {
         const navigationResizeObserver = new ResizeObserver(updateNavigationLayout);
         navigationResizeObserver.observe(navigationRow);
         navigationResizeObserver.observe(navigationBrand);
+        navigationResizeObserver.observe(navigationPrimary);
         if (instanceLogo) {
             navigationResizeObserver.observe(instanceLogo);
         }

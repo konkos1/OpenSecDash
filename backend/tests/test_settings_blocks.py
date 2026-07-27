@@ -1,3 +1,4 @@
+import re
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -136,3 +137,36 @@ def test_settings_details_open_only_core_and_place_users_after_branding(settings
 
     assert page.text.count('<details class="card mb-5" open>') == 1
     assert page.text.index("Instance Branding") < page.text.index("Sign-in &amp; users")
+
+
+def test_plugin_settings_refresh_desktop_and_mobile_navigation(settings_client):
+    _, client = settings_client
+
+    enabled = client.post(
+        "/settings/plugins/crowdsec",
+        data={"plugin.crowdsec.enabled": "true"},
+        headers={"HX-Request": "true"},
+    )
+    disabled = client.post(
+        "/settings/plugins/crowdsec",
+        data={"plugin.crowdsec.enabled": "false"},
+        headers={"HX-Request": "true"},
+    )
+
+    assert enabled.status_code == 200
+    assert disabled.status_code == 200
+    for navigation_id in ("navigation-primary", "navigation-mobile"):
+        enabled_navigation = re.search(
+            rf'<nav[^>]*id="{navigation_id}"[^>]*hx-swap-oob="innerHTML"[^>]*>(.*?)</nav>',
+            enabled.text,
+            re.DOTALL,
+        )
+        disabled_navigation = re.search(
+            rf'<nav[^>]*id="{navigation_id}"[^>]*hx-swap-oob="innerHTML"[^>]*>(.*?)</nav>',
+            disabled.text,
+            re.DOTALL,
+        )
+        assert enabled_navigation is not None
+        assert disabled_navigation is not None
+        assert 'href="/crowdsec"' in enabled_navigation.group(1)
+        assert 'href="/crowdsec"' not in disabled_navigation.group(1)
