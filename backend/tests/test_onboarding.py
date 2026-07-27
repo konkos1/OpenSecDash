@@ -348,6 +348,14 @@ def test_legacy_review_blocks_nothing_and_can_be_completed_without_an_account(on
     assert client.get("/settings").status_code == 200
     assert client.get("/api/events").status_code == 200
     assert client.get("/access").status_code == 200
+    client.headers.pop("origin")
+    dashboard_layout = client.post(
+        "/dashboard/layout",
+        headers={"origin": "null", "sec-fetch-site": "same-origin"},
+        follow_redirects=False,
+    )
+    assert dashboard_layout.status_code == 303
+    client.headers["origin"] = "https://testserver"
     with client.websocket_connect("wss://testserver/ws/events") as websocket:
         assert websocket.receive_json()["type"] == "connected"
 

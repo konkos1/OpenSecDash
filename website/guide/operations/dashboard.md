@@ -29,6 +29,8 @@ When internal authentication is enabled, every user has an independent layout. W
 
 If a plugin is disabled, its widgets disappear. Enabling it again adds missing plugin widgets back to the saved layout without discarding the user's existing choices.
 
+If no data plugin is enabled, the Dashboard shows a full-width notice instead of an empty widget grid. Administrators can open Settings directly from the notice; other roles see the same explanation without a Settings link.
+
 ## Live updates
 
 Dashboard auto-refresh is enabled by default and reacts to new events without requiring a full page reload. Scroll positions are preserved when a section refreshes.
@@ -46,4 +48,3 @@ The dashboard frame and widget placeholders render before expensive widget queri
 The Dashboard intentionally focuses on current activity. Small delta badges compare supported counters with yesterday's stored rollup.
 
 Use the [Rollup Explorer](./dashboard-rollups.md) for a specific historical day or month. Retention can remove old raw events without removing their compact daily and monthly summaries.
-

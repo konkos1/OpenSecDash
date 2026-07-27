@@ -226,6 +226,7 @@ DE = {
     "dashboard.apply_layout": "Übernehmen",
     "dashboard.reset_layout": "Layout zurücksetzen",
     "dashboard.no_enabled_widgets": "Es sind keine Dashboard-Widgets sichtbar, weil die zugehörigen Daten-Plugins deaktiviert sind.",
+    "dashboard.open_settings": "Einstellungen öffnen",
     "dashboard.no_visible_widgets": "Es sind keine Dashboard-Widgets sichtbar. Öffne „Dashboard anpassen“, um mindestens ein Widget einzublenden.",
     "dashboard.delta_vs_yesterday": "Verglichen mit dem Rollup von gestern",
     "dashboard.delta_new": "neu",
