@@ -1,6 +1,7 @@
 import asyncio
 import io
 import json
+import re
 import ssl
 import zipfile
 from datetime import datetime, timedelta, timezone
@@ -483,9 +484,17 @@ def test_provider_configuration_is_locked_while_password_login_is_off(oidc_clien
 
     saved = _save_provider(clients["admin"], discovery_url="https://other.example.test/.well-known/openid-configuration")
     deleted = clients["admin"].post("/settings/auth/oidc/secret/delete", follow_redirects=False)
+    page = clients["admin"].get("/settings")
 
     assert saved.headers["location"] == "/settings?oidc_error=password_login_locked"
     assert deleted.headers["location"] == "/settings?oidc_error=password_login_locked"
+    assert re.search(r'<input(?=[^>]*name="discovery_url")(?=[^>]*readonly)[^>]*>', page.text)
+    assert re.search(r'<input(?=[^>]*name="client_id")(?=[^>]*readonly)[^>]*>', page.text)
+    assert re.search(r'<input(?=[^>]*name="client_secret")(?=[^>]*readonly)[^>]*>', page.text)
+    assert "Check and save provider" not in page.text
+    assert "Delete client secret" not in page.text
+    assert "Disable single sign-on" in page.text
+    assert "Create unknown users automatically" in page.text
     config = load_config(db)
     assert config.discovery_url == DISCOVERY_URL
     assert config.client_secret == "provider-secret"

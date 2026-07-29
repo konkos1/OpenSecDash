@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ipaddress
 import logging
 from datetime import datetime
 from typing import Any
@@ -60,12 +61,44 @@ def crowdsec_lapi_status(db: Session) -> Diagnostic | None:
     return db.query(Diagnostic).filter(Diagnostic.plugin == "crowdsec", Diagnostic.component == LAPI_COMPONENT).first()
 
 
+def _canonical_decision_target(value: object, scope: object = "") -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    try:
+        if str(scope or "").lower() == "range" or "/" in text:
+            return str(ipaddress.ip_network(text, strict=False))
+        return str(ipaddress.ip_address(text))
+    except ValueError:
+        return text
+
+
 def active_decision_for_ip(db: Session, ip: str) -> CrowdSecDecision | None:
-    return (
+    target = _canonical_decision_target(ip)
+    decision = (
         db.query(CrowdSecDecision)
-        .filter(CrowdSecDecision.ip == ip, CrowdSecDecision.decision_type == "ban")
+        .filter(CrowdSecDecision.ip == target, CrowdSecDecision.decision_type == "ban")
         .order_by(CrowdSecDecision.synced_at.desc())
         .first()
+    )
+    if decision is not None:
+        return decision
+
+    # Rows synchronized before target canonicalization can still use CrowdSec's
+    # expanded IPv6 notation until the next successful LAPI refresh.
+    candidates = (
+        db.query(CrowdSecDecision)
+        .filter(CrowdSecDecision.decision_type == "ban")
+        .order_by(CrowdSecDecision.synced_at.desc())
+        .all()
+    )
+    return next(
+        (
+            candidate
+            for candidate in candidates
+            if _canonical_decision_target(candidate.ip, candidate.scope) == target
+        ),
+        None,
     )
 
 
@@ -103,11 +136,12 @@ def sync_crowdsec_decisions(db: Session, *, force: bool = False) -> tuple[bool, 
         decision_type = str(item.get("type") or item.get("Type") or "").lower() or None
         if not ip or not decision_id or decision_type != "ban":
             continue
+        scope = str(item.get("scope") or item.get("Scope") or "")
         db.add(
             CrowdSecDecision(
                 decision_id=decision_id,
-                ip=ip,
-                scope=str(item.get("scope") or item.get("Scope") or ""),
+                ip=_canonical_decision_target(ip, scope),
+                scope=scope,
                 decision_type=decision_type,
                 origin=str(item.get("origin") or item.get("Origin") or "") or None,
                 scenario=str(item.get("scenario") or item.get("Scenario") or item.get("reason") or item.get("Reason") or "") or None,

@@ -6,7 +6,7 @@ Asset plugins provide systems/apps and optional release metadata. The core updat
 
 ## When it is active
 
-The **Asset update checks** settings section is visible on the Settings page, but it is greyed out until at least one supported asset source plugin is enabled:
+The **Asset update checks** settings section is visible on the Settings page. Its interval setting is greyed out until at least one supported asset source plugin is enabled:
 
 - JSON Assets
 - Proxmox Assets
@@ -29,8 +29,8 @@ During one update-check run, the same GitHub repository is queried only once eve
 
 | Setting | What it does |
 | --- | --- |
-| GitHub API token | Optional token for GitHub release checks to avoid rate limits. |
-| GitHub release check interval seconds | How often GitHub releases are checked automatically. Use `0` to disable automatic checks. |
+| GitHub API token | Optional token for GitHub release checks of assets and OpenSecDash to avoid rate limits. It remains available without an active asset plugin. |
+| GitHub release check interval seconds | How often GitHub releases are checked automatically for known assets. The setting is disabled without an active asset plugin. Use `0` to disable automatic checks. |
 
 ## Manual checks
 

@@ -235,14 +235,17 @@ def _request_origin(request: Request) -> tuple[str, str, int] | None:
 def _unsafe_request_has_invalid_origin(request: Request) -> bool:
     if request.method not in _UNSAFE_METHODS:
         return False
-    if request.headers.get("sec-fetch-site", "").strip().lower() == "cross-site":
+    fetch_site = request.headers.get("sec-fetch-site", "").strip().lower()
+    if fetch_site == "cross-site":
         return True
     request_origin = _request_origin(request)
     origin = request.headers.get("origin")
-    if origin is not None:
+    if origin is not None and origin.strip().lower() != "null":
         return _header_origin(origin, allow_path=False) != request_origin
     referer = request.headers.get("referer")
-    return referer is None or _header_origin(referer, allow_path=True) != request_origin
+    if referer is not None:
+        return _header_origin(referer, allow_path=True) != request_origin
+    return fetch_site != "same-origin"
 
 
 def websocket_origin_is_valid(websocket: HTTPConnection, hostname: str) -> bool:

@@ -12,7 +12,12 @@ from app.models.systems import System
 from app.web.dashboard import DashboardWidget
 
 
-def render_dashboard(*, event_plugins_enabled: bool, dashboard_widgets: list[DashboardWidget] | None = None) -> str:
+def render_dashboard(
+    *,
+    event_plugins_enabled: bool,
+    dashboard_widgets: list[DashboardWidget] | None = None,
+    can_admin: bool = True,
+) -> str:
     all_dashboard_widgets = dashboard_widgets or []
     env = Environment(
         loader=FileSystemLoader("app/templates"),
@@ -32,6 +37,7 @@ def render_dashboard(*, event_plugins_enabled: bool, dashboard_widgets: list[Das
         domain="homelab.example",
         enabled_plugins={"crowdsec": event_plugins_enabled, "geoblock_log": False, "traefik_log": False, "json_assets": False, "proxmox_assets": False},
         event_plugins_enabled=event_plugins_enabled,
+        can_admin=can_admin,
         t=lambda key: key,
         dashboard_widgets=[widget for widget in all_dashboard_widgets if widget.visible],
         dashboard_layout_widgets=all_dashboard_widgets,
@@ -220,9 +226,20 @@ def test_dashboard_distinguishes_disabled_data_plugins_from_hidden_widgets():
     )
 
     assert "dashboard.no_enabled_widgets" in disabled_html
+    assert 'class="card border border-amber-700 bg-amber-950/30 sm:col-span-2 lg:col-span-12"' in disabled_html
+    assert '<a href="/settings">dashboard.open_settings</a>' in disabled_html
     assert "dashboard.no_visible_widgets" not in disabled_html
     assert "dashboard.no_visible_widgets" in hidden_html
     assert "dashboard.no_enabled_widgets" not in hidden_html
+    assert "dashboard.open_settings" not in hidden_html
+
+
+def test_dashboard_hides_settings_link_from_non_admins():
+    html = render_dashboard(event_plugins_enabled=False, can_admin=False)
+
+    assert "dashboard.no_enabled_widgets" in html
+    assert "dashboard.open_settings" not in html
+    assert 'href="/settings"' not in html
 
 
 def test_dashboard_local_date_uses_configured_timezone(db_session, monkeypatch):

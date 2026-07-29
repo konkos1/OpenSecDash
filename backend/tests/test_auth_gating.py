@@ -508,6 +508,12 @@ def test_origin_check_and_break_glass(auth_client, monkeypatch):
     assert response.status_code == 403
     response = client.post("/settings", headers={"origin": "null"}, follow_redirects=False)
     assert response.status_code == 403
+    response = client.post(
+        "/settings",
+        headers={"origin": "null", "sec-fetch-site": "same-origin"},
+        follow_redirects=False,
+    )
+    assert response.status_code != 403
     response = client.post("/settings", headers={"sec-fetch-site": "cross-site"}, follow_redirects=False)
     assert response.status_code == 403
     response = client.post("/settings", headers={"origin": "https://testserver"}, follow_redirects=False)
@@ -519,7 +525,19 @@ def test_origin_check_and_break_glass(auth_client, monkeypatch):
     client.headers.pop("origin")
     response = client.post("/settings", follow_redirects=False)
     assert response.status_code == 403
-    response = client.post("/settings", headers={"referer": "https://evil.example/settings"}, follow_redirects=False)
+    response = client.post("/settings", headers={"sec-fetch-site": "same-origin"}, follow_redirects=False)
+    assert response.status_code != 403
+    response = client.post(
+        "/settings",
+        headers={"origin": "https://evil.example", "sec-fetch-site": "same-origin"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 403
+    response = client.post(
+        "/settings",
+        headers={"referer": "https://evil.example/settings", "sec-fetch-site": "same-origin"},
+        follow_redirects=False,
+    )
     assert response.status_code == 403
     response = client.post("/settings", headers={"referer": "https://testserver/settings"}, follow_redirects=False)
     assert response.status_code != 403
