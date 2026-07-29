@@ -1,4 +1,4 @@
-const CACHE_NAME = "osd-offline-v1"; // bump when offline.html changes
+const CACHE_NAME = "osd-offline-v2"; // bump when offline.html changes
 const OFFLINE_URL = "/static/offline.html";
 
 self.addEventListener("install", event => {

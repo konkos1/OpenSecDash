@@ -101,7 +101,7 @@
             </thead>
             <tbody>
                 {% for row in system_rows %}
-                    <tr class="cursor-pointer hover:bg-slate-900" onclick="window.location='/assets/system/{{ row.system.id }}'">
+                    <tr class="cursor-pointer hover:bg-slate-900" data-clickable-row>
                         <td><a href="/assets/system/{{ row.system.id }}" class="font-semibold">{{ row.system.hostname }}</a></td>
                         <td>{{ row.system.system_type }}</td>
                         <td>{{ row.system.vmid }}</td>
