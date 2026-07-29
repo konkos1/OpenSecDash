@@ -13,17 +13,17 @@
   </div>
 
   {% if available_days or available_months %}
-    <form class="card flex flex-col sm:flex-row sm:items-end gap-3 mb-5" method="get">
+    <form class="card flex flex-col sm:flex-row sm:items-end gap-3 mb-5" method="get" data-rollups-selector>
       <label class="text-sm sm:w-40">
         <span class="muted block mb-1">{{ t("rollups.period") }}</span>
-        <select class="input" name="period" onchange="this.form.elements.value.disabled = true; this.form.submit()">
+        <select class="input" name="period" data-rollups-period>
           <option value="month" {% if period == 'month' %}selected{% endif %}>{{ t("rollups.month") }}</option>
           <option value="day" {% if period == 'day' %}selected{% endif %}>{{ t("rollups.day") }}</option>
         </select>
       </label>
       <label class="text-sm sm:w-48">
         <span class="muted block mb-1">{{ t("rollups.value") }}</span>
-        <select class="input" name="value" onchange="this.form.submit()" {% if not selected_value %}disabled{% endif %}>
+        <select class="input" name="value" data-rollups-value {% if not selected_value %}disabled{% endif %}>
           {% if period == 'month' %}
             {% if available_months %}
               {% for value in available_months %}<option value="{{ value }}" {% if value == selected_value %}selected{% endif %}>{{ value }}</option>{% endfor %}

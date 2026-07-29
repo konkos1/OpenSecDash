@@ -138,36 +138,73 @@ def test_debug_report_redacts_sensitive_settings_and_log_tail(db_session, tmp_pa
 
 def test_debug_report_aggregates_external_identities_without_issuers_or_subjects(db_session):
     issuer = "https://idp.example/realms/homelab"
+    now = utc_now().replace(tzinfo=None)
     db_session.add_all(
         [
-            User(username="local-admin", password_hash="password-hash", role="admin", is_active=True),
+            User(username="local-admin", password_hash="password-hash", role="admin", is_active=False),
             User(username="oidc-viewer", password_hash=None, role="viewer", is_active=True),
-            ExternalIdentity(user_id=2, provider="oidc", issuer=issuer, subject="private-subject"),
+            User(username="oidc-admin", password_hash=None, role="admin", is_active=True),
+            ExternalIdentity(user_id=2, provider="oidc", issuer=issuer, subject="private-subject-viewer"),
+            ExternalIdentity(user_id=3, provider="oidc", issuer=issuer, subject="private-subject-admin"),
             UserSession(
                 token_hash="a" * 64,
                 user_id=1,
-                expires_at=utc_now().replace(tzinfo=None) + timedelta(days=1),
+                expires_at=now - timedelta(days=1),
                 auth_method="password",
             ),
             UserSession(
                 token_hash="b" * 64,
                 user_id=2,
-                expires_at=utc_now().replace(tzinfo=None) + timedelta(days=1),
+                expires_at=now + timedelta(days=1),
                 auth_method="oidc",
             ),
+            Setting(key="auth.oidc.discovery_url", value="https://idp.example/.well-known/openid-configuration"),
+            Setting(key="auth.oidc.client_id", value="dashboard"),
+            Setting(key="auth.oidc.client_secret", value="secret"),
+            Setting(key="auth.oidc.issuer", value=issuer),
+            Setting(key="auth.oidc.enabled", value="true"),
+            Setting(key="auth.oidc.check_status", value="error"),
+            Setting(key="auth.oidc.check_at", value="2026-07-27T12:34:56"),
+            Setting(key="auth.oidc.check_error", value="unreachable"),
         ]
     )
     db_session.commit()
 
     report = build_debug_report(db_session)
 
-    assert "Users without local password: 1" in report
-    assert "External identities: 1" in report
+    assert "Users active role admin: 1" in report
+    assert "Users active role viewer: 1" in report
+    assert "Users without local password: 2" in report
+    assert "External identities: 2" in report
+    assert "Password-reachable admins: 0" in report
+    assert "OIDC-reachable admins: 1" in report
+    assert "OIDC discovery checked at: 2026-07-27T12:34:56" in report
+    assert "OIDC discovery error: unreachable" in report
     assert "Sessions method password: 1" in report
     assert "Sessions method oidc: 1" in report
-    assert "external_identities: 1" in report
+    assert "Active sessions method password: 0" in report
+    assert "Active sessions method oidc: 1" in report
+    assert "external_identities: 2" in report
     assert issuer not in report
-    assert "private-subject" not in report
+    assert "private-subject-viewer" not in report
+    assert "private-subject-admin" not in report
+
+
+def test_debug_report_rejects_untrusted_oidc_diagnostic_values(db_session):
+    db_session.add_all(
+        [
+            Setting(key="auth.oidc.check_at", value="private timestamp contents"),
+            Setting(key="auth.oidc.check_error", value="private provider response"),
+        ]
+    )
+    db_session.commit()
+
+    report = build_debug_report(db_session)
+
+    assert "OIDC discovery checked at: invalid" in report
+    assert "OIDC discovery error: unknown" in report
+    assert "private timestamp contents" not in report
+    assert "private provider response" not in report
 
 
 def test_debug_report_summarizes_environment_without_exposing_proxy_networks(db_session, monkeypatch):

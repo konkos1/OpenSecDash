@@ -23,6 +23,24 @@ def test_parse_datetime_converts_to_utc_regardless_of_offset():
     assert _parse_datetime("2026-06-29T12:00:00Z") == datetime(2026, 6, 29, 12, 0, 0)
 
 
+def test_active_decision_matches_equivalent_ipv6_notation(db_session):
+    db_session.add(
+        CrowdSecDecision(
+            decision_id="42",
+            ip="2001:0db8:0000:0000:0000:0000:0000:0001",
+            scope="Ip",
+            decision_type="ban",
+            synced_at=utc_now().replace(tzinfo=None),
+        )
+    )
+    db_session.commit()
+
+    decision = active_decision_for_ip(db_session, "2001:db8::1")
+
+    assert decision is not None
+    assert decision.decision_id == "42"
+
+
 def test_unban_requires_active_crowdsec_decision(monkeypatch, db_session):
     monkeypatch.setattr("app.services.actions.execute_action", lambda db, action: None)
     db_session.add(Setting(key="action_dry_run", value="false"))

@@ -1,3 +1,4 @@
+import re
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -7,6 +8,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.api import auth as auth_api
+from app.core.template_context import get_setting_value
 from app.database.base import Base
 from app.database.dependencies import get_db
 from app.main import app
@@ -87,7 +89,11 @@ def test_settings_blocks_are_independent_and_use_non_nested_forms(settings_clien
     )
     branding_response = client.post("/settings/branding", data={"domain": "after.example"}, follow_redirects=False)
     notification_response = client.post("/settings/notifications", data={"notifications_enabled": "true"}, follow_redirects=False)
-    asset_response = client.post("/settings/asset-updates", data={"asset_updates_github_interval": "7200"}, follow_redirects=False)
+    asset_response = client.post(
+        "/settings/asset-updates",
+        data={"asset_updates_github_token": "test-token", "asset_updates_github_interval": "7200"},
+        follow_redirects=False,
+    )
 
     parser = _FormNestingParser()
     parser.feed(page.text)
@@ -104,6 +110,7 @@ def test_settings_blocks_are_independent_and_use_non_nested_forms(settings_clien
     assert db.query(Setting).filter_by(key="live_page_refresh").one().value == "false"
     assert db.query(Setting).filter_by(key="timezone").one().value == "Europe/Berlin"
     assert db.query(Setting).filter_by(key="notifications.enabled").one().value == "true"
+    assert get_setting_value(db, "asset_updates.github_token") == "test-token"
     assert db.query(Setting).filter_by(key="asset_updates.github_interval").one().value == "7200"
     assert db.query(Setting).filter_by(key="plugin.crowdsec.enabled").one().value == "true"
     assert 'action="/settings"' not in page.text
@@ -130,3 +137,36 @@ def test_settings_details_open_only_core_and_place_users_after_branding(settings
 
     assert page.text.count('<details class="card mb-5" open>') == 1
     assert page.text.index("Instance Branding") < page.text.index("Sign-in &amp; users")
+
+
+def test_plugin_settings_refresh_desktop_and_mobile_navigation(settings_client):
+    _, client = settings_client
+
+    enabled = client.post(
+        "/settings/plugins/crowdsec",
+        data={"plugin.crowdsec.enabled": "true"},
+        headers={"HX-Request": "true"},
+    )
+    disabled = client.post(
+        "/settings/plugins/crowdsec",
+        data={"plugin.crowdsec.enabled": "false"},
+        headers={"HX-Request": "true"},
+    )
+
+    assert enabled.status_code == 200
+    assert disabled.status_code == 200
+    for navigation_id in ("navigation-primary", "navigation-mobile"):
+        enabled_navigation = re.search(
+            rf'<nav[^>]*id="{navigation_id}"[^>]*hx-swap-oob="innerHTML"[^>]*>(.*?)</nav>',
+            enabled.text,
+            re.DOTALL,
+        )
+        disabled_navigation = re.search(
+            rf'<nav[^>]*id="{navigation_id}"[^>]*hx-swap-oob="innerHTML"[^>]*>(.*?)</nav>',
+            disabled.text,
+            re.DOTALL,
+        )
+        assert enabled_navigation is not None
+        assert disabled_navigation is not None
+        assert 'href="/crowdsec"' in enabled_navigation.group(1)
+        assert 'href="/crowdsec"' not in disabled_navigation.group(1)

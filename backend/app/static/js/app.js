@@ -45,6 +45,7 @@ function initializeResponsiveNavigation() {
         const navigationResizeObserver = new ResizeObserver(updateNavigationLayout);
         navigationResizeObserver.observe(navigationRow);
         navigationResizeObserver.observe(navigationBrand);
+        navigationResizeObserver.observe(navigationPrimary);
         if (instanceLogo) {
             navigationResizeObserver.observe(instanceLogo);
         }
@@ -244,6 +245,24 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         });
 
+    document.querySelectorAll("form[data-rollups-selector]")
+        .forEach(form => {
+            const period = form.querySelector("[data-rollups-period]");
+            const value = form.querySelector("[data-rollups-value]");
+
+            if (period) {
+                period.addEventListener("change", () => {
+                    if (value) {
+                        value.disabled = true;
+                    }
+                    form.requestSubmit();
+                });
+            }
+            if (value) {
+                value.addEventListener("change", () => form.requestSubmit());
+            }
+        });
+
     document.querySelectorAll("[data-confirm]")
         .forEach(element => {
             element.addEventListener("submit", event => {
@@ -413,6 +432,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const columnsOpen = event.target.closest("[data-columns-open]");
         const columnsClose = event.target.closest("[data-columns-close]");
         const dashboardMove = event.target.closest("[data-dashboard-move]");
+        const clickableRow = event.target.closest("[data-clickable-row]");
         const columnsDialogBackdrop = event.target.tagName === "DIALOG" && event.target.classList.contains("columns-dialog") ? event.target : null;
         const overlayBackdrop = event.target.classList.contains("text-overlay-backdrop") ? event.target : null;
 
@@ -487,6 +507,14 @@ document.addEventListener("DOMContentLoaded", () => {
             event.preventDefault();
             event.stopPropagation();
             showChartValue(chartBar);
+            return;
+        }
+
+        if (clickableRow && !event.target.closest("a, button, input, select, textarea")) {
+            const link = clickableRow.querySelector("a[href]");
+            if (link) {
+                link.click();
+            }
             return;
         }
 
