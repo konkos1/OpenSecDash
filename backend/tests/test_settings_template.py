@@ -1,3 +1,4 @@
+import re
 from types import SimpleNamespace
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -55,6 +56,12 @@ def test_settings_template_uses_independent_details_forms():
     assert 'action="/settings/branding"' in html
     assert 'action="/settings/notifications"' in html
     assert 'action="/settings/asset-updates"' in html
+    github_token_input = re.search(r'<input[^>]*name="asset_updates_github_token"[^>]*>', html)
+    github_interval_input = re.search(r'<input[^>]*name="asset_updates_github_interval"[^>]*>', html)
+    assert github_token_input is not None
+    assert github_interval_input is not None
+    assert ":readonly" not in github_token_input.group()
+    assert ":readonly" in github_interval_input.group()
     assert 'name="theme"' in html
     assert '<div><button class="btn" type="submit">' not in html
     assert html.count('<div class="md:col-span-2 flex items-end"><button class="btn" type="submit">common.save_button</button></div>') == 4

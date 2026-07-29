@@ -2,7 +2,7 @@
 
 OpenSecDash settings are available from the Settings page. Dependent settings usually stay visible but are greyed out until their parent setting or plugin is enabled, so you can still see what can be configured.
 
-Saving a regular Settings block updates only that block instead of reloading the page. A green **Settings saved** banner confirms a successful save and disappears automatically after a few seconds. The same confirmation is used for notification rules and personal account settings; validation errors remain visible in their form instead of showing the success banner.
+Saving a regular Settings block updates only that block instead of reloading the page. If the change enables or disables a navigation entry, the desktop and mobile navigation update at the same time. A green **Settings saved** banner confirms a successful save and disappears automatically after a few seconds. The same confirmation is used for notification rules and personal account settings; validation errors remain visible in their form instead of showing the success banner.
 
 ## General settings
 

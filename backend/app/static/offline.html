@@ -39,7 +39,7 @@
         p.secondary {
             margin-bottom: 1.75rem;
         }
-        button {
+        .retry-link {
             display: inline-block;
             min-height: 2.75rem;
             padding: 0.75rem 1.5rem;
@@ -50,8 +50,9 @@
             font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
+            text-decoration: none;
         }
-        button:hover {
+        .retry-link:hover {
             background: #1d4ed8;
         }
     </style>
@@ -61,7 +62,7 @@
         <h1>You are offline</h1>
         <p>OpenSecDash needs a connection to show live data.</p>
         <p class="secondary">OpenSecDash braucht eine Verbindung, um Live-Daten anzuzeigen.</p>
-        <button type="button" onclick="location.reload()">Retry / Erneut versuchen</button>
+        <a class="retry-link" href="/">Retry / Erneut versuchen</a>
     </main>
 </body>
 </html>

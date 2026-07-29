@@ -49,6 +49,10 @@ def test_navigation_orders_core_and_plugin_links_consistently():
     assert "data-navigation-row" in html
     assert "data-navigation-brand" in html
     assert "data-navigation-primary" in html
+    assert 'id="navigation-primary"' in html
+    assert 'id="navigation-mobile"' in html
+    assert html.count('hx-swap-oob="innerHTML"') == 2
+    assert "navigationResizeObserver.observe(navigationPrimary)" in Path("app/static/js/app.js").read_text()
     assert '/static/css/app.css?v=test-upgrade-security-prompt' in html
     navigation_script = '<script src="/static/js/app.js?v=test-persist-refresh-tooltips"></script>'
     assert html.index("</header>") < html.index(navigation_script) < html.index("<main")

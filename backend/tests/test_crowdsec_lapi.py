@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from app.models.core import Diagnostic
+from app.models.core import CrowdSecDecision, Diagnostic
 from app.models.settings import Setting
 from app.plugins.loader import import_plugin_module
 from app.plugins.manager import PluginManager
@@ -171,6 +171,29 @@ def test_sync_crowdsec_decisions_uses_lapi_by_default(monkeypatch, db_session):
     status = crowdsec_lapi_status(db_session)
     assert status is not None
     assert status.status == "healthy"
+
+
+def test_sync_crowdsec_decisions_canonicalizes_ipv6_targets(monkeypatch, db_session):
+    _configure_lapi(db_session)
+    monkeypatch.setattr(lapi_module, "lapi_login", lambda url, login, pw: "jwt-token")
+    monkeypatch.setattr(
+        lapi_module,
+        "lapi_active_ban_decisions",
+        lambda url, token: [
+            {
+                "id": 43,
+                "value": "2001:0db8:0000:0000:0000:0000:0000:0001",
+                "scope": "Ip",
+                "type": "ban",
+            },
+        ],
+    )
+
+    ok, _message = sync_crowdsec_decisions(db_session, force=True)
+    db_session.commit()
+
+    assert ok is True
+    assert db_session.query(CrowdSecDecision).one().ip == "2001:db8::1"
 
 
 def test_sync_crowdsec_decisions_records_lapi_error(monkeypatch, db_session):
