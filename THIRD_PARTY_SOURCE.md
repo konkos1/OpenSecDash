@@ -34,5 +34,9 @@ Snapshot rather than from the moving package mirrors, and the downloaded hashes
 are verified before the archive is created. Debian copyright and license files
 also remain inside the image at `/usr/share/doc/<package>/copyright`.
 
+The production stage removes the package installer bundled with the upstream
+Python image. Runtime Python distributions therefore come exclusively from the
+locked OpenSecDash virtual environment covered by `THIRD_PARTY_NOTICES.md`.
+
 If a corresponding source archive is unexpectedly unavailable, treat that as
 a release defect and report it through the project's issue tracker.

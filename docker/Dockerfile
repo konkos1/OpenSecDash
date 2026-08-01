@@ -29,7 +29,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN addgroup --system opensecdash \
+RUN python -m pip uninstall --yes --root-user-action=ignore pip \
+    && python -c 'import importlib.metadata as metadata; assert not list(metadata.distributions())' \
+    && addgroup --system opensecdash \
     && adduser --system --ingroup opensecdash --home /app opensecdash \
     && mkdir -p /data \
     && chown -R opensecdash:opensecdash /app /data

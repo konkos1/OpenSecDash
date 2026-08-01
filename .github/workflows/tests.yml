@@ -157,6 +157,8 @@ jobs:
             echo "::error::Production image uses Python ${actual_python}, expected ${expected_python}"
             exit 1
           fi
+          docker run --rm --entrypoint /usr/local/bin/python opensecdash:ci \
+            -c 'import importlib.metadata as m; assert not list(m.distributions())'
           docker run --rm --entrypoint sh opensecdash:ci -c \
             'test ! -e /app/backend/opensecdash.secret && test ! -e /app/backend/logs/opensecdash.log && test ! -e /app/backend/opensecdash.db && test ! -e /app/backend/.env && test -s /app/THIRD_PARTY_NOTICES.md && test -s /app/THIRD_PARTY_SOURCE.md && test -d /app/third_party/licenses'
           docker volume create opensecdash-ci-smoke
