@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 import logging
+import time
 
-from app.plugins.base import PeriodicPlugin, PluginContext, PluginMetadata, PluginSetting
-from app.services.geoip import cleanup_expired_cache
+from app.plugins.base import EnrichmentPlugin, PluginContext, PluginMetadata, PluginSetting
+
+from .services import cleanup_expired_cache, enrich_pending_events
 
 logger = logging.getLogger(__name__)
+CACHE_CLEANUP_INTERVAL_SECONDS = 60
 
 
-class Plugin(PeriodicPlugin):
+class Plugin(EnrichmentPlugin):
     metadata = PluginMetadata(
         id="geoip",
         name="GeoIP / ASN / ISP / City Enrichment",
@@ -94,6 +97,9 @@ class Plugin(PeriodicPlugin):
         },
     }
 
+    def __init__(self) -> None:
+        self._last_cache_cleanup = 0.0
+
     async def health(self, context: PluginContext) -> dict[str, str]:
         # Reports the configured transport only - never a probe request, so the
         # health loop cannot burn provider quota, and never the key itself.
@@ -115,7 +121,11 @@ class Plugin(PeriodicPlugin):
             }
         return {"status": "error", "message": f"Unsupported GeoIP provider: {provider}"}
 
-    async def tick(self, context: PluginContext) -> None:
-        deleted = cleanup_expired_cache(context.db)
-        if deleted:
-            logger.debug("Removed %d expired GeoIP cache entries", deleted)
+    async def enrich(self, context: PluginContext, limit: int) -> int:
+        now = time.monotonic()
+        if now - self._last_cache_cleanup >= CACHE_CLEANUP_INTERVAL_SECONDS:
+            deleted = cleanup_expired_cache(context.db)
+            if deleted:
+                logger.debug("Removed %d expired GeoIP cache entries", deleted)
+            self._last_cache_cleanup = now
+        return enrich_pending_events(context.db, limit)

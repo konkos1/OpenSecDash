@@ -20,11 +20,10 @@ from app.database.session import SessionLocal
 from app.models.assets import Asset
 from app.models.core import Datasource, Diagnostic, InsightRule as InsightRuleModel, PluginRecord
 from app.models.settings import Setting
-from app.plugins.base import ActionDefinition, CURRENT_PLUGIN_API_VERSION, ActionPlugin, DatasourcePlugin, ExportPlugin, PeriodicPlugin, Plugin, PluginContext, PluginSetting
+from app.plugins.base import ActionDefinition, CURRENT_PLUGIN_API_VERSION, ActionPlugin, DatasourcePlugin, EnrichmentPlugin, ExportPlugin, PeriodicPlugin, Plugin, PluginContext, PluginSetting
 from app.plugins.loader import env_disable_var, import_plugin_module, is_plugin_env_disabled
 from app.core.time import utc_now
 from app.services.events import cleanup_events_by_retention, clear_duplicate_rules, compact_completed_daily_rollups, register_duplicate_rules, store_event
-from app.services.geoip import enrich_pending_events
 from app.services.insight_rules import import_ruleset, invalidate_active_rules_cache, refresh_insight_rules
 from app.services.asset_updates import refresh_asset_updates
 from app.services.self_update import run_self_update_check
@@ -35,7 +34,7 @@ from app.services.settings import save_setting
 logger = logging.getLogger(__name__)
 
 BACKLOG_CATCHUP_DELAY_SECONDS = 0.2
-GEOIP_BACKFILL_BATCH_SIZE = 50
+ENRICHMENT_BATCH_SIZE = 50
 EVENTS_COMMIT_EVERY = 200
 
 _UNSET: Any = object()
@@ -400,11 +399,12 @@ class PluginManager:
         self.tasks.append(asyncio.create_task(self._insight_rules_loop(), name="core-insight-rules"))
         self.tasks.append(asyncio.create_task(self._rollup_compaction_loop(), name="core-rollup-compaction"))
         self.tasks.append(asyncio.create_task(self._retention_cleanup_loop(), name="core-retention-cleanup"))
-        self.tasks.append(asyncio.create_task(self._geoip_backfill_loop(), name="core-geoip-backfill"))
         self.tasks.append(asyncio.create_task(self._self_update_check_loop(), name="core-self-update-check"))
         self.tasks.append(asyncio.create_task(self._notification_dispatch_loop(), name="core-notification-dispatch"))
         for plugin in self.plugins.values():
             self.tasks.append(asyncio.create_task(self._health_loop(plugin), name=f"plugin-health-{plugin.metadata.id}"))
+            if isinstance(plugin, EnrichmentPlugin):
+                self.tasks.append(asyncio.create_task(self._enrichment_loop(plugin), name=f"plugin-enrichment-{plugin.metadata.id}"))
             if isinstance(plugin, DatasourcePlugin):
                 self.tasks.append(asyncio.create_task(self._datasource_loop(plugin), name=f"plugin-datasource-{plugin.metadata.id}"))
             if isinstance(plugin, PeriodicPlugin):
@@ -541,21 +541,29 @@ class PluginManager:
         db.commit()
         return deleted
 
-    async def _geoip_backfill_loop(self) -> None:
+    async def _enrichment_loop(self, plugin: EnrichmentPlugin) -> None:
         while True:
             try:
-                # Runs in a thread: a slow/unreachable GeoIP provider can mean
-                # a real network wait per uncached IP, which must not block
-                # the event loop while it's happening.
-                processed = await asyncio.to_thread(run_with_session, enrich_pending_events, GEOIP_BACKFILL_BATCH_SIZE)
+                # Enrichment plugins can block on remote providers. Their hook
+                # therefore runs with its database session in a worker thread.
+                processed = await asyncio.to_thread(run_with_session, self._run_enrichment_tick, plugin)
                 # Keep draining quickly while a backlog exists (e.g. right
                 # after a large log import), back off once caught up.
-                await asyncio.sleep(1 if processed >= GEOIP_BACKFILL_BATCH_SIZE else 15)
+                await asyncio.sleep(1 if processed >= ENRICHMENT_BATCH_SIZE else 15)
             except asyncio.CancelledError:
                 raise
             except Exception:
-                logger.exception("GeoIP backfill failed")
+                logger.exception("Enrichment plugin %s failed", plugin.metadata.id)
                 await asyncio.sleep(30)
+
+    def _run_enrichment_tick(self, db: Session, plugin: EnrichmentPlugin) -> int:
+        """Run one plugin-owned enrichment batch synchronously in a worker."""
+        context = self.context(db, plugin)
+        if context.get("enabled", "false").lower() != "true":
+            return 0
+        processed = asyncio.run(plugin.enrich(context, ENRICHMENT_BATCH_SIZE))
+        db.commit()
+        return processed
 
     async def _self_update_check_loop(self) -> None:
         # Runs in a thread: one GitHub API request, which must not block the

@@ -1,14 +1,6 @@
-"""GeoIP enrichment: one provider-neutral service plus one module per provider."""
+"""Plugin-owned GeoIP service and its statically registered providers."""
 
-from app.services.geoip.providers import PROVIDERS, get_provider
-from app.services.geoip.providers.base import (
-    GEOIP_RESPONSE_MAX_BYTES,
-    GeoIPLookupRequest,
-    GeoIPLookupResult,
-    GeoIPProvider,
-    GeoIPProviderError,
-)
-from app.services.geoip.service import (
+from .geoip import (
     ERROR_CACHE_TTL,
     cleanup_expired_cache,
     enrich_event_values,
@@ -21,6 +13,14 @@ from app.services.geoip.service import (
     normalize_country,
     normalize_isp,
     normalize_lookup_target,
+)
+from .providers import PROVIDERS, get_provider
+from .providers.base import (
+    GEOIP_RESPONSE_MAX_BYTES,
+    GeoIPLookupRequest,
+    GeoIPLookupResult,
+    GeoIPProvider,
+    GeoIPProviderError,
 )
 
 __all__ = [

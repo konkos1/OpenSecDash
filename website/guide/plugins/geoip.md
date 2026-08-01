@@ -90,11 +90,12 @@ through the new provider.
 ## For contributors
 
 Each provider lives in its own module under
-`backend/app/services/geoip/providers/`, and a small static registry in the same
+`plugins/geoip/services/providers/`, and a small static registry in the same
 package maps the stored provider ID to its implementation. A provider module owns only
 its endpoint, headers, and response format. Public-IP filtering, caching, TTLs, the
 error cache, and the producer-wins enrichment rule live once in the provider-neutral
-service. Providers are never discovered dynamically or loaded from configuration.
+plugin service. The core invokes it through the generic enrichment hook; providers are
+never discovered dynamically or loaded from configuration.
 
 ## Display
 

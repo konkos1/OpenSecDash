@@ -10,7 +10,7 @@ from __future__ import annotations
 import requests
 
 from app.core.http_responses import read_capped_json
-from app.services.geoip.providers.base import (
+from .base import (
     GEOIP_RESPONSE_MAX_BYTES,
     GeoIPLookupRequest,
     GeoIPLookupResult,

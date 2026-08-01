@@ -10,12 +10,23 @@ from conftest import import_plugin_module
 
 from app.core.http_responses import ResponseBodyError
 from app.models.settings import Setting
+from app.plugins.base import EnrichmentPlugin
 from app.plugins.manager import PluginManager
-from app.services.geoip import service as geoip_service
-from app.services.geoip.providers import PROVIDERS, get_provider, ip_api, iplocate
-from app.services.geoip.providers.base import GeoIPLookupRequest, GeoIPProviderError
 
-SERVICE_SOURCE = Path(geoip_service.__file__).read_text(encoding="utf-8")
+geoip_plugin = import_plugin_module("geoip", "plugin")
+geoip_package = import_plugin_module("geoip", "services")
+geoip_service = import_plugin_module("geoip", "services.geoip")
+providers = import_plugin_module("geoip", "services.providers")
+provider_base = import_plugin_module("geoip", "services.providers.base")
+ip_api = import_plugin_module("geoip", "services.providers.ip_api")
+iplocate = import_plugin_module("geoip", "services.providers.iplocate")
+
+PROVIDERS = providers.PROVIDERS
+get_provider = providers.get_provider
+GeoIPLookupRequest = provider_base.GeoIPLookupRequest
+GeoIPProviderError = provider_base.GeoIPProviderError
+
+SERVICE_SOURCE = Path(cast(str, geoip_service.__file__)).read_text(encoding="utf-8")
 DUMMY_KEY = "dummy-iplocate-key"
 
 
@@ -73,26 +84,33 @@ def test_registry_resolves_only_the_statically_registered_providers():
     assert get_provider("ip-api") is ip_api.PROVIDER
     assert get_provider("iplocate") is iplocate.PROVIDER
     # One file per provider, so neither endpoint contract can grow into the other.
-    assert Path(ip_api.__file__).name == "ip_api.py"
-    assert Path(iplocate.__file__).name == "iplocate.py"
+    assert Path(cast(str, ip_api.__file__)).name == "ip_api.py"
+    assert Path(cast(str, iplocate.__file__)).name == "iplocate.py"
+    assert "plugins/geoip/services/providers" in Path(cast(str, iplocate.__file__)).as_posix()
 
     with pytest.raises(ValueError, match="Unsupported GeoIP provider: made-up"):
         get_provider("made-up")
 
 
-def test_public_geoip_imports_stay_available_from_the_package():
-    from app.services.geoip import (  # noqa: F401 - importability is the assertion
-        cleanup_expired_cache,
-        enrich_event_values,
-        enrich_pending_events,
-        geoip_enabled,
-        lookup_country,
-        lookup_geoip,
-        normalize_asn,
-        normalize_city,
-        normalize_isp,
-        normalize_lookup_target,
-    )
+def test_geoip_plugin_owns_the_service_and_uses_the_enrichment_hook():
+    assert isinstance(geoip_plugin.Plugin(), EnrichmentPlugin)
+    assert "plugins/geoip/services" in Path(cast(str, geoip_service.__file__)).as_posix()
+
+
+def test_plugin_geoip_services_are_exported_from_the_package():
+    for name in (
+        "cleanup_expired_cache",
+        "enrich_event_values",
+        "enrich_pending_events",
+        "geoip_enabled",
+        "lookup_country",
+        "lookup_geoip",
+        "normalize_asn",
+        "normalize_city",
+        "normalize_isp",
+        "normalize_lookup_target",
+    ):
+        assert hasattr(geoip_package, name)
 
 
 def test_service_holds_no_provider_url_or_wire_field_names():

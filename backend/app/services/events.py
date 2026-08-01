@@ -208,8 +208,8 @@ def store_event(db: Session, **values: Any) -> Event:
         matched_asset = find_asset_by_host(db, values.get("hostname"))
         if matched_asset is not None:
             values["asset_id"] = matched_asset.id
-    # GeoIP enrichment happens out-of-band (see geoip.enrich_pending_events),
-    # not here: a first-time import of a large log can otherwise mean
+    # Enrichment plugins run out-of-band through PluginManager, not here: a
+    # first-time import of a large log can otherwise mean
     # thousands of synchronous lookup HTTP calls in a row for uncached IPs,
     # which is by far the biggest single contributor to ingestion stalling.
 

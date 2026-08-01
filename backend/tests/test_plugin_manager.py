@@ -6,7 +6,7 @@ import pytest
 from app.models.core import Datasource, Diagnostic, PluginRecord
 from app.models.events import Event
 from app.models.settings import Setting
-from app.plugins.base import DatasourcePlugin, Plugin, PluginMetadata, PluginSetting
+from app.plugins.base import DatasourcePlugin, EnrichmentPlugin, Plugin, PluginMetadata, PluginSetting
 from app.core.i18n import register_extra_locales, translate
 from app.core import plugin_registry
 from app.core.template_context import get_setting_value
@@ -38,6 +38,19 @@ class BacklogReportingPlugin(DatasourcePlugin):
         return []
 
 
+class ExampleEnrichmentPlugin(EnrichmentPlugin):
+    metadata = PluginMetadata(id="enrichment_test", name="Enrichment Test", capabilities=["enrichment"])
+    settings = [PluginSetting("enabled", "enrichment.enabled", "enrichment.enabled.help", type="boolean", default="false")]
+    locales = {"en": {}, "de": {}}
+
+    def __init__(self) -> None:
+        self.calls: list[int] = []
+
+    async def enrich(self, context, limit: int) -> int:
+        self.calls.append(limit)
+        return 7
+
+
 class ExampleDatasourcePlugin(DatasourcePlugin):
     metadata = PluginMetadata(
         id="example",
@@ -62,6 +75,22 @@ class ExampleDatasourcePlugin(DatasourcePlugin):
         },
         "de": {"example.enabled": "Aktiviert"},
     }
+
+
+def test_enrichment_hook_runs_only_for_an_enabled_plugin(db_session):
+    manager = PluginManager(Path("/not-used"))
+    plugin = ExampleEnrichmentPlugin()
+    manager.plugins = {plugin.metadata.id: plugin}
+    manager.seed_database(db_session)
+
+    assert manager._run_enrichment_tick(db_session, plugin) == 0
+    assert plugin.calls == []
+
+    db_session.query(Setting).filter_by(key="plugin.enrichment_test.enabled").one().value = "true"
+    db_session.commit()
+
+    assert manager._run_enrichment_tick(db_session, plugin) == 7
+    assert plugin.calls == [manager_module.ENRICHMENT_BATCH_SIZE]
 
 
 def test_asset_update_diagnostic_includes_failed_assets(monkeypatch, db_session):

@@ -2,10 +2,13 @@ import json
 
 import pytest
 
+from conftest import import_plugin_module
+
 from app.core.http_responses import ResponseBodyError, read_capped_json
 from app.services import github_releases
-from app.services.geoip import service as geoip_service
-from app.services.geoip.providers import ip_api
+
+geoip_service = import_plugin_module("geoip", "services.geoip")
+ip_api = import_plugin_module("geoip", "services.providers.ip_api")
 
 
 class FakeResponse:

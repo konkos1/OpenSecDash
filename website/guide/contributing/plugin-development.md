@@ -349,6 +349,19 @@ class Plugin(ActionPlugin):
 
 Return `None` when the action is not handled by your plugin.
 
+### `EnrichmentPlugin`
+
+Use this for plugin-owned enrichment that processes pending records in bounded batches.
+The manager calls the hook only while the plugin is enabled and runs it in a worker
+thread, so a remote provider cannot block the application's event loop. Return the
+number of processed records; a full batch is retried quickly to drain a backlog.
+
+```python
+class Plugin(EnrichmentPlugin):
+    async def enrich(self, context, limit):
+        return enrich_pending_records(context.db, limit)
+```
+
 ### `ExportPlugin`
 
 Use this to export events or assets to another system.

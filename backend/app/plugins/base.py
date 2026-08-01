@@ -269,6 +269,12 @@ class DatasourcePlugin(Plugin):
         return []
 
 
+class EnrichmentPlugin(Plugin):
+    async def enrich(self, context: PluginContext, limit: int) -> int:
+        """Enrich at most ``limit`` pending records and return the processed count."""
+        return 0
+
+
 class PeriodicPlugin(Plugin):
     async def tick(self, context: PluginContext) -> None:
         return None

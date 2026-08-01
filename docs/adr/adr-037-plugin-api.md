@@ -1,7 +1,7 @@
 # ADR-037: Plugin API
 
 > **Implementation status (2026-07-09):** Implemented.
-> Plugin API v2 is implemented with package layout, PluginMetadata, settings, lifecycle hooks, capabilities, PluginContext, web hooks, IP panel hooks, dedupe hooks, and action/export hooks.
+> Plugin API v2 is implemented with package layout, PluginMetadata, settings, lifecycle hooks, capabilities, PluginContext, web hooks, IP panel hooks, dedupe hooks, and enrichment/action/export hooks.
 
 
 
@@ -188,9 +188,10 @@ class EnrichmentPlugin(Plugin):
 
     async def enrich(
         self,
-        event
+        context,
+        limit
     ):
-        pass
+        return 0
 ```
 
 

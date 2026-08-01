@@ -1,4 +1,4 @@
-"""Contract between the GeoIP service and a single remote provider.
+"""Plugin-owned contract between the GeoIP service and one remote provider.
 
 A provider module owns exactly one remote API: its endpoint, request shape and
 wire format. It never sees the database, plugin metadata, the lookup cache or

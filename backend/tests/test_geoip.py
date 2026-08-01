@@ -5,7 +5,17 @@ from app.core.time import utc_now
 from app.models.core import GeoIPCache
 from app.models.events import Event
 from app.models.settings import Setting
-from app.services.geoip import enrich_event_values, enrich_pending_events, lookup_geoip, normalize_asn, normalize_city, normalize_isp
+from conftest import import_plugin_module
+
+geoip_service = import_plugin_module("geoip", "services.geoip")
+iplocate = import_plugin_module("geoip", "services.providers.iplocate")
+
+enrich_event_values = geoip_service.enrich_event_values
+enrich_pending_events = geoip_service.enrich_pending_events
+lookup_geoip = geoip_service.lookup_geoip
+normalize_asn = geoip_service.normalize_asn
+normalize_city = geoip_service.normalize_city
+normalize_isp = geoip_service.normalize_isp
 
 
 def test_geoip_normalizes_asn_city_and_truncates_isp():
@@ -90,7 +100,7 @@ def _fake_iplocate_response(monkeypatch, payload: dict) -> list[dict]:
         calls.append(kwargs)
         return _Response()
 
-    monkeypatch.setattr("app.services.geoip.providers.iplocate.requests.get", fake_get)
+    monkeypatch.setattr(iplocate.requests, "get", fake_get)
     return calls
 
 

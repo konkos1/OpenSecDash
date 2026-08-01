@@ -20,8 +20,8 @@ from app.core.template_context import get_setting_value
 from app.core.time import utc_now
 from app.models.core import GeoIPCache
 from app.models.events import Event
-from app.services.geoip.providers import get_provider
-from app.services.geoip.providers.base import GeoIPLookupRequest, GeoIPProvider
+from .providers import get_provider
+from .providers.base import GeoIPLookupRequest, GeoIPProvider
 
 logger = logging.getLogger(__name__)
 
