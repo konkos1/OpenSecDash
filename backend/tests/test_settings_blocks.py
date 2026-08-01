@@ -139,6 +139,23 @@ def test_settings_details_open_only_core_and_place_users_after_branding(settings
     assert page.text.index("Instance Branding") < page.text.index("Sign-in &amp; users")
 
 
+def test_geoip_transport_warning_belongs_to_the_provider_option(settings_client):
+    db, client = settings_client
+    db.add(Setting(key="language", value="de"))
+    db.commit()
+
+    page = client.get("/settings")
+
+    assert "GeoIP aktiviert <button" in page.text
+    assert "GeoIP aktiviert (sendet" not in page.text
+    assert '<option value="ip-api" selected>ip-api.com (unverschlüsselt)</option>' in page.text
+    assert (
+        '<small class="info-text block text-sm mt-1" '
+        'x-show="settings[\'plugin.geoip.provider\'] === \'ip-api\'" x-cloak>'
+        "Nicht gecachte öffentliche IPs werden unverschlüsselt an ip-api.com gesendet.</small>"
+    ) in page.text
+
+
 def test_plugin_settings_refresh_desktop_and_mobile_navigation(settings_client):
     _, client = settings_client
 

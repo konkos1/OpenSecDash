@@ -1,7 +1,7 @@
 # ADR-007: Configuration
 
 > **Implementation status (2026-07-09):** Implemented.
-> Settings are stored in SQLite and rendered through the UI. Plugin metadata/settings drive plugin configuration, including enabled/visible_if behavior.
+> Settings are stored in SQLite and rendered through the UI. Plugin metadata/settings drive plugin configuration, including enabled/visible_if behavior. Select options may declare value-specific information that is rendered below the field for the currently selected value.
 
 
 

@@ -285,6 +285,10 @@ class PluginManager:
                             (value, locale.get(label_key, fallback.get(label_key, label_key)))
                             for value, label_key in setting.options
                         ],
+                        "option_info": [
+                            (value, locale.get(info_key, fallback.get(info_key, info_key)))
+                            for value, info_key in setting.option_info
+                        ],
                         "visible_if": (
                             {
                                 "key": self.setting_key(plugin.metadata.id, visible_if[0]),

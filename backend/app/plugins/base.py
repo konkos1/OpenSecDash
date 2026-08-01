@@ -98,8 +98,9 @@ class PluginSetting:
     """Declarative setting metadata rendered automatically on Settings page.
 
     Plugins define labels/help as translation keys so the backend core does not
-    need plugin-specific UI code. ``visible_if`` references another setting key
-    local to the same plugin.
+    need plugin-specific UI code. ``option_info`` maps option values to translated
+    information shown below the field. ``visible_if`` references another setting
+    key local to the same plugin.
     """
     key: str
     label_key: str
@@ -108,6 +109,7 @@ class PluginSetting:
     default: str = ""
     options: list[tuple[str, str]] = field(default_factory=list)
     visible_if: tuple[str, str] | None = None
+    option_info: list[tuple[str, str]] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
