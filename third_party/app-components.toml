@@ -2,7 +2,10 @@
 # These assets were created for OpenSecDash and are covered by the project
 # license. Keeping the declaration here prevents package-oriented scans from
 # treating them as third-party files with unknown provenance.
-assets = ["backend/app/static/img/**/*.svg"]
+assets = [
+    "backend/app/static/img/**/*.svg",
+    "website/public/**/*.svg",
+]
 
 [[components]]
 name = "Alpine.js"
@@ -49,4 +52,3 @@ license_file_names = ["LICENSE", "LICENSE.BSD"]
 # wheel's LICENSE.txt refers to, but does not contain, the EDL text.
 license = "EDL-1.0"
 extra_license_files = ["third_party/licenses/paho-mqtt-2.1.0/EDL-1.0.txt"]
-

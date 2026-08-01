@@ -789,7 +789,8 @@
     "source_information": "THIRD_PARTY_SOURCE.md and the release source report"
   },
   "first_party_assets": [
-    "backend/app/static/img/**/*.svg"
+    "backend/app/static/img/**/*.svg",
+    "website/public/**/*.svg"
   ],
   "generated_from": [
     "backend/pyproject.toml",

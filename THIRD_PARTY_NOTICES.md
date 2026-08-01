@@ -66,6 +66,7 @@ information is described in `THIRD_PARTY_SOURCE.md`.
 ## First-party asset declaration
 
 - `backend/app/static/img/**/*.svg`
+- `website/public/**/*.svg`
 
 ## License and notice texts
 

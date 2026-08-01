@@ -26,6 +26,10 @@ PYPROJECT_PATH = REPOSITORY_ROOT / "backend" / "pyproject.toml"
 LOCK_PATH = REPOSITORY_ROOT / "backend" / "uv.lock"
 MARKDOWN_OUTPUT = REPOSITORY_ROOT / "THIRD_PARTY_NOTICES.md"
 JSON_OUTPUT = REPOSITORY_ROOT / "backend" / "app" / "legal" / "third-party-notices.json"
+SHIPPED_SVG_ROOTS = (
+    REPOSITORY_ROOT / "backend" / "app" / "static",
+    REPOSITORY_ROOT / "website" / "public",
+)
 
 LICENSE_ALIASES = {
     "annotated-types": "MIT",
@@ -241,9 +245,31 @@ def _python_components(manifest: dict[str, Any]) -> list[Component]:
 
 
 def _validate_first_party_assets(manifest: dict[str, Any]) -> None:
+    declared_assets: set[Path] = set()
     for pattern in manifest["first_party"]["assets"]:
-        if not list(REPOSITORY_ROOT.glob(pattern)):
+        matches = {path for path in REPOSITORY_ROOT.glob(pattern) if path.is_file()}
+        if not matches:
             raise ValueError(f"First-party asset declaration does not match any files: {pattern}")
+        declared_assets.update(matches)
+
+    third_party_assets = {
+        REPOSITORY_ROOT / relative_path
+        for component in manifest["components"]
+        for relative_path in component["distributed_files"]
+        if Path(relative_path).suffix.casefold() == ".svg"
+    }
+    shipped_assets = {
+        path
+        for root in SHIPPED_SVG_ROOTS
+        for path in root.rglob("*.svg")
+        if path.is_file()
+    }
+    uncovered = sorted(shipped_assets - declared_assets - third_party_assets)
+    if uncovered:
+        relative_paths = ", ".join(
+            str(path.relative_to(REPOSITORY_ROOT)) for path in uncovered
+        )
+        raise ValueError(f"Shipped SVG assets lack provenance declarations: {relative_paths}")
 
 
 def _browser_components(manifest: dict[str, Any]) -> list[Component]:
