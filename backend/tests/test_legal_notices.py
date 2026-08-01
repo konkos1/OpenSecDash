@@ -30,6 +30,12 @@ def test_generated_notices_cover_runtime_browser_and_first_party_assets():
     )
     assert components[("certifi", "2026.6.17")]["source_archive_size"] == 134594
     assert all(component["documents"] for component in notices["components"])
+    assert all(
+        line == line.rstrip()
+        for component in notices["components"]
+        for document in component["documents"]
+        for line in document["text"].splitlines()
+    )
 
 
 def test_every_shipped_svg_has_a_provenance_declaration():
@@ -61,3 +67,4 @@ def test_human_readable_notices_include_project_and_dependency_licenses():
     assert "Eclipse Distribution License - v 1.0" in notice
     assert "Zero-Clause BSD" in notice
     assert "opensecdash-copyleft-sources.tar.gz" in third_party_source_text()
+    assert all(line == line.rstrip() for line in notice.splitlines())

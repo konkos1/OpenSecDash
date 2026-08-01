@@ -81,6 +81,11 @@ def _read_toml(path: Path) -> dict[str, Any]:
         return tomllib.load(handle)
 
 
+def _normalize_document_text(value: str) -> str:
+    normalized = value.replace("\r\n", "\n").replace("\r", "\n")
+    return "\n".join(line.rstrip() for line in normalized.split("\n")).strip()
+
+
 def _runtime_roots() -> list[str]:
     project = _read_toml(PYPROJECT_PATH)["project"]
     return [Requirement(value).name for value in project["dependencies"]]
@@ -179,7 +184,7 @@ def _read_distribution_documents(
             continue
         path = Path(str(distribution.locate_file(relative_path)))
         try:
-            text = path.read_text(encoding="utf-8").strip()
+            text = _normalize_document_text(path.read_text(encoding="utf-8"))
         except (OSError, UnicodeDecodeError) as error:
             raise ValueError(f"Cannot read license evidence from {path}: {error}") from error
         if not text:
@@ -197,7 +202,7 @@ def _read_distribution_documents(
         )
     for relative_path in override.get("extra_license_files", []):
         path = REPOSITORY_ROOT / relative_path
-        text = path.read_text(encoding="utf-8").strip()
+        text = _normalize_document_text(path.read_text(encoding="utf-8"))
         documents.append(LicenseDocument(name=path.name, text=text, kind="license"))
     if not any(document.kind == "license" for document in documents):
         raise ValueError(
@@ -295,7 +300,7 @@ def _browser_components(manifest: dict[str, Any]) -> list[Component]:
             documents.append(
                 LicenseDocument(
                     name=path.name,
-                    text=path.read_text(encoding="utf-8").strip(),
+                    text=_normalize_document_text(path.read_text(encoding="utf-8")),
                     kind="license",
                 )
             )

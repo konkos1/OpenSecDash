@@ -12,6 +12,15 @@ const checkOnly = process.argv.includes('--check')
 const allowedLicenses = new Set(['BSD-2-Clause', 'BSD-3-Clause', 'CC0-1.0', 'ISC', 'MIT'])
 const evidencePattern = /^(license|licence|copying|notice|copyright)([._-].*)?$/i
 
+function normalizeEvidence(value) {
+  return value
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map(line => line.trimEnd())
+    .join('\n')
+    .trim()
+}
+
 function readPackageJson(packagePath) {
   const filePath = path.join(packagePath, 'package.json')
   return fs.existsSync(filePath)
@@ -23,7 +32,7 @@ function fallbackEvidence(lockKey, licenseExpression) {
   if (lockKey.startsWith('node_modules/@algolia/') || lockKey.startsWith('node_modules/@docsearch/')) {
     return [{
       name: 'Algolia MIT license',
-      text: fs.readFileSync(path.join(websiteDirectory, 'node_modules', '@algolia', 'abtesting', 'LICENSE'), 'utf8').trim()
+      text: normalizeEvidence(fs.readFileSync(path.join(websiteDirectory, 'node_modules', '@algolia', 'abtesting', 'LICENSE'), 'utf8'))
     }]
   }
   if (lockKey === 'node_modules/@iconify-json/simple-icons' && licenseExpression === 'CC0-1.0') {
@@ -44,7 +53,7 @@ function licenseEvidence(lockKey, packagePath, licenseExpression) {
     .filter(entry => entry.isFile() && evidencePattern.test(entry.name))
     .map(entry => ({
       name: entry.name,
-      text: fs.readFileSync(path.join(packagePath, entry.name), 'utf8').trim()
+      text: normalizeEvidence(fs.readFileSync(path.join(packagePath, entry.name), 'utf8'))
     }))
     .filter(entry => entry.text)
   return evidence.length ? evidence : fallbackEvidence(lockKey, licenseExpression)
@@ -149,4 +158,3 @@ if (actual !== expected) {
   fs.mkdirSync(path.dirname(outputPath), { recursive: true })
   fs.writeFileSync(outputPath, expected)
 }
-
