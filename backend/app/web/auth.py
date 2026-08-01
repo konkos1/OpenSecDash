@@ -37,7 +37,16 @@ from app.web.templates import templates
 SESSION_COOKIE = "osd_session"
 ROLE_ORDER = {"viewer": 0, "operator": 1, "admin": 2}
 _OPERATIONAL_PATHS = {"/health", "/ready"}
-_PUBLIC_PATHS = {"/login", "/auth/oidc/login", "/auth/oidc/callback", "/manifest.webmanifest", "/sw.js"}
+_PUBLIC_PATHS = {
+    "/login",
+    "/auth/oidc/login",
+    "/auth/oidc/callback",
+    "/legal",
+    "/legal/project-license",
+    "/legal/third-party-notices",
+    "/manifest.webmanifest",
+    "/sw.js",
+}
 # Reachable only while the onboarding is actually open - deliberately not part
 # of the permanently public allowlist above.
 _ONBOARDING_PATH = "/onboarding"
@@ -297,7 +306,7 @@ async def auth_gating_middleware(request: Request, call_next: Callable[[Request]
             request.state.auth_enabled = False
             request.state.auth_method = None
             request.state.user = None
-            if request.url.path.startswith("/static/"):
+            if request.url.path.startswith("/static/") or request.url.path.startswith("/legal"):
                 return await call_next(request)
             if request.url.path == _ONBOARDING_PATH:
                 return _protect_authenticated_response(await call_next(request))

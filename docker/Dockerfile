@@ -37,7 +37,8 @@ RUN addgroup --system opensecdash \
 COPY --from=builder --chown=opensecdash:opensecdash /app/backend/.venv /app/backend/.venv
 COPY --chown=opensecdash:opensecdash backend /app/backend
 COPY --chown=opensecdash:opensecdash plugins /app/plugins
-COPY --chown=opensecdash:opensecdash README.md LICENSE /app/
+COPY --chown=opensecdash:opensecdash README.md LICENSE THIRD_PARTY_NOTICES.md /app/
+COPY --chown=opensecdash:opensecdash third_party /app/third_party
 COPY docker/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh

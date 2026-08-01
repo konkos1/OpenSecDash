@@ -132,6 +132,8 @@ tbody tr:hover { background: rgba(15, 23, 42, .65); }
 .muted { color: #94a3b8; }
 .info-text { color: #94a3b8; }
 .info-text::before { background-color: currentColor; content: ""; display: inline-block; height: 1em; margin-right: .3rem; mask: url('/static/img/info.svg') center / contain no-repeat; vertical-align: -.125em; -webkit-mask: url('/static/img/info.svg') center / contain no-repeat; width: 1em; }
+
+.legal-license-text { white-space: pre-wrap; word-break: break-word; }
 .settings-disabled { opacity: .52; }
 .settings-disabled .input { cursor: not-allowed; }
 .settings-disabled .help { opacity: 1; }
