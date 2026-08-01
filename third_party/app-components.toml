@@ -1,0 +1,52 @@
+[first_party]
+# These assets were created for OpenSecDash and are covered by the project
+# license. Keeping the declaration here prevents package-oriented scans from
+# treating them as third-party files with unknown provenance.
+assets = ["backend/app/static/img/**/*.svg"]
+
+[[components]]
+name = "Alpine.js"
+version = "3.15.0"
+license = "MIT"
+homepage = "https://alpinejs.dev"
+source = "https://github.com/alpinejs/alpine/tree/v3.15.0"
+source_archive = "https://registry.npmjs.org/alpinejs/-/alpinejs-3.15.0.tgz"
+distributed_files = ["backend/app/static/vendor/alpinejs.min.js"]
+sha256 = ["e041f1b639d1e6b2fc2736d8d7638a409afcd444a6ec90446f8f4e44fa36f406"]
+license_files = ["third_party/licenses/alpinejs-3.15.0/LICENSE.md"]
+
+[[components]]
+name = "htmx"
+version = "1.9.12"
+license = "0BSD"
+homepage = "https://htmx.org"
+source = "https://github.com/bigskysoftware/htmx/tree/v1.9.12"
+source_archive = "https://registry.npmjs.org/htmx.org/-/htmx.org-1.9.12.tgz"
+distributed_files = ["backend/app/static/vendor/htmx.min.js"]
+sha256 = ["449317ade7881e949510db614991e195c3a099c4c791c24dacec55f9f4a2a452"]
+license_files = ["third_party/licenses/htmx-1.9.12/LICENSE"]
+
+[[components]]
+name = "Tailwind CSS"
+version = "3.4.17"
+license = "MIT"
+homepage = "https://tailwindcss.com"
+source = "https://github.com/tailwindlabs/tailwindcss/tree/v3.4.17"
+source_archive = "https://registry.npmjs.org/tailwindcss/-/tailwindcss-3.4.17.tgz"
+distributed_files = ["backend/app/static/css/tailwind.css"]
+# The generated stylesheet is expected to change when templates gain or lose
+# utilities, so its content is verified by the existing Tailwind rebuild gate
+# instead of a fixed digest in this manifest.
+license_files = ["third_party/licenses/tailwindcss-3.4.17/LICENSE"]
+
+[python_overrides."cryptography"]
+license = "BSD-3-Clause"
+license_file_names = ["LICENSE", "LICENSE.BSD"]
+
+[python_overrides."paho-mqtt"]
+# Paho offers EPL-2.0 or EDL-1.0. OpenSecDash redistributes it under the
+# permissive EDL option and includes that license text explicitly because the
+# wheel's LICENSE.txt refers to, but does not contain, the EDL text.
+license = "EDL-1.0"
+extra_license_files = ["third_party/licenses/paho-mqtt-2.1.0/EDL-1.0.txt"]
+

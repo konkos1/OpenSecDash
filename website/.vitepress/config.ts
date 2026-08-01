@@ -127,7 +127,7 @@ export default defineConfig({
       }
     ],
     footer: {
-      message: 'Released under the GNU Affero General Public License v3.0.',
+      message: 'Released under the GNU Affero General Public License v3.0. [Third-party licenses](/third-party-notices.txt)',
       copyright: 'Copyright © konkos1 & OpenSecDash contributors'
     }
   }
