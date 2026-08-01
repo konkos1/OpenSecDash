@@ -1,7 +1,9 @@
 # ADR-013: Plugin Lifecycle & Plugin API
 
 > **Implementation status (2026-07-09):** Implemented.
-> Plugin API v2 uses package-based plugins, plugin manager orchestration, PluginContext, web hooks, IP panel hooks, duplicate rules, enrichment hooks, and action hooks.
+> Plugin API v2 uses package-based plugins, plugin manager orchestration, PluginContext, web hooks, IP panel hooks, duplicate rules, and action hooks.
+>
+> **Update (2026-08-01):** Plugin API v2 also includes the batch-oriented enrichment hook.
 
 
 

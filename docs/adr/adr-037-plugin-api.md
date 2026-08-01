@@ -1,7 +1,9 @@
 # ADR-037: Plugin API
 
 > **Implementation status (2026-07-09):** Implemented.
-> Plugin API v2 is implemented with package layout, PluginMetadata, settings, lifecycle hooks, capabilities, PluginContext, web hooks, IP panel hooks, dedupe hooks, and enrichment/action/export hooks.
+> Plugin API v2 is implemented with package layout, PluginMetadata, settings, lifecycle hooks, capabilities, PluginContext, web hooks, IP panel hooks, dedupe hooks, and action/export hooks.
+>
+> **Update (2026-08-01):** Plugin API v2 also includes the batch-oriented enrichment hook.
 
 
 
