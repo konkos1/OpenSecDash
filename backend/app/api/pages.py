@@ -26,7 +26,7 @@ from app.core.time import utc_now
 from app.core.version import get_app_version
 from app.database.dependencies import get_db
 from app.models.assets import Asset
-from app.models.core import Action, AggregationDaily, AggregationMonthly, Datasource, Diagnostic, Insight, Notification, NotificationRule, PluginRecord
+from app.models.core import Action, AggregationDaily, AggregationMonthly, Datasource, Diagnostic, GeoIPCache, Insight, Notification, NotificationRule, PluginRecord
 from app.models.events import Event
 from app.models.saved_views import SavedView
 from app.models.settings import InstanceFile, Setting
@@ -1692,6 +1692,48 @@ def _debug_notification_lines(db: Session) -> list[str]:
     return lines
 
 
+def _debug_geoip_enrichment_lines(db: Session) -> list[str]:
+    """Return useful GeoIP aggregates without lookup or location data."""
+    now = utc_now().replace(tzinfo=None)
+    cache_query = db.query(GeoIPCache)
+    last_success = db.query(func.max(GeoIPCache.looked_up_at)).filter(GeoIPCache.error.is_(None)).scalar()
+    last_error = db.query(func.max(GeoIPCache.last_error_at)).filter(GeoIPCache.error.isnot(None)).scalar()
+    lines = [
+        _debug_line("Enabled", get_setting_value(db, "plugin.geoip.enabled", "false") == "true"),
+        _debug_line("Selected provider", get_setting_value(db, "plugin.geoip.provider", "iplocate")),
+        _debug_line("Events checked", db.query(Event).filter(Event.geoip_checked == True).count()),  # noqa: E712
+        _debug_line(
+            "Events pending with IP",
+            db.query(Event).filter(Event.geoip_checked == False, Event.ip.isnot(None), Event.ip != "").count(),  # noqa: E712
+        ),
+        _debug_line(
+            "Events unchecked without IP",
+            db.query(Event).filter(Event.geoip_checked == False, or_(Event.ip.is_(None), Event.ip == "")).count(),  # noqa: E712
+        ),
+        _debug_line("Events with country", db.query(Event).filter(Event.country.isnot(None), Event.country != "").count()),
+        _debug_line("Events with city", db.query(Event).filter(Event.city.isnot(None), Event.city != "").count()),
+        _debug_line("Events with ASN", db.query(Event).filter(Event.asn.isnot(None), Event.asn != "").count()),
+        _debug_line("Events with ISP", db.query(Event).filter(Event.isp.isnot(None), Event.isp != "").count()),
+        _debug_line("Cache rows", cache_query.count()),
+        _debug_line("Cache successful", cache_query.filter(GeoIPCache.error.is_(None)).count()),
+        _debug_line("Cache errors", cache_query.filter(GeoIPCache.error.isnot(None)).count()),
+        _debug_line("Cache expired", cache_query.filter(GeoIPCache.expires_at <= now).count()),
+        _debug_line("Last successful cache lookup", last_success or "not available"),
+        _debug_line("Last cache error", last_error or "not available"),
+    ]
+    providers = [provider for (provider,) in db.query(GeoIPCache.provider).distinct().order_by(GeoIPCache.provider).all()]
+    for provider in providers:
+        provider_query = cache_query.filter(GeoIPCache.provider == provider)
+        lines.extend(
+            [
+                _debug_line(f"Provider {provider} rows", provider_query.count()),
+                _debug_line(f"Provider {provider} successful", provider_query.filter(GeoIPCache.error.is_(None)).count()),
+                _debug_line(f"Provider {provider} errors", provider_query.filter(GeoIPCache.error.isnot(None)).count()),
+            ]
+        )
+    return lines
+
+
 def _debug_branding_lines(db: Session) -> list[str]:
     files = {item.kind: item for item in db.query(InstanceFile).all()}
     lines: list[str] = []
@@ -1760,6 +1802,7 @@ def build_debug_report_files(db: Session) -> dict[str, str]:
                 for item in db.query(Diagnostic).order_by(Diagnostic.plugin, Diagnostic.component).all()
             ],
         ),
+        "geoip-enrichment.txt": _debug_file("GeoIP enrichment", _debug_geoip_enrichment_lines(db)),
         "datasources.txt": _debug_file(
             "Datasources",
             [

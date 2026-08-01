@@ -6,7 +6,8 @@ from app.api.pages import build_debug_report, build_debug_report_zip
 from app.core.logging import redact_sensitive, redacted_setting_value
 from app.core.time import utc_now
 from app.core.version import get_app_version
-from app.models.core import Diagnostic, Notification, NotificationRule, PluginRecord
+from app.models.core import Diagnostic, GeoIPCache, Notification, NotificationRule, PluginRecord
+from app.models.events import Event
 from app.models.saved_views import SavedView
 from app.models.settings import InstanceFile, Setting
 from app.models.users import ExternalIdentity, User, UserPreference, UserSession
@@ -99,6 +100,7 @@ def test_debug_report_redacts_sensitive_settings_and_log_tail(db_session, tmp_pa
             "settings.txt",
             "plugins.txt",
             "diagnostics.txt",
+            "geoip-enrichment.txt",
             "datasources.txt",
             "database-counts.txt",
             "runtime-environment.txt",
@@ -223,6 +225,75 @@ def test_debug_report_never_exposes_the_stored_iplocate_api_key(db_session):
     assert dummy_key not in diagnostics
     # Not even the encrypted representation is handed out.
     assert "enc:v1:" not in report
+
+
+def test_debug_report_summarizes_geoip_without_lookup_or_location_data(db_session):
+    now = utc_now().replace(tzinfo=None)
+    db_session.add_all(
+        [
+            Setting(key="plugin.geoip.enabled", value="true"),
+            Setting(key="plugin.geoip.provider", value="iplocate"),
+            Event(plugin="test", event_type="access.allowed", ip="8.8.8.8", geoip_checked=False),
+            Event(
+                plugin="test",
+                event_type="access.allowed",
+                ip="1.1.1.1",
+                country="US",
+                city="Private City",
+                asn="AS64500",
+                isp="Private ISP",
+                geoip_checked=True,
+            ),
+            Event(plugin="test", event_type="system.test", ip=None, geoip_checked=False),
+            GeoIPCache(
+                lookup_key="8.8.8.8",
+                provider="iplocate",
+                country="US",
+                city="Private Cache City",
+                asn="AS64501",
+                isp="Private Cache ISP",
+                looked_up_at=now - timedelta(minutes=2),
+                expires_at=now + timedelta(days=1),
+            ),
+            GeoIPCache(
+                lookup_key="1.1.1.1",
+                provider="iplocate",
+                looked_up_at=now - timedelta(minutes=1),
+                expires_at=now - timedelta(seconds=1),
+                error="provider-private-detail token=private-provider-token for 1.1.1.1",
+                last_error_at=now - timedelta(minutes=1),
+            ),
+        ]
+    )
+    db_session.commit()
+
+    with zipfile.ZipFile(io.BytesIO(build_debug_report_zip(db_session))) as archive:
+        geoip = archive.read("geoip-enrichment.txt").decode("utf-8")
+
+    assert "Enabled: True" in geoip
+    assert "Selected provider: iplocate" in geoip
+    assert "Events checked: 1" in geoip
+    assert "Events pending with IP: 1" in geoip
+    assert "Events unchecked without IP: 1" in geoip
+    assert "Events with country: 1" in geoip
+    assert "Cache rows: 2" in geoip
+    assert "Cache successful: 1" in geoip
+    assert "Cache errors: 1" in geoip
+    assert "Cache expired: 1" in geoip
+    assert "Provider iplocate rows: 2" in geoip
+    for private_value in (
+        "8.8.8.8",
+        "1.1.1.1",
+        "Private City",
+        "Private ISP",
+        "Private Cache City",
+        "Private Cache ISP",
+        "AS64500",
+        "AS64501",
+        "provider-private-detail",
+        "private-provider-token",
+    ):
+        assert private_value not in geoip
 
 
 def test_debug_report_rejects_untrusted_oidc_diagnostic_values(db_session):
