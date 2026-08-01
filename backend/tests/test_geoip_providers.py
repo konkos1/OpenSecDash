@@ -176,7 +176,9 @@ def test_iplocate_sends_the_fixed_eu_request_with_a_header_key(monkeypatch):
 
     args, kwargs = calls[0]
     assert args[0] == "https://eu-api.iplocate.io/api/lookup/203.0.113.7"
-    assert kwargs["params"] == {"include": "country_code,city,asn,company,hosting"}
+    assert kwargs["params"] == {
+        "include": "country_code,city,asn.asn,asn.name,company.name,hosting.provider"
+    }
     assert kwargs["headers"] == {"X-API-Key": DUMMY_KEY}
     assert kwargs["timeout"] == 9
     assert kwargs["stream"] is True

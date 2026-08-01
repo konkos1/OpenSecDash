@@ -23,10 +23,9 @@ from app.services.geoip.providers.base import (
 PROVIDER_ID = "iplocate"
 API_KEY_SETTING = "iplocate_api_key"
 LOOKUP_URL = "https://eu-api.iplocate.io/api/lookup/{ip}"
-# Only the data OpenSecDash stores. The endpoint would otherwise also return
-# threat, VPN/proxy, abuse contact and coordinate information we neither need
-# nor want to receive.
-RESPONSE_FIELDS = "country_code,city,asn,company,hosting"
+# Only the values OpenSecDash stores. Selecting nested fields avoids receiving
+# the other network, domain and classification data in these provider objects.
+RESPONSE_FIELDS = "country_code,city,asn.asn,asn.name,company.name,hosting.provider"
 
 
 def lookup(request: GeoIPLookupRequest) -> GeoIPLookupResult:
