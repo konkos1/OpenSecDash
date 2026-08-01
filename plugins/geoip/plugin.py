@@ -5,7 +5,7 @@ import time
 
 from app.plugins.base import EnrichmentPlugin, PluginContext, PluginMetadata, PluginSetting
 
-from .services import cleanup_expired_cache, enrich_pending_events
+from .services import cleanup_expired_cache, enrich_pending_event_batch
 
 logger = logging.getLogger(__name__)
 CACHE_CLEANUP_INTERVAL_SECONDS = 60
@@ -99,6 +99,7 @@ class Plugin(EnrichmentPlugin):
 
     def __init__(self) -> None:
         self._last_cache_cleanup = 0.0
+        self._next_event_before_id: int | None = None
 
     async def health(self, context: PluginContext) -> dict[str, str]:
         # Reports the configured transport only - never a probe request, so the
@@ -128,4 +129,6 @@ class Plugin(EnrichmentPlugin):
             if deleted:
                 logger.debug("Removed %d expired GeoIP cache entries", deleted)
             self._last_cache_cleanup = now
-        return enrich_pending_events(context.db, limit)
+        batch = enrich_pending_event_batch(context.db, limit, self._next_event_before_id)
+        self._next_event_before_id = batch.next_before_id
+        return batch.processed

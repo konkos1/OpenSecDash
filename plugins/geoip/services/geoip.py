@@ -38,6 +38,12 @@ class _GeoIPLookupOutcome:
     stop_batch: bool = False
 
 
+@dataclass(frozen=True)
+class GeoIPEnrichmentBatch:
+    processed: int
+    next_before_id: int | None
+
+
 def geoip_enabled(db: Session) -> bool:
     return get_setting_value(db, "plugin.geoip.enabled", "false") == "true"
 
@@ -312,7 +318,7 @@ def _reconcile_country_derived_data(db: Session, event: Event) -> None:
     handle_event(db, event)
 
 
-def enrich_pending_events(db: Session, limit: int = 50) -> int:
+def enrich_pending_event_batch(db: Session, limit: int = 50, before_id: int | None = None) -> GeoIPEnrichmentBatch:
     """Backfill GeoIP fields for recently stored events, a few at a time.
 
     Ingestion (``store_event``) never enriches inline anymore - a fresh import
@@ -328,14 +334,18 @@ def enrich_pending_events(db: Session, limit: int = 50) -> int:
     ``app.database.session`` is acquired automatically on each commit.
     """
     if not geoip_enabled(db):
-        return 0
-    events = (
-        db.query(Event)
-        .filter(Event.geoip_checked == False, Event.ip.isnot(None), Event.ip != "")  # noqa: E712
-        .order_by(Event.id.desc())
-        .limit(limit)
-        .all()
-    )
+        return GeoIPEnrichmentBatch(0, before_id)
+    query = db.query(Event).filter(Event.geoip_checked == False, Event.ip.isnot(None), Event.ip != "")  # noqa: E712
+    if before_id is not None:
+        query = query.filter(Event.id < before_id)
+    events = query.order_by(Event.id.desc()).limit(limit).all()
+    if not events:
+        # Reaching the oldest pending row completes one scan. The plugin wraps
+        # to the newest rows on its next tick, when cached failures may have
+        # expired and newly ingested events can be considered.
+        return GeoIPEnrichmentBatch(0, None)
+
+    next_before_id = events[-1].id
     processed = 0
     for event in events:
         previous_country = event.country
@@ -358,5 +368,13 @@ def enrich_pending_events(db: Session, limit: int = 50) -> int:
             processed += 1
         db.commit()
         if outcome.stop_batch:
-            break
-    return processed
+            # A missing/rejected credential affects the provider rather than
+            # one address. Keep the cursor in place so replacing the key makes
+            # this exact page eligible again on the next tick.
+            return GeoIPEnrichmentBatch(processed, before_id)
+    return GeoIPEnrichmentBatch(processed, next_before_id)
+
+
+def enrich_pending_events(db: Session, limit: int = 50) -> int:
+    """Compatibility wrapper for one newest-first enrichment batch."""
+    return enrich_pending_event_batch(db, limit).processed

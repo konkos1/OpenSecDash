@@ -2,7 +2,9 @@
 
 from .geoip import (
     ERROR_CACHE_TTL,
+    GeoIPEnrichmentBatch,
     cleanup_expired_cache,
+    enrich_pending_event_batch,
     enrich_event_values,
     enrich_pending_events,
     geoip_enabled,
@@ -27,6 +29,7 @@ from .providers.base import (
 __all__ = [
     "ERROR_CACHE_TTL",
     "GEOIP_RESPONSE_MAX_BYTES",
+    "GeoIPEnrichmentBatch",
     "PROVIDERS",
     "GeoIPLookupRequest",
     "GeoIPLookupResult",
@@ -34,6 +37,7 @@ __all__ = [
     "GeoIPProvider",
     "GeoIPProviderError",
     "cleanup_expired_cache",
+    "enrich_pending_event_batch",
     "enrich_event_values",
     "enrich_pending_events",
     "geoip_enabled",

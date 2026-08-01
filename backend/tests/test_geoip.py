@@ -1,5 +1,7 @@
+import asyncio
 import json
 from datetime import timedelta
+from types import SimpleNamespace
 
 from app.core.time import utc_now
 from app.models.core import AggregationDaily, GeoIPCache, Insight, Notification, NotificationRule
@@ -10,6 +12,7 @@ from app.services.notifications import invalidate_rules_cache
 from conftest import import_plugin_module
 
 geoip_service = import_plugin_module("geoip", "services.geoip")
+geoip_plugin = import_plugin_module("geoip", "plugin")
 iplocate = import_plugin_module("geoip", "services.providers.iplocate")
 
 enrich_event_values = geoip_service.enrich_event_values
@@ -305,6 +308,47 @@ def test_enrich_pending_events_retries_after_cached_provider_failure_expires(db_
     db_session.refresh(event)
     assert event.geoip_checked is True
     assert event.country == "US"
+
+
+def test_geoip_plugin_rotates_past_failed_newest_events(db_session, monkeypatch):
+    db_session.add_all(
+        [
+            Setting(key="plugin.geoip.enabled", value="true"),
+            Setting(key="plugin.geoip.provider", value="iplocate"),
+            Setting(key="plugin.geoip.iplocate_api_key", value="test-key"),
+            Event(source="test", plugin="traefik_log", event_type="access.allowed", ip="1.1.1.1", geoip_checked=False),
+            Event(source="test", plugin="traefik_log", event_type="access.allowed", ip="8.8.4.4", geoip_checked=False),
+            Event(source="test", plugin="traefik_log", event_type="access.allowed", ip="8.8.8.8", geoip_checked=False),
+            Event(source="test", plugin="traefik_log", event_type="access.allowed", ip="9.9.9.9", geoip_checked=False),
+        ]
+    )
+    db_session.commit()
+
+    class _Response:
+        headers: dict[str, str] = {}
+
+        def __init__(self, status_code: int):
+            self.status_code = status_code
+
+        def iter_content(self, chunk_size):
+            yield b'{"country_code":"US"}'
+
+        def close(self):
+            return None
+
+    def response_by_ip(url, **kwargs):
+        return _Response(503 if url.endswith(("8.8.8.8", "9.9.9.9")) else 200)
+
+    monkeypatch.setattr(iplocate.requests, "get", response_by_ip)
+    plugin = geoip_plugin.Plugin()
+    context = SimpleNamespace(db=db_session)
+
+    assert asyncio.run(plugin.enrich(context, 2)) == 0
+    assert db_session.query(Event).filter_by(geoip_checked=True).count() == 0
+
+    assert asyncio.run(plugin.enrich(context, 2)) == 2
+    completed = db_session.query(Event).filter_by(geoip_checked=True).order_by(Event.id).all()
+    assert [event.ip for event in completed] == ["1.1.1.1", "8.8.4.4"]
 
 
 def test_enrich_pending_events_ignores_already_checked_events(db_session):
