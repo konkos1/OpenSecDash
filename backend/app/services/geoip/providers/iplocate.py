@@ -35,22 +35,30 @@ def lookup(request: GeoIPLookupRequest) -> GeoIPLookupResult:
         # No anonymous fallback: an unconfigured provider fails before any
         # address leaves the instance.
         raise GeoIPProviderError("IPLocate API key is not configured")
-    response = requests.get(
-        LOOKUP_URL.format(ip=request.ip),
-        params={"include": RESPONSE_FIELDS},
-        headers={"X-API-Key": api_key},
-        timeout=request.timeout,
-        stream=True,
-        allow_redirects=False,
-        verify=True,
-    )
+    try:
+        response = requests.get(
+            LOOKUP_URL.format(ip=request.ip),
+            params={"include": RESPONSE_FIELDS},
+            headers={"X-API-Key": api_key},
+            timeout=request.timeout,
+            stream=True,
+            allow_redirects=False,
+            verify=True,
+        )
+    except requests.RequestException:
+        # Request preparation errors may repeat the header value, while network
+        # errors may contain the full URL. Neither belongs in the cache or logs.
+        raise GeoIPProviderError("IPLocate request could not be sent") from None
     try:
         if response.status_code != 200:
             # Deliberately not raise_for_status(): its message repeats the full
             # request URL, which would put the looked-up IP into the cached
             # error and the log line.
             raise _status_error(response.status_code)
-        payload = read_capped_json(response, max_bytes=GEOIP_RESPONSE_MAX_BYTES, source="GeoIP provider")
+        try:
+            payload = read_capped_json(response, max_bytes=GEOIP_RESPONSE_MAX_BYTES, source="GeoIP provider")
+        except requests.RequestException:
+            raise GeoIPProviderError("IPLocate response could not be read") from None
     finally:
         response.close()
     if not isinstance(payload, dict):

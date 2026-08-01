@@ -196,6 +196,56 @@ def test_iplocate_needs_a_key_before_any_request(monkeypatch):
             iplocate.lookup(_request(settings=settings))
 
 
+@pytest.mark.parametrize(
+    ("failure", "message"),
+    [
+        (
+            iplocate.requests.exceptions.InvalidHeader(
+                f"Invalid header value containing {DUMMY_KEY}"
+            ),
+            "request could not be sent",
+        ),
+        (
+            iplocate.requests.exceptions.ConnectionError(
+                "failed for https://eu-api.iplocate.io/api/lookup/203.0.113.7"
+            ),
+            "request could not be sent",
+        ),
+    ],
+)
+def test_iplocate_normalizes_request_failures_without_key_or_url(monkeypatch, failure, message):
+    def fail_request(*args, **kwargs):
+        raise failure
+
+    monkeypatch.setattr(iplocate.requests, "get", fail_request)
+
+    with pytest.raises(GeoIPProviderError) as raised:
+        iplocate.lookup(_iplocate_request())
+
+    text = str(raised.value)
+    assert message in text
+    assert DUMMY_KEY not in text
+    assert "203.0.113.7" not in text
+    assert "eu-api.iplocate.io" not in text
+
+
+def test_iplocate_normalizes_stream_failures_and_closes_response(monkeypatch):
+    class BrokenResponse(FakeResponse):
+        def iter_content(self, chunk_size):
+            raise iplocate.requests.exceptions.ConnectionError(
+                "failed for https://eu-api.iplocate.io/api/lookup/203.0.113.7"
+            )
+
+    response = BrokenResponse(b"")
+    _patch_get(monkeypatch, response, iplocate)
+
+    with pytest.raises(GeoIPProviderError) as raised:
+        iplocate.lookup(_iplocate_request())
+
+    assert str(raised.value) == "IPLocate response could not be read"
+    assert response.closed is True
+
+
 def test_iplocate_fills_all_four_fields_from_a_valid_answer(monkeypatch):
     payload = {
         "country_code": " de ",
