@@ -2152,22 +2152,38 @@ async def save_plugin_settings(plugin_id: str, request: Request, db: Session = D
         str(setting["key"]): str(setting["type"])
         for setting in plugin_group["settings"]
     }
-    plugin_source_types = {
-        key: str(value)
-        for key, value in form.items()
-        if key in plugin_setting_types and key.endswith(".source_type")
-    }
+    submitted = {key: str(value) for key, value in form.items() if key in plugin_setting_types}
+
     def _save() -> None:
-        for key, value in form.items():
-            if key not in plugin_setting_types:
-                continue
-            text_value = str(value)
+        # The browser disables fields whose conditions are not met; the same
+        # boundary is enforced here, so a hand-crafted post cannot write a
+        # setting that is hidden in the resulting state.
+        writable = get_plugin_manager().writable_settings(db, plugin_id, submitted)
+        source_types = {key: value for key, value in writable.items() if key.endswith(".source_type")}
+        for key, text_value in writable.items():
             source_type_key = key.removesuffix(".source") + ".source_type"
-            if plugin_setting_types[key] == "url" or (key.endswith(".source") and plugin_source_types.get(source_type_key) == "url"):
+            if plugin_setting_types[key] == "url" or (key.endswith(".source") and source_types.get(source_type_key) == "url"):
                 text_value = clean_url_value(text_value)
+            # An empty secret field keeps the stored secret: the page never
+            # renders it back, so an empty post means "unchanged", not "clear".
+            # Clearing is the explicit delete action below.
+            if plugin_setting_types[key] == "password" and not text_value:
+                continue
             save_setting(db, key, text_value)
         db.commit()
         get_plugin_manager().refresh_health_diagnostics(db)
 
     await asyncio.to_thread(_save)
+    return RedirectResponse(url="/settings", status_code=303)
+
+
+@router.post("/settings/plugins/{plugin_id}/secrets/{short_key}/delete")
+async def delete_plugin_secret(plugin_id: str, short_key: str, db: Session = Depends(get_db)):
+    def _delete() -> None:
+        if not get_plugin_manager().clear_plugin_secret(db, plugin_id, short_key):
+            return
+        db.commit()
+        get_plugin_manager().refresh_health_diagnostics(db)
+
+    await asyncio.to_thread(_delete)
     return RedirectResponse(url="/settings", status_code=303)

@@ -5,7 +5,7 @@ import logging
 import json
 import time
 from pathlib import Path
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.orm import Session
@@ -29,6 +29,7 @@ from app.services.insight_rules import import_ruleset, invalidate_active_rules_c
 from app.services.asset_updates import refresh_asset_updates
 from app.services.self_update import run_self_update_check
 from app.services.notifications import dispatch_pending_notifications
+from app.services.settings import save_setting
 
 
 logger = logging.getLogger(__name__)
@@ -251,20 +252,106 @@ class PluginManager:
     def setting_key(plugin_id: str, key: str) -> str:
         return f"plugin.{plugin_id}.{key}"
 
+    @staticmethod
+    def _effective_conditions(plugin_id: str, setting: PluginSetting, has_enabled_toggle: bool) -> tuple[tuple[str, str], ...]:
+        """The setting's conditions as full-key pairs, AND-combined.
+
+        A setting without its own condition inherits the implicit
+        ``enabled=true`` rule (ADR-007) when the plugin has that toggle.
+        """
+        conditions = setting.conditions()
+        if not conditions and has_enabled_toggle and setting.key != "enabled":
+            conditions = (("enabled", "true"),)
+        return tuple((PluginManager.setting_key(plugin_id, key), value) for key, value in conditions)
+
+    def _effective_conditions_by_key(self, plugin: Plugin) -> dict[str, tuple[tuple[str, str], ...]]:
+        has_enabled_toggle = any(setting.key == "enabled" for setting in plugin.settings)
+        return {
+            self.setting_key(plugin.metadata.id, setting.key): self._effective_conditions(
+                plugin.metadata.id, setting, has_enabled_toggle
+            )
+            for setting in plugin.settings
+        }
+
+    def _stored_settings(self, db: Session, plugin: Plugin) -> dict[str, str]:
+        return {
+            self.setting_key(plugin.metadata.id, setting.key): get_setting_value(
+                db, self.setting_key(plugin.metadata.id, setting.key), setting.default
+            )
+            for setting in plugin.settings
+        }
+
+    @staticmethod
+    def _conditions_met(conditions: tuple[tuple[str, str], ...], state: Mapping[str, str]) -> bool:
+        return all(state.get(key, "") == expected for key, expected in conditions)
+
+    def writable_settings(self, db: Session, plugin_id: str, submitted: Mapping[str, str]) -> dict[str, str]:
+        """Reduce a posted plugin form to the settings it is actually allowed to write.
+
+        The browser hides and disables conditional fields, but a hand-crafted
+        post must hit the same boundary. Control values (``enabled``,
+        ``provider``, ...) are resolved first, so enabling a plugin and filling
+        the settings this unlocks still works in a single form post, while a
+        value that the resulting state hides stays unwritable regardless of the
+        order it was posted in.
+        """
+        plugin = self.plugins.get(plugin_id)
+        if plugin is None:
+            return {}
+        conditions = self._effective_conditions_by_key(plugin)
+        stored = self._stored_settings(db, plugin)
+        candidates = {key: str(value) for key, value in submitted.items() if key in stored}
+
+        state = dict(stored)
+        # Bounded fixpoint: each pass re-applies the posted values that the
+        # previous state allows. One pass per setting is enough for any chain
+        # of conditions; the bound also keeps a pathological cyclic plugin
+        # definition from looping here.
+        for _ in range(len(plugin.settings) + 1):
+            next_state = {
+                **stored,
+                **{key: value for key, value in candidates.items() if self._conditions_met(conditions[key], state)},
+            }
+            if next_state == state:
+                break
+            state = next_state
+        return {key: value for key, value in candidates.items() if self._conditions_met(conditions[key], state)}
+
+    def clear_plugin_secret(self, db: Session, plugin_id: str, short_key: str) -> bool:
+        """Clear one ``password`` setting of a registered plugin.
+
+        Checked against the registered metadata so this stays a deliberate
+        secret reset for a known plugin field, not a generally addressable
+        "delete any setting" endpoint. Returns whether anything was cleared.
+        """
+        plugin = self.plugins.get(plugin_id)
+        if plugin is None:
+            return False
+        target = next((setting for setting in plugin.settings if setting.key == short_key and setting.type == "password"), None)
+        if target is None:
+            return False
+        full_key = self.setting_key(plugin_id, short_key)
+        stored = self._stored_settings(db, plugin)
+        if not self._conditions_met(self._effective_conditions_by_key(plugin)[full_key], stored):
+            return False
+        save_setting(db, full_key, "")
+        return True
+
     def plugin_settings(self, db: Session, language: str) -> list[dict[str, Any]]:
         groups = []
         for plugin in self.plugins.values():
             settings = []
             locale = plugin.locales.get(language, plugin.locales.get("en", {}))
             fallback = plugin.locales.get("en", {})
-            has_enabled_toggle = any(setting.key == "enabled" for setting in plugin.settings)
+            conditions_by_key = self._effective_conditions_by_key(plugin)
             plugin_enabled = get_setting_value(db, self.setting_key(plugin.metadata.id, "enabled"), "false") == "true"
             for setting in plugin.settings:
                 full_key = self.setting_key(plugin.metadata.id, setting.key)
                 value = get_setting_value(db, full_key, setting.default)
-                visible_if = setting.visible_if
-                if visible_if is None and has_enabled_toggle and setting.key != "enabled":
-                    visible_if = ("enabled", "true")
+                # Secrets are never handed to the renderer: the page only learns
+                # whether one is stored, so no decrypted value can reach HTML,
+                # the Alpine state or a browser cache.
+                is_secret = setting.type == "password"
                 error = None
                 if setting.type == "file" and plugin_enabled and value and not Path(value).exists():
                     error = (
@@ -276,7 +363,9 @@ class PluginManager:
                     {
                         "key": full_key,
                         "short_key": setting.key,
-                        "value": value,
+                        "value": "" if is_secret else value,
+                        "secret": is_secret,
+                        "secret_configured": bool(value) if is_secret else False,
                         "type": setting.type,
                         "label": locale.get(setting.label_key, fallback.get(setting.label_key, setting.label_key)),
                         "help": locale.get(setting.help_key, fallback.get(setting.help_key, setting.help_key)),
@@ -289,14 +378,10 @@ class PluginManager:
                             (value, locale.get(info_key, fallback.get(info_key, info_key)))
                             for value, info_key in setting.option_info
                         ],
-                        "visible_if": (
-                            {
-                                "key": self.setting_key(plugin.metadata.id, visible_if[0]),
-                                "value": visible_if[1],
-                            }
-                            if visible_if
-                            else None
-                        ),
+                        "visible_if": [
+                            {"key": condition_key, "value": condition_value}
+                            for condition_key, condition_value in conditions_by_key[full_key]
+                        ],
                     }
                 )
             if settings:

@@ -101,6 +101,10 @@ class PluginSetting:
     need plugin-specific UI code. ``option_info`` maps option values to translated
     information shown below the field. ``visible_if`` references another setting
     key local to the same plugin.
+
+    ``visible_if_all`` takes several such conditions and requires all of them.
+    Both fields may be combined; the effective condition is the AND of every
+    condition either of them declares (see ``conditions()``).
     """
     key: str
     label_key: str
@@ -110,6 +114,21 @@ class PluginSetting:
     options: list[tuple[str, str]] = field(default_factory=list)
     visible_if: tuple[str, str] | None = None
     option_info: list[tuple[str, str]] = field(default_factory=list)
+    visible_if_all: tuple[tuple[str, str], ...] = ()
+
+    def conditions(self) -> tuple[tuple[str, str], ...]:
+        """All declared conditions as one AND-combined, duplicate-free list.
+
+        An empty result means "no own condition declared" - never "always
+        visible": the core still applies the implicit ``enabled=true`` rule for
+        plugins that have an enabled toggle (see PluginManager.plugin_settings).
+        """
+        declared = ((self.visible_if,) if self.visible_if is not None else ()) + self.visible_if_all
+        unique: list[tuple[str, str]] = []
+        for condition in declared:
+            if condition not in unique:
+                unique.append(condition)
+        return tuple(unique)
 
 
 @dataclass(frozen=True)

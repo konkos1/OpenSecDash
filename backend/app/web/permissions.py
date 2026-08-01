@@ -119,6 +119,7 @@ ROUTE_PERMISSIONS = (
         ("POST", "/settings/notifications"),
         ("POST", "/settings/asset-updates"),
         ("POST", "/settings/plugins/{plugin_id}"),
+        ("POST", "/settings/plugins/{plugin_id}/secrets/{short_key}/delete"),
         ("POST", "/settings/branding"),
         ("POST", "/settings/branding/remove"),
         ("POST", "/settings/auth/enable"),

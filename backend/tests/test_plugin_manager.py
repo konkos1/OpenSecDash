@@ -6,11 +6,13 @@ import pytest
 from app.models.core import Datasource, Diagnostic, PluginRecord
 from app.models.events import Event
 from app.models.settings import Setting
-from app.plugins.base import DatasourcePlugin, PluginMetadata, PluginSetting
+from app.plugins.base import DatasourcePlugin, Plugin, PluginMetadata, PluginSetting
 from app.core.i18n import register_extra_locales, translate
 from app.core import plugin_registry
+from app.core.template_context import get_setting_value
 from app.plugins.manager import PluginManager, get_plugin_manager
 from app.services.events import DuplicateRule, _DUPLICATE_RULES, register_duplicate_rules
+from app.services.settings import save_setting
 import app.plugins.manager as manager_module
 
 
@@ -148,9 +150,9 @@ def test_plugin_settings_are_localized_and_hidden_behind_enabled_toggle(db_sessi
 
     assert enabled["label"] == "Aktiviert"
     assert source["label"] == "Source"  # falls back to English when German key is missing
-    assert source["visible_if"] == {"key": "plugin.example.enabled", "value": "true"}
+    assert source["visible_if"] == [{"key": "plugin.example.enabled", "value": "true"}]
     assert source["error"] is None  # disabled plugin: missing source is not an error yet
-    assert mode["visible_if"] == {"key": "plugin.example.enabled", "value": "true"}
+    assert mode["visible_if"] == [{"key": "plugin.example.enabled", "value": "true"}]
 
     db_session.query(Setting).filter_by(key="plugin.example.enabled").one().value = "true"
     db_session.commit()
@@ -276,3 +278,165 @@ def test_run_datasource_tick_commits_periodically_for_large_batches(db_session, 
     manager._run_datasource_tick(db_session, plugin)
 
     assert db_session.query(Event).filter_by(plugin="many_events").count() == 5
+
+
+class ConditionalSecretPlugin(Plugin):
+    """Two AND-combined conditions plus a secret - the generic contract only."""
+
+    metadata = PluginMetadata(id="conditional_secret", name="Conditional Secret")
+    settings = [
+        PluginSetting("enabled", "cs.enabled", "cs.enabled.help", type="boolean", default="false"),
+        PluginSetting(
+            "mode",
+            "cs.mode",
+            "cs.mode.help",
+            type="select",
+            default="basic",
+            options=[("basic", "cs.mode.basic"), ("advanced", "cs.mode.advanced")],
+        ),
+        PluginSetting(
+            "api_key",
+            "cs.api_key",
+            "cs.api_key.help",
+            type="password",
+            default="",
+            visible_if_all=(("enabled", "true"), ("mode", "advanced")),
+        ),
+        PluginSetting("note", "cs.note", "cs.note.help", type="text", default=""),
+    ]
+    locales = {"en": {}, "de": {}}
+
+
+def _conditional_secret_manager(db_session):
+    manager = PluginManager(Path("/not-used"))
+    manager.plugins = {"conditional_secret": ConditionalSecretPlugin()}
+    manager.seed_database(db_session)
+    return manager
+
+
+def _set(db_session, key: str, value: str) -> None:
+    db_session.query(Setting).filter_by(key=key).one().value = value
+    db_session.commit()
+
+
+def test_visible_if_and_visible_if_all_are_combined_without_duplicates():
+    combined = PluginSetting(
+        "api_key",
+        "k",
+        "k.help",
+        visible_if=("enabled", "true"),
+        visible_if_all=(("enabled", "true"), ("mode", "advanced")),
+    )
+
+    assert combined.conditions() == (("enabled", "true"), ("mode", "advanced"))
+    assert PluginSetting("plain", "k", "k.help").conditions() == ()
+
+
+def test_multiple_conditions_are_rendered_as_one_and_combined_list(db_session):
+    manager = _conditional_secret_manager(db_session)
+
+    group = manager.plugin_settings(db_session, "en")[0]
+    api_key = next(setting for setting in group["settings"] if setting["short_key"] == "api_key")
+    note = next(setting for setting in group["settings"] if setting["short_key"] == "note")
+    enabled = next(setting for setting in group["settings"] if setting["short_key"] == "enabled")
+
+    assert api_key["visible_if"] == [
+        {"key": "plugin.conditional_secret.enabled", "value": "true"},
+        {"key": "plugin.conditional_secret.mode", "value": "advanced"},
+    ]
+    # An empty condition list still inherits the implicit enabled rule.
+    assert note["visible_if"] == [{"key": "plugin.conditional_secret.enabled", "value": "true"}]
+    assert enabled["visible_if"] == []
+
+
+def test_hidden_settings_are_not_writable_until_every_condition_holds(db_session):
+    manager = _conditional_secret_manager(db_session)
+    posted = {"plugin.conditional_secret.api_key": "dummy-key"}
+
+    _set(db_session, "plugin.conditional_secret.mode", "advanced")
+    assert manager.writable_settings(db_session, "conditional_secret", posted) == {}
+
+    _set(db_session, "plugin.conditional_secret.enabled", "true")
+    _set(db_session, "plugin.conditional_secret.mode", "basic")
+    assert manager.writable_settings(db_session, "conditional_secret", posted) == {}
+
+    _set(db_session, "plugin.conditional_secret.mode", "advanced")
+    assert manager.writable_settings(db_session, "conditional_secret", posted) == posted
+
+
+def test_control_values_of_the_same_post_unlock_their_dependent_settings(db_session):
+    manager = _conditional_secret_manager(db_session)
+
+    writable = manager.writable_settings(
+        db_session,
+        "conditional_secret",
+        {
+            "plugin.conditional_secret.enabled": "true",
+            "plugin.conditional_secret.mode": "advanced",
+            "plugin.conditional_secret.api_key": "dummy-key",
+            "unrelated.key": "ignored",
+        },
+    )
+
+    assert writable == {
+        "plugin.conditional_secret.enabled": "true",
+        "plugin.conditional_secret.mode": "advanced",
+        "plugin.conditional_secret.api_key": "dummy-key",
+    }
+
+
+def test_a_post_that_hides_a_setting_cannot_write_it_in_the_same_request(db_session):
+    manager = _conditional_secret_manager(db_session)
+    _set(db_session, "plugin.conditional_secret.enabled", "true")
+    _set(db_session, "plugin.conditional_secret.mode", "advanced")
+
+    writable = manager.writable_settings(
+        db_session,
+        "conditional_secret",
+        {
+            "plugin.conditional_secret.enabled": "false",
+            "plugin.conditional_secret.api_key": "dummy-key",
+        },
+    )
+
+    assert writable == {"plugin.conditional_secret.enabled": "false"}
+
+
+def test_plugin_settings_report_a_stored_secret_without_returning_it(db_session):
+    manager = _conditional_secret_manager(db_session)
+    _set(db_session, "plugin.conditional_secret.enabled", "true")
+    _set(db_session, "plugin.conditional_secret.mode", "advanced")
+    save_setting(db_session, "plugin.conditional_secret.api_key", "dummy-key")
+    db_session.commit()
+
+    group = manager.plugin_settings(db_session, "en")[0]
+    api_key = next(setting for setting in group["settings"] if setting["short_key"] == "api_key")
+    note = next(setting for setting in group["settings"] if setting["short_key"] == "note")
+
+    assert api_key["value"] == ""
+    assert api_key["secret"] is True
+    assert api_key["secret_configured"] is True
+    assert note["secret"] is False
+    assert note["secret_configured"] is False
+    # The plugin itself still gets the real value.
+    assert manager.context(db_session, manager.plugins["conditional_secret"]).get("api_key") == "dummy-key"
+
+
+def test_clear_plugin_secret_only_accepts_visible_registered_password_settings(db_session):
+    manager = _conditional_secret_manager(db_session)
+    save_setting(db_session, "plugin.conditional_secret.api_key", "dummy-key")
+    db_session.commit()
+
+    assert manager.clear_plugin_secret(db_session, "unknown_plugin", "api_key") is False
+    assert manager.clear_plugin_secret(db_session, "conditional_secret", "unknown_key") is False
+    assert manager.clear_plugin_secret(db_session, "conditional_secret", "note") is False
+    # Still hidden: enabled/mode do not match yet.
+    assert manager.clear_plugin_secret(db_session, "conditional_secret", "api_key") is False
+    assert get_setting_value(db_session, "plugin.conditional_secret.api_key", "") == "dummy-key"
+
+    _set(db_session, "plugin.conditional_secret.enabled", "true")
+    _set(db_session, "plugin.conditional_secret.mode", "advanced")
+
+    assert manager.clear_plugin_secret(db_session, "conditional_secret", "api_key") is True
+    db_session.commit()
+    assert get_setting_value(db_session, "plugin.conditional_secret.api_key", "") == ""
