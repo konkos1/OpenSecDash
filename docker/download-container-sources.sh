@@ -61,16 +61,35 @@ done < "${output_directory}/debian/source-packages.tsv"
 jq -r '
   .components[]
   | select(.source_required)
-  | [.name, .version, .source_archive]
+  | [
+      .name,
+      .version,
+      .source_archive,
+      .source_archive_sha256,
+      (.source_archive_size | tostring)
+    ]
   | @tsv
 ' "${app_notices_json}" > "${output_directory}/python/source-packages.tsv"
 
-while IFS=$'\t' read -r package version source_url; do
+while IFS=$'\t' read -r package version source_url expected_hash expected_size; do
   [[ -n "${package}" ]] || continue
+  if [[ ! "${expected_hash}" =~ ^[0-9a-f]{64}$ || ! "${expected_size}" =~ ^[1-9][0-9]*$ ]]; then
+    echo "Invalid locked source integrity data for ${package} ${version}" >&2
+    exit 1
+  fi
   archive_name="${source_url##*/}"
   safe_name="${package//[^A-Za-z0-9._-]/-}-${version}-${archive_name}"
   safe_name="${safe_name//[^A-Za-z0-9._-]/-}"
-  curl --fail --location --retry 3 --output "${output_directory}/python/${safe_name}" "${source_url}"
+  target="${output_directory}/python/${safe_name}"
+  curl --fail --location --retry 3 --output "${target}" "${source_url}"
+  actual_hash="$(sha256sum "${target}")"
+  actual_hash="${actual_hash%% *}"
+  actual_size="$(wc -c < "${target}")"
+  actual_size="${actual_size//[[:space:]]/}"
+  if [[ "${actual_hash}" != "${expected_hash}" || "${actual_size}" != "${expected_size}" ]]; then
+    echo "Integrity mismatch for Python source archive ${package} ${version}" >&2
+    exit 1
+  fi
 done < "${output_directory}/python/source-packages.tsv"
 
 cp "${report_json}" "${output_directory}/container-os-packages.json"

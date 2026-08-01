@@ -17,6 +17,8 @@
       "name": "Alpine.js",
       "source": "https://github.com/alpinejs/alpine/tree/v3.15.0",
       "source_archive": "https://registry.npmjs.org/alpinejs/-/alpinejs-3.15.0.tgz",
+      "source_archive_sha256": "",
+      "source_archive_size": 0,
       "source_required": false,
       "version": "3.15.0"
     },
@@ -37,6 +39,8 @@
       "name": "htmx",
       "source": "https://github.com/bigskysoftware/htmx/tree/v1.9.12",
       "source_archive": "https://registry.npmjs.org/htmx.org/-/htmx.org-1.9.12.tgz",
+      "source_archive_sha256": "",
+      "source_archive_size": 0,
       "source_required": false,
       "version": "1.9.12"
     },
@@ -57,6 +61,8 @@
       "name": "Tailwind CSS",
       "source": "https://github.com/tailwindlabs/tailwindcss/tree/v3.4.17",
       "source_archive": "https://registry.npmjs.org/tailwindcss/-/tailwindcss-3.4.17.tgz",
+      "source_archive_sha256": "",
+      "source_archive_size": 0,
       "source_required": false,
       "version": "3.4.17"
     },
@@ -75,6 +81,8 @@
       "name": "alembic",
       "source": "https://github.com/sqlalchemy/alembic/",
       "source_archive": "https://files.pythonhosted.org/packages/1a/cc/ac0bed8e562e7407fe55c3ba85a4dce86e6dbd8730887bd1e406a6c5c18a/alembic-1.18.5.tar.gz",
+      "source_archive_sha256": "1554982221dd17e9a749b53902407578eb305e453f71999e8c7f0a48389fff8e",
+      "source_archive_size": 2060480,
       "source_required": false,
       "version": "1.18.5"
     },
@@ -93,6 +101,8 @@
       "name": "annotated-doc",
       "source": "https://github.com/fastapi/annotated-doc",
       "source_archive": "https://files.pythonhosted.org/packages/57/ba/046ceea27344560984e26a590f90bc7f4a75b06701f653222458922b558c/annotated_doc-0.0.4.tar.gz",
+      "source_archive_sha256": "fbcda96e87e9c92ad167c2e53839e57503ecfda18804ea28102353485033faa4",
+      "source_archive_size": 7288,
       "source_required": false,
       "version": "0.0.4"
     },
@@ -111,6 +121,8 @@
       "name": "annotated-types",
       "source": "https://github.com/annotated-types/annotated-types",
       "source_archive": "https://files.pythonhosted.org/packages/ee/67/531ea369ba64dcff5ec9c3402f9f51bf748cec26dde048a2f973a4eea7f5/annotated_types-0.7.0.tar.gz",
+      "source_archive_sha256": "aff07c09a53a08bc8cfccb9c85b05f1aa9a2a6f23728d790723543408344ce89",
+      "source_archive_size": 16081,
       "source_required": false,
       "version": "0.7.0"
     },
@@ -129,6 +141,8 @@
       "name": "anyio",
       "source": "",
       "source_archive": "https://files.pythonhosted.org/packages/3b/72/5562aabb8dd7181e8e860622a38bea08d17842b99ecd4c91f84ac95251b0/anyio-4.14.1.tar.gz",
+      "source_archive_sha256": "8d648a3544c1a700e3ff78615cd679e4c5c3f149904287e73687b2596963629e",
+      "source_archive_size": 254831,
       "source_required": false,
       "version": "4.14.1"
     },
@@ -147,6 +161,8 @@
       "name": "Authlib",
       "source": "https://github.com/authlib/authlib",
       "source_archive": "https://files.pythonhosted.org/packages/36/98/7d93f30d029643c0275dbc0bd6d5a6f670661ee6c9a94d93af7ab4887600/authlib-1.7.2.tar.gz",
+      "source_archive_sha256": "2cea25fefcd4e7173bdf1372c0afc265c8034b23a8cd5dcb6a9164b826c64231",
+      "source_archive_size": 176511,
       "source_required": false,
       "version": "1.7.2"
     },
@@ -165,6 +181,8 @@
       "name": "certifi",
       "source": "https://github.com/certifi/python-certifi",
       "source_archive": "https://files.pythonhosted.org/packages/c9/c7/424b75da314c1045981bd9777432fad05a9e0c69daa4ed7e308bbaffe405/certifi-2026.6.17.tar.gz",
+      "source_archive_sha256": "024c88eeec92ca068db80f02b8b07c9cef7b9fe261d1d535abfd5abd6f6af432",
+      "source_archive_size": 134594,
       "source_required": true,
       "version": "2026.6.17"
     },
@@ -183,6 +201,8 @@
       "name": "cffi",
       "source": "",
       "source_archive": "https://files.pythonhosted.org/packages/eb/56/b1ba7935a17738ae8453301356628e8147c79dbb825bcbc73dc7401f9846/cffi-2.0.0.tar.gz",
+      "source_archive_sha256": "44d1b5909021139fe36001ae048dbdde8214afa20200eda0f64c068cac5d5529",
+      "source_archive_size": 523588,
       "source_required": false,
       "version": "2.0.0"
     },
@@ -201,6 +221,8 @@
       "name": "charset-normalizer",
       "source": "",
       "source_archive": "https://files.pythonhosted.org/packages/e7/a1/67fe25fac3c7642725500a3f6cfe5821ad557c3abb11c9d20d12c7008d3e/charset_normalizer-3.4.7.tar.gz",
+      "source_archive_sha256": "ae89db9e5f98a11a4bf50407d4363e7b09b31e55bc117b4f7d80aab97ba009e5",
+      "source_archive_size": 144271,
       "source_required": false,
       "version": "3.4.7"
     },
@@ -219,6 +241,8 @@
       "name": "click",
       "source": "https://github.com/pallets/click/",
       "source_archive": "https://files.pythonhosted.org/packages/76/d4/81420972a676e8ffea40450d8c8c92943e7218a78fe9b64359836cc9876b/click-8.4.2.tar.gz",
+      "source_archive_sha256": "9a6cea6e60b17ebe0a44c5cc636d94f09bd66142c1cd7d8b4cd731c4917a15f6",
+      "source_archive_size": 338000,
       "source_required": false,
       "version": "8.4.2"
     },
@@ -242,6 +266,8 @@
       "name": "cryptography",
       "source": "",
       "source_archive": "https://files.pythonhosted.org/packages/1f/99/d1c90d6041656cc6ee229dc99cd67fd0cd5aec3c5f7d72fffc27cc750054/cryptography-49.0.0.tar.gz",
+      "source_archive_sha256": "f89660a348f4f78a92366240a61404e337586ef7f5909a2fef59ca88ef505493",
+      "source_archive_size": 854345,
       "source_required": false,
       "version": "49.0.0"
     },
@@ -260,6 +286,8 @@
       "name": "fastapi",
       "source": "https://github.com/fastapi/fastapi",
       "source_archive": "https://files.pythonhosted.org/packages/0d/fb/fd7671137d9fa3df1d93a2f5111eb982709201724b29f211e4beb2d58688/fastapi-0.140.0.tar.gz",
+      "source_archive_sha256": "f338951b82fd74ca8f843163aec43ea1a1ce84d515415a50fa98fa25572a5544",
+      "source_archive_size": 420968,
       "source_required": false,
       "version": "0.140.0"
     },
@@ -278,6 +306,8 @@
       "name": "h11",
       "source": "https://github.com/python-hyper/h11",
       "source_archive": "https://files.pythonhosted.org/packages/01/ee/02a2c011bdab74c6fb3c75474d40b3052059d95df7e73351460c8588d963/h11-0.16.0.tar.gz",
+      "source_archive_sha256": "4e35b956cf45792e4caa5885e69fba00bdbc6ffafbfa020300e549b208ee5ff1",
+      "source_archive_size": 101250,
       "source_required": false,
       "version": "0.16.0"
     },
@@ -296,6 +326,8 @@
       "name": "httpcore",
       "source": "https://github.com/encode/httpcore",
       "source_archive": "https://files.pythonhosted.org/packages/06/94/82699a10bca87a5556c9c59b5963f2d039dbd239f25bc2a63907a05a14cb/httpcore-1.0.9.tar.gz",
+      "source_archive_sha256": "6e34463af53fd2ab5d807f399a9b45ea31c3dfa2276f15a2c3f00afff6e176e8",
+      "source_archive_size": 85484,
       "source_required": false,
       "version": "1.0.9"
     },
@@ -314,6 +346,8 @@
       "name": "httpx",
       "source": "https://github.com/encode/httpx",
       "source_archive": "https://files.pythonhosted.org/packages/b1/df/48c586a5fe32a0f01324ee087459e112ebb7224f646c0b5023f5e79e9956/httpx-0.28.1.tar.gz",
+      "source_archive_sha256": "75e98c5f16b0f35b567856f597f06ff2270a374470a5c2392242528e3e3e42fc",
+      "source_archive_size": 141406,
       "source_required": false,
       "version": "0.28.1"
     },
@@ -332,6 +366,8 @@
       "name": "idna",
       "source": "https://github.com/kjd/idna",
       "source_archive": "https://files.pythonhosted.org/packages/cd/63/9496c57188a2ee585e0f1db071d75089a11e98aa86eb99d9d7618fc1edce/idna-3.18.tar.gz",
+      "source_archive_sha256": "ffb385a7e039654cef1ab9ef32c6fafe283c0c0467bba1d9029738ce4a14a848",
+      "source_archive_size": 196711,
       "source_required": false,
       "version": "3.18"
     },
@@ -350,6 +386,8 @@
       "name": "itsdangerous",
       "source": "https://github.com/pallets/itsdangerous/",
       "source_archive": "https://files.pythonhosted.org/packages/9c/cb/8ac0172223afbccb63986cc25049b154ecfb5e85932587206f42317be31d/itsdangerous-2.2.0.tar.gz",
+      "source_archive_sha256": "e0050c0b7da1eea53ffaf149c0cfbb5c6e2e2b69c4bef22c81fa6eb73e5f6173",
+      "source_archive_size": 54410,
       "source_required": false,
       "version": "2.2.0"
     },
@@ -368,6 +406,8 @@
       "name": "Jinja2",
       "source": "https://github.com/pallets/jinja/",
       "source_archive": "https://files.pythonhosted.org/packages/df/bf/f7da0350254c0ed7c72f3e33cef02e048281fec7ecec5f032d4aac52226b/jinja2-3.1.6.tar.gz",
+      "source_archive_sha256": "0137fb05990d35f1275a587e9aee6d56da821fc83491a0fb838183be43f66d6d",
+      "source_archive_size": 245115,
       "source_required": false,
       "version": "3.1.6"
     },
@@ -386,6 +426,8 @@
       "name": "joserfc",
       "source": "https://github.com/authlib/joserfc",
       "source_archive": "https://files.pythonhosted.org/packages/c7/e0/27a6a081ae25420eda6768ceae05d7022a7f2447f420588843f2a44e4298/joserfc-1.7.4.tar.gz",
+      "source_archive_sha256": "b3bc561672ae541b17a9237053b48a03dacddd92d68047b3ecdfb4b5714a88ed",
+      "source_archive_size": 234027,
       "source_required": false,
       "version": "1.7.4"
     },
@@ -404,6 +446,8 @@
       "name": "Mako",
       "source": "https://www.makotemplates.org/",
       "source_archive": "https://files.pythonhosted.org/packages/00/62/791b31e69ae182791ec67f04850f2f062716bbd205483d63a215f3e062d3/mako-1.3.12.tar.gz",
+      "source_archive_sha256": "9f778e93289bd410bb35daadeb4fc66d95a746f0b75777b942088b7fd7af550a",
+      "source_archive_size": 400219,
       "source_required": false,
       "version": "1.3.12"
     },
@@ -422,6 +466,8 @@
       "name": "MarkupSafe",
       "source": "https://github.com/pallets/markupsafe/",
       "source_archive": "https://files.pythonhosted.org/packages/7e/99/7690b6d4034fffd95959cbe0c02de8deb3098cc577c67bb6a24fe5d7caa7/markupsafe-3.0.3.tar.gz",
+      "source_archive_sha256": "722695808f4b6457b320fdc131280796bdceb04ab50fe1795cd540799ebe1698",
+      "source_archive_size": 80313,
       "source_required": false,
       "version": "3.0.3"
     },
@@ -445,6 +491,8 @@
       "name": "paho-mqtt",
       "source": "http://eclipse.org/paho",
       "source_archive": "https://files.pythonhosted.org/packages/39/15/0a6214e76d4d32e7f663b109cf71fb22561c2be0f701d67f93950cd40542/paho_mqtt-2.1.0.tar.gz",
+      "source_archive_sha256": "12d6e7511d4137555a3f6ea167ae846af2c7357b10bc6fa4f7c3968fc1723834",
+      "source_archive_size": 148848,
       "source_required": false,
       "version": "2.1.0"
     },
@@ -463,6 +511,8 @@
       "name": "pycparser",
       "source": "https://github.com/eliben/pycparser",
       "source_archive": "https://files.pythonhosted.org/packages/1b/7d/92392ff7815c21062bea51aa7b87d45576f649f16458d78b7cf94b9ab2e6/pycparser-3.0.tar.gz",
+      "source_archive_sha256": "600f49d217304a5902ac3c37e1281c9fe94e4d0489de643a9504c5cdfdfc6b29",
+      "source_archive_size": 103492,
       "source_required": false,
       "version": "3.0"
     },
@@ -481,6 +531,8 @@
       "name": "pydantic",
       "source": "https://github.com/pydantic/pydantic",
       "source_archive": "https://files.pythonhosted.org/packages/18/a5/b60d21ac674192f8ab0ba4e9fd860690f9b4a6e51ca5df118733b487d8d6/pydantic-2.13.4.tar.gz",
+      "source_archive_sha256": "c40756b57adaa8b1efeeced5c196f3f3b7c435f90e84ea7f443901bec8099ef6",
+      "source_archive_size": 844775,
       "source_required": false,
       "version": "2.13.4"
     },
@@ -499,6 +551,8 @@
       "name": "pydantic-settings",
       "source": "https://github.com/pydantic/pydantic-settings",
       "source_archive": "https://files.pythonhosted.org/packages/5c/b5/8f48e906c3e0205276e8bd8cb7512217a87b2685304d64be27cad5b3019f/pydantic_settings-2.14.2.tar.gz",
+      "source_archive_sha256": "c19dd64b19097f1de80184f0cc7b0272a13ae6e170cbf240a3e27e381ed14a5f",
+      "source_archive_size": 237700,
       "source_required": false,
       "version": "2.14.2"
     },
@@ -517,6 +571,8 @@
       "name": "pydantic_core",
       "source": "https://github.com/pydantic/pydantic/tree/main/pydantic-core",
       "source_archive": "https://files.pythonhosted.org/packages/9d/56/921726b776ace8d8f5db44c4ef961006580d91dc52b803c489fafd1aa249/pydantic_core-2.46.4.tar.gz",
+      "source_archive_sha256": "62f875393d7f270851f20523dd2e29f082bcc82292d66db2b64ea71f64b6e1c1",
+      "source_archive_size": 471464,
       "source_required": false,
       "version": "2.46.4"
     },
@@ -535,6 +591,8 @@
       "name": "python-dotenv",
       "source": "https://github.com/theskumar/python-dotenv",
       "source_archive": "https://files.pythonhosted.org/packages/82/ed/0301aeeac3e5353ef3d94b6ec08bbcabd04a72018415dcb29e588514bba8/python_dotenv-1.2.2.tar.gz",
+      "source_archive_sha256": "2c371a91fbd7ba082c2c1dc1f8bf89ca22564a087c2c287cd9b662adde799cf3",
+      "source_archive_size": 50135,
       "source_required": false,
       "version": "1.2.2"
     },
@@ -553,6 +611,8 @@
       "name": "python-multipart",
       "source": "https://github.com/Kludex/python-multipart",
       "source_archive": "https://files.pythonhosted.org/packages/5b/42/55c32bb9b12693c092ad250a0e82edb5b31ddeda6eb772de5f308b3804ad/python_multipart-0.0.32.tar.gz",
+      "source_archive_sha256": "be54b7f3fa167bb83e4fcd936b887b708f4e57fe75911c02aebf53efaf8d938e",
+      "source_archive_size": 46881,
       "source_required": false,
       "version": "0.0.32"
     },
@@ -576,6 +636,8 @@
       "name": "requests",
       "source": "https://github.com/psf/requests",
       "source_archive": "https://files.pythonhosted.org/packages/ac/c3/e2a2b89f2d3e2179abd6d00ebd70bff6273f37fb3e0cc209f48b39d00cbf/requests-2.34.2.tar.gz",
+      "source_archive_sha256": "f288924cae4e29463698d6d60bc6a4da69c89185ad1e0bcc4104f584e960b9ed",
+      "source_archive_size": 142856,
       "source_required": false,
       "version": "2.34.2"
     },
@@ -594,6 +656,8 @@
       "name": "SQLAlchemy",
       "source": "https://www.sqlalchemy.org",
       "source_archive": "https://files.pythonhosted.org/packages/02/f1/a7a892f18d4d224e6b26f706531eafccc41e37594d37d304786969ee13cb/sqlalchemy-2.0.51.tar.gz",
+      "source_archive_sha256": "804dccd8a4a6242c4e30ad961e540e18a588f6527202f2d6791b01845d59fdc9",
+      "source_archive_size": 9912201,
       "source_required": false,
       "version": "2.0.51"
     },
@@ -612,6 +676,8 @@
       "name": "starlette",
       "source": "https://github.com/Kludex/starlette",
       "source_archive": "https://files.pythonhosted.org/packages/eb/e3/7c1dc7381d9f8ab7d854328ebfa884e62cb3f3d8549ddfd37c7814f42afa/starlette-1.3.1.tar.gz",
+      "source_archive_sha256": "05d0213193f2fbaae60e2ecb593b4add4262ad4e46536b54abe36f11a71724e0",
+      "source_archive_size": 2703240,
       "source_required": false,
       "version": "1.3.1"
     },
@@ -630,6 +696,8 @@
       "name": "typing-inspection",
       "source": "https://github.com/pydantic/typing-inspection",
       "source_archive": "https://files.pythonhosted.org/packages/55/e3/70399cb7dd41c10ac53367ae42139cf4b1ca5f36bb3dc6c9d33acdb43655/typing_inspection-0.4.2.tar.gz",
+      "source_archive_sha256": "ba561c48a67c5958007083d386c3295464928b01faa735ab8547c5692e87f464",
+      "source_archive_size": 75949,
       "source_required": false,
       "version": "0.4.2"
     },
@@ -648,6 +716,8 @@
       "name": "typing_extensions",
       "source": "https://github.com/python/typing_extensions",
       "source_archive": "https://files.pythonhosted.org/packages/72/94/1a15dd82efb362ac84269196e94cf00f187f7ed21c242792a923cdb1c61f/typing_extensions-4.15.0.tar.gz",
+      "source_archive_sha256": "0cea48d173cc12fa28ecabc3b837ea3cf6f38c6d1136f85cbaaf598984861466",
+      "source_archive_size": 109391,
       "source_required": false,
       "version": "4.15.0"
     },
@@ -666,6 +736,8 @@
       "name": "urllib3",
       "source": "",
       "source_archive": "https://files.pythonhosted.org/packages/53/0c/06f8b233b8fd13b9e5ee11424ef85419ba0d8ba0b3138bf360be2ff56953/urllib3-2.7.0.tar.gz",
+      "source_archive_sha256": "231e0ec3b63ceb14667c67be60f2f2c40a518cb38b03af60abc813da26505f4c",
+      "source_archive_size": 433602,
       "source_required": false,
       "version": "2.7.0"
     },
@@ -684,6 +756,8 @@
       "name": "uvicorn",
       "source": "https://github.com/Kludex/uvicorn",
       "source_archive": "https://files.pythonhosted.org/packages/a2/65/b7c6c443ccc58678c91e1e973bbe2a878591538655d6e1d47f24ba1c51f3/uvicorn-0.51.0.tar.gz",
+      "source_archive_sha256": "f6f4b69b657c312f516dd2d268ab9ae6f254b11e4bac504f37b2ab58b24dd0b0",
+      "source_archive_size": 94412,
       "source_required": false,
       "version": "0.51.0"
     },
@@ -702,6 +776,8 @@
       "name": "websockets",
       "source": "https://github.com/python-websockets/websockets",
       "source_archive": "https://files.pythonhosted.org/packages/21/f7/bc3a25c5ec26ce62ce487690becc2f3710bbc7b33338f005ad390db0b986/websockets-16.1.1.tar.gz",
+      "source_archive_sha256": "db234eda965dcce15df96bb9709f587cd87d4d52aaf0e80e2f34ec04c7670c57",
+      "source_archive_size": 182204,
       "source_required": false,
       "version": "16.1.1"
     }

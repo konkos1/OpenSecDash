@@ -64,6 +64,8 @@ class Component:
     homepage: str
     source: str
     source_archive: str
+    source_archive_sha256: str
+    source_archive_size: int
     distributed_files: tuple[str, ...]
     license_documents: tuple[LicenseDocument, ...]
     source_required: bool
@@ -86,7 +88,7 @@ def _runtime_distributions() -> list[metadata.Distribution]:
     while pending:
         requested_name = pending.popleft()
         distribution = metadata.distribution(requested_name)
-        normalized_name = canonicalize_name(distribution.metadata["Name"])
+        normalized_name = str(canonicalize_name(distribution.metadata["Name"]))
         if normalized_name in found:
             continue
         found[normalized_name] = distribution
@@ -97,13 +99,23 @@ def _runtime_distributions() -> list[metadata.Distribution]:
     return sorted(found.values(), key=lambda item: item.metadata["Name"].casefold())
 
 
-def _locked_sources() -> dict[tuple[str, str], str]:
-    sources: dict[tuple[str, str], str] = {}
+def _locked_sources() -> dict[tuple[str, str], tuple[str, str, int]]:
+    sources: dict[tuple[str, str], tuple[str, str, int]] = {}
     for package in _read_toml(LOCK_PATH)["package"]:
         sdist = package.get("sdist")
         if sdist:
-            key = (canonicalize_name(package["name"]), package["version"])
-            sources[key] = sdist["url"]
+            algorithm, separator, digest = sdist.get("hash", "").partition(":")
+            size = sdist.get("size")
+            if separator != ":" or algorithm != "sha256" or not re.fullmatch(r"[0-9a-f]{64}", digest):
+                raise ValueError(
+                    f"{package['name']} {package['version']} has no valid locked sdist SHA-256"
+                )
+            if not isinstance(size, int) or size <= 0:
+                raise ValueError(
+                    f"{package['name']} {package['version']} has no valid locked sdist size"
+                )
+            key = (str(canonicalize_name(package["name"])), package["version"])
+            sources[key] = (sdist["url"], digest, size)
     return sources
 
 
@@ -124,7 +136,7 @@ def _license_expression(
     distribution: metadata.Distribution,
     overrides: dict[str, Any],
 ) -> str:
-    normalized_name = canonicalize_name(distribution.metadata["Name"])
+    normalized_name = str(canonicalize_name(distribution.metadata["Name"]))
     override = overrides.get(normalized_name, {})
     if override.get("license"):
         expression = override["license"]
@@ -161,7 +173,7 @@ def _read_distribution_documents(
             continue
         if selected_names and is_license and basename not in selected_names:
             continue
-        path = Path(distribution.locate_file(relative_path))
+        path = Path(str(distribution.locate_file(relative_path)))
         try:
             text = path.read_text(encoding="utf-8").strip()
         except (OSError, UnicodeDecodeError) as error:
@@ -191,21 +203,22 @@ def _read_distribution_documents(
 
 
 def _python_components(manifest: dict[str, Any]) -> list[Component]:
-    overrides = {
-        canonicalize_name(name): value
+    overrides: dict[str, Any] = {
+        str(canonicalize_name(name)): value
         for name, value in manifest.get("python_overrides", {}).items()
     }
     locked_sources = _locked_sources()
     components: list[Component] = []
     for distribution in _runtime_distributions():
-        normalized_name = canonicalize_name(distribution.metadata["Name"])
+        normalized_name = str(canonicalize_name(distribution.metadata["Name"]))
         override = overrides.get(normalized_name, {})
         expression = _license_expression(distribution, overrides)
-        source_archive = locked_sources.get((normalized_name, distribution.version), "")
-        if not source_archive:
+        locked_source = locked_sources.get((normalized_name, distribution.version))
+        if locked_source is None:
             raise ValueError(
                 f"{distribution.metadata['Name']} {distribution.version} has no locked source archive"
             )
+        source_archive, source_archive_sha256, source_archive_size = locked_source
         components.append(
             Component(
                 name=distribution.metadata["Name"],
@@ -214,6 +227,8 @@ def _python_components(manifest: dict[str, Any]) -> list[Component]:
                 homepage=_project_url(distribution),
                 source=_project_url(distribution),
                 source_archive=source_archive,
+                source_archive_sha256=source_archive_sha256,
+                source_archive_size=source_archive_size,
                 distributed_files=(),
                 license_documents=tuple(
                     _read_distribution_documents(distribution, override)
@@ -266,6 +281,8 @@ def _browser_components(manifest: dict[str, Any]) -> list[Component]:
                 homepage=entry["homepage"],
                 source=entry["source"],
                 source_archive=entry["source_archive"],
+                source_archive_sha256="",
+                source_archive_size=0,
                 distributed_files=distributed_files,
                 license_documents=tuple(documents),
                 source_required=False,
@@ -284,6 +301,8 @@ def _component_json(component: Component) -> dict[str, Any]:
         "homepage": component.homepage,
         "source": component.source,
         "source_archive": component.source_archive,
+        "source_archive_sha256": component.source_archive_sha256,
+        "source_archive_size": component.source_archive_size,
         "source_required": component.source_required,
         "distributed_files": list(component.distributed_files),
         "documents": [

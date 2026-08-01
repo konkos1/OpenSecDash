@@ -19,6 +19,10 @@ def test_generated_notices_cover_runtime_browser_and_first_party_assets():
     assert components[("tailwind css", "3.4.17")]["license"] == "MIT"
     assert components[("paho-mqtt", "2.1.0")]["license"] == "EDL-1.0"
     assert components[("certifi", "2026.6.17")]["source_required"] is True
+    assert components[("certifi", "2026.6.17")]["source_archive_sha256"] == (
+        "024c88eeec92ca068db80f02b8b07c9cef7b9fe261d1d535abfd5abd6f6af432"
+    )
+    assert components[("certifi", "2026.6.17")]["source_archive_size"] == 134594
     assert all(component["documents"] for component in notices["components"])
 
 
