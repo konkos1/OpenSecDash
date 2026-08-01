@@ -174,7 +174,20 @@ def _enqueue(db: Session, rule: NotificationRuleSnapshot, payload: dict[str, obj
 def _enqueue_event(db: Session, rule: NotificationRuleSnapshot, payload: dict[str, object]) -> None:
     """Queue an event notification once and refresh its pending payload."""
     event_id = payload.get("event_id")
-    existing = db.query(Notification).filter(Notification.rule_id == rule.rule_id).order_by(Notification.id.desc()).all()
+    # handle_event rejects events outside this same window, so older rows can
+    # never represent a valid repeat of the event currently being handled.
+    # Keeping the query inside the indexed rule/created-at window avoids
+    # loading an unbounded notification history for every event.
+    window_start = utc_now().replace(tzinfo=None) - BACKLOG_PROTECTION_WINDOW
+    existing = (
+        db.query(Notification)
+        .filter(
+            Notification.rule_id == rule.rule_id,
+            Notification.created_at >= window_start,
+        )
+        .order_by(Notification.id.desc())
+        .all()
+    )
     for notification in existing:
         if (notification.payload or {}).get("event_id") != event_id:
             continue

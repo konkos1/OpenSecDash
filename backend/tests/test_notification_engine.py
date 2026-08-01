@@ -7,7 +7,7 @@ from app.models.core import Insight, Notification, NotificationRule
 from app.models.events import Event
 from app.plugins.manager import get_plugin_manager
 from app.services.events import store_event
-from app.services.notifications import handle_insight, invalidate_rules_cache, seed_default_notification_rules
+from app.services.notifications import handle_event, handle_insight, invalidate_rules_cache, seed_default_notification_rules
 from app.services.settings import save_setting
 
 
@@ -45,6 +45,27 @@ def test_fresh_crowdsec_ban_queues_pending_notification(db_session):
     assert notifications[0].status == "pending"
     assert notifications[0].payload is not None
     assert notifications[0].payload["event_id"] == event.id
+
+
+def test_reprocessing_fresh_event_updates_pending_notification_without_duplicate(db_session):
+    event = store_event(
+        db_session,
+        source="test",
+        plugin="crowdsec",
+        event_type="security.ban",
+        severity="warning",
+        event_time=utc_now().replace(tzinfo=None),
+        ip="198.51.100.9",
+    )
+    db_session.flush()
+    event.country = "US"
+
+    handle_event(db_session, event)
+
+    notifications = _notifications(db_session, "core.crowdsec_ban")
+    assert len(notifications) == 1
+    assert notifications[0].payload is not None
+    assert notifications[0].payload["country"] == "US"
 
 
 def test_old_event_does_not_queue_notification(db_session):
