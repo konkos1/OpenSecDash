@@ -760,7 +760,7 @@ def test_the_login_page_offers_single_sign_on_only_while_it_is_enabled(oidc_app,
     disabled = client.get("/login")
 
     assert "/auth/oidc/login" in enabled.text
-    assert "Sign in with single sign-on" in enabled.text
+    assert "Sign in with OIDC" in enabled.text
     assert "/auth/oidc/login" not in disabled.text
     assert 'name="password"' in disabled.text
 
@@ -786,7 +786,7 @@ def test_the_new_strings_exist_in_german_too(oidc_app, provider):
     login_page = TestClient(app, base_url="https://testserver").get("/login")
     account_page = client.get("/account")
 
-    assert "Mit zentraler Anmeldung anmelden" in login_page.text
+    assert "Mit OIDC anmelden" in login_page.text
     assert "Anbieterkonto verknüpfen" in account_page.text
     assert "Noch nicht verknüpft" in account_page.text
 

@@ -240,7 +240,7 @@ over.
 
 ### 4. Sign in through the provider once
 
-Sign out and use **Sign in with single sign-on** on the login page. Confirm that you are
+Sign out and use **Sign in with OIDC** on the login page. Confirm that you are
 signed in with your admin role before you change anything else. Do this before switching
 password sign-in off — it is what proves the whole path works.
 
@@ -294,7 +294,7 @@ can set one with the normal password reset.
 ### Signing out
 
 Signing out of OpenSecDash ends the local OpenSecDash session only. The session at your
-provider stays open, so **Sign in with single sign-on** may sign you straight back in
+provider stays open, so **Sign in with OIDC** may sign you straight back in
 without a password prompt. OpenSecDash does not implement provider-initiated,
 back-channel, or front-channel logout. Sign out at the provider as well when you want to
 end that session, and use the provider's own controls to lock an account out

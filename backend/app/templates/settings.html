@@ -78,7 +78,6 @@
                     {% if auth_onboarding_review_required %}
                         <p class="text-amber-300 text-sm">{{ t("settings.auth_review_required") }} <a class="underline underline-offset-2" href="/onboarding">{{ t("settings.auth_review_open_setup") }}</a></p>
                     {% endif %}
-                    <p class="muted text-sm">{{ t("settings.auth_intro") }}</p>
                     <p class="muted text-sm">{{ t("settings.auth_enable_only_env_bypass") }}</p>
                     {# With an active admin this form only confirms the hostname, so it neither offers nor accepts account data. #}
                     {% if not auth_activation_account_required %}<p class="muted text-sm">{{ t("settings.auth_enable_existing_admin") }}</p>{% endif %}
