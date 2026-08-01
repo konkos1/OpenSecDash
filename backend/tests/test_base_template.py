@@ -57,7 +57,7 @@ def test_navigation_orders_core_and_plugin_links_consistently():
     assert html.count('class="icon logout-icon"') == 2
     assert html.count('aria-label="alice" data-tooltip="alice"') == 2
     assert html.count('aria-label="auth.logout" data-tooltip="auth.logout"') == 2
-    assert '/static/css/app.css?v=test-nav-account-icons' in html
+    assert '/static/css/app.css?v=test-info-text-icons' in html
     navigation_script = '<script src="/static/js/app.js?v=test-nav-icon-tooltips"></script>'
     assert html.index("</header>") < html.index(navigation_script) < html.index("<main")
     assert html.count(navigation_script) == 1
@@ -100,3 +100,14 @@ def test_page_width_reserves_space_for_late_scrollbars():
 
     assert html_rule is not None
     assert "scrollbar-gutter: stable" in html_rule.group(1)
+
+
+def test_info_text_uses_the_shared_decorative_icon():
+    css = Path("app/static/css/app.css").read_text()
+
+    icon_rule = re.search(r"\.info-text::before\s*\{([^}]*)\}", css)
+
+    assert icon_rule is not None
+    assert 'content: ""' in icon_rule.group(1)
+    assert "url('/static/img/info.svg')" in icon_rule.group(1)
+    assert Path("app/static/img/info.svg").is_file()

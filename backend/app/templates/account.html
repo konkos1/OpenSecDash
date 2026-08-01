@@ -68,9 +68,9 @@
                     <form method="post" action="/account/oidc/unlink" data-confirm="{{ t('account.oidc_unlink_confirm') }}">
                         <button class="btn-small" type="submit">{{ t("account.oidc_unlink_button") }}</button>
                     </form>
-                    <p class="muted text-sm">{{ t("account.oidc_unlink_hint") }}</p>
+                    <p class="info-text text-sm">{{ t("account.oidc_unlink_hint") }}</p>
                 {% elif oidc_linked %}
-                    <p class="muted text-sm">{{ t("account.oidc_unlink_blocked") }}</p>
+                    <p class="info-text text-sm">{{ t("account.oidc_unlink_blocked") }}</p>
                 {% endif %}
             </section>
         {% endif %}

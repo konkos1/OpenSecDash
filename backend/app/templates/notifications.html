@@ -44,7 +44,7 @@
     {% if can_operate %}
     <section class="card mb-5">
         <h3 class="font-semibold mb-1">{{ t("notifications.test") }}</h3>
-        <p class="muted text-sm mb-3">{{ t("notifications.test_help") }}</p>
+        <p class="info-text text-sm mb-3">{{ t("notifications.test_help") }}</p>
         <form method="post" action="/notifications/test" data-submit-busy><button class="btn" type="submit" data-busy-label="{{ t('common.processing') }}">{{ t("notifications.send_test") }}</button></form>
     </section>
     {% endif %}

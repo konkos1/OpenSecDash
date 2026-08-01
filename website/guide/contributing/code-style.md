@@ -118,6 +118,9 @@ The app runs a single event loop for every visitor. **No blocking I/O on the eve
 - Every user-visible string goes through `t("...")` with locale entries in **both**
   `backend/app/locales/en.py` and `de.py` (or the plugin's `locales.py`). A PR that adds
   UI text in only one language is incomplete.
+- Use `info-text` for explanatory hints that benefit from a visible information icon.
+  Use `muted` only to lower the emphasis of metadata, labels, status details, or empty
+  states; it carries no informational semantics of its own.
 
 ## Tests
 

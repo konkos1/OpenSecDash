@@ -97,7 +97,7 @@
             <div class="columns-dialog-header">
                 <div>
                     <strong>{{ t("table.columns") }}</strong>
-                    <p class="muted text-sm">{{ t("table.columns_help") }}</p>
+                    <p class="info-text text-sm">{{ t("table.columns_help") }}</p>
                 </div>
                 <button type="button" class="text-overlay-close" data-columns-close="access-columns" aria-label="{{ t('common.close') }}">×</button>
             </div>
@@ -119,7 +119,7 @@
     <div id="access-results" hx-get="{{ request.url }}" hx-trigger="opensecdash-refresh queue:last" hx-target="this" hx-select="#access-results" hx-swap="outerHTML" hx-sync="this:queue last">
     <div class="card overflow-x-auto responsive-table">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
-            <p class="muted text-sm">{{ t("table.limit.access") }}</p>
+            <p class="info-text text-sm">{{ t("table.limit.access") }}</p>
             <button type="button" class="btn-small btn-icon" data-columns-open="access-columns" aria-label="{{ t('table.columns') }}" title="{{ t('table.columns') }}"><span class="icon settings-icon" aria-hidden="true"></span></button>
         </div>
         <table class="w-full text-sm table-middle">
