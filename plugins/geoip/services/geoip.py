@@ -79,25 +79,15 @@ def normalize_lookup_target(value: str | None) -> tuple[str, str] | None:
 
 
 def _is_non_public_address(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
-    return (
-        address.is_private
-        or address.is_loopback
-        or address.is_link_local
-        or address.is_multicast
-        or address.is_reserved
-        or address.is_unspecified
-    )
+    # ``is_private`` deliberately excludes shared address space such as
+    # 100.64.0.0/10 (commonly used by Tailscale). ``is_global`` is the actual
+    # boundary for whether an address may leave the instance. Multicast needs
+    # an explicit check because globally scoped multicast can report global.
+    return not address.is_global or address.is_multicast
 
 
 def _is_non_public_network(network: ipaddress._BaseNetwork) -> bool:
-    return (
-        network.is_private
-        or network.is_loopback
-        or network.is_link_local
-        or network.is_multicast
-        or network.is_reserved
-        or network.is_unspecified
-    )
+    return not network.is_global or network.is_multicast
 
 
 def enrich_event_values(db: Session, values: dict[str, Any]) -> bool:

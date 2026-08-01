@@ -18,6 +18,7 @@ lookup_geoip = geoip_service.lookup_geoip
 normalize_asn = geoip_service.normalize_asn
 normalize_city = geoip_service.normalize_city
 normalize_isp = geoip_service.normalize_isp
+normalize_lookup_target = geoip_service.normalize_lookup_target
 
 
 def test_geoip_normalizes_asn_city_and_truncates_isp():
@@ -28,6 +29,14 @@ def test_geoip_normalizes_asn_city_and_truncates_isp():
     assert len(normalize_city("x" * 300) or "") == 255
     assert normalize_isp("  Example ISP  ") == "Example ISP"
     assert len(normalize_isp("x" * 300) or "") == 255
+
+
+def test_geoip_only_accepts_globally_routable_lookup_targets():
+    assert normalize_lookup_target("100.64.0.1") is None
+    assert normalize_lookup_target("100.64.0.0/10") is None
+    assert normalize_lookup_target("224.0.0.1") is None
+    assert normalize_lookup_target("8.8.8.8") == ("8.8.8.8", "8.8.8.8")
+    assert normalize_lookup_target("8.8.8.0/24") == ("8.8.8.0/24", "8.8.8.1")
 
 
 def test_geoip_cache_is_used_and_plugin_values_win(db_session):
