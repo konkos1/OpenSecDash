@@ -86,7 +86,28 @@ OpenSecDash can display:
 
 Review debug reports before attaching them to public issues.
 
-SMTP notifications intentionally send matching event or Insight details to the mail server configured by the administrator. Leave notifications disabled if that destination is not trusted. Remote GeoIP is disabled by default; when enabled, it sends each uncached public IP over unencrypted HTTP to `ip-api.com`, caches successful results for the configured TTL and failures for one hour, and never sends private or reserved IPs. The Insights rule updater only downloads declarative JSON rules from fixed OpenSecDash website URLs; it does not upload local events, IPs, hostnames, or telemetry. A fixed, expiring SHA-256 manifest is verified before remote rules are stored; see the [Insights engine guide](../operations/insight-rules.md) for the remaining same-site trust limitation.
+SMTP notifications intentionally send matching event or Insight details to the mail server configured by the administrator. Leave notifications disabled if that destination is not trusted. The Insights rule updater only downloads declarative JSON rules from fixed OpenSecDash website URLs; it does not upload local events, IPs, hostnames, or telemetry. A fixed, expiring SHA-256 manifest is verified before remote rules are stored; see the [Insights engine guide](../operations/insight-rules.md) for the remaining same-site trust limitation.
+
+### Remote GeoIP
+
+Remote GeoIP stays disabled until an administrator enables it, and it never sends
+private, local, reserved, or otherwise non-public addresses. Successful lookups are
+cached for the configured TTL, failures for one hour. Two providers with clearly
+different transports can be selected; new installations pre-select IPLocate, and an
+existing installation keeps whatever it already stored.
+
+- **IPLocate** sends each uncached public IP over HTTPS to the provider's fixed EU
+  endpoint. The endpoint is a constant rather than a setting, certificate verification
+  is always on, and redirects are not followed. The required API key is stored
+  encrypted, travels in the `X-API-Key` request header only, and appears neither in
+  URLs nor in HTML, logs, or debug reports. TLS protects the transport only: IPLocate
+  still receives and processes the public IP being looked up. Responses are size-capped
+  and limited to the country, city, ASN, and company/hosting fields OpenSecDash stores.
+- **ip-api.com** remains available as a legacy option and sends each uncached public IP
+  over **unencrypted HTTP**, readable by anyone on the network path. A failing IPLocate
+  lookup never falls back to it.
+
+See the [GeoIP plugin guide](../plugins/geoip.md).
 
 ## Remote reads and input boundaries
 

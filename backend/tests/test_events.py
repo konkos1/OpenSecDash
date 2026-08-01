@@ -34,7 +34,7 @@ def test_normalize_event_time_applies_assumed_timezone_only_when_naive():
 
 
 def test_store_event_never_enriches_geoip_inline(db_session):
-    # Ingestion no longer does GeoIP enrichment inline (see geoip.enrich_pending_events) -
+    # Ingestion no longer does GeoIP enrichment inline - the plugin hook owns it -
     # a first-time import of a large log could otherwise mean thousands of
     # synchronous lookup HTTP calls in a row. Even with GeoIP enabled and a
     # cache hit available, a freshly stored event must come back unenriched

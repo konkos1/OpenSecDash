@@ -20,7 +20,6 @@ from app.core.input_limits import (
     MAX_JSON_DEPTH,
 )
 from app.core.remote_urls import RemoteURLPolicyError, validate_remote_url
-from app.services.geoip import enrich_event_values
 from app.database.dependencies import get_db
 from app.web.body_limit import RequestBodyLimitMiddleware
 from conftest import import_plugin_module
@@ -29,6 +28,9 @@ importer = import_plugin_module("json_assets", "services.importer")
 source_module = import_plugin_module("json_assets", "services.source")
 mqtt_module = import_plugin_module("mqtt", "plugin")
 proxmox_module = import_plugin_module("proxmox_assets", "services.sync")
+geoip_service = import_plugin_module("geoip", "services.geoip")
+ip_api = import_plugin_module("geoip", "services.providers.ip_api")
+enrich_event_values = geoip_service.enrich_event_values
 
 
 @pytest.mark.parametrize(
@@ -204,7 +206,7 @@ def test_event_api_enforces_field_and_query_boundaries(db_session):
 
 
 def test_geoip_default_disabled_makes_no_network_call(monkeypatch, db_session):
-    monkeypatch.setattr("app.services.geoip.requests.get", lambda *args, **kwargs: pytest.fail("unexpected GeoIP request"))
+    monkeypatch.setattr(ip_api.requests, "get", lambda *args, **kwargs: pytest.fail("unexpected GeoIP request"))
     values = {"ip": "8.8.8.8"}
 
     enrich_event_values(db_session, values)

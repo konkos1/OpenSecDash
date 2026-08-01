@@ -13,6 +13,9 @@ from app.database.base import Base
 from app.database.dependencies import get_db
 from app.main import app
 from app.models.settings import Setting
+from app.plugins.base import Plugin, PluginMetadata, PluginSetting
+from app.plugins.manager import get_plugin_manager
+from app.services.settings import save_setting
 from app.web import auth as auth_web
 
 
@@ -148,12 +151,138 @@ def test_geoip_transport_warning_belongs_to_the_provider_option(settings_client)
 
     assert "GeoIP aktiviert <button" in page.text
     assert "GeoIP aktiviert (sendet" not in page.text
-    assert '<option value="ip-api" selected>ip-api.com (unverschlüsselt)</option>' in page.text
+    # No stored provider row: the declarative default pre-selects IPLocate.
+    assert '<option value="iplocate" selected>IPLocate EU-Endpunkt (verschlüsseltes HTTPS)</option>' in page.text
+    assert '<option value="ip-api" >ip-api.com (unverschlüsselt)</option>' in page.text
+    assert (
+        '<small class="info-text block text-sm mt-1" '
+        'x-show="settings[\'plugin.geoip.provider\'] === \'iplocate\'" x-cloak>'
+        "Vollständige GeoIP-Anreicherung mit Land, Stadt, ASN und Provider/ISP. Nicht gecachte öffentliche "
+        "IP-Adressen werden HTTPS-verschlüsselt an den EU-Endpunkt von IPLocate übertragen.</small>"
+    ) in page.text
     assert (
         '<small class="info-text block text-sm mt-1" '
         'x-show="settings[\'plugin.geoip.provider\'] === \'ip-api\'" x-cloak>'
         "Nicht gecachte öffentliche IPs werden unverschlüsselt an ip-api.com gesendet.</small>"
     ) in page.text
+
+
+def test_geoip_provider_options_and_transport_notes_exist_in_english_too(settings_client):
+    db, client = settings_client
+    db.add(Setting(key="language", value="en"))
+    db.commit()
+
+    page = client.get("/settings").text
+
+    assert '<option value="iplocate" selected>IPLocate EU endpoint (encrypted HTTPS)</option>' in page
+    assert '<option value="ip-api" >ip-api.com (unencrypted HTTP)</option>' in page
+    assert (
+        '<small class="info-text block text-sm mt-1" '
+        "x-show=\"settings['plugin.geoip.provider'] === 'iplocate'\" x-cloak>"
+        "Full GeoIP enrichment with country, city, ASN, and provider/ISP. Uncached public IP addresses are sent "
+        "over encrypted HTTPS to IPLocate&#39;s EU endpoint.</small>"
+    ) in page
+    assert (
+        '<small class="info-text block text-sm mt-1" '
+        "x-show=\"settings['plugin.geoip.provider'] === 'ip-api'\" x-cloak>"
+        "Uncached public IPs are sent to ip-api.com over unencrypted HTTP.</small>"
+    ) in page
+    # The transport note belongs to its own option: neither provider carries the other's.
+    assert page.count("over encrypted HTTPS to IPLocate") == 1
+    assert page.count("over unencrypted HTTP.") == 1
+
+
+def test_iplocate_key_field_needs_enabled_geoip_and_the_iplocate_provider(settings_client):
+    db, client = settings_client
+
+    page = client.get("/settings").text
+
+    assert (
+        ":class=\"settings['plugin.geoip.enabled'] === 'true' "
+        "&& settings['plugin.geoip.provider'] === 'iplocate' ? '' : 'settings-disabled'\""
+    ) in page
+    assert (
+        ":readonly=\"!(settings['plugin.geoip.enabled'] === 'true' "
+        "&& settings['plugin.geoip.provider'] === 'iplocate')\""
+    ) in page
+
+    # Enabling GeoIP and storing the key in one post is allowed ...
+    client.post(
+        "/settings/plugins/geoip",
+        data={
+            "plugin.geoip.enabled": "true",
+            "plugin.geoip.provider": "iplocate",
+            "plugin.geoip.iplocate_api_key": "dummy-iplocate-key",
+        },
+    )
+    db.expire_all()
+    stored = db.query(Setting).filter_by(key="plugin.geoip.iplocate_api_key").one().value
+
+    assert get_setting_value(db, "plugin.geoip.iplocate_api_key") == "dummy-iplocate-key"
+    assert stored.startswith("enc:v1:")
+    assert "dummy-iplocate-key" not in stored
+
+    # ... and the stored key is never rendered back into the page.
+    page = client.get("/settings").text
+    assert "dummy-iplocate-key" not in page
+    assert "/settings/plugins/geoip/secrets/iplocate_api_key/delete" in page
+
+    # A tampered post while ip-api is selected neither writes nor deletes it.
+    client.post(
+        "/settings/plugins/geoip",
+        data={
+            "plugin.geoip.enabled": "true",
+            "plugin.geoip.provider": "ip-api",
+            "plugin.geoip.iplocate_api_key": "dummy-tampered-key",
+        },
+    )
+    hidden_delete = client.post("/settings/plugins/geoip/secrets/iplocate_api_key/delete", follow_redirects=False)
+    db.expire_all()
+
+    assert hidden_delete.status_code == 303
+    assert get_setting_value(db, "plugin.geoip.provider") == "ip-api"
+    assert get_setting_value(db, "plugin.geoip.iplocate_api_key") == "dummy-iplocate-key"
+
+    # The same applies while GeoIP is off, even with iplocate selected.
+    client.post(
+        "/settings/plugins/geoip",
+        data={
+            "plugin.geoip.enabled": "false",
+            "plugin.geoip.provider": "iplocate",
+            "plugin.geoip.iplocate_api_key": "dummy-tampered-key",
+        },
+    )
+    db.expire_all()
+    assert get_setting_value(db, "plugin.geoip.iplocate_api_key") == "dummy-iplocate-key"
+
+    # ... and to the fourth combination, GeoIP off with ip-api selected.
+    client.post(
+        "/settings/plugins/geoip",
+        data={
+            "plugin.geoip.enabled": "false",
+            "plugin.geoip.provider": "ip-api",
+            "plugin.geoip.iplocate_api_key": "dummy-tampered-key",
+        },
+    )
+    db.expire_all()
+    assert get_setting_value(db, "plugin.geoip.iplocate_api_key") == "dummy-iplocate-key"
+
+    # Back in the valid state the key can be replaced and deliberately deleted.
+    client.post(
+        "/settings/plugins/geoip",
+        data={
+            "plugin.geoip.enabled": "true",
+            "plugin.geoip.provider": "iplocate",
+            "plugin.geoip.iplocate_api_key": "dummy-rotated-key",
+        },
+    )
+    db.expire_all()
+    assert get_setting_value(db, "plugin.geoip.iplocate_api_key") == "dummy-rotated-key"
+
+    deleted = client.post("/settings/plugins/geoip/secrets/iplocate_api_key/delete", follow_redirects=False)
+    db.expire_all()
+    assert deleted.status_code == 303
+    assert get_setting_value(db, "plugin.geoip.iplocate_api_key") == ""
 
 
 def test_plugin_settings_refresh_desktop_and_mobile_navigation(settings_client):
@@ -187,3 +316,160 @@ def test_plugin_settings_refresh_desktop_and_mobile_navigation(settings_client):
         assert disabled_navigation is not None
         assert 'href="/crowdsec"' in enabled_navigation.group(1)
         assert 'href="/crowdsec"' not in disabled_navigation.group(1)
+
+
+class TwoConditionSecretPlugin(Plugin):
+    """Synthetic plugin whose secret needs two conditions at once."""
+
+    metadata = PluginMetadata(id="two_conditions", name="Two Conditions")
+    settings = [
+        PluginSetting("enabled", "tc.enabled", "tc.enabled.help", type="boolean", default="false"),
+        PluginSetting(
+            "mode",
+            "tc.mode",
+            "tc.mode.help",
+            type="select",
+            default="basic",
+            options=[("basic", "tc.mode.basic"), ("advanced", "tc.mode.advanced")],
+        ),
+        PluginSetting(
+            "api_key",
+            "tc.api_key",
+            "tc.api_key.help",
+            type="password",
+            default="",
+            visible_if_all=(("enabled", "true"), ("mode", "advanced")),
+        ),
+    ]
+    locales = {"en": {}, "de": {}}
+
+
+@pytest.fixture()
+def two_condition_plugin(monkeypatch):
+    plugin = TwoConditionSecretPlugin()
+    monkeypatch.setitem(get_plugin_manager().plugins, "two_conditions", plugin)
+    return plugin
+
+
+def test_plugin_secret_is_never_rendered_back_and_can_be_kept_replaced_and_deleted(settings_client):
+    db, client = settings_client
+    db.add(Setting(key="plugin.crowdsec.enabled", value="true"))
+    db.commit()
+
+    client.post(
+        "/settings/plugins/crowdsec",
+        data={"plugin.crowdsec.enabled": "true", "plugin.crowdsec.lapi_password": "dummy-lapi-secret"},
+    )
+    db.expire_all()
+    stored = db.query(Setting).filter_by(key="plugin.crowdsec.lapi_password").one().value
+
+    assert stored.startswith("enc:v1:")
+    assert "dummy-lapi-secret" not in stored
+
+    page = client.get("/settings")
+    assert "dummy-lapi-secret" not in page.text
+    assert "Stored - leave empty to keep it" in page.text
+    assert '/settings/plugins/crowdsec/secrets/lapi_password/delete' in page.text
+
+    # An empty field keeps the stored secret ...
+    client.post(
+        "/settings/plugins/crowdsec",
+        data={"plugin.crowdsec.enabled": "true", "plugin.crowdsec.lapi_password": ""},
+    )
+    db.expire_all()
+    assert get_setting_value(db, "plugin.crowdsec.lapi_password") == "dummy-lapi-secret"
+
+    # ... a new value replaces it, still encrypted ...
+    client.post(
+        "/settings/plugins/crowdsec",
+        data={"plugin.crowdsec.enabled": "true", "plugin.crowdsec.lapi_password": "dummy-lapi-rotated"},
+    )
+    db.expire_all()
+    assert get_setting_value(db, "plugin.crowdsec.lapi_password") == "dummy-lapi-rotated"
+    assert db.query(Setting).filter_by(key="plugin.crowdsec.lapi_password").one().value.startswith("enc:v1:")
+
+    # ... and the plugin itself still receives the plaintext value.
+    manager = get_plugin_manager()
+    assert manager.context(db, manager.plugins["crowdsec"]).get("lapi_password") == "dummy-lapi-rotated"
+
+    deleted = client.post("/settings/plugins/crowdsec/secrets/lapi_password/delete", follow_redirects=False)
+    db.expire_all()
+    assert deleted.status_code == 303
+    assert get_setting_value(db, "plugin.crowdsec.lapi_password") == ""
+    assert "Stored - leave empty to keep it" not in client.get("/settings").text
+
+
+@pytest.mark.parametrize(
+    ("plugin_id", "secret_key"),
+    [("mqtt", "password"), ("proxmox_assets", "token_secret")],
+)
+def test_plugin_secret_of_a_disabled_plugin_cannot_be_set_or_deleted(settings_client, plugin_id, secret_key):
+    db, client = settings_client
+    full_key = f"plugin.{plugin_id}.{secret_key}"
+    save_setting(db, full_key, "dummy-existing-secret")
+    db.commit()
+
+    client.post(
+        f"/settings/plugins/{plugin_id}",
+        data={f"plugin.{plugin_id}.enabled": "false", full_key: "dummy-injected-secret"},
+    )
+    deleted = client.post(f"/settings/plugins/{plugin_id}/secrets/{secret_key}/delete", follow_redirects=False)
+    db.expire_all()
+
+    assert deleted.status_code == 303
+    assert get_setting_value(db, full_key) == "dummy-existing-secret"
+
+
+def test_two_conditions_are_rendered_as_one_and_expression(settings_client, two_condition_plugin):
+    _, client = settings_client
+
+    page = client.get("/settings").text
+
+    assert (
+        ":class=\"settings['plugin.two_conditions.enabled'] === 'true' "
+        "&& settings['plugin.two_conditions.mode'] === 'advanced' ? '' : 'settings-disabled'\""
+    ) in page
+    assert (
+        ":readonly=\"!(settings['plugin.two_conditions.enabled'] === 'true' "
+        "&& settings['plugin.two_conditions.mode'] === 'advanced')\""
+    ) in page
+
+
+def test_a_secret_behind_two_conditions_needs_both_of_them(settings_client, two_condition_plugin):
+    db, client = settings_client
+
+    # Only one condition met: the posted secret is dropped.
+    client.post(
+        "/settings/plugins/two_conditions",
+        data={
+            "plugin.two_conditions.enabled": "true",
+            "plugin.two_conditions.mode": "basic",
+            "plugin.two_conditions.api_key": "dummy-tampered-key",
+        },
+    )
+    db.expire_all()
+    assert get_setting_value(db, "plugin.two_conditions.api_key") == ""
+
+    # Both conditions arrive with the same post: activating and configuring works.
+    client.post(
+        "/settings/plugins/two_conditions",
+        data={
+            "plugin.two_conditions.enabled": "true",
+            "plugin.two_conditions.mode": "advanced",
+            "plugin.two_conditions.api_key": "dummy-key",
+        },
+    )
+    db.expire_all()
+    assert get_setting_value(db, "plugin.two_conditions.api_key") == "dummy-key"
+
+    # Turning the plugin off in the same post keeps the secret unwritable.
+    client.post(
+        "/settings/plugins/two_conditions",
+        data={
+            "plugin.two_conditions.enabled": "false",
+            "plugin.two_conditions.api_key": "dummy-tampered-key",
+        },
+    )
+    db.expire_all()
+    assert get_setting_value(db, "plugin.two_conditions.enabled") == "false"
+    assert get_setting_value(db, "plugin.two_conditions.api_key") == "dummy-key"

@@ -5,7 +5,7 @@ import logging
 import json
 import time
 from pathlib import Path
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.orm import Session
@@ -20,21 +20,21 @@ from app.database.session import SessionLocal
 from app.models.assets import Asset
 from app.models.core import Datasource, Diagnostic, InsightRule as InsightRuleModel, PluginRecord
 from app.models.settings import Setting
-from app.plugins.base import ActionDefinition, CURRENT_PLUGIN_API_VERSION, ActionPlugin, DatasourcePlugin, ExportPlugin, PeriodicPlugin, Plugin, PluginContext, PluginSetting
+from app.plugins.base import ActionDefinition, CURRENT_PLUGIN_API_VERSION, ActionPlugin, DatasourcePlugin, EnrichmentPlugin, ExportPlugin, PeriodicPlugin, Plugin, PluginContext, PluginSetting
 from app.plugins.loader import env_disable_var, import_plugin_module, is_plugin_env_disabled
 from app.core.time import utc_now
 from app.services.events import cleanup_events_by_retention, clear_duplicate_rules, compact_completed_daily_rollups, register_duplicate_rules, store_event
-from app.services.geoip import enrich_pending_events
 from app.services.insight_rules import import_ruleset, invalidate_active_rules_cache, refresh_insight_rules
 from app.services.asset_updates import refresh_asset_updates
 from app.services.self_update import run_self_update_check
 from app.services.notifications import dispatch_pending_notifications
+from app.services.settings import save_setting
 
 
 logger = logging.getLogger(__name__)
 
 BACKLOG_CATCHUP_DELAY_SECONDS = 0.2
-GEOIP_BACKFILL_BATCH_SIZE = 50
+ENRICHMENT_BATCH_SIZE = 50
 EVENTS_COMMIT_EVERY = 200
 
 _UNSET: Any = object()
@@ -251,20 +251,106 @@ class PluginManager:
     def setting_key(plugin_id: str, key: str) -> str:
         return f"plugin.{plugin_id}.{key}"
 
+    @staticmethod
+    def _effective_conditions(plugin_id: str, setting: PluginSetting, has_enabled_toggle: bool) -> tuple[tuple[str, str], ...]:
+        """The setting's conditions as full-key pairs, AND-combined.
+
+        A setting without its own condition inherits the implicit
+        ``enabled=true`` rule (ADR-007) when the plugin has that toggle.
+        """
+        conditions = setting.conditions()
+        if not conditions and has_enabled_toggle and setting.key != "enabled":
+            conditions = (("enabled", "true"),)
+        return tuple((PluginManager.setting_key(plugin_id, key), value) for key, value in conditions)
+
+    def _effective_conditions_by_key(self, plugin: Plugin) -> dict[str, tuple[tuple[str, str], ...]]:
+        has_enabled_toggle = any(setting.key == "enabled" for setting in plugin.settings)
+        return {
+            self.setting_key(plugin.metadata.id, setting.key): self._effective_conditions(
+                plugin.metadata.id, setting, has_enabled_toggle
+            )
+            for setting in plugin.settings
+        }
+
+    def _stored_settings(self, db: Session, plugin: Plugin) -> dict[str, str]:
+        return {
+            self.setting_key(plugin.metadata.id, setting.key): get_setting_value(
+                db, self.setting_key(plugin.metadata.id, setting.key), setting.default
+            )
+            for setting in plugin.settings
+        }
+
+    @staticmethod
+    def _conditions_met(conditions: tuple[tuple[str, str], ...], state: Mapping[str, str]) -> bool:
+        return all(state.get(key, "") == expected for key, expected in conditions)
+
+    def writable_settings(self, db: Session, plugin_id: str, submitted: Mapping[str, str]) -> dict[str, str]:
+        """Reduce a posted plugin form to the settings it is actually allowed to write.
+
+        The browser hides and disables conditional fields, but a hand-crafted
+        post must hit the same boundary. Control values (``enabled``,
+        ``provider``, ...) are resolved first, so enabling a plugin and filling
+        the settings this unlocks still works in a single form post, while a
+        value that the resulting state hides stays unwritable regardless of the
+        order it was posted in.
+        """
+        plugin = self.plugins.get(plugin_id)
+        if plugin is None:
+            return {}
+        conditions = self._effective_conditions_by_key(plugin)
+        stored = self._stored_settings(db, plugin)
+        candidates = {key: str(value) for key, value in submitted.items() if key in stored}
+
+        state = dict(stored)
+        # Bounded fixpoint: each pass re-applies the posted values that the
+        # previous state allows. One pass per setting is enough for any chain
+        # of conditions; the bound also keeps a pathological cyclic plugin
+        # definition from looping here.
+        for _ in range(len(plugin.settings) + 1):
+            next_state = {
+                **stored,
+                **{key: value for key, value in candidates.items() if self._conditions_met(conditions[key], state)},
+            }
+            if next_state == state:
+                break
+            state = next_state
+        return {key: value for key, value in candidates.items() if self._conditions_met(conditions[key], state)}
+
+    def clear_plugin_secret(self, db: Session, plugin_id: str, short_key: str) -> bool:
+        """Clear one ``password`` setting of a registered plugin.
+
+        Checked against the registered metadata so this stays a deliberate
+        secret reset for a known plugin field, not a generally addressable
+        "delete any setting" endpoint. Returns whether anything was cleared.
+        """
+        plugin = self.plugins.get(plugin_id)
+        if plugin is None:
+            return False
+        target = next((setting for setting in plugin.settings if setting.key == short_key and setting.type == "password"), None)
+        if target is None:
+            return False
+        full_key = self.setting_key(plugin_id, short_key)
+        stored = self._stored_settings(db, plugin)
+        if not self._conditions_met(self._effective_conditions_by_key(plugin)[full_key], stored):
+            return False
+        save_setting(db, full_key, "")
+        return True
+
     def plugin_settings(self, db: Session, language: str) -> list[dict[str, Any]]:
         groups = []
         for plugin in self.plugins.values():
             settings = []
             locale = plugin.locales.get(language, plugin.locales.get("en", {}))
             fallback = plugin.locales.get("en", {})
-            has_enabled_toggle = any(setting.key == "enabled" for setting in plugin.settings)
+            conditions_by_key = self._effective_conditions_by_key(plugin)
             plugin_enabled = get_setting_value(db, self.setting_key(plugin.metadata.id, "enabled"), "false") == "true"
             for setting in plugin.settings:
                 full_key = self.setting_key(plugin.metadata.id, setting.key)
                 value = get_setting_value(db, full_key, setting.default)
-                visible_if = setting.visible_if
-                if visible_if is None and has_enabled_toggle and setting.key != "enabled":
-                    visible_if = ("enabled", "true")
+                # Secrets are never handed to the renderer: the page only learns
+                # whether one is stored, so no decrypted value can reach HTML,
+                # the Alpine state or a browser cache.
+                is_secret = setting.type == "password"
                 error = None
                 if setting.type == "file" and plugin_enabled and value and not Path(value).exists():
                     error = (
@@ -276,7 +362,9 @@ class PluginManager:
                     {
                         "key": full_key,
                         "short_key": setting.key,
-                        "value": value,
+                        "value": "" if is_secret else value,
+                        "secret": is_secret,
+                        "secret_configured": bool(value) if is_secret else False,
                         "type": setting.type,
                         "label": locale.get(setting.label_key, fallback.get(setting.label_key, setting.label_key)),
                         "help": locale.get(setting.help_key, fallback.get(setting.help_key, setting.help_key)),
@@ -289,14 +377,10 @@ class PluginManager:
                             (value, locale.get(info_key, fallback.get(info_key, info_key)))
                             for value, info_key in setting.option_info
                         ],
-                        "visible_if": (
-                            {
-                                "key": self.setting_key(plugin.metadata.id, visible_if[0]),
-                                "value": visible_if[1],
-                            }
-                            if visible_if
-                            else None
-                        ),
+                        "visible_if": [
+                            {"key": condition_key, "value": condition_value}
+                            for condition_key, condition_value in conditions_by_key[full_key]
+                        ],
                     }
                 )
             if settings:
@@ -315,11 +399,12 @@ class PluginManager:
         self.tasks.append(asyncio.create_task(self._insight_rules_loop(), name="core-insight-rules"))
         self.tasks.append(asyncio.create_task(self._rollup_compaction_loop(), name="core-rollup-compaction"))
         self.tasks.append(asyncio.create_task(self._retention_cleanup_loop(), name="core-retention-cleanup"))
-        self.tasks.append(asyncio.create_task(self._geoip_backfill_loop(), name="core-geoip-backfill"))
         self.tasks.append(asyncio.create_task(self._self_update_check_loop(), name="core-self-update-check"))
         self.tasks.append(asyncio.create_task(self._notification_dispatch_loop(), name="core-notification-dispatch"))
         for plugin in self.plugins.values():
             self.tasks.append(asyncio.create_task(self._health_loop(plugin), name=f"plugin-health-{plugin.metadata.id}"))
+            if isinstance(plugin, EnrichmentPlugin):
+                self.tasks.append(asyncio.create_task(self._enrichment_loop(plugin), name=f"plugin-enrichment-{plugin.metadata.id}"))
             if isinstance(plugin, DatasourcePlugin):
                 self.tasks.append(asyncio.create_task(self._datasource_loop(plugin), name=f"plugin-datasource-{plugin.metadata.id}"))
             if isinstance(plugin, PeriodicPlugin):
@@ -456,21 +541,29 @@ class PluginManager:
         db.commit()
         return deleted
 
-    async def _geoip_backfill_loop(self) -> None:
+    async def _enrichment_loop(self, plugin: EnrichmentPlugin) -> None:
         while True:
             try:
-                # Runs in a thread: a slow/unreachable GeoIP provider can mean
-                # a real network wait per uncached IP, which must not block
-                # the event loop while it's happening.
-                processed = await asyncio.to_thread(run_with_session, enrich_pending_events, GEOIP_BACKFILL_BATCH_SIZE)
+                # Enrichment plugins can block on remote providers. Their hook
+                # therefore runs with its database session in a worker thread.
+                processed = await asyncio.to_thread(run_with_session, self._run_enrichment_tick, plugin)
                 # Keep draining quickly while a backlog exists (e.g. right
                 # after a large log import), back off once caught up.
-                await asyncio.sleep(1 if processed >= GEOIP_BACKFILL_BATCH_SIZE else 15)
+                await asyncio.sleep(1 if processed >= ENRICHMENT_BATCH_SIZE else 15)
             except asyncio.CancelledError:
                 raise
             except Exception:
-                logger.exception("GeoIP backfill failed")
+                logger.exception("Enrichment plugin %s failed", plugin.metadata.id)
                 await asyncio.sleep(30)
+
+    def _run_enrichment_tick(self, db: Session, plugin: EnrichmentPlugin) -> int:
+        """Run one plugin-owned enrichment batch synchronously in a worker."""
+        context = self.context(db, plugin)
+        if context.get("enabled", "false").lower() != "true":
+            return 0
+        processed = asyncio.run(plugin.enrich(context, ENRICHMENT_BATCH_SIZE))
+        db.commit()
+        return processed
 
     async def _self_update_check_loop(self) -> None:
         # Runs in a thread: one GitHub API request, which must not block the

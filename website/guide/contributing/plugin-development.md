@@ -131,7 +131,7 @@ Supported setting types:
 | Type | UI behavior |
 | --- | --- |
 | `text` | Text input. |
-| `password` | Password input; values are redacted in debug output. |
+| `password` | Password input; write-only, see below. |
 | `number` | Numeric text input. |
 | `boolean` | Select with configured options. |
 | `select` | Select with configured options. |
@@ -139,6 +139,20 @@ Supported setting types:
 | `url` | URL input; values are sanitized when saved. |
 
 If a plugin has an `enabled` setting, other settings are automatically greyed out until the plugin is enabled, unless you define an explicit `visible_if`. This keeps available configuration visible without making inactive options look editable.
+
+A setting can require more than one condition with
+`visible_if_all=(("enabled", "true"), ("provider", "example"))`. All conditions are
+combined with a logical AND — there is no OR — and `visible_if` keeps its existing
+single-condition meaning. Conditions reference settings of the same plugin, and the
+server enforces the same effective state as the browser: a posted value for a setting
+that is hidden in the resulting state is discarded, so a hand-crafted request cannot
+set or clear it.
+
+`password` settings are write-only. The stored value is never sent back to the
+browser — the page only shows whether one is stored — and it is redacted in logs and
+debug reports. Saving with an empty field keeps the stored secret, a non-empty field
+replaces it, and clearing it is a separate confirmed delete action. Your plugin still
+reads the real value through the plugin context.
 
 Select settings can use `option_info=[("value", "translation.key")]` to show
 value-specific information below the field. Keep option labels short for native
@@ -334,6 +348,19 @@ class Plugin(ActionPlugin):
 ```
 
 Return `None` when the action is not handled by your plugin.
+
+### `EnrichmentPlugin`
+
+Use this for plugin-owned enrichment that processes pending records in bounded batches.
+The manager calls the hook only while the plugin is enabled and runs it in a worker
+thread, so a remote provider cannot block the application's event loop. Return the
+number of processed records; a full batch is retried quickly to drain a backlog.
+
+```python
+class Plugin(EnrichmentPlugin):
+    async def enrich(self, context, limit):
+        return enrich_pending_records(context.db, limit)
+```
 
 ### `ExportPlugin`
 

@@ -171,6 +171,35 @@ def _enqueue(db: Session, rule: NotificationRuleSnapshot, payload: dict[str, obj
     db.add(Notification(rule_id=rule.rule_id, channel=rule.channel, status="pending", payload=payload))
 
 
+def _enqueue_event(db: Session, rule: NotificationRuleSnapshot, payload: dict[str, object]) -> None:
+    """Queue an event notification once and refresh its pending payload."""
+    event_id = payload.get("event_id")
+    # handle_event rejects events outside this same window, so older rows can
+    # never represent a valid repeat of the event currently being handled.
+    # Keeping the query inside the indexed rule/created-at window avoids
+    # loading an unbounded notification history for every event.
+    window_start = utc_now().replace(tzinfo=None) - BACKLOG_PROTECTION_WINDOW
+    existing = (
+        db.query(Notification)
+        .filter(
+            Notification.rule_id == rule.rule_id,
+            Notification.created_at >= window_start,
+        )
+        .order_by(Notification.id.desc())
+        .all()
+    )
+    for notification in existing:
+        if (notification.payload or {}).get("event_id") != event_id:
+            continue
+        # Event enrichment may add fields after ingestion. Keep notifications
+        # that have not been dispatched yet in sync without queueing a second
+        # notification for the same event and rule.
+        if notification.status == "pending" and notification.payload != payload:
+            notification.payload = payload
+        return
+    _enqueue(db, rule, payload)
+
+
 def handle_event(db: Session, event: Event) -> None:
     """Queue matching notification records without interrupting event ingestion."""
     try:
@@ -189,7 +218,7 @@ def handle_event(db: Session, event: Event) -> None:
                 continue
             if rule.asset_id is not None and event.asset_id != rule.asset_id:
                 continue
-            _enqueue(
+            _enqueue_event(
                 db,
                 rule,
                 {

@@ -2,6 +2,8 @@
 
 > **Implementation status (2026-07-09):** Implemented.
 > Plugin API v2 is implemented with package layout, PluginMetadata, settings, lifecycle hooks, capabilities, PluginContext, web hooks, IP panel hooks, dedupe hooks, and action/export hooks.
+>
+> **Update (2026-08-01):** Plugin API v2 also includes the batch-oriented enrichment hook.
 
 
 
@@ -188,9 +190,10 @@ class EnrichmentPlugin(Plugin):
 
     async def enrich(
         self,
-        event
+        context,
+        limit
     ):
-        pass
+        return 0
 ```
 
 

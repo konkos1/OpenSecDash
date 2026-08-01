@@ -7,6 +7,7 @@ The package includes:
 - settings with known sensitive values redacted and email addresses partially masked
 - plugin state
 - diagnostics
+- aggregate GeoIP enrichment and cache health without IPs, lookup keys, location values, or raw provider errors
 - datasource state
 - database counts, including the newer authentication, notification, saved-view, and preference tables
 - runtime mode for database migrations and trusted reverse proxies

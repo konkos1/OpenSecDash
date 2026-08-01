@@ -11,6 +11,14 @@
 > Local databases, key files, environment files, logs, caches, and development data
 > are recursively excluded from Docker build contexts. The container executes Uvicorn
 > directly as its non-root PID 1 so termination signals reach the application.
+> Update (2026-08-01): remote GeoIP offers IPLocate as an HTTPS provider bound to a
+> fixed EU endpoint constant, with certificate verification on, redirects not followed,
+> and its required API key sent in a request header only - never in a URL, HTML, log,
+> or debug report. Remote GeoIP stays disabled by default; new installations only
+> pre-select the provider. `ip-api.com` remains an upgrade-compatible legacy option
+> that is explicitly warned about as unencrypted HTTP, is never selected automatically,
+> and is never used as a fallback for a failed lookup. Provider responses stay within
+> the existing streamed size limit and are reduced to the fields OpenSecDash stores.
 
 
 

@@ -26,7 +26,7 @@ from app.core.time import utc_now
 from app.core.version import get_app_version
 from app.database.dependencies import get_db
 from app.models.assets import Asset
-from app.models.core import Action, AggregationDaily, AggregationMonthly, Datasource, Diagnostic, Insight, Notification, NotificationRule, PluginRecord
+from app.models.core import Action, AggregationDaily, AggregationMonthly, Datasource, Diagnostic, GeoIPCache, Insight, Notification, NotificationRule, PluginRecord
 from app.models.events import Event
 from app.models.saved_views import SavedView
 from app.models.settings import InstanceFile, Setting
@@ -1692,6 +1692,48 @@ def _debug_notification_lines(db: Session) -> list[str]:
     return lines
 
 
+def _debug_geoip_enrichment_lines(db: Session) -> list[str]:
+    """Return useful GeoIP aggregates without lookup or location data."""
+    now = utc_now().replace(tzinfo=None)
+    cache_query = db.query(GeoIPCache)
+    last_success = db.query(func.max(GeoIPCache.looked_up_at)).filter(GeoIPCache.error.is_(None)).scalar()
+    last_error = db.query(func.max(GeoIPCache.last_error_at)).filter(GeoIPCache.error.isnot(None)).scalar()
+    lines = [
+        _debug_line("Enabled", get_setting_value(db, "plugin.geoip.enabled", "false") == "true"),
+        _debug_line("Selected provider", get_setting_value(db, "plugin.geoip.provider", "iplocate")),
+        _debug_line("Events checked", db.query(Event).filter(Event.geoip_checked == True).count()),  # noqa: E712
+        _debug_line(
+            "Events pending with IP",
+            db.query(Event).filter(Event.geoip_checked == False, Event.ip.isnot(None), Event.ip != "").count(),  # noqa: E712
+        ),
+        _debug_line(
+            "Events unchecked without IP",
+            db.query(Event).filter(Event.geoip_checked == False, or_(Event.ip.is_(None), Event.ip == "")).count(),  # noqa: E712
+        ),
+        _debug_line("Events with country", db.query(Event).filter(Event.country.isnot(None), Event.country != "").count()),
+        _debug_line("Events with city", db.query(Event).filter(Event.city.isnot(None), Event.city != "").count()),
+        _debug_line("Events with ASN", db.query(Event).filter(Event.asn.isnot(None), Event.asn != "").count()),
+        _debug_line("Events with ISP", db.query(Event).filter(Event.isp.isnot(None), Event.isp != "").count()),
+        _debug_line("Cache rows", cache_query.count()),
+        _debug_line("Cache successful", cache_query.filter(GeoIPCache.error.is_(None)).count()),
+        _debug_line("Cache errors", cache_query.filter(GeoIPCache.error.isnot(None)).count()),
+        _debug_line("Cache expired", cache_query.filter(GeoIPCache.expires_at <= now).count()),
+        _debug_line("Last successful cache lookup", last_success or "not available"),
+        _debug_line("Last cache error", last_error or "not available"),
+    ]
+    providers = [provider for (provider,) in db.query(GeoIPCache.provider).distinct().order_by(GeoIPCache.provider).all()]
+    for provider in providers:
+        provider_query = cache_query.filter(GeoIPCache.provider == provider)
+        lines.extend(
+            [
+                _debug_line(f"Provider {provider} rows", provider_query.count()),
+                _debug_line(f"Provider {provider} successful", provider_query.filter(GeoIPCache.error.is_(None)).count()),
+                _debug_line(f"Provider {provider} errors", provider_query.filter(GeoIPCache.error.isnot(None)).count()),
+            ]
+        )
+    return lines
+
+
 def _debug_branding_lines(db: Session) -> list[str]:
     files = {item.kind: item for item in db.query(InstanceFile).all()}
     lines: list[str] = []
@@ -1760,6 +1802,7 @@ def build_debug_report_files(db: Session) -> dict[str, str]:
                 for item in db.query(Diagnostic).order_by(Diagnostic.plugin, Diagnostic.component).all()
             ],
         ),
+        "geoip-enrichment.txt": _debug_file("GeoIP enrichment", _debug_geoip_enrichment_lines(db)),
         "datasources.txt": _debug_file(
             "Datasources",
             [
@@ -2152,22 +2195,38 @@ async def save_plugin_settings(plugin_id: str, request: Request, db: Session = D
         str(setting["key"]): str(setting["type"])
         for setting in plugin_group["settings"]
     }
-    plugin_source_types = {
-        key: str(value)
-        for key, value in form.items()
-        if key in plugin_setting_types and key.endswith(".source_type")
-    }
+    submitted = {key: str(value) for key, value in form.items() if key in plugin_setting_types}
+
     def _save() -> None:
-        for key, value in form.items():
-            if key not in plugin_setting_types:
-                continue
-            text_value = str(value)
+        # The browser disables fields whose conditions are not met; the same
+        # boundary is enforced here, so a hand-crafted post cannot write a
+        # setting that is hidden in the resulting state.
+        writable = get_plugin_manager().writable_settings(db, plugin_id, submitted)
+        source_types = {key: value for key, value in writable.items() if key.endswith(".source_type")}
+        for key, text_value in writable.items():
             source_type_key = key.removesuffix(".source") + ".source_type"
-            if plugin_setting_types[key] == "url" or (key.endswith(".source") and plugin_source_types.get(source_type_key) == "url"):
+            if plugin_setting_types[key] == "url" or (key.endswith(".source") and source_types.get(source_type_key) == "url"):
                 text_value = clean_url_value(text_value)
+            # An empty secret field keeps the stored secret: the page never
+            # renders it back, so an empty post means "unchanged", not "clear".
+            # Clearing is the explicit delete action below.
+            if plugin_setting_types[key] == "password" and not text_value:
+                continue
             save_setting(db, key, text_value)
         db.commit()
         get_plugin_manager().refresh_health_diagnostics(db)
 
     await asyncio.to_thread(_save)
+    return RedirectResponse(url="/settings", status_code=303)
+
+
+@router.post("/settings/plugins/{plugin_id}/secrets/{short_key}/delete")
+async def delete_plugin_secret(plugin_id: str, short_key: str, db: Session = Depends(get_db)):
+    def _delete() -> None:
+        if not get_plugin_manager().clear_plugin_secret(db, plugin_id, short_key):
+            return
+        db.commit()
+        get_plugin_manager().refresh_health_diagnostics(db)
+
+    await asyncio.to_thread(_delete)
     return RedirectResponse(url="/settings", status_code=303)
