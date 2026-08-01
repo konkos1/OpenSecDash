@@ -204,7 +204,7 @@ def test_event_api_enforces_field_and_query_boundaries(db_session):
 
 
 def test_geoip_default_disabled_makes_no_network_call(monkeypatch, db_session):
-    monkeypatch.setattr("app.services.geoip.requests.get", lambda *args, **kwargs: pytest.fail("unexpected GeoIP request"))
+    monkeypatch.setattr("app.services.geoip.providers.ip_api.requests.get", lambda *args, **kwargs: pytest.fail("unexpected GeoIP request"))
     values = {"ip": "8.8.8.8"}
 
     enrich_event_values(db_session, values)

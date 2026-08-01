@@ -3,7 +3,9 @@ import json
 import pytest
 
 from app.core.http_responses import ResponseBodyError, read_capped_json
-from app.services import geoip, github_releases
+from app.services import github_releases
+from app.services.geoip import service as geoip_service
+from app.services.geoip.providers import ip_api
 
 
 class FakeResponse:
@@ -45,9 +47,9 @@ def test_geoip_reads_streamed_response_with_cap(monkeypatch, db_session):
         calls.append((args, kwargs))
         return response
 
-    monkeypatch.setattr(geoip.requests, "get", fake_get)
+    monkeypatch.setattr(ip_api.requests, "get", fake_get)
 
-    assert geoip._lookup_provider_geoip(db_session, "ip-api", "8.8.8.8") == ("DE", None, None, None)
+    assert geoip_service._lookup_provider_geoip(db_session, "ip-api", "8.8.8.8") == ("DE", None, None, None)
     assert calls[0][1]["stream"] is True
     assert response.closed is True
 
