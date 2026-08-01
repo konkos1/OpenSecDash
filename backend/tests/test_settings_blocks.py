@@ -167,6 +167,31 @@ def test_geoip_transport_warning_belongs_to_the_provider_option(settings_client)
     ) in page.text
 
 
+def test_geoip_provider_options_and_transport_notes_exist_in_english_too(settings_client):
+    db, client = settings_client
+    db.add(Setting(key="language", value="en"))
+    db.commit()
+
+    page = client.get("/settings").text
+
+    assert '<option value="iplocate" selected>IPLocate EU endpoint (encrypted HTTPS)</option>' in page
+    assert '<option value="ip-api" >ip-api.com (unencrypted HTTP)</option>' in page
+    assert (
+        '<small class="info-text block text-sm mt-1" '
+        "x-show=\"settings['plugin.geoip.provider'] === 'iplocate'\" x-cloak>"
+        "Full GeoIP enrichment with country, city, ASN, and provider/ISP. Uncached public IP addresses are sent "
+        "over encrypted HTTPS to IPLocate&#39;s EU endpoint.</small>"
+    ) in page
+    assert (
+        '<small class="info-text block text-sm mt-1" '
+        "x-show=\"settings['plugin.geoip.provider'] === 'ip-api'\" x-cloak>"
+        "Uncached public IPs are sent to ip-api.com over unencrypted HTTP.</small>"
+    ) in page
+    # The transport note belongs to its own option: neither provider carries the other's.
+    assert page.count("over encrypted HTTPS to IPLocate") == 1
+    assert page.count("over unencrypted HTTP.") == 1
+
+
 def test_iplocate_key_field_needs_enabled_geoip_and_the_iplocate_provider(settings_client):
     db, client = settings_client
 
@@ -224,6 +249,18 @@ def test_iplocate_key_field_needs_enabled_geoip_and_the_iplocate_provider(settin
         data={
             "plugin.geoip.enabled": "false",
             "plugin.geoip.provider": "iplocate",
+            "plugin.geoip.iplocate_api_key": "dummy-tampered-key",
+        },
+    )
+    db.expire_all()
+    assert get_setting_value(db, "plugin.geoip.iplocate_api_key") == "dummy-iplocate-key"
+
+    # ... and to the fourth combination, GeoIP off with ip-api selected.
+    client.post(
+        "/settings/plugins/geoip",
+        data={
+            "plugin.geoip.enabled": "false",
+            "plugin.geoip.provider": "ip-api",
             "plugin.geoip.iplocate_api_key": "dummy-tampered-key",
         },
     )

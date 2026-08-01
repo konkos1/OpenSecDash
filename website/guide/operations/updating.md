@@ -69,14 +69,35 @@ Internal sign-in can no longer be switched off in Settings; `OSD_AUTH_DISABLED` 
 only bypass. See
 [Authentication](../configuration/authentication.md#updated-installations-that-are-still-open).
 
+## IPLocate becomes the GeoIP provider default for new installations
+
+The release that adds the [IPLocate EU provider](../plugins/geoip.md) does not change
+the GeoIP configuration of an existing installation:
+
+- a stored provider choice stays exactly as it is. An installation on `ip-api.com`
+  keeps `ip-api.com`, including an active one — no provider is migrated or switched
+  automatically;
+- only a missing provider row is seeded, and it receives `IPLocate` as its default.
+  In practice that is a new installation;
+- GeoIP itself stays disabled by default, so a new installation pre-selects IPLocate
+  without contacting it. Nothing is looked up until GeoIP is enabled;
+- an existing GeoIP setting keeps its value, so an upgrade starts no new external data
+  flow on its own.
+
+If you switch to IPLocate deliberately, add an API key in **Settings → GeoIP** — the
+field appears once GeoIP is enabled and IPLocate is selected. Cached entries of the
+previous provider are not reused after the switch: each cache entry only counts as a
+hit for the provider that produced it, so the next lookup for an address refreshes it
+through the new provider.
+
 ## Upgrading from v0.3.1 or earlier
 
 The releases after `v0.3.1` add database migrations for notifications, saved views, personal preferences, instance branding, and optional internal users. These migrations run automatically with the default `AUTO_MIGRATE=true` setting. Internal authentication remains disabled until an administrator explicitly enables it, so the upgrade does not create a surprise login requirement.
 
 Remote GeoIP is disabled for new installations. Upgrades keep an existing explicit
-GeoIP setting unchanged. If GeoIP remains enabled, Settings and Diagnostics warn that
-uncached public IPs are sent to `ip-api.com` over unencrypted HTTP; review that data
-flow and disable the plugin if it is not acceptable.
+GeoIP setting unchanged. If GeoIP remains enabled, Settings and Diagnostics warn about
+the data flow of the selected provider; review it and disable the plugin if it is not
+acceptable.
 
 The first start after upgrading an older installation also performs one legacy event-deduplication maintenance pass before the app becomes ready. The pass is implemented inside SQLite and keeps the oldest matching event. A stored maintenance marker makes subsequent starts skip the event-wide scan. If the maintenance pass fails, startup stops and readiness is not reported.
 

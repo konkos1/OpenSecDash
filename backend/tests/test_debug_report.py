@@ -10,6 +10,7 @@ from app.models.core import Diagnostic, Notification, NotificationRule, PluginRe
 from app.models.saved_views import SavedView
 from app.models.settings import InstanceFile, Setting
 from app.models.users import ExternalIdentity, User, UserPreference, UserSession
+from app.services.settings import save_setting
 
 
 def test_debug_report_includes_docker_log_hint_when_file_logging_disabled(db_session):
@@ -188,6 +189,40 @@ def test_debug_report_aggregates_external_identities_without_issuers_or_subjects
     assert issuer not in report
     assert "private-subject-viewer" not in report
     assert "private-subject-admin" not in report
+
+
+def test_debug_report_never_exposes_the_stored_iplocate_api_key(db_session):
+    dummy_key = "dummy-iplocate-key"
+    save_setting(db_session, "plugin.geoip.iplocate_api_key", dummy_key)
+    db_session.add_all(
+        [
+            Setting(key="plugin.geoip.enabled", value="true"),
+            Setting(key="plugin.geoip.provider", value="iplocate"),
+            PluginRecord(id="geoip", name="GeoIP", version="1.0.0", capabilities=["enrichment"], status="warning"),
+            Diagnostic(
+                plugin="geoip",
+                component="plugin",
+                status="warning",
+                last_error="GeoIP is active: uncached public IPs are sent to IPLocate's EU endpoint over encrypted HTTPS.",
+            ),
+        ]
+    )
+    db_session.commit()
+
+    report = build_debug_report(db_session)
+    zip_bytes = build_debug_report_zip(db_session)
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as archive:
+        settings = archive.read("settings.txt").decode("utf-8")
+        diagnostics = archive.read("diagnostics.txt").decode("utf-8")
+
+    assert "plugin.geoip.iplocate_api_key: <redacted>" in settings
+    assert "plugin.geoip.provider: iplocate" in settings
+    assert "EU endpoint over encrypted HTTPS" in diagnostics
+    assert dummy_key not in report
+    assert dummy_key not in settings
+    assert dummy_key not in diagnostics
+    # Not even the encrypted representation is handed out.
+    assert "enc:v1:" not in report
 
 
 def test_debug_report_rejects_untrusted_oidc_diagnostic_values(db_session):
