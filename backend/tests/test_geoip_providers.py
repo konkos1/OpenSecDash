@@ -24,6 +24,7 @@ iplocate = import_plugin_module("geoip", "services.providers.iplocate")
 PROVIDERS = providers.PROVIDERS
 get_provider = providers.get_provider
 GeoIPLookupRequest = provider_base.GeoIPLookupRequest
+GeoIPConfigurationError = provider_base.GeoIPConfigurationError
 GeoIPProviderError = provider_base.GeoIPProviderError
 
 SERVICE_SOURCE = Path(cast(str, geoip_service.__file__)).read_text(encoding="utf-8")
@@ -212,7 +213,7 @@ def test_iplocate_needs_a_key_before_any_request(monkeypatch):
     monkeypatch.setattr(iplocate.requests, "get", lambda *args, **kwargs: pytest.fail("unexpected IPLocate request"))
 
     for settings in ({}, {iplocate.API_KEY_SETTING: "   "}):
-        with pytest.raises(GeoIPProviderError, match="API key is not configured"):
+        with pytest.raises(GeoIPConfigurationError, match="API key is not configured"):
             iplocate.lookup(_request(settings=settings))
 
 

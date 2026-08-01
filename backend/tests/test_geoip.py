@@ -208,6 +208,67 @@ def test_enrich_pending_events_noop_when_geoip_disabled(db_session):
     assert event.country is None
 
 
+def test_enrich_pending_events_retries_after_missing_iplocate_key_is_configured(db_session, monkeypatch):
+    db_session.add_all(
+        [
+            Setting(key="plugin.geoip.enabled", value="true"),
+            Setting(key="plugin.geoip.provider", value="iplocate"),
+            Event(source="test", plugin="traefik_log", event_type="access.allowed", ip="8.8.8.8", geoip_checked=False),
+        ]
+    )
+    db_session.commit()
+
+    assert enrich_pending_events(db_session, limit=10) == 0
+    event = db_session.query(Event).one()
+    assert event.geoip_checked is False
+    assert db_session.query(GeoIPCache).count() == 0
+
+    db_session.add(Setting(key="plugin.geoip.iplocate_api_key", value="configured-later"))
+    db_session.commit()
+    _fake_iplocate_response(monkeypatch, {"country_code": "US"})
+
+    assert enrich_pending_events(db_session, limit=10) == 1
+    db_session.refresh(event)
+    assert event.geoip_checked is True
+    assert event.country == "US"
+
+
+def test_enrich_pending_events_retries_after_cached_provider_failure_expires(db_session, monkeypatch):
+    db_session.add_all(
+        [
+            Setting(key="plugin.geoip.enabled", value="true"),
+            Setting(key="plugin.geoip.provider", value="iplocate"),
+            Setting(key="plugin.geoip.iplocate_api_key", value="test-key"),
+            Event(source="test", plugin="traefik_log", event_type="access.allowed", ip="8.8.8.8", geoip_checked=False),
+        ]
+    )
+    db_session.commit()
+
+    def fail_request(*args, **kwargs):
+        raise iplocate.requests.ConnectionError("provider unavailable")
+
+    monkeypatch.setattr(iplocate.requests, "get", fail_request)
+    assert enrich_pending_events(db_session, limit=10) == 0
+    event = db_session.query(Event).one()
+    assert event.geoip_checked is False
+    cached = db_session.query(GeoIPCache).one()
+    assert cached.error == "IPLocate request could not be sent"
+
+    # An unexpired error cache avoids hammering the provider but must not make
+    # the event final.
+    assert enrich_pending_events(db_session, limit=10) == 0
+    assert event.geoip_checked is False
+
+    cached.expires_at = (utc_now() - timedelta(seconds=1)).replace(tzinfo=None)
+    db_session.commit()
+    _fake_iplocate_response(monkeypatch, {"country_code": "US"})
+
+    assert enrich_pending_events(db_session, limit=10) == 1
+    db_session.refresh(event)
+    assert event.geoip_checked is True
+    assert event.country == "US"
+
+
 def test_enrich_pending_events_ignores_already_checked_events(db_session):
     _cached_geoip_setup(db_session)
     event = Event(source="test", plugin="traefik_log", event_type="access.allowed", ip="8.8.8.8", geoip_checked=True)

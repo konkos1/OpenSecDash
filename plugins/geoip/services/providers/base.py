@@ -24,6 +24,10 @@ class GeoIPProviderError(RuntimeError):
     """
 
 
+class GeoIPConfigurationError(GeoIPProviderError):
+    """Provider cannot run until its local configuration changes."""
+
+
 @dataclass(frozen=True)
 class GeoIPLookupRequest:
     """One lookup for an address the service already validated as public."""

@@ -14,6 +14,7 @@ import requests
 from app.core.http_responses import read_capped_json
 from .base import (
     GEOIP_RESPONSE_MAX_BYTES,
+    GeoIPConfigurationError,
     GeoIPLookupRequest,
     GeoIPLookupResult,
     GeoIPProvider,
@@ -33,7 +34,7 @@ def lookup(request: GeoIPLookupRequest) -> GeoIPLookupResult:
     if not api_key:
         # No anonymous fallback: an unconfigured provider fails before any
         # address leaves the instance.
-        raise GeoIPProviderError("IPLocate API key is not configured")
+        raise GeoIPConfigurationError("IPLocate API key is not configured")
     try:
         response = requests.get(
             LOOKUP_URL.format(ip=request.ip),

@@ -17,6 +17,7 @@ from .geoip import (
 from .providers import PROVIDERS, get_provider
 from .providers.base import (
     GEOIP_RESPONSE_MAX_BYTES,
+    GeoIPConfigurationError,
     GeoIPLookupRequest,
     GeoIPLookupResult,
     GeoIPProvider,
@@ -29,6 +30,7 @@ __all__ = [
     "PROVIDERS",
     "GeoIPLookupRequest",
     "GeoIPLookupResult",
+    "GeoIPConfigurationError",
     "GeoIPProvider",
     "GeoIPProviderError",
     "cleanup_expired_cache",
