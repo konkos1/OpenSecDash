@@ -54,7 +54,7 @@ jobs:
           echo "${changed}"
           # Markdown-only changes (READMEs, docs) don't need the test suite;
           # anything else affecting the app or production image does.
-          if echo "${changed}" | grep -vE '\.md$' | grep -E '^(backend/|plugins/|docker/|\.github/workflows/)' >/dev/null; then
+          if echo "${changed}" | grep -vE '\.md$' | grep -E '^(backend/|plugins/|docker/|third_party/|scripts/generate_third_party_notices\.py|\.github/workflows/)' >/dev/null; then
             echo "code=true" >> "$GITHUB_OUTPUT"
           else
             echo "Only documentation/unrelated files changed - skipping tests."
@@ -106,6 +106,9 @@ jobs:
         working-directory: backend
         run: .venv/bin/python -m pytest tests/ -q
 
+      - name: Check application third-party notices are up to date
+        run: backend/.venv/bin/python scripts/generate_third_party_notices.py --check
+
       - name: Run upgrade benchmark gate
         # Catch migration/startup regressions in PR CI, not only at release time.
         # The 10k-event benchmark takes ~240ms locally, so it is a cheap gate.
@@ -155,7 +158,7 @@ jobs:
             exit 1
           fi
           docker run --rm --entrypoint sh opensecdash:ci -c \
-            'test ! -e /app/backend/opensecdash.secret && test ! -e /app/backend/logs/opensecdash.log && test ! -e /app/backend/opensecdash.db && test ! -e /app/backend/.env'
+            'test ! -e /app/backend/opensecdash.secret && test ! -e /app/backend/logs/opensecdash.log && test ! -e /app/backend/opensecdash.db && test ! -e /app/backend/.env && test -s /app/THIRD_PARTY_NOTICES.md && test -s /app/THIRD_PARTY_SOURCE.md && test -d /app/third_party/licenses'
           docker volume create opensecdash-ci-smoke
           docker run --rm --user root --entrypoint sh \
             -v opensecdash-ci-smoke:/data \
@@ -183,6 +186,8 @@ jobs:
           curl --fail --silent http://127.0.0.1:18765/health >/dev/null
           curl --fail --silent http://127.0.0.1:18765/ready >/dev/null
           curl --fail --silent http://127.0.0.1:18765/static/css/app.css >/dev/null
+          curl --fail --silent http://127.0.0.1:18765/legal >/dev/null
+          curl --fail --silent http://127.0.0.1:18765/legal/source >/dev/null
           docker exec opensecdash-ci-smoke sh -c \
             'test "$(awk "/^Uid:/ {print \$2}" /proc/1/status)" != "0" && test "$(stat -c %U /data/root-owned)" = "opensecdash"'
           docker exec --user opensecdash opensecdash-ci-smoke sh -c \

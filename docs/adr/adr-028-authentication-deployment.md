@@ -47,6 +47,15 @@
 > keep their effective authentication state on upgrade. `OSD_AUTH_DISABLED` is the only
 > remaining opt-out; the persistent "disable internal sign-in" action in Settings is
 > gone. See "Decision (2026-07-24)" below.
+> Update (2026-08-01): the release gate now derives third-party notices from the
+> locked Python and npm environments, verifies the notice inventory against every
+> Python package in the final image, and requires Debian copyright evidence plus
+> exact source-package information. Tagged releases are created as drafts with the
+> SPDX SBOM, notices, container package report, vulnerability report, and a source
+> archive for detected copyleft components. The verified image is published only
+> after that evidence is attached; the GitHub release is made public after the image
+> push succeeds. The separate Release workflow continues to deploy the website but
+> no longer races the Docker workflow to create the GitHub release.
 
 
 

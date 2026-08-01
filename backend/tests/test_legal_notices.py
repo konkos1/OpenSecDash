@@ -1,4 +1,9 @@
-from app.services.legal_notices import project_license_text, third_party_notice_data, third_party_notice_text
+from app.services.legal_notices import (
+    project_license_text,
+    third_party_notice_data,
+    third_party_notice_text,
+    third_party_source_text,
+)
 
 
 def test_generated_notices_cover_runtime_browser_and_first_party_assets():
@@ -23,4 +28,4 @@ def test_human_readable_notices_include_project_and_dependency_licenses():
     assert "# OpenSecDash third-party notices" in notice
     assert "Eclipse Distribution License - v 1.0" in notice
     assert "Zero-Clause BSD" in notice
-
+    assert "opensecdash-copyleft-sources.tar.gz" in third_party_source_text()

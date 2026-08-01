@@ -59,6 +59,9 @@ jobs:
           uv export --quiet --frozen --no-dev --no-emit-project --output-file runtime-requirements.txt
           uv run --frozen pip-audit --requirement runtime-requirements.txt --format json --output ../pip-audit.json
 
+      - name: Verify application third-party notices
+        run: backend/.venv/bin/python scripts/generate_third_party_notices.py --check
+
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -151,7 +154,7 @@ jobs:
           docker run --rm --entrypoint python opensecdash:release-candidate-a -c 'import importlib.metadata as m, json; print(json.dumps(sorted(({"name": d.metadata["Name"], "version": d.version} for d in m.distributions()), key=lambda item: item["name"].lower())))' > image-packages-a.json
           docker run --rm --entrypoint python opensecdash:release-candidate-b -c 'import importlib.metadata as m, json; print(json.dumps(sorted(({"name": d.metadata["Name"], "version": d.version} for d in m.distributions()), key=lambda item: item["name"].lower())))' > image-packages-b.json
           diff -u image-packages-a.json image-packages-b.json
-          python docker/verify-image-packages.py backend/uv.lock image-packages-a.json
+          python docker/verify-image-packages.py backend/uv.lock image-packages-a.json backend/app/legal/third-party-notices.json
 
       - name: Run resource-bounded system profiles against release candidate
         shell: bash
@@ -219,6 +222,10 @@ jobs:
           curl --fail --silent http://127.0.0.1:18765/health >/dev/null
           curl --fail --silent http://127.0.0.1:18765/ready >/dev/null
           curl --fail --silent http://127.0.0.1:18765/static/css/app.css >/dev/null
+          curl --fail --silent http://127.0.0.1:18765/legal >/dev/null
+          curl --fail --silent http://127.0.0.1:18765/legal/source >/dev/null
+          docker exec opensecdash-release-smoke sh -c \
+            'test -s /app/THIRD_PARTY_NOTICES.md && test -s /app/THIRD_PARTY_SOURCE.md && test -d /app/third_party/licenses'
           docker exec opensecdash-release-smoke sh -c \
             'test "$(awk "/^Uid:/ {print \$2}" /proc/1/status)" != "0" && test "$(stat -c %U /data/root-owned)" = "opensecdash"'
           docker exec --user opensecdash opensecdash-release-smoke sh -c \
@@ -258,9 +265,12 @@ jobs:
     name: Generate and verify supply-chain reports
     needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
       - name: Download verified release candidate
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -268,6 +278,27 @@ jobs:
 
       - name: Load verified release candidate
         run: docker load --input release-candidate.tar
+
+      - name: Generate container package and license report
+        id: license_report
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          report_script="$(pwd)/docker/generate-container-license-report.py"
+          docker run --rm --entrypoint python \
+            -v "${report_script}:/tmp/generate-container-license-report.py:ro" \
+            opensecdash:release-candidate-a \
+            /tmp/generate-container-license-report.py > container-os-packages.json
+          jq -e '
+            .schema_version == 1
+            and (.packages | type == "array" and length > 0)
+            and all(.packages[];
+              .copyright_file != ""
+              and .source_api_url != ""
+              and .source_url != ""
+            )
+          ' container-os-packages.json >/dev/null
 
       - name: Generate SPDX SBOM
         id: sbom_primary
@@ -326,14 +357,34 @@ jobs:
           vuln-type: os,library
           severity: HIGH,CRITICAL
 
+      - name: Build corresponding source archive
+        id: source_archive
+        if: steps.license_report.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash docker/download-container-sources.sh \
+            container-os-packages.json \
+            backend/app/legal/third-party-notices.json \
+            release-copyleft-sources
+          tar -C release-copyleft-sources -czf opensecdash-copyleft-sources.tar.gz .
+          test -s opensecdash-copyleft-sources.tar.gz
+
       - name: Upload supply-chain reports
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: supply-chain-reports-${{ github.sha }}
           path: |
+            LICENSE
+            THIRD_PARTY_NOTICES.md
+            THIRD_PARTY_SOURCE.md
+            container-os-packages.json
             opensecdash.spdx.json
+            opensecdash-copyleft-sources.tar.gz
             trivy-report.json
+            website/public/third-party-notices.txt
           if-no-files-found: warn
           overwrite: true
 
@@ -343,6 +394,8 @@ jobs:
         env:
           SBOM_RESULT: ${{ steps.sbom_validation.outcome }}
           TRIVY_RESULT: ${{ steps.trivy.outcome }}
+          LICENSE_REPORT_RESULT: ${{ steps.license_report.outcome }}
+          SOURCE_ARCHIVE_RESULT: ${{ steps.source_archive.outcome }}
         run: |
           set -euo pipefail
           failed=false
@@ -354,8 +407,68 @@ jobs:
             echo "::error::Fixable high or critical container vulnerabilities block publication."
             failed=true
           fi
+          if [[ "${LICENSE_REPORT_RESULT}" != "success" ]]; then
+            echo "::error::The final image has incomplete package license evidence."
+            failed=true
+          fi
+          if [[ "${SOURCE_ARCHIVE_RESULT}" != "success" ]]; then
+            echo "::error::The corresponding source archive could not be built."
+            failed=true
+          fi
           if [[ "${failed}" == "true" ]]; then
             exit 1
+          fi
+
+  release-evidence:
+    name: Prepare draft release with license evidence
+    needs: supply-chain
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout release history
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Download verified supply-chain reports
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: supply-chain-reports-${{ github.sha }}
+          path: release-evidence
+
+      - name: Create or refresh draft release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          previous_tag="$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+' | grep -vx "${TAG}" | head -n1 || true)"
+          args=(-f tag_name="${TAG}")
+          if [[ -n "${previous_tag}" ]]; then
+            args+=(-f previous_tag_name="${previous_tag}")
+          fi
+          gh api "/repos/${REPO}/releases/generate-notes" "${args[@]}" --jq '.body' > release-notes.md
+
+          mapfile -d '' assets < <(find release-evidence -type f -print0)
+          if [[ "${#assets[@]}" == "0" ]]; then
+            echo "::error::No verified release evidence was downloaded."
+            exit 1
+          fi
+
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            gh release edit "${TAG}" --title "${TAG}" --notes-file release-notes.md
+            gh release upload "${TAG}" "${assets[@]}" --clobber
+          else
+            gh release create "${TAG}" "${assets[@]}" --draft --title "${TAG}" \
+              --notes-file release-notes.md --verify-tag
           fi
 
   publish:
@@ -363,6 +476,7 @@ jobs:
     needs:
       - build
       - supply-chain
+      - release-evidence
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -402,3 +516,21 @@ jobs:
             docker tag opensecdash:release-candidate-a "${tag}"
             docker push "${tag}"
           done <<< "${IMAGE_TAGS}"
+
+  finalize-release:
+    name: Publish GitHub release
+    needs:
+      - publish
+      - release-evidence
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+
+    steps:
+      - name: Publish verified draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: gh release edit "${TAG}" --draft=false

@@ -529,6 +529,7 @@ DE = {
     "legal.container_title": "Basispakete des Containers",
     "legal.container_description": "Das Release-SBOM und der Container-Paketbericht erfassen das Python-Slim-Basisimage und seine Debian-Pakete. Passende Quellinformationen werden mit jedem Release veröffentlicht.",
     "legal.container_location": "Die unveränderten Copyright- und Lizenzdateien von Debian bleiben im Container unter /usr/share/doc/<Paket>/copyright verfügbar.",
+    "legal.source_information": "Informationen zur Quellcode-Verfügbarkeit lesen",
     "legal.third_party_title": "Abhängigkeiten der Anwendung",
     "legal.third_party_description": "Mit OpenSecDash ausgelieferte Python-Laufzeitpakete und Browser-Komponenten.",
     "legal.complete_notice": "Vollständige Notice-Datei",

@@ -528,6 +528,7 @@ EN = {
     "legal.container_title": "Container base packages",
     "legal.container_description": "The release SBOM and container package report inventory the Python slim base and its Debian packages. Matching source information is published with each release.",
     "legal.container_location": "Verbatim Debian copyright and license files remain available inside the container under /usr/share/doc/<package>/copyright.",
+    "legal.source_information": "Read the source availability information",
     "legal.third_party_title": "Application dependencies",
     "legal.third_party_description": "Runtime Python packages and browser components delivered with OpenSecDash.",
     "legal.complete_notice": "Complete notice file",

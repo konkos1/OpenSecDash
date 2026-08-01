@@ -78,6 +78,7 @@ def test_auth_gating_keeps_required_paths_public_and_rejects_anonymous_requests(
     assert "Lizenzen und Open-Source-Hinweise" in legal.text
     assert "Alpine.js 3.15.0" in legal.text
     assert client.get("/legal/project-license").status_code == 200
+    assert client.get("/legal/source").status_code == 200
     assert client.get("/legal/third-party-notices").status_code == 200
 
 

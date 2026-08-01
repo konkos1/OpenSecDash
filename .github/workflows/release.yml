@@ -13,58 +13,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  github-release:
-    name: Publish GitHub release
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          fetch-depth: 0
-
-      - name: Build release notes
-        id: notes
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-          TAG: ${{ github.ref_name }}
-        run: |
-          set -euo pipefail
-          # GitHub's own release-notes generator instead of walking every
-          # commit through /commits/{sha}/pulls: that endpoint also returns
-          # merely *associated* (even unmerged) pull requests and the old
-          # per-commit loop silently dropped PRs on any API error - releases
-          # ended up listing PRs twice or missing them. generate-notes is one
-          # call, uses GitHub's merge-based logic, and only adds a "New
-          # Contributors" section when someone actually contributed for the
-          # first time (the contributor avatars under a release are rendered
-          # by GitHub automatically either way).
-          previous_tag="$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+' | grep -vx "${TAG}" | head -n1 || true)"
-          args=(-f tag_name="${TAG}")
-          if [[ -n "${previous_tag}" ]]; then
-            args+=(-f previous_tag_name="${previous_tag}")
-          fi
-          gh api "/repos/${REPO}/releases/generate-notes" "${args[@]}" --jq '.body' > release-notes.md
-
-          echo "Generated release notes for ${TAG} (previous tag: ${previous_tag:-none}):"
-          cat release-notes.md
-
-      - name: Publish release
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.ref_name }}
-        run: |
-          set -euo pipefail
-          if gh release view "${TAG}" >/dev/null 2>&1; then
-            gh release edit "${TAG}" --title "${TAG}" --notes-file release-notes.md
-          else
-            gh release create "${TAG}" --title "${TAG}" --notes-file release-notes.md --verify-tag
-          fi
-
   website:
     # The website follows releases: merges to main only deploy immediately
     # when the PR carries the `website-deploy` label (see website.yml). Every

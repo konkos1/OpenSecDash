@@ -44,6 +44,10 @@ uv run --frozen pip-audit --requirement /tmp/opensecdash-runtime-requirements.tx
 cd ../website
 npm ci
 npm run audit:ci
+npm run licenses:check
+
+cd ..
+backend/.venv/bin/python scripts/generate_third_party_notices.py --check
 ```
 
 4. Run the scratch system profiles documented in
@@ -59,23 +63,27 @@ docker run --rm -p 8765:8000 -v opensecdash-data:/data opensecdash:local
 Open <http://localhost:8765> and verify `/health`.
 
 The publish workflow repeats the image build twice without a dependency cache,
-compares installed package versions, verifies core packages against `uv.lock`, scans
-the image for fixable high/critical OS and Python findings, and generates an SPDX SBOM.
-Review the uploaded audit, package-list, scan, and SBOM artifacts before announcing the
-release. Publication does not proceed when a gate fails.
+compares installed package versions and the generated license inventory, verifies core
+packages against `uv.lock`, checks Debian copyright evidence, scans the image for
+fixable high/critical OS and Python findings, generates an SPDX SBOM, and builds the
+corresponding source archive. Publication does not proceed when a gate fails.
 
 ## Automated release gate
 
 The Docker publish workflow is the authoritative release gate. It runs against the
-tagged commit and passes one exact release-candidate image artifact through three jobs:
+tagged commit and passes one exact release-candidate image artifact through five stages:
 
 1. `Build and verify Docker image` runs tests, audits, reproducibility checks, profiles,
    and the hardened runtime smoke test, then saves the verified image for one day.
-2. `Generate and verify supply-chain reports` scans that image and generates its SPDX
-   SBOM. A failed SBOM action is retried once with the same pinned generator; the result
-   must still pass structural SPDX validation.
-3. `Publish verified Docker image` runs only after both previous jobs succeed and pushes
-   that same downloaded image. There is no alternate SBOM-generator fallback.
+2. `Generate and verify supply-chain reports` scans that image, generates its SPDX
+   SBOM, verifies installed-package license files, and builds the copyleft source
+   archive. A failed SBOM action is retried once with the same pinned generator.
+3. `Prepare draft release with license evidence` attaches the notices, SBOM, container
+   package/source report, scan, and source archive to a non-public GitHub draft.
+4. `Publish verified Docker image` runs only after the evidence draft exists and pushes
+   the same downloaded image.
+5. `Publish GitHub release` makes the evidence-bearing draft public only after the image
+   push succeeds.
 
 This separation keeps successful build evidence distinct from a transient SBOM failure
 while preserving the strict rule that an image without a valid SBOM is never published.
@@ -88,6 +96,7 @@ Build reports and supply-chain reports are retained as separate artifacts:
 | Frontend and documentation | Tailwind reproducibility check and VitePress build |
 | Fresh/Small/Large/Upgrade profiles | JSON p50/p95, size, RSS, readiness, search, migration, and startup reports |
 | Locked dependencies | Python/npm audit reports and two compared image package lists |
+| License compliance | Application/website notices, Debian package/source report, copyleft source archive |
 | Image security | SPDX SBOM and Trivy OS/Python report |
 | Runtime container | Hardened named-volume health/ready/static/plugin/shutdown smoke |
 
@@ -126,7 +135,10 @@ konkos1/opensecdash:0.1.0
 konkos1/opensecdash:latest
 ```
 
-The Release workflow publishes a GitHub Release for the same tag. Release notes are generated from pull requests associated with commits between the previous version tag and the new tag, not from a full commit list. Each entry includes the PR number, title, and contributor.
+The Docker publish workflow creates the evidence-bearing GitHub Release for the same
+tag. Release notes are generated from pull requests associated with commits between
+the previous version tag and the new tag, not from a full commit list. The separate
+Release workflow deploys the documentation website for the tag.
 
 ### Insight rules rollout note
 
@@ -140,7 +152,9 @@ changes. Verify the digest and expiry before tagging.
 ## After publishing
 
 1. Verify the generated GitHub Release notes.
-2. Verify the Docker image can be pulled and started:
+2. Verify `THIRD_PARTY_NOTICES.md`, `container-os-packages.json`,
+   `opensecdash.spdx.json`, and `opensecdash-copyleft-sources.tar.gz` are attached.
+3. Verify the Docker image can be pulled and started:
 
 ```bash
 docker pull konkos1/opensecdash:v0.1.0

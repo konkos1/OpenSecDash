@@ -43,6 +43,7 @@ _PUBLIC_PATHS = {
     "/auth/oidc/callback",
     "/legal",
     "/legal/project-license",
+    "/legal/source",
     "/legal/third-party-notices",
     "/manifest.webmanifest",
     "/sw.js",

@@ -42,7 +42,12 @@ from app.services.dashboard_metrics import (
 )
 from app.services.insight_rules import debug_summary as insight_rules_debug_summary
 from app.services.instance_branding import get_instance_file
-from app.services.legal_notices import project_license_text, third_party_notice_data, third_party_notice_text
+from app.services.legal_notices import (
+    project_license_text,
+    third_party_notice_data,
+    third_party_notice_text,
+    third_party_source_text,
+)
 from app.services.notification_channels import get_channel
 from app.services.notifications import invalidate_rules_cache
 from app.services.rollups import combine_rollup_values
@@ -138,6 +143,11 @@ def project_license() -> PlainTextResponse:
 @router.get("/legal/third-party-notices", include_in_schema=False)
 def third_party_notices() -> PlainTextResponse:
     return PlainTextResponse(third_party_notice_text())
+
+
+@router.get("/legal/source", include_in_schema=False)
+def third_party_source() -> PlainTextResponse:
+    return PlainTextResponse(third_party_source_text())
 
 
 def _debug_line(label: str, value: object = "") -> str:

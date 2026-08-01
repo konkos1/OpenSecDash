@@ -134,3 +134,8 @@ If you run a homelab and have logs you wish were easier to understand, this proj
 ## License
 
 OpenSecDash is released under the **GNU Affero General Public License v3.0**. See [`LICENSE`](LICENSE).
+
+Licenses, notices, and exact source archives for bundled dependencies are listed in
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md). Tagged releases also include an
+SPDX SBOM, a container package/source report, and the corresponding source archive
+described in [`THIRD_PARTY_SOURCE.md`](THIRD_PARTY_SOURCE.md).
