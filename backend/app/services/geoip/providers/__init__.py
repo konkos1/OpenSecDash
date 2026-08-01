@@ -10,10 +10,12 @@ from __future__ import annotations
 from collections.abc import Mapping
 from types import MappingProxyType
 
-from app.services.geoip.providers import ip_api
+from app.services.geoip.providers import ip_api, iplocate
 from app.services.geoip.providers.base import GeoIPProvider
 
-PROVIDERS: Mapping[str, GeoIPProvider] = MappingProxyType({ip_api.PROVIDER.id: ip_api.PROVIDER})
+PROVIDERS: Mapping[str, GeoIPProvider] = MappingProxyType(
+    {provider.id: provider for provider in (iplocate.PROVIDER, ip_api.PROVIDER)}
+)
 
 
 def get_provider(provider_id: str) -> GeoIPProvider:

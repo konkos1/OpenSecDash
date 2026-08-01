@@ -1,3 +1,4 @@
+import json
 from datetime import timedelta
 
 from app.core.time import utc_now
@@ -45,6 +46,52 @@ def test_geoip_cache_is_used_and_plugin_values_win(db_session):
     producer_values = {"ip": "8.8.8.8", "country": "DE", "city": "Berlin", "asn": "AS64500", "isp": "Producer ISP"}
     enrich_event_values(db_session, producer_values)
     assert producer_values == {"ip": "8.8.8.8", "country": "DE", "city": "Berlin", "asn": "AS64500", "isp": "Producer ISP"}
+
+
+def test_geoip_cache_of_another_provider_is_refreshed_instead_of_reused(db_session, monkeypatch):
+    _cached_geoip_setup(db_session)
+    db_session.commit()
+    db_session.query(Setting).filter_by(key="plugin.geoip.provider").one().value = "iplocate"
+    db_session.add(Setting(key="plugin.geoip.iplocate_api_key", value="dummy-iplocate-key"))
+    db_session.commit()
+    calls = _fake_iplocate_response(
+        monkeypatch,
+        {"country_code": "FR", "city": "Paris", "asn": {"asn": "AS64500"}, "company": {"name": "Example EU"}},
+    )
+
+    switched = lookup_geoip(db_session, "8.8.8.8", require_city=True, require_asn=True, require_isp=True)
+    db_session.commit()
+
+    # The ip-api row is not a hit for IPLocate: the same row is refreshed.
+    assert switched == ("FR", "Paris", "AS64500", "Example EU")
+    assert len(calls) == 1
+    row = db_session.query(GeoIPCache).filter_by(lookup_key="8.8.8.8").one()
+    assert (row.provider, row.country) == ("iplocate", "FR")
+
+    # A row of the selected provider stays a hit - no second request.
+    assert lookup_geoip(db_session, "8.8.8.8", require_city=True) == ("FR", "Paris", "AS64500", "Example EU")
+    assert len(calls) == 1
+
+
+def _fake_iplocate_response(monkeypatch, payload: dict) -> list[dict]:
+    calls: list[dict] = []
+
+    class _Response:
+        headers: dict[str, str] = {}
+        status_code = 200
+
+        def iter_content(self, chunk_size):
+            yield json.dumps(payload).encode()
+
+        def close(self):
+            return None
+
+    def fake_get(*args, **kwargs):
+        calls.append(kwargs)
+        return _Response()
+
+    monkeypatch.setattr("app.services.geoip.providers.iplocate.requests.get", fake_get)
+    return calls
 
 
 def _cached_geoip_setup(db_session):

@@ -133,7 +133,7 @@ def lookup_geoip(
     if target is None:
         return None, None, None, None
     lookup_key, lookup_ip = target
-    provider = get_setting_value(db, "plugin.geoip.provider", "ip-api")
+    provider = get_setting_value(db, "plugin.geoip.provider", "iplocate")
     ttl_days = _int_setting(db, "plugin.geoip.cache_ttl_days", 30, minimum=1)
     now = utc_now().replace(tzinfo=None)
 
@@ -144,6 +144,11 @@ def lookup_geoip(
     if (
         cached is not None
         and cached.expires_at > now
+        # Data another provider looked up is not a hit for the currently
+        # selected one: after a provider switch the row is refreshed on the
+        # next lookup instead of serving the old provider's answer until the
+        # TTL runs out.
+        and cached.provider == provider
         and (not require_city or cached.city is not None or cached.error)
         and (not require_asn or cached.asn is not None or cached.error)
         and (not require_isp or cached.isp is not None or cached.error)
@@ -183,7 +188,7 @@ def _provider_settings(db: Session, provider: GeoIPProvider) -> Mapping[str, str
 
 
 def normalize_country(value: object) -> str | None:
-    text = str(value or "").upper()
+    text = str(value or "").strip().upper()
     return text if len(text) == 2 else None
 
 

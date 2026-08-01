@@ -151,12 +151,101 @@ def test_geoip_transport_warning_belongs_to_the_provider_option(settings_client)
 
     assert "GeoIP aktiviert <button" in page.text
     assert "GeoIP aktiviert (sendet" not in page.text
-    assert '<option value="ip-api" selected>ip-api.com (unverschlüsselt)</option>' in page.text
+    # No stored provider row: the declarative default pre-selects IPLocate.
+    assert '<option value="iplocate" selected>IPLocate EU-Endpunkt (verschlüsseltes HTTPS)</option>' in page.text
+    assert '<option value="ip-api" >ip-api.com (unverschlüsselt)</option>' in page.text
+    assert (
+        '<small class="info-text block text-sm mt-1" '
+        'x-show="settings[\'plugin.geoip.provider\'] === \'iplocate\'" x-cloak>'
+        "Vollständige GeoIP-Anreicherung mit Land, Stadt, ASN und Provider/ISP. Nicht gecachte öffentliche "
+        "IP-Adressen werden HTTPS-verschlüsselt an den EU-Endpunkt von IPLocate übertragen.</small>"
+    ) in page.text
     assert (
         '<small class="info-text block text-sm mt-1" '
         'x-show="settings[\'plugin.geoip.provider\'] === \'ip-api\'" x-cloak>'
         "Nicht gecachte öffentliche IPs werden unverschlüsselt an ip-api.com gesendet.</small>"
     ) in page.text
+
+
+def test_iplocate_key_field_needs_enabled_geoip_and_the_iplocate_provider(settings_client):
+    db, client = settings_client
+
+    page = client.get("/settings").text
+
+    assert (
+        ":class=\"settings['plugin.geoip.enabled'] === 'true' "
+        "&& settings['plugin.geoip.provider'] === 'iplocate' ? '' : 'settings-disabled'\""
+    ) in page
+    assert (
+        ":readonly=\"!(settings['plugin.geoip.enabled'] === 'true' "
+        "&& settings['plugin.geoip.provider'] === 'iplocate')\""
+    ) in page
+
+    # Enabling GeoIP and storing the key in one post is allowed ...
+    client.post(
+        "/settings/plugins/geoip",
+        data={
+            "plugin.geoip.enabled": "true",
+            "plugin.geoip.provider": "iplocate",
+            "plugin.geoip.iplocate_api_key": "dummy-iplocate-key",
+        },
+    )
+    db.expire_all()
+    stored = db.query(Setting).filter_by(key="plugin.geoip.iplocate_api_key").one().value
+
+    assert get_setting_value(db, "plugin.geoip.iplocate_api_key") == "dummy-iplocate-key"
+    assert stored.startswith("enc:v1:")
+    assert "dummy-iplocate-key" not in stored
+
+    # ... and the stored key is never rendered back into the page.
+    page = client.get("/settings").text
+    assert "dummy-iplocate-key" not in page
+    assert "/settings/plugins/geoip/secrets/iplocate_api_key/delete" in page
+
+    # A tampered post while ip-api is selected neither writes nor deletes it.
+    client.post(
+        "/settings/plugins/geoip",
+        data={
+            "plugin.geoip.enabled": "true",
+            "plugin.geoip.provider": "ip-api",
+            "plugin.geoip.iplocate_api_key": "dummy-tampered-key",
+        },
+    )
+    hidden_delete = client.post("/settings/plugins/geoip/secrets/iplocate_api_key/delete", follow_redirects=False)
+    db.expire_all()
+
+    assert hidden_delete.status_code == 303
+    assert get_setting_value(db, "plugin.geoip.provider") == "ip-api"
+    assert get_setting_value(db, "plugin.geoip.iplocate_api_key") == "dummy-iplocate-key"
+
+    # The same applies while GeoIP is off, even with iplocate selected.
+    client.post(
+        "/settings/plugins/geoip",
+        data={
+            "plugin.geoip.enabled": "false",
+            "plugin.geoip.provider": "iplocate",
+            "plugin.geoip.iplocate_api_key": "dummy-tampered-key",
+        },
+    )
+    db.expire_all()
+    assert get_setting_value(db, "plugin.geoip.iplocate_api_key") == "dummy-iplocate-key"
+
+    # Back in the valid state the key can be replaced and deliberately deleted.
+    client.post(
+        "/settings/plugins/geoip",
+        data={
+            "plugin.geoip.enabled": "true",
+            "plugin.geoip.provider": "iplocate",
+            "plugin.geoip.iplocate_api_key": "dummy-rotated-key",
+        },
+    )
+    db.expire_all()
+    assert get_setting_value(db, "plugin.geoip.iplocate_api_key") == "dummy-rotated-key"
+
+    deleted = client.post("/settings/plugins/geoip/secrets/iplocate_api_key/delete", follow_redirects=False)
+    db.expire_all()
+    assert deleted.status_code == 303
+    assert get_setting_value(db, "plugin.geoip.iplocate_api_key") == ""
 
 
 def test_plugin_settings_refresh_desktop_and_mobile_navigation(settings_client):
