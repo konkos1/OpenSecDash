@@ -58,6 +58,10 @@ td, th { border-bottom: 1px solid rgb(30 41 59); padding: .65rem; vertical-align
 tbody tr:hover { background: rgba(15, 23, 42, .65); }
 .nav { border-radius: .6rem; color: #e2e8f0; padding: .5rem .75rem; text-decoration: none; }
 .nav:hover, .nav-active { background: #1e293b; color: white; }
+.nav-account-actions { align-items: center; display: flex; gap: .25rem; }
+.nav-account-actions form { display: flex; }
+.nav-icon { align-items: center; display: inline-flex; height: 2.5rem; justify-content: center; padding: 0; width: 2.5rem; }
+.nav-icon .icon { height: 1.25rem; width: 1.25rem; }
 /* The full navigation is enabled by app.js only after measuring the complete
    header. A collapsed default prevents overlap while images and fonts load. */
 .nav-links-desktop { display: none; }
@@ -95,6 +99,8 @@ tbody tr:hover { background: rgba(15, 23, 42, .65); }
 .settings-icon { --icon: url('/static/img/settings.svg'); }
 .trash-icon { --icon: url('/static/img/trash.svg'); }
 .edit-icon { --icon: url('/static/img/edit.svg'); }
+.user-icon { --icon: url('/static/img/user.svg'); }
+.logout-icon { --icon: url('/static/img/logout.svg'); }
 .input { background: #020617; border: 1px solid #334155; border-radius: .65rem; color: #f8fafc; margin-top: .25rem; min-height: 2.5rem; padding: .5rem .7rem; width: 100%; }
 .badge { background: #064e3b; border: 1px solid #047857; border-radius: 999px; color: #d1fae5; padding: .35rem .7rem; }
 .view-delete-button { background: #f87171; border-radius: 999px; color: white; line-height: 1; padding: .15rem .35rem; }

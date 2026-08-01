@@ -159,7 +159,9 @@ document.addEventListener("DOMContentLoaded", () => {
         if (activeTooltipTrigger && target.contains(activeTooltipTrigger)) {
             const selector = activeTooltipTrigger.matches(".help[data-tooltip]")
                 ? ".help[data-tooltip]"
-                : ".dashboard-trend-bar[data-chart-tooltip]";
+                : activeTooltipTrigger.matches(".dashboard-trend-bar[data-chart-tooltip]")
+                    ? ".dashboard-trend-bar[data-chart-tooltip]"
+                    : ".nav-icon[data-tooltip]";
             const triggers = Array.from(target.querySelectorAll(selector));
             const index = triggers.indexOf(activeTooltipTrigger);
             if (index !== -1) {
@@ -400,11 +402,19 @@ document.addEventListener("DOMContentLoaded", () => {
         if (chartBar && event.pointerType === "mouse" && !chartBar.contains(event.relatedTarget)) {
             showChartValue(chartBar);
         }
+        const navIcon = event.target.closest(".nav-icon[data-tooltip]");
+        if (navIcon && event.pointerType !== "touch" && !navIcon.contains(event.relatedTarget)) {
+            showTriggerTooltip(navIcon);
+        }
     });
 
     document.addEventListener("pointerout", event => {
         const chartBar = event.target.closest(".dashboard-trend-bar[data-chart-tooltip]");
         if (chartBar && event.pointerType === "mouse" && !chartBar.contains(event.relatedTarget)) {
+            hideTooltip();
+        }
+        const navIcon = event.target.closest(".nav-icon[data-tooltip]");
+        if (navIcon && event.pointerType !== "touch" && !navIcon.contains(event.relatedTarget)) {
             hideTooltip();
         }
     });
@@ -414,11 +424,19 @@ document.addEventListener("DOMContentLoaded", () => {
         if (chartBar) {
             showChartValue(chartBar);
         }
+        const navIcon = event.target.closest(".nav-icon[data-tooltip]");
+        if (navIcon) {
+            showTriggerTooltip(navIcon);
+        }
     });
 
     document.addEventListener("focusout", event => {
         const chartBar = event.target.closest(".dashboard-trend-bar[data-chart-tooltip]");
         if (chartBar && !chartBar.contains(event.relatedTarget)) {
+            hideTooltip();
+        }
+        const navIcon = event.target.closest(".nav-icon[data-tooltip]");
+        if (navIcon && !navIcon.contains(event.relatedTarget)) {
             hideTooltip();
         }
     });

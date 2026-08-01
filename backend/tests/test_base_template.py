@@ -30,7 +30,7 @@ def test_navigation_orders_core_and_plugin_links_consistently():
         update_available_version=None,
         live_page_refresh=False,
         backlog_datasources=[],
-        current_user=None,
+        current_user=SimpleNamespace(username="alice"),
         can_operate=True,
         can_admin=True,
         t=lambda key: key,
@@ -41,7 +41,7 @@ def test_navigation_orders_core_and_plugin_links_consistently():
 
     assert desktop_nav is not None
     assert mobile_nav is not None
-    expected = ["/", "/access", "/crowdsec", "/events", "/rollups", "/assets", "/notifications", "/diagnostics", "/settings"]
+    expected = ["/", "/access", "/crowdsec", "/events", "/rollups", "/assets", "/notifications", "/diagnostics", "/settings", "/account"]
     assert re.findall(r'href="([^"]+)"', desktop_nav.group(1)) == expected
     assert re.findall(r'href="([^"]+)"', mobile_nav.group(1)) == expected
     assert 'action="/search"' in mobile_nav.group(1)
@@ -53,8 +53,12 @@ def test_navigation_orders_core_and_plugin_links_consistently():
     assert 'id="navigation-mobile"' in html
     assert html.count('hx-swap-oob="innerHTML"') == 2
     assert "navigationResizeObserver.observe(navigationPrimary)" in Path("app/static/js/app.js").read_text()
-    assert '/static/css/app.css?v=test-upgrade-security-prompt' in html
-    navigation_script = '<script src="/static/js/app.js?v=test-persist-refresh-tooltips"></script>'
+    assert html.count('class="icon user-icon"') == 2
+    assert html.count('class="icon logout-icon"') == 2
+    assert html.count('aria-label="alice" data-tooltip="alice"') == 2
+    assert html.count('aria-label="auth.logout" data-tooltip="auth.logout"') == 2
+    assert '/static/css/app.css?v=test-nav-account-icons' in html
+    navigation_script = '<script src="/static/js/app.js?v=test-nav-icon-tooltips"></script>'
     assert html.index("</header>") < html.index(navigation_script) < html.index("<main")
     assert html.count(navigation_script) == 1
     assert 'id="save-feedback-banner"' in html
@@ -67,6 +71,7 @@ def test_help_tooltips_are_restored_after_htmx_refreshes():
     assert "pendingTooltipRestore" in script
     assert '".help[data-tooltip]"' in script
     assert '".dashboard-trend-bar[data-chart-tooltip]"' in script
+    assert '".nav-icon[data-tooltip]"' in script
     assert "showTriggerTooltip(trigger)" in script
     assert "trigger.focus({ preventScroll: true })" in script
 
