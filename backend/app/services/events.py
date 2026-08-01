@@ -462,20 +462,28 @@ def create_rule_based_insights(db: Session, event: Event) -> None:
         return
 
     ids = [event.id]
-    if event.event_type == "security.geoblock" and not _insight_exists(db, "geoblock_denied_request", ids):
+    if event.event_type == "security.geoblock":
         country_text = f" from {event.country}" if event.country else ""
-        insight = Insight(
-            type="geoblock_denied_request",
-            confidence=0.85,
-            level="high",
-            title="Request denied by GeoBlock",
-            description=f"GeoBlock denied a request from {event.ip}{country_text}.",
-            related_event_ids=ids,
-            ip=event.ip,
-            asset_id=event.asset_id,
-        )
-        db.add(insight)
-        handle_insight(db, insight, event.event_time)
+        description = f"GeoBlock denied a request from {event.ip}{country_text}."
+        existing = db.query(Insight).filter(Insight.type == "geoblock_denied_request", Insight.related_event_ids == ids).first()
+        if existing is not None:
+            # GeoIP enrichment runs after ingestion. Refresh the only built-in
+            # insight text that embeds an event's country when it becomes known.
+            if existing.description != description:
+                existing.description = description
+        else:
+            insight = Insight(
+                type="geoblock_denied_request",
+                confidence=0.85,
+                level="high",
+                title="Request denied by GeoBlock",
+                description=description,
+                related_event_ids=ids,
+                ip=event.ip,
+                asset_id=event.asset_id,
+            )
+            db.add(insight)
+            handle_insight(db, insight, event.event_time)
 
     if event.event_type in {"security.ban", "security.ban.manual"}:
         insight_type = "manual_security_ban" if event.event_type == "security.ban.manual" else "security_ban_observed"

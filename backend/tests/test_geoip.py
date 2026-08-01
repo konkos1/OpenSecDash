@@ -2,9 +2,11 @@ import json
 from datetime import timedelta
 
 from app.core.time import utc_now
-from app.models.core import GeoIPCache
+from app.models.core import AggregationDaily, GeoIPCache, Insight, Notification, NotificationRule
 from app.models.events import Event
 from app.models.settings import Setting
+from app.services.events import store_event
+from app.services.notifications import invalidate_rules_cache
 from conftest import import_plugin_module
 
 geoip_service = import_plugin_module("geoip", "services.geoip")
@@ -136,6 +138,62 @@ def test_enrich_pending_events_backfills_from_cache_and_marks_checked(db_session
     db_session.refresh(event)
     assert event.geoip_checked is True
     assert (event.country, event.city, event.asn, event.isp) == ("US", "Mountain View", "AS15169", "Google LLC")
+
+
+def test_enrich_pending_events_reconciles_country_rollup_insight_and_notifications(db_session):
+    _cached_geoip_setup(db_session)
+    db_session.add_all(
+        [
+            Setting(key="notifications.enabled", value="true"),
+            Setting(key="notifications.smtp_host", value="smtp.example"),
+            Setting(key="notifications.smtp_sender", value="sender@example"),
+            Setting(key="notifications.smtp_recipient", value="admin@example"),
+            NotificationRule(
+                rule_id="test.all_geoblocks",
+                name="All geoblocks",
+                source="event",
+                match_types=["security.geoblock"],
+                min_severity="warning",
+            ),
+            NotificationRule(
+                rule_id="test.us_geoblocks",
+                name="US geoblocks",
+                source="event",
+                match_types=["security.geoblock"],
+                min_severity="warning",
+                countries=["US"],
+            ),
+        ]
+    )
+    db_session.commit()
+    invalidate_rules_cache()
+
+    event = store_event(
+        db_session,
+        source="test",
+        plugin="geoblock",
+        event_type="security.geoblock",
+        severity="warning",
+        event_time=utc_now().replace(tzinfo=None),
+        ip="8.8.8.8",
+    )
+    db_session.commit()
+
+    assert db_session.query(AggregationDaily).filter_by(metric="country", key="US").count() == 0
+    assert " from US" not in db_session.query(Insight).filter_by(type="geoblock_denied_request").one().description
+    assert db_session.query(Notification).filter_by(rule_id="test.all_geoblocks").count() == 1
+    assert db_session.query(Notification).filter_by(rule_id="test.us_geoblocks").count() == 0
+
+    assert enrich_pending_events(db_session, limit=10) == 1
+
+    assert db_session.query(AggregationDaily).filter_by(metric="summary", key="total_events").one().value == 1
+    assert db_session.query(AggregationDaily).filter_by(metric="country", key="US").one().value == 1
+    assert " from US" in db_session.query(Insight).filter_by(type="geoblock_denied_request").one().description
+    all_geoblocks = db_session.query(Notification).filter_by(rule_id="test.all_geoblocks").one()
+    assert all_geoblocks.payload["country"] == "US"
+    us_geoblocks = db_session.query(Notification).filter_by(rule_id="test.us_geoblocks").one()
+    assert us_geoblocks.payload["event_id"] == event.id
+    invalidate_rules_cache()
 
 
 def test_enrich_pending_events_noop_when_geoip_disabled(db_session):

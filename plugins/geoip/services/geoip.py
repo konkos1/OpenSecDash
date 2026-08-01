@@ -18,8 +18,10 @@ from sqlalchemy.orm import Session
 
 from app.core.template_context import get_setting_value
 from app.core.time import utc_now
-from app.models.core import GeoIPCache
+from app.models.core import AggregationDaily, GeoIPCache
 from app.models.events import Event
+from app.services.events import create_rule_based_insights
+from app.services.notifications import handle_event
 from .providers import get_provider
 from .providers.base import GeoIPLookupRequest, GeoIPProvider
 
@@ -95,8 +97,7 @@ def enrich_event_values(db: Session, values: dict[str, Any]) -> None:
     """Add GeoIP-derived fields to event values when applicable.
 
     Producers win: if a plugin already supplied ``country``, ``city``, ``asn``
-    or ``isp`` we never overwrite that field. The event ingestion path calls
-    this before rollups/insights so derived data sees enrichment immediately.
+    or ``isp`` we never overwrite that field.
     """
     if not geoip_enabled(db) or (values.get("country") and values.get("city") and values.get("asn") and values.get("isp")):
         return
@@ -262,6 +263,31 @@ def cleanup_expired_cache(db: Session) -> int:
     return int(deleted or 0)
 
 
+def _reconcile_country_derived_data(db: Session, event: Event) -> None:
+    """Add data that could not be derived before async GeoIP enrichment."""
+    if not event.country:
+        return
+    day = event.event_time.strftime("%Y-%m-%d")
+    country_rollup = (
+        db.query(AggregationDaily)
+        .filter(
+            AggregationDaily.date == day,
+            AggregationDaily.metric == "country",
+            AggregationDaily.key == event.country,
+        )
+        .first()
+    )
+    if country_rollup is None:
+        db.add(AggregationDaily(date=day, metric="country", key=event.country, value=1))
+    else:
+        country_rollup.value += 1
+
+    # Both paths are safe to repeat: insights deduplicate by their related
+    # event IDs and event notifications deduplicate by rule and event ID.
+    create_rule_based_insights(db, event)
+    handle_event(db, event)
+
+
 def enrich_pending_events(db: Session, limit: int = 50) -> int:
     """Backfill GeoIP fields for recently stored events, a few at a time.
 
@@ -287,6 +313,7 @@ def enrich_pending_events(db: Session, limit: int = 50) -> int:
         .all()
     )
     for event in events:
+        previous_country = event.country
         values: dict[str, Any] = {
             "ip": event.ip,
             "country": event.country,
@@ -299,6 +326,8 @@ def enrich_pending_events(db: Session, limit: int = 50) -> int:
         event.city = values.get("city") or event.city
         event.asn = values.get("asn") or event.asn
         event.isp = values.get("isp") or event.isp
+        if not previous_country and event.country:
+            _reconcile_country_derived_data(db, event)
         event.geoip_checked = True
         db.commit()
     return len(events)
