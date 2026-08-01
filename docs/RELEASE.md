@@ -12,7 +12,8 @@ v0.2.0
 v1.0.0
 ```
 
-The Docker publish and GitHub Release workflows run for tags matching:
+The Docker Publish workflow creates the image and GitHub Release, while the
+separate Release workflow deploys the website. Both run for tags matching:
 
 ```text
 v*.*.*
