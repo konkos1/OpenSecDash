@@ -83,7 +83,9 @@ def _read_toml(path: Path) -> dict[str, Any]:
 
 def _normalize_document_text(value: str) -> str:
     normalized = value.replace("\r\n", "\n").replace("\r", "\n")
-    return "\n".join(line.rstrip() for line in normalized.split("\n")).strip()
+    return "\n".join(
+        line.replace("\t", "    ").rstrip() for line in normalized.split("\n")
+    ).strip()
 
 
 def _runtime_roots() -> list[str]:

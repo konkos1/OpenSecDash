@@ -141,6 +141,11 @@ jobs:
           printf 'CI_SECRET=sentinel' > backend/.env
           docker build --file docker/Dockerfile --tag opensecdash:ci .
 
+      - name: Verify production image package notice coverage
+        run: |
+          docker run --rm --entrypoint python opensecdash:ci -c 'import importlib.metadata as m, json; print(json.dumps(sorted(({"name": d.metadata["Name"], "version": d.version} for d in m.distributions()), key=lambda item: item["name"].lower())))' > image-packages-ci.json
+          python docker/verify-image-packages.py backend/uv.lock image-packages-ci.json backend/app/legal/third-party-notices.json
+
       - name: Smoke test production image
         shell: bash
         run: |
