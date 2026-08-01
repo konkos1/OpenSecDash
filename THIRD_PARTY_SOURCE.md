@@ -24,8 +24,9 @@ Every release contains these durable evidence files:
   source-package versions, copyright-file locations, and Debian Snapshot URLs;
 - `opensecdash.spdx.json`: SPDX inventory generated from the final image;
 - `opensecdash-copyleft-sources.tar.gz`: source archives for Debian packages
-  whose installed copyright data identifies a GPL, LGPL, AGPL, MPL, or EPL
-  license, plus covered Python application sources.
+  whose installed copyright data identifies a reviewed copyleft family such as
+  GPL, LGPL, AGPL, MPL, EPL, CDDL, CPL, EUPL, CeCILL, or OSL, plus covered
+  Python application sources.
 
 The release workflow builds these files from the same verified image that it
 publishes. Exact Debian source files are fetched by content hash from Debian

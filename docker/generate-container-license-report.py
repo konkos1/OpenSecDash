@@ -9,8 +9,33 @@ import sys
 from urllib.parse import quote
 
 
-COPYLEFT_PATTERN = re.compile(r"\b(?:A?GPL|LGPL|MPL|EPL)[- v]?[0-9]", re.IGNORECASE)
+COPYLEFT_IDENTIFIER_PATTERN = re.compile(
+    r"\b(?:A?GPL|LGPL|MPL|EPL|CDDL|CPL|EUPL|CECILL|OSL)"
+    r"(?![- ]compatible)\b",
+    re.IGNORECASE,
+)
+COPYLEFT_NAME_PATTERN = re.compile(
+    r"\b(?:"
+    r"GNU (?:Affero )?(?:Lesser )?General Public License|"
+    r"Mozilla Public License|"
+    r"Eclipse Public License|"
+    r"Common Development and Distribution License|"
+    r"Common Public License|"
+    r"European Union Public Licen[cs]e|"
+    r"CeCILL|"
+    r"Open Software License"
+    r")\b",
+    re.IGNORECASE,
+)
 DPKG_FORMAT = "${binary:Package}\t${Version}\t${source:Package}\t${source:Version}\\n"
+
+
+def _requires_source(copyright_text: str) -> bool:
+    """Conservatively identify license families with source obligations."""
+    return bool(
+        COPYLEFT_IDENTIFIER_PATTERN.search(copyright_text)
+        or COPYLEFT_NAME_PATTERN.search(copyright_text)
+    )
 
 
 def _package_rows() -> list[dict[str, object]]:
@@ -41,7 +66,7 @@ def _package_rows() -> list[dict[str, object]]:
                 "copyright_file": str(copyright_path),
                 "source_package": source_package,
                 "source_version": source_version,
-                "source_required": bool(COPYLEFT_PATTERN.search(copyright_text)),
+                "source_required": _requires_source(copyright_text),
                 "source_api_url": (
                     "https://snapshot.debian.org/mr/package/"
                     f"{encoded_source_package}/{encoded_source_version}/srcfiles"
