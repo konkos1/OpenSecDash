@@ -13,7 +13,7 @@
       <div>
         <h3 class="font-semibold">{{ t("crowdsec.lapi_status") }}</h3>
         {% if action_dry_run %}
-          <p class="muted text-sm">{{ t("crowdsec.actions_dry_run") }}</p>
+          <p class="info-text text-sm">{{ t("crowdsec.actions_dry_run") }}</p>
           {% if lapi_status and lapi_status.status != 'healthy' %}
             <p class="muted text-sm">{{ t("crowdsec.lapi_ignored_dry_run") }}</p>
           {% endif %}
@@ -66,7 +66,7 @@
 
   <div class="card overflow-x-auto responsive-table">
     <h3 class="font-semibold mb-1">{{ t("crowdsec.history") }}</h3>
-    <p class="muted text-sm mb-3">{{ t("table.limit.crowdsec_history") }}</p>
+    <p class="info-text text-sm mb-3">{{ t("table.limit.crowdsec_history") }}</p>
     <table class="w-full text-sm table-middle">
       <thead>
         <tr>

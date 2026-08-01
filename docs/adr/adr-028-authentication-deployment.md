@@ -203,7 +203,11 @@ cannot inspect the proxy's server certificate after TLS termination.
 
 # Internal authentication
 
-Internal authentication is optional and disabled by default. It provides:
+New installations start with internal authentication enabled and require first-admin
+onboarding. Existing installations keep their effective authentication state when they
+upgrade. Running a new installation without internal authentication requires the
+explicit `OSD_AUTH_DISABLED=true` environment override. Internal authentication
+provides:
 
 ```none
 Admin
@@ -478,7 +482,7 @@ SQLite
 +
 Reverse Proxy
 +
-optional internal user management
+default-on internal user management for new installations
 +
 optionally OIDC as an additional sign-in method
 +
@@ -628,9 +632,9 @@ throughput control and distributed deployments.
 
 ## Decision (2026-07-24): default-on authentication and first-admin onboarding
 
-This is a new decision, not a rewrite of the earlier ones. The sections above keep
-their original wording, including "disabled by default" and "no onboarding"; they
-describe the state before this date.
+This is a new decision, not a rewrite of the earlier ones. Earlier dated status updates
+and implementation notes keep their original wording, including "disabled by default"
+and "no onboarding"; they describe the state before this date.
 
 **New installations start protected.** A database whose `settings` table is still empty
 is a new installation. It persists `auth.enabled=true` and `auth.onboarding_state=pending`

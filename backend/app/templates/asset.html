@@ -30,7 +30,7 @@
 
     <div class="card mb-5 overflow-x-auto responsive-table">
         <h3 class="font-semibold mb-1">{{ t("asset.apps_in_system") }}</h3>
-        <p class="muted text-sm mb-3">{{ t("asset.apps_master_opensecdash_help") if apps_master == 'opensecdash' else t("asset.apps_master_external_help") }}</p>
+        <p class="info-text text-sm mb-3">{{ t("asset.apps_master_opensecdash_help") if apps_master == 'opensecdash' else t("asset.apps_master_external_help") }}</p>
         <table class="w-full text-sm table-middle">
             <thead>
                 <tr>
@@ -139,7 +139,7 @@
                                 {{ t("common.none") }}
                             {% endif %}
                             {% if apps_master == 'opensecdash' and not app.is_active %}
-                                <small class="muted block mt-1">{{ t("asset.inactive_not_editable") }}</small>
+                                <small class="info-text block mt-1">{{ t("asset.inactive_not_editable") }}</small>
                             {% endif %}
                         </td>
                         <td class="time-cell" data-label="{{ t('assets.last_seen') }}">{{ app.last_seen|datetime }}</td>
@@ -173,7 +173,7 @@
         {% if host_event_sections and not focused_asset %}
             <div class="card">
                 <h3 class="font-semibold mb-1">{{ t("asset.host_event_tables") }}</h3>
-                <p class="muted text-sm mb-3">{{ t("asset.host_event_tabs_help") }}</p>
+                <p class="info-text text-sm mb-3">{{ t("asset.host_event_tabs_help") }}</p>
                 <div class="flex flex-wrap gap-2">
                     <button type="button" class="btn-small" :class="selectedHost === 'combined' ? '' : 'btn-secondary'" @click="selectedHost = 'combined'">{{ t("asset.combined_events") }}</button>
                     {% for section in host_event_sections %}
@@ -220,7 +220,7 @@
 
         <div class="card overflow-x-auto responsive-table" x-show="selectedHost === 'combined'">
             <h3 class="font-semibold mb-1">{{ t("asset.events") }}{% if focused_asset %} · {{ focused_asset.name }}{% endif %}</h3>
-            {% if host_event_sections and not focused_asset %}<p class="muted text-sm mb-3">{{ t("asset.events_all_hosts_help") }}</p>{% endif %}
+            {% if host_event_sections and not focused_asset %}<p class="info-text text-sm mb-3">{{ t("asset.events_all_hosts_help") }}</p>{% endif %}
             <table class="w-full text-sm table-middle">
                 <thead>
                     <tr>
@@ -258,7 +258,7 @@
                     {{ t("asset.apps") }}:
                     {% for app in section.apps %}{{ app.name }}{% if not loop.last %}, {% endif %}{% endfor %}
                 </p>
-                <p class="muted text-sm mb-3">{{ t("asset.host_events_limit_help") }}</p>
+                <p class="info-text text-sm mb-3">{{ t("asset.host_events_limit_help") }}</p>
                 <table class="w-full text-sm table-middle">
                     <thead>
                         <tr>

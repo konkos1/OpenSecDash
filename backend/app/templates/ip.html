@@ -27,7 +27,7 @@
     {% if ip_deferred %}{% include "results_skeleton.html" %}{% else %}
     <div class="card mb-5">
         <h3 class="font-semibold mb-1">{{ t("ip.insights") }} <button type="button" class="help" data-tooltip="{{ t('ip.insights_help') }}">?</button></h3>
-        <p class="muted text-sm mb-3">{{ t("table.limit.ip_insights") }}</p>
+        <p class="info-text text-sm mb-3">{{ t("table.limit.ip_insights") }}</p>
         {% for insight in insights %}
             {% set badge, certainty = insight.level|insight_level_badge %}
             <div class="row">
@@ -44,7 +44,7 @@
     
     <div class="card overflow-x-auto responsive-table">
         <h3 class="font-semibold mb-1">{{ t("ip.events") }}</h3>
-        <p class="muted text-sm mb-3">{{ t("table.limit.ip_events") }}</p>
+        <p class="info-text text-sm mb-3">{{ t("table.limit.ip_events") }}</p>
         <table class="w-full text-sm table-middle">
             <thead>
                 <tr>

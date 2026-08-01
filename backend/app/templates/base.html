@@ -29,7 +29,7 @@
             <link rel="apple-touch-icon" href="/static/img/pwa/icon-192.png">
         {% endif %}
         <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials">
-        <link rel="stylesheet" href="/static/css/app.css?v={{ app_version }}-upgrade-security-prompt">
+        <link rel="stylesheet" href="/static/css/app.css?v={{ app_version }}-info-text-icons">
         {# tailwind.css must come AFTER app.css: the Play CDN used to inject
            its styles at runtime (i.e. last), so utilities like .grid always
            won equal-specificity fights against app.css rules - e.g. the
@@ -63,8 +63,10 @@
                     <a class="nav {{ 'nav-active' if current_path.startswith('/diagnostics') else '' }}" href="/diagnostics">{{ t("nav.diagnostics") }}</a>
                     {% if can_admin %}<a class="nav {{ 'nav-active' if current_path.startswith('/settings') else '' }}" href="/settings">{{ t("nav.settings") }}</a>{% endif %}
                     {% if current_user %}
-                        <a class="nav text-slate-400" href="/account">{{ current_user.username }}</a>
-                        <form method="post" action="/auth/logout"><button class="nav" type="submit">{{ t("auth.logout") }}</button></form>
+                        <div class="nav-account-actions">
+                            <a class="nav text-slate-400 nav-icon" href="/account" aria-label="{{ current_user.username }}" data-tooltip="{{ current_user.username }}"><span class="icon user-icon" aria-hidden="true"></span></a>
+                            <form method="post" action="/auth/logout"><button class="nav nav-icon" type="submit" aria-label="{{ t('auth.logout') }}" data-tooltip="{{ t('auth.logout') }}"><span class="icon logout-icon" aria-hidden="true"></span></button></form>
+                        </div>
                     {% endif %}
                 </nav>
             </div>
@@ -90,8 +92,10 @@
                 <a class="nav {{ 'nav-active' if current_path.startswith('/diagnostics') else '' }}" href="/diagnostics">{{ t("nav.diagnostics") }}</a>
                 {% if can_admin %}<a class="nav {{ 'nav-active' if current_path.startswith('/settings') else '' }}" href="/settings">{{ t("nav.settings") }}</a>{% endif %}
                 {% if current_user %}
-                    <a class="nav text-slate-400" href="/account">{{ current_user.username }}</a>
-                    <form method="post" action="/auth/logout"><button class="nav" type="submit">{{ t("auth.logout") }}</button></form>
+                    <div class="nav-account-actions">
+                        <a class="nav text-slate-400 nav-icon" href="/account" aria-label="{{ current_user.username }}" data-tooltip="{{ current_user.username }}"><span class="icon user-icon" aria-hidden="true"></span></a>
+                        <form method="post" action="/auth/logout"><button class="nav nav-icon" type="submit" aria-label="{{ t('auth.logout') }}" data-tooltip="{{ t('auth.logout') }}"><span class="icon logout-icon" aria-hidden="true"></span></button></form>
+                    </div>
                 {% endif %}
                 {% if event_plugins_enabled or asset_plugins_enabled %}
                     <form method="get" action="/search" class="flex gap-2">
@@ -138,7 +142,7 @@
         {# Run the responsive navigation measurement before parsing potentially
            large page tables, so the header reaches its final layout before
            the browser can paint an intermediate collapsed state. #}
-        <script src="/static/js/app.js?v={{ app_version }}-persist-refresh-tooltips"></script>
+        <script src="/static/js/app.js?v={{ app_version }}-nav-icon-tooltips"></script>
 
         {% include "backlog_banner.html" %}
         {% include "save_feedback_banner.html" %}

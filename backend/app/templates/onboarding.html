@@ -30,9 +30,9 @@
             </form>
 
             <h1 class="text-lg font-bold">{{ t("onboarding.title") }}</h1>
-            <p class="muted text-sm mt-2">{{ t("onboarding.intro_legacy") if legacy_review else t("onboarding.intro") }}</p>
+            <p class="info-text text-sm mt-2">{{ t("onboarding.intro_legacy") if legacy_review else t("onboarding.intro") }}</p>
             {% if legacy_review and not account_required %}
-                <p class="muted text-sm mt-2">{{ t("onboarding.intro_legacy_admin") }}</p>
+                <p class="info-text text-sm mt-2">{{ t("onboarding.intro_legacy_admin") }}</p>
             {% endif %}
             {% if error %}
                 <p class="alert-error" role="alert">{{ t(error_key) }}</p>
@@ -48,7 +48,7 @@
                 <label class="grid gap-1">
                     <span>{{ t("onboarding.hostname") }}</span>
                     <input class="input" type="text" name="hostname" value="{{ hostname }}" autocomplete="url" autocapitalize="none" spellcheck="false" placeholder="dash.example.com" required>
-                    <small class="muted">{{ t("onboarding.hostname_help") }}</small>
+                    <small class="info-text">{{ t("onboarding.hostname_help") }}</small>
                 </label>
                 {% if account_required %}
                     <label class="grid gap-1">
@@ -58,7 +58,7 @@
                     <label class="grid gap-1">
                         <span>{{ t("onboarding.password") }}</span>
                         <input class="input" type="password" name="password" autocomplete="new-password" required>
-                        <small class="muted">{{ t("onboarding.password_help") }}</small>
+                        <small class="info-text">{{ t("onboarding.password_help") }}</small>
                     </label>
                     <label class="grid gap-1">
                         <span>{{ t("onboarding.password_confirm") }}</span>
@@ -66,7 +66,7 @@
                     </label>
                 {% endif %}
                 <button class="btn" type="submit">{{ t("onboarding.submit") if account_required else t("onboarding.submit_legacy") }}</button>
-                <p class="muted text-sm">{{ t("onboarding.after_submit") }}</p>
+                <p class="info-text text-sm">{{ t("onboarding.after_submit") }}</p>
             </form>
             {% endif %}
 
@@ -75,7 +75,7 @@
                     <h2 class="font-semibold">{{ t("onboarding.transport_title") }}</h2>
                     <b class="status-badge status-{{ auth_transport.status }}">{{ t("diagnostics.status." ~ auth_transport.status) }}</b>
                 </div>
-                <p class="muted text-sm mt-2">{{ t("onboarding.transport_help") }}</p>
+                <p class="info-text text-sm mt-2">{{ t("onboarding.transport_help") }}</p>
                 {% for row in auth_transport.rows %}
                     <div class="row">
                         <span>{{ t("diagnostics.auth_transport." ~ row.key) }}<br><small class="muted">{{ t(row.message_key) }}</small></span>
@@ -89,7 +89,7 @@
                break-glass variable, it never sets it. #}
             <section class="mt-6 border-t border-slate-800 pt-5">
                 <h2 class="font-semibold">{{ t("onboarding.bypass_title") }}</h2>
-                <p class="muted text-sm mt-2">{{ t("onboarding.bypass_intro") }}</p>
+                <p class="info-text text-sm mt-2">{{ t("onboarding.bypass_intro") }}</p>
                 <ul class="muted text-sm mt-2 grid gap-1 list-disc pl-5">
                     <li>{{ t("onboarding.bypass_env") }}</li>
                     <li>{{ t("onboarding.bypass_access") }}</li>

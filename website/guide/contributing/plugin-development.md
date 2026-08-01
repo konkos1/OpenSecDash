@@ -140,6 +140,10 @@ Supported setting types:
 
 If a plugin has an `enabled` setting, other settings are automatically greyed out until the plugin is enabled, unless you define an explicit `visible_if`. This keeps available configuration visible without making inactive options look editable.
 
+Select settings can use `option_info=[("value", "translation.key")]` to show
+value-specific information below the field. Keep option labels short for native
+mobile dropdowns and put longer transport, privacy, or behavior notes in this text.
+
 Settings are stored as:
 
 ```text
