@@ -92,3 +92,24 @@ These rules apply to all AI assistants, coding agents, and automated tools worki
 - The project code style is documented in `website/guide/contributing/code-style.md` (published at https://opensecdash.app/guide/contributing/code-style) and applies to all contributions, human or AI.
 - Its baseline rule also applies when the guide is silent: write code that reads like the surrounding code.
 - If a requested change requires deviating from the code style, point this out instead of deviating silently.
+
+## 13. Maintain third-party license compliance and asset provenance
+
+- Changes to application, browser, container, or build dependencies must keep the committed third-party notices and source-offer metadata current.
+- Treat the package inventory of the actual Linux runtime image as authoritative. Do not rely only on the dependency set resolved on the local development platform.
+- The runtime image must not contain undeclared global Python packages. Its installed application packages must match the generated notices and the locked production dependencies.
+- Source archives for Python dependencies must be verified against both the SHA-256 digest and file size recorded in `backend/uv.lock` before they are published as release evidence.
+- Container packages with copyleft licenses must be identified conservatively and included in the corresponding-source workflow where required.
+- Every shipped SVG must be declared as first-party or documented as a third-party asset in `third_party/app-components.toml`. Apply the same provenance discipline to other newly added static assets.
+- License generators must remain deterministic. Do not hand-edit generated notice files, and do not commit generated output with stale content or trailing whitespace.
+- After dependency or license metadata changes, regenerate and check the application and website notices as applicable:
+
+  ```bash
+  backend/.venv/bin/python scripts/generate_third_party_notices.py
+  backend/.venv/bin/python scripts/generate_third_party_notices.py --check
+  cd website
+  npm run licenses:generate
+  npm run licenses:check
+  ```
+
+- Changes to `docker/Dockerfile`, `backend/uv.lock`, dependency manifests, license manifests, or license tooling must run the relevant license tests. Docker runtime changes must additionally verify the installed package inventory in a newly built Linux image.

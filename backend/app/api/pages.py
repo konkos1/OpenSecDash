@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from urllib.parse import parse_qsl, quote, unquote, urlencode
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
-from fastapi.responses import RedirectResponse, Response
+from fastapi.responses import PlainTextResponse, RedirectResponse, Response
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
@@ -42,6 +42,12 @@ from app.services.dashboard_metrics import (
 )
 from app.services.insight_rules import debug_summary as insight_rules_debug_summary
 from app.services.instance_branding import get_instance_file
+from app.services.legal_notices import (
+    project_license_text,
+    third_party_notice_data,
+    third_party_notice_text,
+    third_party_source_text,
+)
 from app.services.notification_channels import get_channel
 from app.services.notifications import invalidate_rules_cache
 from app.services.rollups import combine_rollup_values
@@ -117,6 +123,31 @@ from app.web.tables import (
 
 router = APIRouter(tags=["pages"])
 logger = logging.getLogger(__name__)
+
+
+@router.get("/legal", include_in_schema=False)
+def legal_page(request: Request, db: Session = Depends(get_db)):
+    return render(
+        request,
+        db,
+        "legal.html",
+        notices=third_party_notice_data(),
+    )
+
+
+@router.get("/legal/project-license", include_in_schema=False)
+def project_license() -> PlainTextResponse:
+    return PlainTextResponse(project_license_text())
+
+
+@router.get("/legal/third-party-notices", include_in_schema=False)
+def third_party_notices() -> PlainTextResponse:
+    return PlainTextResponse(third_party_notice_text())
+
+
+@router.get("/legal/source", include_in_schema=False)
+def third_party_source() -> PlainTextResponse:
+    return PlainTextResponse(third_party_source_text())
 
 
 def _debug_line(label: str, value: object = "") -> str:

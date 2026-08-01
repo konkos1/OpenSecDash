@@ -47,14 +47,28 @@ and website build dependencies, builds the image twice with cold dependency cach
 compares all installed Python package versions, verifies core runtime versions against
 `uv.lock`, creates an SPDX SBOM, and scans OS and Python packages. Fixable high or
 critical image findings block the push. The package lists, audit reports, image scan,
-and SBOM are retained as workflow artifacts.
+SBOM, generated notices, Debian package/source report, and corresponding copyleft
+source archive are retained as workflow artifacts and attached to tagged releases.
 
-Build validation, supply-chain checks, and publication are separate jobs that exchange
-the same short-lived release-candidate image artifact. The pinned SBOM generator is
-retried once when it fails, its SPDX output is validated, and publication runs only
-after the supply-chain gate passes. No alternate generator fallback is used.
+Build validation, supply-chain checks, draft release evidence, and publication are
+separate jobs that exchange the same short-lived release-candidate image artifact. The
+pinned SBOM generator is retried once when it fails, its SPDX output is validated, and
+publication runs only after the supply-chain and license-evidence gates pass. The
+GitHub Release stays a draft until the verified image is pushed.
 
 Release notes are generated from pull requests associated with the tagged changes. The notes list PR number, title, and contributor instead of dumping every commit.
+
+## Third-party licenses
+
+Application notices are generated from `backend/uv.lock`, installed wheel metadata,
+and the browser-component manifest under `third_party/`. Website notices are generated
+from `website/package-lock.json`. Both generated files are committed and checked in CI.
+The application exposes its project license, third-party notices, and
+source-availability information without requiring sign-in at `/legal`.
+
+The SVG assets currently shipped by OpenSecDash were created for the project and are
+first-party content under GNU AGPL-3.0. New copied or derived assets must be added to the
+third-party manifest with their provenance and license before distribution.
 
 ## Code style and review
 

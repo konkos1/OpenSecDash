@@ -57,6 +57,7 @@ def test_navigation_orders_core_and_plugin_links_consistently():
     assert html.count('class="icon logout-icon"') == 2
     assert html.count('aria-label="alice" data-tooltip="alice"') == 2
     assert html.count('aria-label="auth.logout" data-tooltip="auth.logout"') == 2
+    assert 'href="/legal">footer.licenses</a>' in html
     assert '/static/css/app.css?v=test-info-text-icons' in html
     navigation_script = '<script src="/static/js/app.js?v=test-nav-icon-tooltips"></script>'
     assert html.index("</header>") < html.index(navigation_script) < html.index("<main")

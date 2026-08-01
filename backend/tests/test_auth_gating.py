@@ -73,6 +73,14 @@ def test_auth_gating_keeps_required_paths_public_and_rejects_anonymous_requests(
     assert response.status_code == 200
     assert '<html lang="de">' in response.text
 
+    legal = client.get("/legal")
+    assert legal.status_code == 200
+    assert "Lizenzen und Open-Source-Hinweise" in legal.text
+    assert "Alpine.js 3.15.0" in legal.text
+    assert client.get("/legal/project-license").status_code == 200
+    assert client.get("/legal/source").status_code == 200
+    assert client.get("/legal/third-party-notices").status_code == 200
+
 
 def test_security_headers_cover_pages_auth_errors_api_static_and_pwa(auth_client):
     db_session, client = auth_client

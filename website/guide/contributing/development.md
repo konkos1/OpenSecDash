@@ -8,6 +8,8 @@ uv lock --check
 uv sync --python "$(cat .python-version)" --frozen --group dev
 .venv/bin/python -m pytest tests/ -q
 .venv/bin/pyright --pythonversion "$(cut -d. -f1,2 .python-version)" app tests ../plugins
+cd ..
+backend/.venv/bin/python scripts/generate_third_party_notices.py --check
 ```
 
 The exact Python patch version in `backend/.python-version` is shared by local
@@ -30,6 +32,7 @@ Run the docs website locally:
 cd website
 npm ci
 npm run audit:ci
+npm run licenses:check
 npm run docs:dev
 ```
 
@@ -40,17 +43,20 @@ future expiry date. New or expired findings fail CI.
 
 Release images are built twice without a dependency cache. CI compares their complete
 Python package lists, checks FastAPI/Uvicorn/WebSockets against `uv.lock`, audits the
-locked Python runtime and npm build dependencies, generates an SPDX SBOM, and blocks
-publication on fixable high or critical image findings. A temporary vulnerability
+locked Python runtime and npm build dependencies, regenerates application and website
+notices, generates an SPDX SBOM, verifies Debian copyright evidence, and blocks
+publication on fixable high or critical image findings or incomplete license evidence.
+A temporary vulnerability
 exception must name each CVE/advisory, explain why it is not fixable, limit the affected
 scope, and include an expiry date; exceptions must be reviewed in the workflow rather
 than implemented by globally hiding scanner findings.
 
-The workflow separates build validation, supply-chain checks, and publication. It
-passes one short-lived release-candidate image artifact between those jobs so the
-scanned image is exactly the image that is published. SBOM generation retries the same
-pinned generator once and validates the resulting SPDX document; there is no alternate
-generator fallback, and publication remains blocked without a valid SBOM.
+The workflow separates build validation, supply-chain checks, a draft release carrying
+the compliance evidence, image publication, and final release publication. It passes
+one short-lived release-candidate image artifact between those jobs so the scanned
+image is exactly the image that is published. SBOM generation retries the same pinned
+generator once; publication remains blocked without the SBOM, notices, container
+package report, and corresponding source archive.
 
 The build job also runs the complete backend/security suite, Pyright, Alembic, Tailwind,
 and the documentation build before exercising Fresh, Small, Large, and Upgrade profiles

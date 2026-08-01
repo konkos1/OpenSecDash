@@ -46,6 +46,9 @@ opensecdash/
 │   └── docker-compose.example.yml
 │
 ├── scripts/
+├── third_party/
+│   ├── app-components.toml
+│   └── licenses/
 │
 ├── tests/
 │
@@ -81,5 +84,15 @@ Docker assets live under:
 docker/
 ```
 
-The Docker build context remains the repository root so the image can copy `backend/`, `plugins/`, `README.md`, and `LICENSE`. Automation therefore uses `docker/Dockerfile` explicitly.
+Third-party component provenance and license texts that are not already preserved
+inside installed packages live under:
 
+```none
+third_party/
+```
+
+The generated application and website notice files remain committed. Their generators
+derive dependency versions from `uv.lock` / `package-lock.json` and fail CI when the
+committed notices are stale.
+
+The Docker build context remains the repository root so the image can copy `backend/`, `plugins/`, `README.md`, and `LICENSE`. Automation therefore uses `docker/Dockerfile` explicitly.

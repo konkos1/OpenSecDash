@@ -128,6 +128,23 @@ def test_pending_keeps_health_ready_onboarding_and_static_assets_reachable(onboa
     assert "Set up OpenSecDash" in page.text
 
 
+def test_pending_only_exposes_exact_legal_paths(onboarding_client):
+    db_session, client, _ = onboarding_client
+    set_state(db_session, AUTH_ONBOARDING_PENDING)
+
+    for path in (
+        "/legal",
+        "/legal/project-license",
+        "/legal/source",
+        "/legal/third-party-notices",
+    ):
+        assert client.get(path).status_code == 200, path
+
+    lookalike = client.get("/legal-admin", follow_redirects=False)
+    assert lookalike.status_code == 303
+    assert lookalike.headers["location"] == "/onboarding"
+
+
 def test_pending_closes_the_event_websocket_without_data(onboarding_client):
     db_session, client, _ = onboarding_client
     set_state(db_session, AUTH_ONBOARDING_PENDING)
