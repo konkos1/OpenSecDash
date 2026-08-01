@@ -77,7 +77,7 @@ def lookup(request: GeoIPLookupRequest) -> GeoIPLookupResult:
 
 def _status_error(status_code: int) -> GeoIPProviderError:
     if status_code in (401, 403):
-        return GeoIPProviderError(f"IPLocate rejected the API key (HTTP {status_code})")
+        return GeoIPConfigurationError(f"IPLocate rejected the API key (HTTP {status_code})")
     if status_code == 429:
         return GeoIPProviderError(f"IPLocate quota or rate limit reached (HTTP {status_code})")
     if 300 <= status_code < 400:

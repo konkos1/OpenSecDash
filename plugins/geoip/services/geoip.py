@@ -35,6 +35,7 @@ ERROR_CACHE_TTL = timedelta(hours=1)
 class _GeoIPLookupOutcome:
     values: tuple[str | None, str | None, str | None, str | None]
     complete: bool
+    stop_batch: bool = False
 
 
 def geoip_enabled(db: Session) -> bool:
@@ -96,10 +97,14 @@ def enrich_event_values(db: Session, values: dict[str, Any]) -> bool:
     Producers win: if a plugin already supplied ``country``, ``city``, ``asn``
     or ``isp`` we never overwrite that field.
     """
+    return _enrich_event_values_outcome(db, values).complete
+
+
+def _enrich_event_values_outcome(db: Session, values: dict[str, Any]) -> _GeoIPLookupOutcome:
     if not geoip_enabled(db):
-        return False
+        return _GeoIPLookupOutcome((None, None, None, None), complete=False, stop_batch=True)
     if values.get("country") and values.get("city") and values.get("asn") and values.get("isp"):
-        return True
+        return _GeoIPLookupOutcome((None, None, None, None), complete=True)
     outcome = _lookup_geoip_outcome(
         db,
         values.get("ip"),
@@ -116,7 +121,7 @@ def enrich_event_values(db: Session, values: dict[str, Any]) -> bool:
         values["asn"] = asn
     if isp and not values.get("isp"):
         values["isp"] = isp
-    return outcome.complete
+    return outcome
 
 
 def lookup_country(db: Session, ip_or_range: str | None) -> str | None:
@@ -176,7 +181,7 @@ def _lookup_geoip_outcome(
         # Configuration can be corrected at any time. Do not poison the cache:
         # the next enrichment pass should use a newly saved key immediately.
         logger.warning("GeoIP lookup skipped provider=%s: %s", provider, exc)
-        return _GeoIPLookupOutcome((None, None, None, None), complete=False)
+        return _GeoIPLookupOutcome((None, None, None, None), complete=False, stop_batch=True)
     except Exception as exc:
         logger.warning("GeoIP lookup failed provider=%s target=%s: %s", provider, lookup_key, exc)
         _store_cache(db, cached, lookup_key, provider, None, None, None, None, now, now + ERROR_CACHE_TTL, str(exc), now)
@@ -341,15 +346,17 @@ def enrich_pending_events(db: Session, limit: int = 50) -> int:
             "asn": event.asn,
             "isp": event.isp,
         }
-        complete = enrich_event_values(db, values)
+        outcome = _enrich_event_values_outcome(db, values)
         event.country = values.get("country") or event.country
         event.city = values.get("city") or event.city
         event.asn = values.get("asn") or event.asn
         event.isp = values.get("isp") or event.isp
-        if complete and not previous_country and event.country:
+        if outcome.complete and not previous_country and event.country:
             _reconcile_country_derived_data(db, event)
-        event.geoip_checked = complete
-        if complete:
+        event.geoip_checked = outcome.complete
+        if outcome.complete:
             processed += 1
         db.commit()
+        if outcome.stop_batch:
+            break
     return processed

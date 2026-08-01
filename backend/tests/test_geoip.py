@@ -94,12 +94,14 @@ def test_geoip_cache_of_another_provider_is_refreshed_instead_of_reused(db_sessi
     assert len(calls) == 1
 
 
-def _fake_iplocate_response(monkeypatch, payload: dict) -> list[dict]:
+def _fake_iplocate_response(monkeypatch, payload: dict, status_code: int = 200) -> list[dict]:
     calls: list[dict] = []
 
     class _Response:
         headers: dict[str, str] = {}
-        status_code = 200
+
+        def __init__(self):
+            self.status_code = status_code
 
         def iter_content(self, chunk_size):
             yield json.dumps(payload).encode()
@@ -240,6 +242,33 @@ def test_enrich_pending_events_retries_after_missing_iplocate_key_is_configured(
     db_session.refresh(event)
     assert event.geoip_checked is True
     assert event.country == "US"
+
+
+def test_enrich_pending_events_retries_immediately_after_rejected_iplocate_key_is_replaced(db_session, monkeypatch):
+    db_session.add_all(
+        [
+            Setting(key="plugin.geoip.enabled", value="true"),
+            Setting(key="plugin.geoip.provider", value="iplocate"),
+            Setting(key="plugin.geoip.iplocate_api_key", value="rejected-key"),
+            Event(source="test", plugin="traefik_log", event_type="access.allowed", ip="8.8.8.8", geoip_checked=False),
+            Event(source="test", plugin="traefik_log", event_type="access.allowed", ip="1.1.1.1", geoip_checked=False),
+        ]
+    )
+    db_session.commit()
+    rejected_calls = _fake_iplocate_response(monkeypatch, {}, status_code=401)
+
+    assert enrich_pending_events(db_session, limit=10) == 0
+    assert len(rejected_calls) == 1
+    assert db_session.query(Event).filter_by(geoip_checked=False).count() == 2
+    assert db_session.query(GeoIPCache).count() == 0
+
+    db_session.query(Setting).filter_by(key="plugin.geoip.iplocate_api_key").one().value = "replacement-key"
+    db_session.commit()
+    successful_calls = _fake_iplocate_response(monkeypatch, {"country_code": "US"})
+
+    assert enrich_pending_events(db_session, limit=10) == 2
+    assert len(successful_calls) == 2
+    assert db_session.query(Event).filter_by(geoip_checked=True).count() == 2
 
 
 def test_enrich_pending_events_retries_after_cached_provider_failure_expires(db_session, monkeypatch):
