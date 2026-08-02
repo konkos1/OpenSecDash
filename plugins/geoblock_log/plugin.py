@@ -30,6 +30,7 @@ class Plugin(DatasourcePlugin):
         version="1.0.0", 
         api_version="2",
         capabilities=["datasource", "widget"], 
+        event_types=["security.geoblock"],
         description="Reads GeoBlock Traefik plugin (github.com/PascalMinder/geoblock) logs."
     )
     settings = [

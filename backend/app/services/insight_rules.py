@@ -16,7 +16,7 @@ from app.core.time import utc_now
 from app.models.core import Diagnostic, Insight, InsightRule as InsightRuleModel
 from app.models.events import Event
 from app.models.settings import Setting
-from app.services.notifications import handle_insight
+from app.services.notifications import handle_insight, sync_insight_notification_rules
 
 logger = logging.getLogger(__name__)
 
@@ -154,8 +154,14 @@ def _validate_ruleset(data: dict[str, Any]) -> dict[str, Any]:
     for item in rules:
         if not isinstance(item, dict):
             raise ValueError("Insight rule must be an object")
-        if not item.get("id") or not item.get("title"):
+        rule_id = item.get("id")
+        title = item.get("title")
+        if not rule_id or not title:
             raise ValueError("Insight rule id/title is required")
+        if not isinstance(rule_id, str) or len(rule_id) > 100:
+            raise ValueError(f"Insight rule {rule_id} has an invalid id")
+        if not isinstance(title, str) or len(title) > 255:
+            raise ValueError(f"Insight rule {rule_id} has an invalid title")
         if item.get("group_by", "ip") not in {"ip", "path"}:
             raise ValueError(f"Unsupported insight rule group_by for {item.get('id')}: {item.get('group_by')}")
         paths = item.get("path_contains_any", [])
@@ -239,6 +245,7 @@ def import_ruleset(db: Session, data: dict[str, Any], *, source: str) -> dict[st
         existing.last_seen_at = now
     db.flush()
     db.info.pop(_ACTIVE_RULES_CACHE_KEY, None)
+    sync_insight_notification_rules(db)
     return {"version": data.get("ruleset_version"), "count": len(rules), "imported": imported, "updated": updated}
 
 

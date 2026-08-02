@@ -37,11 +37,16 @@ def test_seed_default_notification_rules_is_idempotent_and_preserves_user_change
         "core.asset_offline",
         "core.crowdsec_ban",
         "core.plugin_error",
-        "core.scanner_detected",
+        "insight.ban_after_access",
+        "insight.blocked_request",
+        "insight.geoblock_denied_request",
+        "insight.manual_security_ban",
+        "insight.security_ban_observed",
     ]
     assert rules[0].cooldown_minutes == 60
     assert rules[1].match_types == ["security.ban"]
     assert rules[3].source == "insight"
+    assert all(rule.enabled is False for rule in rules[3:])
 
     crowdsec_rule = next(rule for rule in rules if rule.rule_id == "core.crowdsec_ban")
     crowdsec_rule.enabled = False
@@ -49,7 +54,7 @@ def test_seed_default_notification_rules_is_idempotent_and_preserves_user_change
     seed_default_notification_rules(db_session)
     db_session.commit()
 
-    assert db_session.query(NotificationRule).count() == 4
+    assert db_session.query(NotificationRule).count() == 8
     assert db_session.query(NotificationRule).filter_by(rule_id="core.crowdsec_ban").one().enabled is False
 
 

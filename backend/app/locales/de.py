@@ -68,6 +68,9 @@ DE = {
     "notifications.subject_error": "Betreff / Fehler",
     "notifications.test_rule": "Testbenachrichtigung",
     "notifications.no_history": "Noch keine Benachrichtigungen.",
+    "notifications.requires_plugin": "Erfordert das aktivierte Plugin {plugin}.",
+    "notifications.requires_event_producer": "Kein aktiviertes Plugin erzeugt Events vom Typ {event_types}.",
+    "notifications.insight_unavailable": "Dieser Insight ist nicht mehr verfügbar.",
 
     "notification.email.subject_prefix": "[OpenSecDash]",
     "notification.email.ip": "IP",

@@ -19,6 +19,7 @@ class RegisteredPlugin:
     id: str
     name: str
     capabilities: tuple[str, ...]
+    event_types: tuple[str, ...] = ()
     nav_items: tuple[NavItem, ...] = ()
 
 
@@ -37,6 +38,16 @@ def plugin_ids() -> list[str]:
 
 def ids_with_capability(capability: str) -> list[str]:
     return [p.id for p in _plugins.values() if capability in p.capabilities]
+
+
+def ids_producing_event_type(event_type: str) -> list[str]:
+    """Return loaded plugins that declare they can emit an event type."""
+    return [plugin.id for plugin in _plugins.values() if event_type in plugin.event_types]
+
+
+def plugin_name(plugin_id: str) -> str:
+    plugin = _plugins.get(plugin_id)
+    return plugin.name if plugin is not None else plugin_id
 
 
 def nav_items_by_plugin() -> dict[str, tuple[NavItem, ...]]:

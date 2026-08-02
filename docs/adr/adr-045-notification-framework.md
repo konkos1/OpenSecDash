@@ -21,6 +21,14 @@
 > each state transition with a conditional database update, so restarts and
 > multiple workers do not produce duplicate offline events. Failed sends are
 > not retried automatically in V1.
+>
+> Each known Insight type has its own persisted notification rule. Declarative
+> rule imports update display metadata without replacing the user's enabled,
+> window, or cooldown choices. Built-in and declarative Insights describe their
+> required event types, while plugins declare which event types they can emit.
+> An Insight notification rule is effective only while enabled plugins can
+> produce every required input. Plugin disablement preserves the user's choice;
+> it only makes the checkbox and matcher temporarily unavailable.
 
 ## Goal
 

@@ -1,7 +1,10 @@
 # ADR-017: Plugin Capabilities
 
-> **Implementation status (2026-07-09):** Implemented.
-> Plugins declare capabilities through PluginMetadata; plugin manager stores records and uses capabilities/hooks for web, actions, asset sources, exports, and more.
+> **Implementation status (2026-08-02):** Implemented.
+> Plugins declare capabilities and the event types they produce through
+> `PluginMetadata`. The plugin manager publishes this metadata through the core
+> registry so Insight and notification availability can be derived without the
+> core importing integration-specific plugin code.
 
 
 
@@ -143,6 +146,23 @@ Example:
   ]
 }
 ```
+
+Datasource and action plugins additionally declare their emitted event types:
+
+```python
+PluginMetadata(
+    id="my_firewall",
+    name="My Firewall",
+    capabilities=["datasource"],
+    event_types=["security.firewall_block"],
+)
+```
+
+These declarations describe possible output, not current health. Core features
+combine them with the plugin's enabled state when deciding whether an Insight or
+notification rule is currently available. A temporary plugin error therefore does
+not discard configuration, while disabling or unloading the last producer makes
+dependent rules unavailable.
 
 
 ---

@@ -68,6 +68,7 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
         version="1.0.0",
         api_version="2",
         capabilities=["datasource", "action", "page", "widget"],
+        event_types=["security.ban", "security.ban.manual", "security.unban.manual"],
         description="CrowdSec log datasource and LAPI ban/unban actions."
     )
     settings = [

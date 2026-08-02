@@ -14,6 +14,13 @@ from app.models.core import Insight, Notification, NotificationRule
 from app.models.events import Event
 from app.models.systems import System
 from app.services.asset_hosts import asset_stale_threshold
+from app.services.insight_catalog import (
+    available_insight_types,
+    insight_availability,
+    insight_definitions,
+    insight_unavailable_reason,
+    localized_insight_title,
+)
 from app.services.notification_channels import get_channel, render_email_html
 
 
@@ -22,6 +29,8 @@ logger = logging.getLogger(__name__)
 RULE_CACHE_TTL_SECONDS = 60
 BACKLOG_PROTECTION_WINDOW = timedelta(minutes=15)
 PENDING_NOTIFICATION_LIMIT = 25
+INSIGHT_NOTIFICATION_RULE_PREFIX = "insight."
+LEGACY_INSIGHT_NOTIFICATION_RULE_ID = "core.scanner_detected"
 
 
 @dataclass(frozen=True)
@@ -35,6 +44,14 @@ class NotificationRuleSnapshot:
     channel: str
     min_count: int
     window_minutes: int
+
+
+@dataclass(frozen=True)
+class NotificationRuleView:
+    rule: NotificationRule
+    name: str
+    available: bool
+    unavailable_reason: str = ""
 
 
 _rules_cache: list[NotificationRuleSnapshot] | None = None
@@ -56,16 +73,6 @@ DEFAULT_NOTIFICATION_RULES = (
         "min_count": 1,
         "window_minutes": 10,
         "cooldown_minutes": 1,
-    },
-    {
-        "rule_id": "core.scanner_detected",
-        "name": "Scanner detected",
-        "source": "insight",
-        "match_types": ["*"],
-        "min_severity": "high",
-        "min_count": 1,
-        "window_minutes": 10,
-        "cooldown_minutes": 5,
     },
     {
         "rule_id": "core.asset_offline",
@@ -96,6 +103,114 @@ def seed_default_notification_rules(db: Session) -> None:
     for rule in DEFAULT_NOTIFICATION_RULES:
         if rule["rule_id"] not in existing_rule_ids:
             db.add(NotificationRule(**rule))
+    sync_insight_notification_rules(db)
+
+
+def insight_notification_rule_id(insight_type: str) -> str:
+    return f"{INSIGHT_NOTIFICATION_RULE_PREFIX}{insight_type}"
+
+
+def _managed_insight_type(rule: NotificationRule) -> str | None:
+    if not rule.rule_id.startswith(INSIGHT_NOTIFICATION_RULE_PREFIX):
+        return None
+    insight_type = rule.rule_id.removeprefix(INSIGHT_NOTIFICATION_RULE_PREFIX)
+    if rule.source != "insight" or rule.match_types != [insight_type]:
+        return None
+    return insight_type
+
+
+def sync_insight_notification_rules(db: Session) -> None:
+    """Upsert one independently configurable notification rule per Insight type."""
+    legacy = (
+        db.query(NotificationRule)
+        .filter(NotificationRule.rule_id == LEGACY_INSIGHT_NOTIFICATION_RULE_ID)
+        .first()
+    )
+    legacy_enabled = legacy.enabled if legacy is not None else False
+    if legacy is not None and legacy.enabled:
+        legacy.enabled = False
+        legacy.updated_at = utc_now().replace(tzinfo=None)
+
+    now = utc_now().replace(tzinfo=None)
+    for definition in insight_definitions(db).values():
+        rule_id = insight_notification_rule_id(definition.type)
+        existing = db.query(NotificationRule).filter(NotificationRule.rule_id == rule_id).first()
+        if existing is None:
+            db.add(
+                NotificationRule(
+                    rule_id=rule_id,
+                    name=definition.title,
+                    source="insight",
+                    match_types=[definition.type],
+                    min_severity="low",
+                    min_count=1,
+                    window_minutes=10,
+                    cooldown_minutes=5,
+                    enabled=(
+                        legacy_enabled
+                        and INSIGHT_LEVEL_ORDER.get(definition.level, 0) >= INSIGHT_LEVEL_ORDER["high"]
+                    ),
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
+            continue
+        if (
+            existing.name != definition.title
+            or existing.source != "insight"
+            or existing.match_types != [definition.type]
+            or existing.min_severity != "low"
+        ):
+            existing.name = definition.title
+            existing.source = "insight"
+            existing.match_types = [definition.type]
+            existing.min_severity = "low"
+            existing.updated_at = now
+    db.flush()
+    invalidate_rules_cache()
+
+
+def notification_rule_views(db: Session, language: str) -> list[NotificationRuleView]:
+    definitions = insight_definitions(db)
+    views = []
+    rules = (
+        db.query(NotificationRule)
+        .filter(NotificationRule.rule_id != LEGACY_INSIGHT_NOTIFICATION_RULE_ID)
+        .order_by(NotificationRule.name)
+        .all()
+    )
+    for rule in rules:
+        insight_type = _managed_insight_type(rule)
+        if insight_type is None:
+            views.append(NotificationRuleView(rule=rule, name=rule.name, available=True))
+            continue
+        definition = definitions.get(insight_type)
+        if definition is None:
+            views.append(
+                NotificationRuleView(
+                    rule=rule,
+                    name=rule.name,
+                    available=False,
+                    unavailable_reason=translate("notifications.insight_unavailable", language),
+                )
+            )
+            continue
+        availability = insight_availability(db, definition)
+        views.append(
+            NotificationRuleView(
+                rule=rule,
+                name=localized_insight_title(definition, language),
+                available=availability.available,
+                unavailable_reason=(
+                    "" if availability.available else insight_unavailable_reason(db, definition, language)
+                ),
+            )
+        )
+    return views
+
+
+def editable_notification_rule_ids(db: Session) -> set[str]:
+    return {view.rule.rule_id for view in notification_rule_views(db, "en") if view.available}
 
 
 def invalidate_rules_cache() -> None:
@@ -112,20 +227,26 @@ def _active_rules(db: Session) -> tuple[list[NotificationRuleSnapshot], bool]:
     now = time.monotonic()
     if _rules_cache is None or _rules_loaded_at is None or now - _rules_loaded_at >= RULE_CACHE_TTL_SECONDS:
         rows = db.query(NotificationRule).filter(NotificationRule.enabled == True).all()  # noqa: E712
-        _rules_cache = [
-            NotificationRuleSnapshot(
-                rule_id=row.rule_id,
-                source=row.source,
-                match_types=tuple(row.match_types or ()),
-                min_severity=row.min_severity,
-                countries=tuple(row.countries or ()),
-                asset_id=row.asset_id,
-                channel=row.channel,
-                min_count=row.min_count,
-                window_minutes=row.window_minutes,
+        available_types = available_insight_types(db)
+        snapshots = []
+        for row in rows:
+            insight_type = _managed_insight_type(row)
+            if insight_type is not None and insight_type not in available_types:
+                continue
+            snapshots.append(
+                NotificationRuleSnapshot(
+                    rule_id=row.rule_id,
+                    source=row.source,
+                    match_types=tuple(row.match_types or ()),
+                    min_severity=row.min_severity,
+                    countries=tuple(row.countries or ()),
+                    asset_id=row.asset_id,
+                    channel=row.channel,
+                    min_count=row.min_count,
+                    window_minutes=row.window_minutes,
+                )
             )
-            for row in rows
-        ]
+        _rules_cache = snapshots
         _notifications_enabled_cache = get_setting_value(db, "notifications.enabled", "false").lower() == "true"
         _smtp_configured_cache = all(
             get_setting_value(db, key, "").strip()
@@ -272,15 +393,13 @@ def handle_insight(db: Session, insight: Insight, occurred_at: datetime | None =
         logger.exception("Notification engine failed while handling insight id=%s", insight.id)
 
 
-def _notification_name(rule: NotificationRule) -> str:
-    return rule.name
-
-
 def render_notification(db: Session, rule: NotificationRule, pending: list[Notification]) -> tuple[str, str, str]:
     """Render one multipart notification or digest in the configured language."""
     language = get_setting_value(db, "language", "en")
     text = lambda key: translate(key, language)
-    name = _notification_name(rule)
+    insight_type = _managed_insight_type(rule)
+    definition = insight_definitions(db).get(insight_type) if insight_type is not None else None
+    name = localized_insight_title(definition, language) if definition is not None else rule.name
     domain = get_setting_value(db, "domain", "").strip()
     instance_label = f" {domain}" if domain else ""
     subject = f"{text('notification.email.subject_prefix')}{instance_label} · {name}"
@@ -425,9 +544,16 @@ def dispatch_pending_notifications(db: Session) -> int:
         db.commit()
         return sent_count
     rule_ids = [rule_id for (rule_id,) in db.query(Notification.rule_id).filter(Notification.status == "pending").distinct().all()]
+    available_types = available_insight_types(db)
     for rule_id in rule_ids:
         rule = db.query(NotificationRule).filter(NotificationRule.rule_id == rule_id).first()
         if rule is None:
+            continue
+        insight_type = _managed_insight_type(rule)
+        if not rule.enabled or (insight_type is not None and insight_type not in available_types):
+            db.query(Notification).filter(Notification.rule_id == rule_id, Notification.status == "pending").update(
+                {Notification.status: "skipped"}, synchronize_session=False
+            )
             continue
         channel = get_channel(rule.channel)
         if channel is None or not channel.is_configured(db):
