@@ -34,6 +34,15 @@ SERVICE_SOURCE = Path(cast(str, geoip_service.__file__)).read_text(encoding="utf
 DUMMY_KEY = "dummy-iplocate-key"
 
 
+@pytest.fixture(autouse=True)
+def _reset_provider_attempt_state():
+    with geoip_service._provider_attempts_lock:
+        geoip_service._provider_attempts.clear()
+    yield
+    with geoip_service._provider_attempts_lock:
+        geoip_service._provider_attempts.clear()
+
+
 class FakeResponse:
     def __init__(
         self,
@@ -448,6 +457,48 @@ def test_health_describes_unverified_transport_without_probing_or_leaking_the_ke
     assert "ip-api.com over unencrypted HTTP" in legacy["message"]
     assert "reachability has not been verified" in legacy["message"]
     assert unknown == {"status": "error", "message": "Unsupported GeoIP provider: made-up"}
+
+
+def test_rejected_iplocate_key_is_reported_and_not_retried_until_it_changes(monkeypatch, db_session):
+    db_session.add_all(
+        [
+            Setting(key="plugin.geoip.provider", value="iplocate"),
+            Setting(key="plugin.geoip.iplocate_api_key", value=DUMMY_KEY),
+        ]
+    )
+    db_session.commit()
+    calls = []
+
+    def provider_response(*args, **kwargs):
+        calls.append((args, kwargs))
+        if kwargs["headers"]["X-API-Key"] == DUMMY_KEY:
+            return FakeResponse(b"{}", status_code=401)
+        return FakeResponse(b'{"country_code":"DE"}')
+
+    monkeypatch.setattr(iplocate.requests, "get", provider_response)
+
+    assert geoip_service.lookup_geoip(db_session, "8.8.8.8") == (None, None, None, None)
+    failed = _health(db_session, provider="iplocate", iplocate_api_key=DUMMY_KEY)
+    assert failed["status"] == "error"
+    assert "latest GeoIP lookup through iplocate failed" in failed["message"]
+    assert DUMMY_KEY not in failed["message"]
+
+    # A second pending address must not send the same rejected credential.
+    assert geoip_service.lookup_geoip(db_session, "1.1.1.1") == (None, None, None, None)
+    assert len(calls) == 1
+
+    db_session.query(Setting).filter_by(key="plugin.geoip.iplocate_api_key").one().value = "rotated-key"
+    db_session.commit()
+    unverified = _health(db_session, provider="iplocate", iplocate_api_key="rotated-key")
+    assert unverified["status"] == "warning"
+    assert "reachability has not been verified" in unverified["message"]
+
+    assert geoip_service.lookup_geoip(db_session, "1.1.1.1") == ("DE", None, None, None)
+    assert len(calls) == 2
+    assert calls[-1][1]["headers"] == {"X-API-Key": "rotated-key"}
+    recovered = _health(db_session, provider="iplocate", iplocate_api_key="rotated-key")
+    assert recovered["status"] == "warning"
+    assert "latest GeoIP lookup succeeded" in recovered["message"]
 
 
 def test_health_reports_the_latest_iplocate_transport_failure_without_sensitive_details(db_session):
