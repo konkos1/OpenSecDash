@@ -191,6 +191,8 @@ The Asset Explorer helps answer:
 
 Assets represent services or apps you consciously run, such as Home Assistant, Nextcloud, Vaultwarden, Immich, Jellyfin, Traefik, Grafana, or Uptime Kuma.
 
+Use the **Show inactive** and **Show updates only** checkboxes to narrow the system list. Each checkbox applies immediately while retaining the current asset search and source filter.
+
 ## GitHub release checks
 
 For assets with GitHub release URLs, OpenSecDash can check the latest release and mark apps with available updates.

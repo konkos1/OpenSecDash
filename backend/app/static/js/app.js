@@ -265,6 +265,14 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         });
 
+    document.querySelectorAll("form[data-assets-filters]")
+        .forEach(form => {
+            form.querySelectorAll('input[type="checkbox"]')
+                .forEach(checkbox => {
+                    checkbox.addEventListener("change", () => form.requestSubmit());
+                });
+        });
+
     document.querySelectorAll("[data-confirm]")
         .forEach(element => {
             element.addEventListener("submit", event => {
