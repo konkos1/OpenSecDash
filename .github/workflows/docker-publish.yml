@@ -534,5 +534,6 @@ jobs:
       - name: Publish verified draft release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
           TAG: ${{ github.ref_name }}
-        run: gh release edit "${TAG}" --draft=false
+        run: gh release edit "${TAG}" --repo "${REPO}" --draft=false
