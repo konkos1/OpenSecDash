@@ -7,8 +7,12 @@ URLs, headers, wire field names - lives in ``providers/``.
 
 from __future__ import annotations
 
+import hmac
 import ipaddress
+import json
 import logging
+import secrets
+import threading
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -48,6 +52,18 @@ class GeoIPEnrichmentBatch:
 class GeoIPProviderAttempt:
     attempted_at: datetime
     error: str | None
+
+
+@dataclass(frozen=True)
+class _GeoIPProviderAttemptState:
+    configuration_signature: bytes
+    attempt: GeoIPProviderAttempt
+    blocks_retry: bool = False
+
+
+_PROVIDER_CONFIGURATION_SIGNATURE_KEY = secrets.token_bytes(32)
+_provider_attempts: dict[str, _GeoIPProviderAttemptState] = {}
+_provider_attempts_lock = threading.Lock()
 
 
 def geoip_enabled(db: Session) -> bool:
@@ -187,29 +203,61 @@ def _lookup_geoip_outcome(
             complete=not bool(cached.error),
         )
 
+    implementation = get_provider(provider)
+    provider_settings = _provider_settings(db, implementation)
+    configuration_signature = _provider_configuration_signature(provider, provider_settings)
+    provider_state = _provider_attempt_state(provider)
+    if (
+        provider_state is not None
+        and provider_state.configuration_signature == configuration_signature
+        and provider_state.blocks_retry
+    ):
+        return _GeoIPLookupOutcome((None, None, None, None), complete=False, stop_batch=True)
+
     try:
-        country, city, asn, isp = _lookup_provider_geoip(db, provider, lookup_ip)
+        country, city, asn, isp = _lookup_provider_geoip(
+            db,
+            provider,
+            lookup_ip,
+            implementation=implementation,
+            provider_settings=provider_settings,
+        )
     except GeoIPConfigurationError as exc:
         # Configuration can be corrected at any time. Do not poison the cache:
-        # the next enrichment pass should use a newly saved key immediately.
+        # a changed configuration gets a different opaque signature and is
+        # retried immediately, while the rejected value is not sent every 15s.
         logger.warning("GeoIP lookup skipped provider=%s: %s", provider, exc)
+        _record_provider_attempt(provider, configuration_signature, now, str(exc), blocks_retry=True)
         return _GeoIPLookupOutcome((None, None, None, None), complete=False, stop_batch=True)
     except Exception as exc:
         logger.warning("GeoIP lookup failed provider=%s target=%s: %s", provider, lookup_key, exc)
+        _record_provider_attempt(provider, configuration_signature, now, str(exc))
         _store_cache(db, cached, lookup_key, provider, None, None, None, None, now, now + ERROR_CACHE_TTL, str(exc), now)
         return _GeoIPLookupOutcome((None, None, None, None), complete=False)
 
+    _record_provider_attempt(provider, configuration_signature, now, None)
     _store_cache(db, cached, lookup_key, provider, country, city, asn, isp, now, now + timedelta(days=ttl_days), None, None)
     return _GeoIPLookupOutcome((country, city, asn, isp), complete=True)
 
 
-def _lookup_provider_geoip(db: Session, provider: str, lookup_ip: str) -> tuple[str | None, str | None, str | None, str | None]:
-    implementation = get_provider(provider)
+def _lookup_provider_geoip(
+    db: Session,
+    provider: str,
+    lookup_ip: str,
+    *,
+    implementation: GeoIPProvider | None = None,
+    provider_settings: Mapping[str, str] | None = None,
+) -> tuple[str | None, str | None, str | None, str | None]:
+    implementation = implementation or get_provider(provider)
     result = implementation.lookup(
         GeoIPLookupRequest(
             ip=lookup_ip,
             timeout=_int_setting(db, "plugin.geoip.timeout_seconds", 3, minimum=1),
-            settings=_provider_settings(db, implementation),
+            settings=(
+                provider_settings
+                if provider_settings is not None
+                else _provider_settings(db, implementation)
+            ),
         )
     )
     return (
@@ -224,8 +272,45 @@ def _provider_settings(db: Session, provider: GeoIPProvider) -> Mapping[str, str
     return MappingProxyType({key: get_setting_value(db, f"plugin.geoip.{key}", "") for key in provider.setting_keys})
 
 
+def _provider_configuration_signature(provider: str, settings: Mapping[str, str]) -> bytes:
+    serialized = json.dumps([provider, sorted(settings.items())], separators=(",", ":")).encode()
+    return hmac.digest(_PROVIDER_CONFIGURATION_SIGNATURE_KEY, serialized, "sha256")
+
+
+def _provider_attempt_state(provider: str) -> _GeoIPProviderAttemptState | None:
+    with _provider_attempts_lock:
+        return _provider_attempts.get(provider)
+
+
+def _record_provider_attempt(
+    provider: str,
+    configuration_signature: bytes,
+    attempted_at: datetime,
+    error: str | None,
+    *,
+    blocks_retry: bool = False,
+) -> None:
+    state = _GeoIPProviderAttemptState(
+        configuration_signature=configuration_signature,
+        attempt=GeoIPProviderAttempt(attempted_at=attempted_at, error=error),
+        blocks_retry=blocks_retry,
+    )
+    with _provider_attempts_lock:
+        _provider_attempts[provider] = state
+
+
 def latest_provider_attempt(db: Session, provider: str) -> GeoIPProviderAttempt | None:
     """Return the latest real lookup outcome without contacting the provider."""
+    implementation = get_provider(provider)
+    signature = _provider_configuration_signature(provider, _provider_settings(db, implementation))
+    provider_state = _provider_attempt_state(provider)
+    if provider_state is not None:
+        # A configuration change makes the previous outcome inapplicable. The
+        # enrichment loop will verify the new value on its next pending lookup.
+        if provider_state.configuration_signature != signature:
+            return None
+        return provider_state.attempt
+
     row = (
         db.query(GeoIPCache)
         .filter(GeoIPCache.provider == provider)
