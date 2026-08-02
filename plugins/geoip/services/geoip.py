@@ -11,7 +11,7 @@ import ipaddress
 import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 from types import MappingProxyType
 from typing import Any
 
@@ -42,6 +42,12 @@ class _GeoIPLookupOutcome:
 class GeoIPEnrichmentBatch:
     processed: int
     next_before_id: int | None
+
+
+@dataclass(frozen=True)
+class GeoIPProviderAttempt:
+    attempted_at: datetime
+    error: str | None
 
 
 def geoip_enabled(db: Session) -> bool:
@@ -216,6 +222,19 @@ def _lookup_provider_geoip(db: Session, provider: str, lookup_ip: str) -> tuple[
 
 def _provider_settings(db: Session, provider: GeoIPProvider) -> Mapping[str, str]:
     return MappingProxyType({key: get_setting_value(db, f"plugin.geoip.{key}", "") for key in provider.setting_keys})
+
+
+def latest_provider_attempt(db: Session, provider: str) -> GeoIPProviderAttempt | None:
+    """Return the latest real lookup outcome without contacting the provider."""
+    row = (
+        db.query(GeoIPCache)
+        .filter(GeoIPCache.provider == provider)
+        .order_by(GeoIPCache.looked_up_at.desc(), GeoIPCache.id.desc())
+        .first()
+    )
+    if row is None:
+        return None
+    return GeoIPProviderAttempt(attempted_at=row.looked_up_at, error=row.error)
 
 
 def normalize_country(value: object) -> str | None:

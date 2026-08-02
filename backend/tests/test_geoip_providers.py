@@ -1,5 +1,6 @@
 import asyncio
 import json
+from datetime import timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
@@ -9,6 +10,8 @@ import pytest
 from conftest import import_plugin_module
 
 from app.core.http_responses import ResponseBodyError
+from app.core.time import utc_now
+from app.models.core import GeoIPCache
 from app.models.settings import Setting
 from app.plugins.base import EnrichmentPlugin
 from app.plugins.manager import PluginManager
@@ -104,6 +107,7 @@ def test_plugin_geoip_services_are_exported_from_the_package():
         "enrich_event_values",
         "enrich_pending_events",
         "geoip_enabled",
+        "latest_provider_attempt",
         "lookup_country",
         "lookup_geoip",
         "normalize_asn",
@@ -419,28 +423,93 @@ def test_seeding_never_overwrites_an_existing_provider_choice(db_session):
     assert settings["plugin.geoip.provider"] == "ip-api"
 
 
-def _health(**settings) -> dict[str, str]:
+def _health(db_session, **settings) -> dict[str, str]:
     plugin_module = import_plugin_module("geoip", "plugin")
-    context = SimpleNamespace(get=lambda key, default="": settings.get(key, default))
+    context = SimpleNamespace(db=db_session, get=lambda key, default="": settings.get(key, default))
     return asyncio.run(plugin_module.Plugin().health(cast(Any, context)))
 
 
-def test_health_describes_the_transport_without_probing_or_leaking_the_key(monkeypatch):
+def test_health_describes_unverified_transport_without_probing_or_leaking_the_key(monkeypatch, db_session):
     for module in (ip_api, iplocate):
         monkeypatch.setattr(module.requests, "get", lambda *args, **kwargs: pytest.fail("unexpected GeoIP request"))
 
-    missing_key = _health(provider="iplocate", iplocate_api_key="  ")
-    configured = _health(provider="iplocate", iplocate_api_key=DUMMY_KEY)
-    legacy = _health(provider="ip-api")
-    unknown = _health(provider="made-up")
+    missing_key = _health(db_session, provider="iplocate", iplocate_api_key="  ")
+    configured = _health(db_session, provider="iplocate", iplocate_api_key=DUMMY_KEY)
+    legacy = _health(db_session, provider="ip-api")
+    unknown = _health(db_session, provider="made-up")
 
     assert missing_key["status"] == "error"
     assert "no API key is configured" in missing_key["message"]
     assert configured["status"] == "warning"
     assert "EU endpoint over encrypted HTTPS" in configured["message"]
+    assert "reachability has not been verified" in configured["message"]
     assert DUMMY_KEY not in configured["message"]
-    assert legacy == {
-        "status": "warning",
-        "message": "GeoIP is active: uncached public IPs are sent to ip-api.com over unencrypted HTTP.",
-    }
+    assert legacy["status"] == "warning"
+    assert "ip-api.com over unencrypted HTTP" in legacy["message"]
+    assert "reachability has not been verified" in legacy["message"]
     assert unknown == {"status": "error", "message": "Unsupported GeoIP provider: made-up"}
+
+
+def test_health_reports_the_latest_iplocate_transport_failure_without_sensitive_details(db_session):
+    attempted_at = (utc_now() - timedelta(minutes=2)).replace(tzinfo=None, microsecond=0)
+    db_session.add(
+        GeoIPCache(
+            lookup_key="203.0.113.7",
+            provider="iplocate",
+            looked_up_at=attempted_at,
+            expires_at=attempted_at + timedelta(hours=1),
+            error="IPLocate request could not be sent",
+            last_error_at=attempted_at,
+        )
+    )
+    db_session.commit()
+
+    result = _health(db_session, provider="iplocate", iplocate_api_key=DUMMY_KEY)
+
+    assert result["status"] == "error"
+    assert result["message"] == (
+        f"IPLocate was unreachable during the latest GeoIP lookup at {attempted_at.isoformat()} UTC. "
+        "GeoIP remains active and will retry uncached public IPs; check DNS, firewall, proxy, and outbound HTTPS."
+    )
+    assert "203.0.113.7" not in result["message"]
+    assert DUMMY_KEY not in result["message"]
+    assert "request could not be sent" not in result["message"]
+
+
+def test_health_recovers_when_the_latest_provider_attempt_succeeds(db_session):
+    now = utc_now().replace(tzinfo=None, microsecond=0)
+    db_session.add_all(
+        [
+            GeoIPCache(
+                lookup_key="203.0.113.7",
+                provider="iplocate",
+                looked_up_at=now - timedelta(minutes=2),
+                expires_at=now + timedelta(hours=1),
+                error="IPLocate response could not be read",
+                last_error_at=now - timedelta(minutes=2),
+            ),
+            GeoIPCache(
+                lookup_key="198.51.100.9",
+                provider="iplocate",
+                country="DE",
+                looked_up_at=now - timedelta(minutes=1),
+                expires_at=now + timedelta(days=1),
+            ),
+            GeoIPCache(
+                lookup_key="192.0.2.4",
+                provider="ip-api",
+                looked_up_at=now,
+                expires_at=now + timedelta(hours=1),
+                error="private provider detail",
+                last_error_at=now,
+            ),
+        ]
+    )
+    db_session.commit()
+
+    result = _health(db_session, provider="iplocate", iplocate_api_key=DUMMY_KEY)
+
+    assert result["status"] == "warning"
+    assert "EU endpoint over encrypted HTTPS" in result["message"]
+    assert f"latest GeoIP lookup succeeded at {(now - timedelta(minutes=1)).isoformat()} UTC" in result["message"]
+    assert "private provider detail" not in result["message"]

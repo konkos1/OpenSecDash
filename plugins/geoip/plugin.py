@@ -5,10 +5,16 @@ import time
 
 from app.plugins.base import EnrichmentPlugin, PluginContext, PluginMetadata, PluginSetting
 
-from .services import cleanup_expired_cache, enrich_pending_event_batch
+from .services import cleanup_expired_cache, enrich_pending_event_batch, latest_provider_attempt
 
 logger = logging.getLogger(__name__)
 CACHE_CLEANUP_INTERVAL_SECONDS = 60
+IPLOCATE_UNREACHABLE_ERRORS = frozenset(
+    {
+        "IPLocate request could not be sent",
+        "IPLocate response could not be read",
+    }
+)
 
 
 class Plugin(EnrichmentPlugin):
@@ -102,8 +108,8 @@ class Plugin(EnrichmentPlugin):
         self._next_event_before_id: int | None = None
 
     async def health(self, context: PluginContext) -> dict[str, str]:
-        # Reports the configured transport only - never a probe request, so the
-        # health loop cannot burn provider quota, and never the key itself.
+        # Real cache outcomes keep this passive: the health loop cannot burn
+        # provider quota or disclose a key or looked-up address.
         provider = context.get("provider", "iplocate")
         if provider == "iplocate":
             if not context.get("iplocate_api_key").strip():
@@ -111,16 +117,41 @@ class Plugin(EnrichmentPlugin):
                     "status": "error",
                     "message": "IPLocate is selected but no API key is configured: GeoIP lookups are skipped.",
                 }
+            transport_message = "GeoIP is active: uncached public IPs are sent to IPLocate's EU endpoint over encrypted HTTPS."
+        elif provider == "ip-api":
+            transport_message = "GeoIP is active: uncached public IPs are sent to ip-api.com over unencrypted HTTP."
+        else:
+            return {"status": "error", "message": f"Unsupported GeoIP provider: {provider}"}
+
+        attempt = latest_provider_attempt(context.db, provider)
+        if attempt is None:
             return {
                 "status": "warning",
-                "message": "GeoIP is active: uncached public IPs are sent to IPLocate's EU endpoint over encrypted HTTPS.",
+                "message": f"{transport_message} No GeoIP lookup has run yet, so provider reachability has not been verified.",
             }
-        if provider == "ip-api":
+
+        attempted_at = attempt.attempted_at.replace(tzinfo=None).isoformat(timespec="seconds")
+        if attempt.error:
+            if provider == "iplocate" and attempt.error in IPLOCATE_UNREACHABLE_ERRORS:
+                return {
+                    "status": "error",
+                    "message": (
+                        f"IPLocate was unreachable during the latest GeoIP lookup at {attempted_at} UTC. "
+                        "GeoIP remains active and will retry uncached public IPs; check DNS, firewall, proxy, and outbound HTTPS."
+                    ),
+                }
             return {
-                "status": "warning",
-                "message": "GeoIP is active: uncached public IPs are sent to ip-api.com over unencrypted HTTP.",
+                "status": "error",
+                "message": (
+                    f"The latest GeoIP lookup through {provider} failed at {attempted_at} UTC. "
+                    "GeoIP remains active and will retry uncached public IPs; check the provider configuration and availability."
+                ),
             }
-        return {"status": "error", "message": f"Unsupported GeoIP provider: {provider}"}
+
+        return {
+            "status": "warning",
+            "message": f"{transport_message} The latest GeoIP lookup succeeded at {attempted_at} UTC.",
+        }
 
     async def enrich(self, context: PluginContext, limit: int) -> int:
         now = time.monotonic()
