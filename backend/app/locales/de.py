@@ -231,7 +231,7 @@ DE = {
     "dashboard.delta_new": "neu",
 
     "rollups.title": "Rollups",
-    "rollups.help": "Aggregierte historische Event-Daten. Laufende Monate werden aus Tages-Rollups berechnet; abgeschlossene Monate werden als kompakte Monats-Rollups gespeichert.",
+    "rollups.help": "Aggregierte historische Event-Daten. Aktuelle Tage bleiben für den Dashboard-Verlauf als Tages-Rollups verfügbar; ältere abgeschlossene Monate werden als kompakte Monats-Rollups gespeichert.",
     "rollups.period": "Zeitraum",
     "rollups.day": "Tag",
     "rollups.month": "Monat",

@@ -7,6 +7,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from app.api.pages import (
     available_rollup_periods,
     dashboard_delta,
+    dashboard_trend_rows,
     dashboard_yesterday_rollup_key,
     dashboard_yesterday_summary,
     rollup_rows,
@@ -127,7 +128,7 @@ def test_compact_completed_daily_rollups_creates_monthly_and_removes_daily(db_se
     )
     db_session.commit()
 
-    assert compact_completed_daily_rollups(db_session, datetime(2026, 7, 2)) == 1
+    assert compact_completed_daily_rollups(db_session, datetime(2026, 7, 30)) == 1
     db_session.commit()
 
     assert db_session.query(AggregationDaily).filter(AggregationDaily.date.like("2026-06-%")).count() == 0
@@ -144,7 +145,7 @@ def test_compact_completed_daily_rollups_merges_dailies_into_existing_monthly_ro
     db_session.add(AggregationDaily(date="2026-06-30", metric="summary", key="total_events", value=6))
     db_session.commit()
 
-    assert compact_completed_daily_rollups(db_session, datetime(2026, 7, 2)) == 1
+    assert compact_completed_daily_rollups(db_session, datetime(2026, 7, 30)) == 1
     db_session.commit()
 
     assert db_session.query(AggregationDaily).filter(AggregationDaily.date.like("2026-06-%")).count() == 0
@@ -162,8 +163,8 @@ def test_late_events_after_compaction_are_merged_exactly_once(db_session, monkey
         update_rollups(db_session, Event(event_time=datetime(2026, 6, 15, 12, 0, i), event_type="security.geoblock", plugin="geoblock_log"))
     db_session.commit()
 
-    monkeypatch.setattr(events_service, "utc_now", lambda: datetime(2026, 7, 5, 10))
-    compact_completed_daily_rollups(db_session, datetime(2026, 7, 5, 10))
+    monkeypatch.setattr(events_service, "utc_now", lambda: datetime(2026, 7, 30, 10))
+    compact_completed_daily_rollups(db_session, datetime(2026, 7, 30, 10))
     db_session.commit()
     assert rollup_rows(db_session, "month", "2026-06", "summary") == [
         {"key": "geoblocks", "value": 10},
@@ -177,7 +178,7 @@ def test_late_events_after_compaction_are_merged_exactly_once(db_session, monkey
     summary = {row["key"]: row["value"] for row in rollup_rows(db_session, "month", "2026-06", "summary")}
     assert summary["total_events"] == 11
 
-    compact_completed_daily_rollups(db_session, datetime(2026, 7, 5, 11))
+    compact_completed_daily_rollups(db_session, datetime(2026, 7, 30, 11))
     db_session.commit()
     # ...and still exactly once after the next compaction pass merged it.
     assert db_session.query(AggregationDaily).filter(AggregationDaily.date.like("2026-06-%")).count() == 0
@@ -185,26 +186,44 @@ def test_late_events_after_compaction_are_merged_exactly_once(db_session, monkey
     assert summary["total_events"] == 11
 
 
-def test_compact_completed_daily_rollups_keeps_yesterday_for_dashboard_delta(db_session):
+def test_compaction_retains_completed_month_for_dashboard_trend(db_session):
     db_session.add_all(
         [
-            AggregationDaily(date="2026-07-30", metric="summary", key="total_events", value=4),
+            AggregationDaily(date="2026-07-04", metric="summary", key="security_events", value=4),
+            AggregationDaily(date="2026-07-31", metric="summary", key="security_events", value=6),
+            AggregationDaily(date="2026-08-01", metric="summary", key="security_events", value=2),
+            AggregationDaily(date="2026-08-02", metric="summary", key="security_events", value=3),
+        ]
+    )
+    db_session.commit()
+
+    assert compact_completed_daily_rollups(db_session, datetime(2026, 8, 2)) == 0
+
+    rows = dashboard_trend_rows(db_session, "2026-08-02")
+    assert len(rows) == 30
+    assert rows[0] == {"bucket": "2026-07-04", "value": 4}
+    assert rows[-3:] == [
+        {"bucket": "2026-07-31", "value": 6},
+        {"bucket": "2026-08-01", "value": 2},
+        {"bucket": "2026-08-02", "value": 3},
+    ]
+
+
+def test_compaction_waits_until_completed_month_is_outside_dashboard_trend(db_session):
+    db_session.add_all(
+        [
+            AggregationDaily(date="2026-07-01", metric="summary", key="total_events", value=4),
             AggregationDaily(date="2026-07-31", metric="summary", key="total_events", value=6),
         ]
     )
     db_session.commit()
 
-    assert compact_completed_daily_rollups(db_session, datetime(2026, 8, 1)) == 1
-    db_session.commit()
+    assert compact_completed_daily_rollups(db_session, datetime(2026, 8, 29)) == 0
+    assert db_session.query(AggregationDaily).filter(AggregationDaily.date.like("2026-07-%")).count() == 2
 
-    assert db_session.query(AggregationDaily).filter_by(date="2026-07-30").count() == 0
-    assert rollup_rows(db_session, "day", "2026-07-31", "summary") == [{"key": "total_events", "value": 6}]
-    assert rollup_rows(db_session, "month", "2026-07", "summary") == [{"key": "total_events", "value": 10}]
+    assert compact_completed_daily_rollups(db_session, datetime(2026, 8, 30)) == 1
 
-    assert compact_completed_daily_rollups(db_session, datetime(2026, 8, 2)) == 1
-    db_session.commit()
-
-    assert db_session.query(AggregationDaily).filter_by(date="2026-07-31").count() == 0
+    assert db_session.query(AggregationDaily).filter(AggregationDaily.date.like("2026-07-%")).count() == 0
     assert rollup_rows(db_session, "month", "2026-07", "summary") == [{"key": "total_events", "value": 10}]
 
 
@@ -236,7 +255,7 @@ def test_concurrent_compaction_passes_do_not_double_count(tmp_path):
         session = LocalSession()
         try:
             barrier.wait(timeout=5)
-            compact_completed_daily_rollups(session, datetime(2026, 7, 5, 10))
+            compact_completed_daily_rollups(session, datetime(2026, 7, 30, 10))
         except BaseException as exc:  # noqa: BLE001 - surfaced via assert below
             errors.append(exc)
             session.rollback()
@@ -444,7 +463,7 @@ def test_retention_cleanup_compacts_completed_month_before_deleting_raw_events(d
     db_session.add(AggregationDaily(date="2026-06-30", metric="summary", key="geoblocks", value=1))
     db_session.commit()
 
-    deleted = cleanup_events_by_retention(db_session, 1, datetime(2026, 7, 3))
+    deleted = cleanup_events_by_retention(db_session, 1, datetime(2026, 7, 30))
     db_session.commit()
 
     assert deleted == 1

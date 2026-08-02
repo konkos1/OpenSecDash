@@ -25,7 +25,7 @@ from app.models.events import Event
 from app.services.asset_hosts import find_asset_by_host
 from app.services.insight_rules import apply_declarative_insight_rules
 from app.services.notifications import handle_event, handle_insight
-from app.services.rollups import normalize_rollup_key
+from app.services.rollups import DAILY_ROLLUP_WINDOW_DAYS, normalize_rollup_key
 
 
 logger = logging.getLogger(__name__)
@@ -366,12 +366,11 @@ def compact_completed_daily_rollups(db: Session, reference_time: datetime | None
 
 def _compact_completed_daily_rollups_locked(db: Session, reference_time: datetime | None = None) -> int:
     now = reference_time or utc_now().replace(tzinfo=None)
-    current_month = now.strftime("%Y-%m")
-    yesterday = (now - timedelta(days=1)).strftime("%Y-%m-%d")
+    oldest_retained_month = (now - timedelta(days=DAILY_ROLLUP_WINDOW_DAYS - 1)).strftime("%Y-%m")
     months = [
         str(month)
         for (month,) in db.query(func.substr(AggregationDaily.date, 1, 7)).distinct().all()
-        if month and str(month) < current_month
+        if month and str(month) < oldest_retained_month
     ]
     compacted = 0
     for month in months:
@@ -383,12 +382,9 @@ def _compact_completed_daily_rollups_locked(db: Session, reference_time: datetim
         # pass merges and removes. The previous "skip the month if monthly
         # rows already exist" logic silently threw away all daily counts of a
         # month whenever even one monthly row had appeared early.
-        # Yesterday's daily row is exempt from deletion (the dashboard's
-        # yesterday comparison needs it), so it is also exempt from merging
-        # until a later pass deletes it.
         rows = (
             db.query(AggregationDaily.metric, AggregationDaily.key, func.sum(AggregationDaily.value))
-            .filter(AggregationDaily.date.like(f"{month}-%"), AggregationDaily.date != yesterday)
+            .filter(AggregationDaily.date.like(f"{month}-%"))
             .group_by(AggregationDaily.metric, AggregationDaily.key)
             .all()
         )
@@ -405,7 +401,7 @@ def _compact_completed_daily_rollups_locked(db: Session, reference_time: datetim
 
         deleted = (
             db.query(AggregationDaily)
-            .filter(AggregationDaily.date.like(f"{month}-%"), AggregationDaily.date != yesterday)
+            .filter(AggregationDaily.date.like(f"{month}-%"))
             .delete(synchronize_session=False)
         )
         if deleted or rows:
@@ -416,9 +412,9 @@ def _compact_completed_daily_rollups_locked(db: Session, reference_time: datetim
 def cleanup_events_by_retention(db: Session, retention_days: int, reference_time: datetime | None = None) -> int:
     """Delete raw events after rollups for their period are safe.
 
-    Retention never deletes daily/monthly rollup rows. Completed months are
-    compacted before raw events are removed; current-month daily rollups remain
-    available even if raw events from early in the month fall outside retention.
+    Retention never deletes rollup data. Completed months remain daily while
+    needed by the Dashboard trend, then they are compacted before old raw events
+    are removed.
     """
     if retention_days <= 0:
         return 0
