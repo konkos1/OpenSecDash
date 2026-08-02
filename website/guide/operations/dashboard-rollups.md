@@ -8,12 +8,12 @@ The rollup page is available only when at least one event datasource plugin is e
 
 OpenSecDash keeps two rollup levels:
 
-- **Daily rollups** for the current calendar month.
-- **Monthly rollups** for completed calendar months.
+- **Daily rollups** for calendar months that overlap the Dashboard's rolling 30-day trend.
+- **Monthly rollups** for older completed calendar months.
 
-OpenSecDash checks rollup compaction regularly in a background task based on the current system date/time. When a month is complete, it aggregates that month's daily rows into one compact monthly rollup and then removes the daily rows for that month. The previous day's daily rollup is kept for one extra day so Dashboard comparison badges still work on the first day of a new month. Monthly rollups are kept long-term because they are very small.
+OpenSecDash checks rollup compaction regularly in a background task based on the current system date/time. A completed month remains available at daily precision while any of its days can appear in the Dashboard's 30-day trend. Once the whole month is outside that window, OpenSecDash aggregates its daily rows into one compact monthly rollup and removes the daily rows. Monthly rollups are kept long-term because they are very small.
 
-Raw events and access events are still managed by normal retention. Before retention deletes raw events, OpenSecDash keeps the required daily/monthly rollups: completed months are compacted first, and daily rollups for the current month are not deleted by retention. This keeps the database small while preserving historical activity summaries.
+Raw events and access events are still managed by normal retention. Before retention deletes raw events, OpenSecDash keeps the required daily/monthly rollups. Recent daily precision therefore remains available even when raw-event retention is shorter than 30 days. This keeps the database small while preserving the Dashboard trend and historical activity summaries.
 
 ## Rollup Explorer
 
@@ -22,7 +22,7 @@ Use **Rollups** in the navigation to open the Rollup Explorer.
 You can select:
 
 - a specific day, backed by daily rollups
-- a specific calendar month, backed by monthly rollups for completed months or daily rollups for the current month
+- a specific calendar month, backed by daily rollups while the month overlaps the Dashboard trend and by monthly rollups after compaction
 
 The page shows summary cards and breakdown tables.
 
@@ -47,4 +47,4 @@ The page shows summary cards and breakdown tables.
 
 ## Dashboard
 
-The Dashboard intentionally focuses on today's activity. It shows separate external/internal access counters so changes are easier to understand. Historical rollups live in the Rollup Explorer instead of Dashboard widgets.
+The Dashboard intentionally focuses on today's activity plus a compact 30-day security-event trend. Use the Rollup Explorer for detailed historical summaries.

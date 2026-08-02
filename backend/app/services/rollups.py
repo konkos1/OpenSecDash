@@ -6,6 +6,10 @@ from collections.abc import Iterable
 
 _ACTION_REFERENCE_RE = re.compile(r"\s+\(action #\d+\)$", re.IGNORECASE)
 
+# Daily precision backs the rolling Dashboard trend. Completed calendar months
+# that overlap this window stay intact until the whole month can be compacted.
+DAILY_ROLLUP_WINDOW_DAYS = 30
+
 
 def normalize_rollup_key(metric: str, key: object) -> str:
     """Return the stable grouping key used by rollup-backed UI widgets."""

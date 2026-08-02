@@ -50,7 +50,7 @@ from app.services.legal_notices import (
 )
 from app.services.notification_channels import get_channel
 from app.services.notifications import invalidate_rules_cache
-from app.services.rollups import combine_rollup_values
+from app.services.rollups import DAILY_ROLLUP_WINDOW_DAYS, combine_rollup_values
 from app.services.saved_views import VIEW_SCOPES, clean_view_name, plugin_views_for_scope, view_filters_from_query, view_query_state_from_query, view_to_query
 from app.services.auth import (
     AUTH_DISABLED_ENV,
@@ -279,11 +279,9 @@ def diagnostic_component_visible(item: Diagnostic) -> bool:
 def rollup_rows(db: Session, period: str, value: str, metric: str, limit: int | None = None) -> list[dict[str, str | int]]:
     if period == "month":
         # Month view = compacted monthly rows PLUS any daily rows of that
-        # month that compaction hasn't merged yet (it merges a daily row's
-        # counts into monthly only when deleting it, and exempts yesterday's
-        # row for the dashboard delta). Summing the leftovers in at read time
-        # keeps the month exact at every moment - right after a month change
-        # and for late-arriving events - instead of briefly missing them.
+        # month that compaction hasn't merged yet. Summing the leftovers in at
+        # read time keeps the month exact while daily precision is retained for
+        # the Dashboard trend and when late events arrive for an older month.
         stored_rows = list(
             db.query(AggregationMonthly.key, AggregationMonthly.value)
             .filter(AggregationMonthly.month == value, AggregationMonthly.metric == metric)
@@ -548,7 +546,7 @@ def core_dashboard_widgets(
 def dashboard_trend_rows(db: Session, end_date: str) -> list[dict[str, str | int]]:
     """Build a 30-day security-event trend from daily summary rollups."""
     end = datetime.strptime(end_date, "%Y-%m-%d")
-    start = end - timedelta(days=29)
+    start = end - timedelta(days=DAILY_ROLLUP_WINDOW_DAYS - 1)
     rollup_values = {
         str(day): int(value or 0)
         for day, value in (
@@ -567,7 +565,7 @@ def dashboard_trend_rows(db: Session, end_date: str) -> list[dict[str, str | int
         return []
     return [
         {"bucket": (start + timedelta(days=offset)).strftime("%Y-%m-%d"), "value": rollup_values.get((start + timedelta(days=offset)).strftime("%Y-%m-%d"), 0)}
-        for offset in range(30)
+        for offset in range(DAILY_ROLLUP_WINDOW_DAYS)
     ]
 
 

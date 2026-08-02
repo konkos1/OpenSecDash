@@ -3,6 +3,11 @@
 > **Implementation status (2026-07-09):** Implemented.
 > Daily/monthly aggregation tables and retention cleanup exist; dashboard and rollup pages use these rollups.
 
+> **Retention detail (2026-08-02):** Completed calendar months remain as daily
+> rollups while they overlap the Dashboard's rolling 30-day trend. A month is
+> compacted atomically only after it is fully outside that window, preserving
+> daily chart precision without introducing partially compacted months.
+
 
 
 Two data classes:
