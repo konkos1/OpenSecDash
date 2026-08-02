@@ -216,6 +216,7 @@ def parse_rules(data: dict[str, Any], *, source: str = "bundled") -> list[Insigh
 
 def import_ruleset(db: Session, data: dict[str, Any], *, source: str) -> dict[str, Any]:
     rules = parse_rules(data, source=source)
+    imported_rule_ids = {rule.id for rule in rules}
     now = utc_now().replace(tzinfo=None)
     imported = 0
     updated = 0
@@ -243,6 +244,16 @@ def import_ruleset(db: Session, data: dict[str, Any], *, source: str) -> dict[st
         existing.is_active = True
         existing.updated_at = now
         existing.last_seen_at = now
+    db.flush()
+    stale_rules = db.query(InsightRuleModel).filter(
+        InsightRuleModel.source == source,
+        InsightRuleModel.is_active == True,  # noqa: E712
+    )
+    if imported_rule_ids:
+        stale_rules = stale_rules.filter(InsightRuleModel.rule_id.notin_(imported_rule_ids))
+    for stale_rule in stale_rules.all():
+        stale_rule.is_active = False
+        stale_rule.updated_at = now
     db.flush()
     db.info.pop(_ACTIVE_RULES_CACHE_KEY, None)
     sync_insight_notification_rules(db)

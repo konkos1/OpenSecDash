@@ -149,3 +149,31 @@ def test_ruleset_without_pattern_fields_imports_with_defaults(db_session):
     assert result["imported"] == 1
     assert rule.group_by == "ip"
     assert rule.min_distinct_ips == 1
+
+
+def test_ruleset_import_deactivates_only_missing_rules_from_the_same_source(db_session):
+    remote_ruleset = _ruleset(_pattern_rule(id="web.remote_kept"))
+    remote_ruleset["rules"].append(_pattern_rule(id="web.remote_removed"))
+    import_ruleset(db_session, remote_ruleset, source="remote")
+    import_ruleset(
+        db_session,
+        _ruleset(_pattern_rule(id="web.plugin_kept")),
+        source="plugin:test",
+    )
+
+    import_ruleset(
+        db_session,
+        _ruleset(_pattern_rule(id="web.remote_kept", title="Updated remote rule")),
+        source="remote",
+    )
+
+    rules = {
+        rule.rule_id: rule
+        for rule in db_session.query(InsightRule)
+        .filter(InsightRule.rule_id.in_(["web.remote_kept", "web.remote_removed", "web.plugin_kept"]))
+        .all()
+    }
+    assert rules["web.remote_kept"].is_active is True
+    assert rules["web.remote_kept"].title == "Updated remote rule"
+    assert rules["web.remote_removed"].is_active is False
+    assert rules["web.plugin_kept"].is_active is True

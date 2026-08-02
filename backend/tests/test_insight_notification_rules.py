@@ -10,7 +10,6 @@ from app.services.notifications import (
     invalidate_rules_cache,
     notification_rule_views,
     seed_default_notification_rules,
-    sync_insight_notification_rules,
 )
 from app.services.settings import save_setting
 
@@ -147,22 +146,16 @@ def test_unavailable_rule_keeps_choice_but_does_not_queue(db_session, _test_secr
 
 
 def test_removed_insight_definition_becomes_unavailable_without_losing_choice(db_session):
-    db_session.add(
-        InsightRule(
-            rule_id="test.removed",
-            source="remote",
-            title="Removed",
-            event_types=["access.error"],
-            path_contains_any=["/removed"],
-        )
-    )
-    db_session.flush()
-    sync_insight_notification_rules(db_session)
+    import_ruleset(db_session, _ruleset("test.removed", "Removed", ["access.error"]), source="remote")
     notification_rule = db_session.query(NotificationRule).filter_by(rule_id=insight_notification_rule_id("test.removed")).one()
     notification_rule.enabled = True
-    db_session.query(InsightRule).filter_by(rule_id="test.removed").one().is_active = False
-    db_session.flush()
+    import_ruleset(
+        db_session,
+        {"schema_version": 1, "ruleset_version": "test-empty", "rules": []},
+        source="remote",
+    )
 
     view = next(item for item in notification_rule_views(db_session, "en") if item.rule.rule_id == notification_rule.rule_id)
+    assert db_session.query(InsightRule).filter_by(rule_id="test.removed").one().is_active is False
     assert view.available is False
     assert notification_rule.enabled is True
