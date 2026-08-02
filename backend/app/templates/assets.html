@@ -50,12 +50,10 @@
         </div>
     {% endif %}
 
-    <div class="card mb-5 flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+    <form class="card mb-5 flex flex-col lg:flex-row lg:items-end justify-between gap-4" method="get" action="/assets" data-assets-filters>
         <div class="flex-1 w-full">
             <span class="muted block mb-3">{% if updates %}{{ t("assets.only_updates") }}{% else %}{{ t("assets.inactive_included") if show_inactive else t("assets.only_active_counted") }}{% endif %}</span>
-            <form class="flex flex-col sm:flex-row gap-2" method="get" action="/assets">
-                {% if show_inactive %}<input type="hidden" name="show_inactive" value="true">{% endif %}
-                {% if updates %}<input type="hidden" name="updates" value="true">{% endif %}
+            <div class="flex flex-col sm:flex-row gap-2">
                 <input class="input" type="search" name="q" value="{{ q }}" placeholder="{{ t('assets.search_placeholder') }}">
                 <select class="input sm:w-56" name="source">
                     <option value="">{{ t("assets.source_all") }}</option>
@@ -66,17 +64,19 @@
                 <button class="btn-small" type="submit">{{ t("common.search") }}</button>
                 {% if q %}<a class="btn-small btn-secondary" href="{{ assets_url_clear }}">{{ t("common.clear") }}</a>{% endif %}
                 {% if source %}<a class="btn-small btn-secondary" href="{{ assets_url_clear_source }}">{{ t("assets.clear_source") }}</a>{% endif %}
-            </form>
+            </div>
         </div>
         <div class="flex flex-col sm:flex-row gap-2">
-            <a class="btn-small" href="{{ assets_url_hide_inactive if show_inactive else assets_url_show_inactive }}">
-                {{ t("assets.hide_inactive") if show_inactive else t("assets.show_inactive") }}
-            </a>
-            <a class="btn-small" href="{{ assets_url_all if updates else assets_url_updates }}">
-                {{ t("assets.show_all_systems") if updates else t("assets.show_updates_only") }}
-            </a>
+            <label class="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" name="show_inactive" value="true" {% if show_inactive %}checked{% endif %}>
+                <span>{{ t("assets.show_inactive") }}</span>
+            </label>
+            <label class="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" name="updates" value="true" {% if updates %}checked{% endif %}>
+                <span>{{ t("assets.show_updates_only") }}</span>
+            </label>
         </div>
-    </div>
+    </form>
 
     <div
         id="assets-results"

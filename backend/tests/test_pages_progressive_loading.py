@@ -194,6 +194,25 @@ def test_asset_page_unknown_system_404_in_shell(db_session):
     assert getattr(exc_info.value, "status_code", None) == 404
 
 
+def test_assets_filters_render_as_immediate_apply_checkboxes(db_session):
+    _enable(db_session, "json_assets")
+
+    html = _html(
+        pages.assets_page(
+            _req("/assets", hx=False, query_string=b"show_inactive=true&updates=true"),
+            show_inactive=True,
+            updates=True,
+            db=db_session,
+        )
+    )
+
+    assert "data-assets-filters" in html
+    assert 'type="checkbox" name="show_inactive" value="true" checked' in html
+    assert 'type="checkbox" name="updates" value="true" checked' in html
+    assert 'href="/assets?show_inactive=' not in html
+    assert 'href="/assets?updates=' not in html
+
+
 def test_access_renders_data_on_initial_and_htmx_requests(db_session):
     _enable(db_session, "traefik_log")
     routes = import_plugin_module("traefik_log", "routes")

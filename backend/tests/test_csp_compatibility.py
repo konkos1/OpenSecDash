@@ -33,6 +33,9 @@ def test_csp_safe_interactions_keep_external_script_and_html_fallback_hooks():
     assert "form[data-rollups-selector]" in script
     assert "form.requestSubmit()" in script
     assert "data-rollups-selector" in rollups
+    assert 'form[data-assets-filters]' in script
+    assert 'checkbox.addEventListener("change", () => form.requestSubmit())' in script
+    assert "data-assets-filters" in assets
     assert "data-clickable-row" in assets
     assert 'event.target.closest("[data-clickable-row]")' in script
     assert '<a class="retry-link" href="/">' in offline
