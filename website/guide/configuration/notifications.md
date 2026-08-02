@@ -7,7 +7,8 @@ Event or insight → rule → email
 ```
 
 The **Notifications** page shows pending, sent, and failed deliveries, the recent
-history, and the built-in rules. Email is the only notification channel in V1.
+history, and the available rules. Every known Insight type has its own switch.
+Email is the only notification channel in V1.
 
 ## Configure SMTP
 
@@ -59,15 +60,28 @@ the history keeps the error text for troubleshooting.
 
 ## Default rules
 
-OpenSecDash creates these rules on startup. You can enable or disable each one
-on the Notifications page without losing that choice after a restart.
+OpenSecDash creates the event and system rules below on startup. It also creates one
+separate notification rule for every built-in, downloaded, or plugin-provided Insight.
+You can enable or disable each rule without losing that choice after a restart or an
+Insight ruleset update.
 
 | Rule | Trigger | Default cooldown |
 | --- | --- | --- |
 | CrowdSec ban | `security.ban` event | 1 minute |
-| Scanner detected | high or critical insight | 5 minutes |
 | Asset offline | a system becomes stale | 60 minutes |
 | Plugin error | a plugin diagnostic changes to error | 60 minutes |
+
+New Insight notification rules start disabled. When upgrading from the earlier shared
+**Scanner detected** rule, currently known high-severity Insights inherit its enabled
+state and the wildcard rule is retired to prevent duplicate email.
+
+Plugins declare the event types they can produce. An Insight rule is selectable and
+effective only while enabled plugins can produce all of its required input event types.
+For example, **CrowdSec ban after access errors** requires both CrowdSec ban events and
+an enabled access-log plugin that produces `access.error`. If a required plugin is
+disabled or unloaded, the Notifications page keeps the saved checkbox value but disables
+the control and explains which producer is missing. Re-enabling the plugin restores the
+rule with its previous choice. Temporary plugin health errors do not change availability.
 
 Offline detection remembers the exact asset update for which it emitted an
 event. Restarting OpenSecDash or running multiple workers therefore does not

@@ -304,3 +304,28 @@ def test_schema_version_rejects_breaking_major_updates():
                 ],
             }
         )
+
+
+@pytest.mark.parametrize(
+    ("rule_id", "title", "message"),
+    [
+        ("x" * 101, "Test probe", "invalid id"),
+        ("web.test_probe", "x" * 256, "invalid title"),
+    ],
+)
+def test_ruleset_rejects_metadata_that_does_not_fit_storage(rule_id, title, message):
+    with pytest.raises(ValueError, match=message):
+        parse_rules(
+            {
+                "schema_version": 1,
+                "ruleset_version": "test",
+                "rules": [
+                    {
+                        "id": rule_id,
+                        "title": title,
+                        "event_types": ["access.error"],
+                        "path_contains_any": ["/test"],
+                    }
+                ],
+            }
+        )

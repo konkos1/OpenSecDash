@@ -27,7 +27,11 @@ from app.services.events import cleanup_events_by_retention, clear_duplicate_rul
 from app.services.insight_rules import import_ruleset, invalidate_active_rules_cache, refresh_insight_rules
 from app.services.asset_updates import refresh_asset_updates
 from app.services.self_update import run_self_update_check
-from app.services.notifications import dispatch_pending_notifications
+from app.services.notifications import (
+    dispatch_pending_notifications,
+    invalidate_rules_cache,
+    sync_insight_notification_rules,
+)
 from app.services.settings import save_setting
 
 
@@ -139,6 +143,7 @@ class PluginManager:
                 id=p.metadata.id,
                 name=p.metadata.name,
                 capabilities=tuple(p.metadata.capabilities),
+                event_types=tuple(p.metadata.event_types),
                 nav_items=self._nav_items_for(p),
             )
             for p in self.plugins.values()
@@ -244,7 +249,9 @@ class PluginManager:
             rule.is_active = False
         if stale_rules:
             invalidate_active_rules_cache(db)
+        sync_insight_notification_rules(db)
         db.commit()
+        invalidate_rules_cache()
         logger.debug("Seeded %d plugin records", len(self.plugins))
 
     @staticmethod

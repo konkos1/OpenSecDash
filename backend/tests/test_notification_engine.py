@@ -7,7 +7,7 @@ from app.models.core import Insight, Notification, NotificationRule
 from app.models.events import Event
 from app.plugins.manager import get_plugin_manager
 from app.services.events import store_event
-from app.services.notifications import handle_event, handle_insight, invalidate_rules_cache, seed_default_notification_rules
+from app.services.notifications import handle_event, handle_insight, insight_notification_rule_id, invalidate_rules_cache, seed_default_notification_rules
 from app.services.settings import save_setting
 
 
@@ -168,28 +168,38 @@ def test_event_matching_honors_severity_country_and_wildcard(db_session):
     assert len(_notifications(db_session, "test.system_wildcard")) == 1
 
 
-def test_high_insight_queues_scanner_notification_but_medium_does_not(db_session):
-    high = Insight(type="scanner_detected", level="high", title="Scanner detected", timestamp=utc_now().replace(tzinfo=None))
-    medium = Insight(type="scanner_detected", level="medium", title="Scanner detected", timestamp=utc_now().replace(tzinfo=None))
-    db_session.add_all([high, medium])
+def test_enabled_insight_notification_rule_matches_only_its_exact_type(db_session):
+    save_setting(db_session, "plugin.crowdsec.enabled", "true")
+    rule_id = insight_notification_rule_id("security_ban_observed")
+    db_session.query(NotificationRule).filter_by(rule_id=rule_id).one().enabled = True
+    db_session.commit()
+    invalidate_rules_cache()
+    matching = Insight(type="security_ban_observed", level="high", title="Security ban observed", timestamp=utc_now().replace(tzinfo=None))
+    unrelated = Insight(type="manual_security_ban", level="high", title="Manual security ban", timestamp=utc_now().replace(tzinfo=None))
+    db_session.add_all([matching, unrelated])
     db_session.flush()
 
-    handle_insight(db_session, high)
-    handle_insight(db_session, medium)
+    handle_insight(db_session, matching)
+    handle_insight(db_session, unrelated)
 
-    notifications = _notifications(db_session, "core.scanner_detected")
+    notifications = _notifications(db_session, rule_id)
     assert len(notifications) == 1
     assert notifications[0].payload is not None
-    assert notifications[0].payload["insight_id"] == high.id
+    assert notifications[0].payload["insight_id"] == matching.id
 
 
 def test_pending_insight_is_flushed_before_notification_matching(db_session):
-    insight = Insight(type="scanner_detected", level="high", title="Scanner detected")
+    save_setting(db_session, "plugin.crowdsec.enabled", "true")
+    rule_id = insight_notification_rule_id("security_ban_observed")
+    db_session.query(NotificationRule).filter_by(rule_id=rule_id).one().enabled = True
+    db_session.commit()
+    invalidate_rules_cache()
+    insight = Insight(type="security_ban_observed", level="high", title="Security ban observed")
     db_session.add(insight)
 
     handle_insight(db_session, insight)
 
-    notifications = _notifications(db_session, "core.scanner_detected")
+    notifications = _notifications(db_session, rule_id)
     assert insight.id is not None
     assert insight.timestamp is not None
     assert len(notifications) == 1

@@ -49,7 +49,11 @@ from app.services.legal_notices import (
     third_party_source_text,
 )
 from app.services.notification_channels import get_channel
-from app.services.notifications import invalidate_rules_cache
+from app.services.notifications import (
+    editable_notification_rule_ids,
+    invalidate_rules_cache,
+    notification_rule_views,
+)
 from app.services.rollups import DAILY_ROLLUP_WINDOW_DAYS, combine_rollup_values
 from app.services.saved_views import VIEW_SCOPES, clean_view_name, plugin_views_for_scope, view_filters_from_query, view_query_state_from_query, view_to_query
 from app.services.auth import (
@@ -1988,8 +1992,9 @@ def notifications_page(request: Request, test: str | None = None, db: Session = 
         status: db.query(Notification).filter(Notification.status == status, Notification.created_at >= since).count()
         for status in ("sent", "failed", "pending")
     }
-    rules = db.query(NotificationRule).order_by(NotificationRule.name).all()
-    rule_names = {rule.rule_id: rule.name for rule in rules}
+    stored_rules = db.query(NotificationRule).order_by(NotificationRule.name).all()
+    rule_names = {rule.rule_id: rule.name for rule in stored_rules}
+    rules = notification_rule_views(db, get_setting_value(db, "language", "en"))
     history = db.query(Notification).order_by(Notification.created_at.desc()).limit(50).all()
     channel = get_channel("email")
     configured = get_setting_value(db, "notifications.enabled", "false") == "true" and channel is not None and channel.is_configured(db)
@@ -2012,7 +2017,8 @@ async def save_notification_rules(request: Request, db: Session = Depends(get_db
     enabled_rule_ids = {str(value) for value in form.getlist("rule_id")}
 
     def _save() -> None:
-        for rule in db.query(NotificationRule).all():
+        editable_rule_ids = editable_notification_rule_ids(db)
+        for rule in db.query(NotificationRule).filter(NotificationRule.rule_id.in_(editable_rule_ids)).all():
             enabled = rule.rule_id in enabled_rule_ids
             if rule.enabled != enabled:
                 rule.enabled = enabled
@@ -2240,6 +2246,7 @@ async def save_plugin_settings(plugin_id: str, request: Request, db: Session = D
             save_setting(db, key, text_value)
         db.commit()
         get_plugin_manager().refresh_health_diagnostics(db)
+        invalidate_rules_cache()
 
     await asyncio.to_thread(_save)
     return RedirectResponse(url="/settings", status_code=303)

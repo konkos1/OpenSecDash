@@ -12,7 +12,7 @@ from app.database.dependencies import get_db
 from app.main import app
 from app.models.core import Notification, NotificationRule
 from app.services.events import store_event
-from app.services.notifications import invalidate_rules_cache, seed_default_notification_rules
+from app.services.notifications import insight_notification_rule_id, invalidate_rules_cache, seed_default_notification_rules
 from app.services.settings import save_setting
 
 
@@ -58,21 +58,30 @@ def test_notifications_page_shows_rules_history_and_configuration_hint(notificat
     assert 'hx-select="#notification-rules-form"' in response.text
     assert 'data-unsaved-warning="Discard unsaved settings changes?"' in response.text
     assert "data-save-feedback" in response.text
+    assert "Security ban observed" in response.text
+    assert "No enabled plugin produces security.ban events." in response.text
+    assert f'value="{insight_notification_rule_id("security_ban_observed")}"  disabled' in response.text
 
 
 def test_notification_rule_toggle_invalidates_engine_cache(notifications_db):
     save_setting(notifications_db, "notifications.enabled", "true")
+    save_setting(notifications_db, "notifications.smtp_host", "smtp.example")
+    save_setting(notifications_db, "notifications.smtp_sender", "sender@example")
+    save_setting(notifications_db, "notifications.smtp_recipient", "admin@example")
+    save_setting(notifications_db, "plugin.crowdsec.enabled", "true")
     notifications_db.commit()
     invalidate_rules_cache()
+    insight_rule_id = insight_notification_rule_id("security_ban_observed")
     client = _client(notifications_db)
     try:
-        response = client.post("/notifications/rules", data={"rule_id": "core.scanner_detected"}, follow_redirects=False)
+        response = client.post("/notifications/rules", data={"rule_id": insight_rule_id}, follow_redirects=False)
     finally:
         client.close()
         app.dependency_overrides.clear()
 
     assert response.status_code == 303
     assert notifications_db.query(NotificationRule).filter_by(rule_id="core.crowdsec_ban").one().enabled is False
+    assert notifications_db.query(NotificationRule).filter_by(rule_id=insight_rule_id).one().enabled is True
     store_event(
         notifications_db,
         source="test",
@@ -84,6 +93,7 @@ def test_notification_rule_toggle_invalidates_engine_cache(notifications_db):
     )
     notifications_db.flush()
     assert notifications_db.query(Notification).filter_by(rule_id="core.crowdsec_ban", status="pending").count() == 0
+    assert notifications_db.query(Notification).filter_by(rule_id=insight_rule_id, status="pending").count() == 1
 
 
 def test_notifications_page_uses_german_translation(notifications_db):
@@ -97,3 +107,5 @@ def test_notifications_page_uses_german_translation(notifications_db):
         app.dependency_overrides.clear()
 
     assert "Benachrichtigungen" in response.text
+    assert "Security-Ban erkannt" in response.text
+    assert "Kein aktiviertes Plugin erzeugt Events vom Typ security.ban." in response.text

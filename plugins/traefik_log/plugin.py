@@ -33,6 +33,7 @@ class Plugin(DatasourcePlugin):
         version="1.0.0",
         api_version="2",
         capabilities=["datasource", "page", "widget"],
+        event_types=["access.allowed", "access.denied", "access.error"],
         description="Reads Traefik JSON access logs and emits access.* events.",
     )
     settings = [

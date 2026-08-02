@@ -143,6 +143,7 @@ class PluginMetadata:
     # action hook family, and the asset_source capability.
     api_version: str = CURRENT_PLUGIN_API_VERSION
     capabilities: list[PluginCapability] = field(default_factory=list)
+    event_types: list[str] = field(default_factory=list)
 
 
 class PluginContext:

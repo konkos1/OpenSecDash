@@ -28,12 +28,13 @@
             <table class="w-full text-sm table-middle">
                 <thead><tr><th>{{ t("notifications.rule") }}</th><th>{{ t("notifications.source") }}</th><th>{{ t("notifications.conditions") }}</th><th>{{ t("notifications.window") }}</th><th>{{ t("notifications.cooldown") }}</th><th>{{ t("notifications.enabled") }}</th></tr></thead>
                 <tbody>
-                    {% for rule in rules %}
+                    {% for item in rules %}
+                        {% set rule = item.rule %}
                         <tr>
-                            <td>{{ rule.name }}</td><td>{{ rule.source }}</td>
-                            <td>{{ rule.match_types|join(', ') }}{% if rule.min_count > 1 %} · {{ t("notifications.minimum_count") }} {{ rule.min_count }}{% endif %}</td>
+                            <td>{{ item.name }}</td><td>{{ rule.source }}</td>
+                            <td>{{ rule.match_types|join(', ') }}{% if rule.min_count > 1 %} · {{ t("notifications.minimum_count") }} {{ rule.min_count }}{% endif %}{% if not item.available %}<br><span class="muted">{{ item.unavailable_reason }}</span>{% endif %}</td>
                             <td>{{ rule.window_minutes }} {{ t("notifications.minutes") }}</td><td>{{ rule.cooldown_minutes }} {{ t("notifications.minutes") }}</td>
-                            <td>{% if can_operate %}<input type="checkbox" name="rule_id" value="{{ rule.rule_id }}" {% if rule.enabled %}checked{% endif %}>{% else %}{{ t("common.yes") if rule.enabled else t("common.no") }}{% endif %}</td>
+                            <td>{% if can_operate %}<input type="checkbox" name="rule_id" value="{{ rule.rule_id }}" {% if rule.enabled %}checked{% endif %} {% if not item.available %}disabled{% endif %}>{% else %}{{ t("common.yes") if rule.enabled else t("common.no") }}{% endif %}</td>
                         </tr>
                     {% endfor %}
                 </tbody>

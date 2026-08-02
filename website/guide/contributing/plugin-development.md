@@ -44,6 +44,7 @@ class Plugin(DatasourcePlugin):
         version="1.0.0",
         api_version="2",
         capabilities=["datasource"],
+        event_types=["security.firewall_block"],
         description="Imports firewall events from a log file.",
     )
 
@@ -98,6 +99,7 @@ class Plugin(DatasourcePlugin):
 | `author` | Optional author name. |
 | `api_version` | Plugin API version. Use `"2"` for package-layout plugins with `__init__.py`, relative imports, optional route/template hooks, action hooks, and `asset_source` support. |
 | `capabilities` | List of plugin capabilities. |
+| `event_types` | Event types the plugin can emit through datasource or action hooks. |
 
 Current capability values:
 
@@ -111,6 +113,17 @@ Current capability values:
 | `page` | Powers a dedicated UI page. |
 | `widget` | Contributes dashboard/widgets. |
 | `insight` | Produces insights or insight-like context. |
+
+`event_types` is required whenever a plugin emits events that can feed Insights.
+Declare the exact normalized values returned by `collect()` or action success hooks:
+
+```python
+event_types=["security.firewall_block", "security.firewall_unblock"]
+```
+
+OpenSecDash uses this metadata together with the plugin's enabled state to determine
+whether dependent Insight notification rules are available. Do not declare wildcard
+values such as `security.*`; list each emitted type so dependencies stay explicit.
 
 ## Settings
 

@@ -84,6 +84,9 @@ Example:
 | `threshold` | no | Minimum number of matching events in the window before an insight is created. Defaults to `1`. Max supported value is `100`. |
 | `min_distinct_ips` | no | Minimum number of different IPs among matching events. Defaults to `1`. Supported range is `1` to `1000`. |
 
+Rule IDs are limited to 100 characters and titles to 255 characters. These limits
+match the stored Insight and notification metadata and are validated before import.
+
 ## Matching behavior
 
 A rule matches when all of these are true:
