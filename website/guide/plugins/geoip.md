@@ -78,6 +78,13 @@ falls back to it.
 
 GeoIP is only useful when at least one event-producing plugin is enabled. Diagnostics shows it as disabled when there are no event datasources to enrich.
 
+Diagnostics never sends a separate provider probe. Instead, it reports the outcome of
+the latest real lookup for the selected provider. Before the first lookup it shows that
+reachability has not been verified. A failed IPLocate connection changes the diagnostic
+to an error with checks for DNS, firewall, proxy, and outbound HTTPS; a later successful
+lookup restores the normal active-provider warning automatically. The diagnostic includes
+the attempt time but never the looked-up address, provider response, or API key.
+
 ## Caching and provider changes
 
 Successful lookups are cached for the configured TTL; failures are cached for one hour
