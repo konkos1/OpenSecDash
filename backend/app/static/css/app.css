@@ -66,7 +66,8 @@ tbody tr:hover { background: rgba(15, 23, 42, .65); }
    header. A collapsed default prevents overlap while images and fonts load. */
 .nav-links-desktop { display: none; }
 .nav-menu-toggle { display: inline-flex; }
-.nav-links-mobile { display: none; }
+/* x-cloak and Alpine's x-show own the mobile menu's base visibility. An
+   unlayered display rule here would override Tailwind's layered .grid utility. */
 .navigation-expanded .nav-links-desktop { display: flex; }
 .navigation-expanded .nav-menu-toggle { display: none; }
 .navigation-expanded .nav-links-mobile { display: none !important; }

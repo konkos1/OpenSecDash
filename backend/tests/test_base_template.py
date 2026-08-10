@@ -103,6 +103,16 @@ def test_page_width_reserves_space_for_late_scrollbars():
     assert "scrollbar-gutter: stable" in html_rule.group(1)
 
 
+def test_mobile_navigation_does_not_override_alpine_open_state():
+    css = Path("app/static/css/app.css").read_text()
+
+    mobile_navigation_rule = re.search(r"(?m)^\.nav-links-mobile\s*\{", css)
+
+    assert mobile_navigation_rule is None
+    assert "[x-cloak] { display: none !important; }" in css
+    assert ".navigation-expanded .nav-links-mobile { display: none !important; }" in css
+
+
 def test_info_text_uses_the_shared_decorative_icon():
     css = Path("app/static/css/app.css").read_text()
 
