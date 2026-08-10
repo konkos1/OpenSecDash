@@ -43,6 +43,7 @@ ALLOWED_LICENSES = {
     "BSD-3-Clause",
     "EDL-1.0",
     "MIT",
+    "MIT-0",
     "MPL-2.0",
     "PSF-2.0",
 }

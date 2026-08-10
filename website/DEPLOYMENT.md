@@ -34,7 +34,7 @@ The workflow runs:
 npm ci --no-audit
 npm run audit:ci
 npm run docs:build
-npx --yes wrangler@4.113.0 deploy
+npx --yes wrangler@4.120.0 deploy
 npm run indexnow:submit
 ```
 

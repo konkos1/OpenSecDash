@@ -7,7 +7,7 @@
 // dependency for a self-hosted tool. The pre-built stylesheet removes all
 // of that. Regenerate after adding new Tailwind utility classes:
 //
-//   npx -y tailwindcss@3.4.17 -c tailwind.config.js \
+//   npx -y tailwindcss@3.4.19 -c tailwind.config.js \
 //     -i tailwind.input.css -o app/static/css/tailwind.css --minify
 module.exports = {
   content: [

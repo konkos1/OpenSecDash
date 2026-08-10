@@ -9,14 +9,14 @@ assets = [
 
 [[components]]
 name = "Alpine.js"
-version = "3.15.0"
+version = "3.15.12"
 license = "MIT"
 homepage = "https://alpinejs.dev"
-source = "https://github.com/alpinejs/alpine/tree/v3.15.0"
-source_archive = "https://registry.npmjs.org/alpinejs/-/alpinejs-3.15.0.tgz"
+source = "https://github.com/alpinejs/alpine/tree/v3.15.12"
+source_archive = "https://registry.npmjs.org/alpinejs/-/alpinejs-3.15.12.tgz"
 distributed_files = ["backend/app/static/vendor/alpinejs.min.js"]
-sha256 = ["e041f1b639d1e6b2fc2736d8d7638a409afcd444a6ec90446f8f4e44fa36f406"]
-license_files = ["third_party/licenses/alpinejs-3.15.0/LICENSE.md"]
+sha256 = ["57b37d7cae9a27d965fdae4adcc844245dfdc407e655aee85dcfff3a08036a3f"]
+license_files = ["third_party/licenses/alpinejs-3.15.12/LICENSE.md"]
 
 [[components]]
 name = "htmx"
@@ -31,16 +31,16 @@ license_files = ["third_party/licenses/htmx-1.9.12/LICENSE"]
 
 [[components]]
 name = "Tailwind CSS"
-version = "3.4.17"
+version = "3.4.19"
 license = "MIT"
 homepage = "https://tailwindcss.com"
-source = "https://github.com/tailwindlabs/tailwindcss/tree/v3.4.17"
-source_archive = "https://registry.npmjs.org/tailwindcss/-/tailwindcss-3.4.17.tgz"
+source = "https://github.com/tailwindlabs/tailwindcss/tree/v3.4.19"
+source_archive = "https://registry.npmjs.org/tailwindcss/-/tailwindcss-3.4.19.tgz"
 distributed_files = ["backend/app/static/css/tailwind.css"]
 # The generated stylesheet is expected to change when templates gain or lose
 # utilities, so its content is verified by the existing Tailwind rebuild gate
 # instead of a fixed digest in this manifest.
-license_files = ["third_party/licenses/tailwindcss-3.4.17/LICENSE"]
+license_files = ["third_party/licenses/tailwindcss-3.4.19/LICENSE"]
 
 [python_overrides."cryptography"]
 license = "BSD-3-Clause"

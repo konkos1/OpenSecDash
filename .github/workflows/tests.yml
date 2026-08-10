@@ -83,7 +83,7 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
-          version: "0.12.2"
+          version: "0.12.3"
           enable-cache: true
           cache-dependency-glob: backend/uv.lock
 
@@ -124,10 +124,10 @@ jobs:
       - name: Check pre-built Tailwind CSS is up to date
         working-directory: backend
         run: |
-          npx -y tailwindcss@3.4.17 -c tailwind.config.js -i tailwind.input.css -o app/static/css/tailwind.css --minify
+          npx -y tailwindcss@3.4.19 -c tailwind.config.js -i tailwind.input.css -o app/static/css/tailwind.css --minify
           if ! git diff --exit-code app/static/css/tailwind.css; then
             echo "::error file=backend/app/static/css/tailwind.css::tailwind.css is out of date. Rebuild it locally and commit the result:"
-            echo "::error::cd backend && npx -y tailwindcss@3.4.17 -c tailwind.config.js -i tailwind.input.css -o app/static/css/tailwind.css --minify"
+            echo "::error::cd backend && npx -y tailwindcss@3.4.19 -c tailwind.config.js -i tailwind.input.css -o app/static/css/tailwind.css --minify"
             exit 1
           fi
 

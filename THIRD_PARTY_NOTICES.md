@@ -12,13 +12,13 @@ are licensed under GNU AGPL-3.0 as described in `LICENSE`.
 | Package | Version | License | Exact source archive |
 | --- | --- | --- | --- |
 | alembic | 1.19.1 | MIT | [source](https://files.pythonhosted.org/packages/16/2b/e4153978368de59918115c9e01d3ebf58a558a7285efa7e960c383c4b59a/alembic-1.19.1.tar.gz) |
-| annotated-doc | 0.0.4 | MIT | [source](https://files.pythonhosted.org/packages/57/ba/046ceea27344560984e26a590f90bc7f4a75b06701f653222458922b558c/annotated_doc-0.0.4.tar.gz) |
-| annotated-types | 0.7.0 | MIT | [source](https://files.pythonhosted.org/packages/ee/67/531ea369ba64dcff5ec9c3402f9f51bf748cec26dde048a2f973a4eea7f5/annotated_types-0.7.0.tar.gz) |
-| anyio | 4.14.1 | MIT | [source](https://files.pythonhosted.org/packages/3b/72/5562aabb8dd7181e8e860622a38bea08d17842b99ecd4c91f84ac95251b0/anyio-4.14.1.tar.gz) |
+| annotated-doc | 0.0.5 | MIT | [source](https://files.pythonhosted.org/packages/5a/8e/38aa427ed5402449e226975b649c5dc73ccadfefeb95e6aecb8f8ea4b6b6/annotated_doc-0.0.5.tar.gz) |
+| annotated-types | 0.8.0 | MIT | [source](https://files.pythonhosted.org/packages/5f/56/a8120250d128bed162cd73c76d45f6ef9991f3e068f62a8ee060afa3104a/annotated_types-0.8.0.tar.gz) |
+| anyio | 4.14.2 | MIT | [source](https://files.pythonhosted.org/packages/61/cc/a381afa6efea9f496eff839d4a6a1aed3bfafc7b3ab4b0d1b243a12573dd/anyio-4.14.2.tar.gz) |
 | Authlib | 1.7.2 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/36/98/7d93f30d029643c0275dbc0bd6d5a6f670661ee6c9a94d93af7ab4887600/authlib-1.7.2.tar.gz) |
-| certifi | 2026.6.17 | MPL-2.0 | [source](https://files.pythonhosted.org/packages/c9/c7/424b75da314c1045981bd9777432fad05a9e0c69daa4ed7e308bbaffe405/certifi-2026.6.17.tar.gz) |
-| cffi | 2.0.0 | MIT | [source](https://files.pythonhosted.org/packages/eb/56/b1ba7935a17738ae8453301356628e8147c79dbb825bcbc73dc7401f9846/cffi-2.0.0.tar.gz) |
-| charset-normalizer | 3.4.7 | MIT | [source](https://files.pythonhosted.org/packages/e7/a1/67fe25fac3c7642725500a3f6cfe5821ad557c3abb11c9d20d12c7008d3e/charset_normalizer-3.4.7.tar.gz) |
+| certifi | 2026.7.22 | MPL-2.0 | [source](https://files.pythonhosted.org/packages/a3/c2/24167ea9858356b47a87a50d39908bfdb72ceeefe0041586e704e5376b3a/certifi-2026.7.22.tar.gz) |
+| cffi | 2.1.1 | MIT-0 | [source](https://files.pythonhosted.org/packages/9e/ef/008a1939e372c06329a3fce4279c02f328488f3526744906eeec3da7ad5f/cffi-2.1.1.tar.gz) |
+| charset-normalizer | 3.4.9 | MIT | [source](https://files.pythonhosted.org/packages/bd/2a/23f34ec9d04624958e137efdc394888716353190e75f25dd22c7a2c7a8aa/charset_normalizer-3.4.9.tar.gz) |
 | click | 8.4.2 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/76/d4/81420972a676e8ffea40450d8c8c92943e7218a78fe9b64359836cc9876b/click-8.4.2.tar.gz) |
 | cryptography | 50.0.0 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/de/41/6cbdcf9142d00fe82836fbb51e503e58088575cf7a0fe1dbff6695bf0840/cryptography-50.0.0.tar.gz) |
 | fastapi | 0.141.1 | MIT | [source](https://files.pythonhosted.org/packages/8a/02/91e3416a8fdd715abb903a952a6bec7cdd8d14eed55d415fc8595524c319/fastapi-0.141.1.tar.gz) |
@@ -30,7 +30,7 @@ are licensed under GNU AGPL-3.0 as described in `LICENSE`.
 | itsdangerous | 2.2.0 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/9c/cb/8ac0172223afbccb63986cc25049b154ecfb5e85932587206f42317be31d/itsdangerous-2.2.0.tar.gz) |
 | Jinja2 | 3.1.6 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/df/bf/f7da0350254c0ed7c72f3e33cef02e048281fec7ecec5f032d4aac52226b/jinja2-3.1.6.tar.gz) |
 | joserfc | 1.7.4 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/c7/e0/27a6a081ae25420eda6768ceae05d7022a7f2447f420588843f2a44e4298/joserfc-1.7.4.tar.gz) |
-| Mako | 1.3.12 | MIT | [source](https://files.pythonhosted.org/packages/00/62/791b31e69ae182791ec67f04850f2f062716bbd205483d63a215f3e062d3/mako-1.3.12.tar.gz) |
+| Mako | 1.4.1 | MIT | [source](https://files.pythonhosted.org/packages/2a/12/b5fa2353e2754cd67fb9f83793fa48ff42c213a5da7e719869d2301f6ab8/mako-1.4.1.tar.gz) |
 | MarkupSafe | 3.0.3 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/7e/99/7690b6d4034fffd95959cbe0c02de8deb3098cc577c67bb6a24fe5d7caa7/markupsafe-3.0.3.tar.gz) |
 | paho-mqtt | 2.1.0 | EDL-1.0 | [source](https://files.pythonhosted.org/packages/39/15/0a6214e76d4d32e7f663b109cf71fb22561c2be0f701d67f93950cd40542/paho_mqtt-2.1.0.tar.gz) |
 | pycparser | 3.0 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/1b/7d/92392ff7815c21062bea51aa7b87d45576f649f16458d78b7cf94b9ab2e6/pycparser-3.0.tar.gz) |
@@ -41,9 +41,9 @@ are licensed under GNU AGPL-3.0 as described in `LICENSE`.
 | python-multipart | 0.0.32 | Apache-2.0 | [source](https://files.pythonhosted.org/packages/5b/42/55c32bb9b12693c092ad250a0e82edb5b31ddeda6eb772de5f308b3804ad/python_multipart-0.0.32.tar.gz) |
 | requests | 2.34.2 | Apache-2.0 | [source](https://files.pythonhosted.org/packages/ac/c3/e2a2b89f2d3e2179abd6d00ebd70bff6273f37fb3e0cc209f48b39d00cbf/requests-2.34.2.tar.gz) |
 | SQLAlchemy | 2.0.51 | MIT | [source](https://files.pythonhosted.org/packages/02/f1/a7a892f18d4d224e6b26f706531eafccc41e37594d37d304786969ee13cb/sqlalchemy-2.0.51.tar.gz) |
-| starlette | 1.3.1 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/eb/e3/7c1dc7381d9f8ab7d854328ebfa884e62cb3f3d8549ddfd37c7814f42afa/starlette-1.3.1.tar.gz) |
-| typing-inspection | 0.4.2 | MIT | [source](https://files.pythonhosted.org/packages/55/e3/70399cb7dd41c10ac53367ae42139cf4b1ca5f36bb3dc6c9d33acdb43655/typing_inspection-0.4.2.tar.gz) |
-| typing_extensions | 4.15.0 | PSF-2.0 | [source](https://files.pythonhosted.org/packages/72/94/1a15dd82efb362ac84269196e94cf00f187f7ed21c242792a923cdb1c61f/typing_extensions-4.15.0.tar.gz) |
+| starlette | 1.6.0 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/b5/b4/205b0d5241d934e8add0c38aa924c4f9fb7330834ff11e5444db964ec3f9/starlette-1.6.0.tar.gz) |
+| typing-inspection | 0.4.3 | MIT | [source](https://files.pythonhosted.org/packages/6d/bc/4eae18cd40c65798a16267572ba346c11f599d44b01603dbd843342042bc/typing_inspection-0.4.3.tar.gz) |
+| typing_extensions | 4.16.0 | PSF-2.0 | [source](https://files.pythonhosted.org/packages/f6/cc/6253133b5bb138fc3306cebfbda2c520f545d36b5be2c7255cc528bb45d6/typing_extensions-4.16.0.tar.gz) |
 | urllib3 | 2.7.0 | MIT | [source](https://files.pythonhosted.org/packages/53/0c/06f8b233b8fd13b9e5ee11424ef85419ba0d8ba0b3138bf360be2ff56953/urllib3-2.7.0.tar.gz) |
 | uvicorn | 0.52.1 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/03/18/ccce41535dee1be77735592bd19965f3972c82e07ee703d324709496b716/uvicorn-0.52.1.tar.gz) |
 | websockets | 17.0.1 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/f7/96/e01084f83a64bcb3a27994bd0cb0db68ff29d9c6707fae37ec19b18ba990/websockets-17.0.1.tar.gz) |
@@ -52,9 +52,9 @@ are licensed under GNU AGPL-3.0 as described in `LICENSE`.
 
 | Component | Version | License | Distributed files | Exact source archive |
 | --- | --- | --- | --- | --- |
-| Alpine.js | 3.15.0 | MIT | `backend/app/static/vendor/alpinejs.min.js` | [source](https://registry.npmjs.org/alpinejs/-/alpinejs-3.15.0.tgz) |
+| Alpine.js | 3.15.12 | MIT | `backend/app/static/vendor/alpinejs.min.js` | [source](https://registry.npmjs.org/alpinejs/-/alpinejs-3.15.12.tgz) |
 | htmx | 1.9.12 | 0BSD | `backend/app/static/vendor/htmx.min.js` | [source](https://registry.npmjs.org/htmx.org/-/htmx.org-1.9.12.tgz) |
-| Tailwind CSS | 3.4.17 | MIT | `backend/app/static/css/tailwind.css` | [source](https://registry.npmjs.org/tailwindcss/-/tailwindcss-3.4.17.tgz) |
+| Tailwind CSS | 3.4.19 | MIT | `backend/app/static/css/tailwind.css` | [source](https://registry.npmjs.org/tailwindcss/-/tailwindcss-3.4.19.tgz) |
 
 ## Container base
 
@@ -71,7 +71,7 @@ information is described in `THIRD_PARTY_SOURCE.md`.
 
 ## License and notice texts
 
-### Alpine.js 3.15.0
+### Alpine.js 3.15.12
 
 License: `MIT`
 
@@ -123,7 +123,7 @@ Project: https://htmx.org
     AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT
     OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-### Tailwind CSS 3.4.17
+### Tailwind CSS 3.4.19
 
 License: `MIT`
 
@@ -181,7 +181,7 @@ Project: https://github.com/sqlalchemy/alembic/
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 
-### annotated-doc 0.0.4
+### annotated-doc 0.0.5
 
 License: `MIT`
 
@@ -211,7 +211,7 @@ Project: https://github.com/fastapi/annotated-doc
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
     THE SOFTWARE.
 
-### annotated-types 0.7.0
+### annotated-types 0.8.0
 
 License: `MIT`
 
@@ -241,7 +241,7 @@ Project: https://github.com/annotated-types/annotated-types
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 
-### anyio 4.14.1
+### anyio 4.14.2
 
 License: `MIT`
 
@@ -306,14 +306,14 @@ Project: https://github.com/authlib/authlib
     OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-### certifi 2026.6.17
+### certifi 2026.7.22
 
 License: `MPL-2.0`
 
 Project: https://github.com/certifi/python-certifi
 
 The covered source code is available from the exact source archive
-listed above: https://files.pythonhosted.org/packages/c9/c7/424b75da314c1045981bd9777432fad05a9e0c69daa4ed7e308bbaffe405/certifi-2026.6.17.tar.gz
+listed above: https://files.pythonhosted.org/packages/a3/c2/24167ea9858356b47a87a50d39908bfdb72ceeefe0041586e704e5376b3a/certifi-2026.7.22.tar.gz
 
 #### LICENSE
 
@@ -338,9 +338,9 @@ listed above: https://files.pythonhosted.org/packages/c9/c7/424b75da314c1045981b
     ***** END LICENSE BLOCK *****
     @(#) $RCSfile: certdata.txt,v $ $Revision: 1.80 $ $Date: 2011/11/03 15:11:58 $
 
-### cffi 2.0.0
+### cffi 2.1.1
 
-License: `MIT`
+License: `MIT-0`
 
 #### LICENSE
 
@@ -366,7 +366,7 @@ License: `MIT`
         FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
         DEALINGS IN THE SOFTWARE.
 
-### charset-normalizer 3.4.7
+### charset-normalizer 3.4.9
 
 License: `MIT`
 
@@ -829,7 +829,7 @@ Project: https://github.com/authlib/joserfc
     OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-### Mako 1.3.12
+### Mako 1.4.1
 
 License: `MIT`
 
@@ -837,7 +837,7 @@ Project: https://www.makotemplates.org/
 
 #### LICENSE
 
-    Copyright 2006-2025 the Mako authors and contributors <see AUTHORS file>.
+    Copyright 2006-2026 the Mako authors and contributors <see AUTHORS file>.
 
     Permission is hereby granted, free of charge, to any person obtaining a copy of
     this software and associated documentation files (the "Software"), to deal in
@@ -1526,7 +1526,7 @@ Project: https://www.sqlalchemy.org
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 
-### starlette 1.3.1
+### starlette 1.6.0
 
 License: `BSD-3-Clause`
 
@@ -1562,7 +1562,7 @@ Project: https://github.com/Kludex/starlette
     OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-### typing-inspection 0.4.2
+### typing-inspection 0.4.3
 
 License: `MIT`
 
@@ -1592,7 +1592,7 @@ Project: https://github.com/pydantic/typing-inspection
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 
-### typing_extensions 4.15.0
+### typing_extensions 4.16.0
 
 License: `PSF-2.0`
 
