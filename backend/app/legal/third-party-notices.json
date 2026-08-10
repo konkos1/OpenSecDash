@@ -30,19 +30,19 @@
         {
           "kind": "license",
           "name": "LICENSE",
-          "text": "Zero-Clause BSD\n===============\n\nPermission to use, copy, modify, and/or distribute this software for\nany purpose with or without fee is hereby granted.\n\nTHE SOFTWARE IS PROVIDED “AS IS” AND THE AUTHOR DISCLAIMS ALL\nWARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES\nOF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE\nFOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY\nDAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN\nAN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT\nOF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE."
+          "text": "Zero-Clause BSD\n=============\n\nPermission to use, copy, modify, and/or distribute this software for\nany purpose with or without fee is hereby granted.\n\nTHE SOFTWARE IS PROVIDED “AS IS” AND THE AUTHOR DISCLAIMS ALL\nWARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES\nOF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE\nFOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY\nDAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN\nAN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT\nOF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE."
         }
       ],
       "ecosystem": "Browser",
       "homepage": "https://htmx.org",
       "license": "0BSD",
       "name": "htmx",
-      "source": "https://github.com/bigskysoftware/htmx/tree/v1.9.12",
-      "source_archive": "https://registry.npmjs.org/htmx.org/-/htmx.org-1.9.12.tgz",
+      "source": "https://github.com/bigskysoftware/htmx/tree/v2.0.10",
+      "source_archive": "https://registry.npmjs.org/htmx.org/-/htmx.org-2.0.10.tgz",
       "source_archive_sha256": "",
       "source_archive_size": 0,
       "source_required": false,
-      "version": "1.9.12"
+      "version": "2.0.10"
     },
     {
       "distributed_files": [

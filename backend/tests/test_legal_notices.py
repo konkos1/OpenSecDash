@@ -21,7 +21,7 @@ def test_generated_notices_cover_runtime_browser_and_first_party_assets():
     assert "backend/app/static/img/**/*.svg" in notices["first_party_assets"]
     assert "website/public/**/*.svg" in notices["first_party_assets"]
     assert components[("alpine.js", "3.15.12")]["license"] == "MIT"
-    assert components[("htmx", "1.9.12")]["license"] == "0BSD"
+    assert components[("htmx", "2.0.10")]["license"] == "0BSD"
     assert components[("tailwind css", "3.4.19")]["license"] == "MIT"
     assert components[("cffi", "2.1.1")]["license"] == "MIT-0"
     assert components[("greenlet", "3.5.4")]["license"] == "MIT AND PSF-2.0"
