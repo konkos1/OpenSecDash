@@ -54,7 +54,7 @@ jobs:
           echo "${changed}"
           # Markdown-only changes (READMEs, docs) don't need the test suite;
           # anything else affecting the app or production image does.
-          if echo "${changed}" | grep -vE '\.md$' | grep -E '^(backend/|plugins/|docker/|third_party/|scripts/generate_third_party_notices\.py|\.github/workflows/)' >/dev/null; then
+          if echo "${changed}" | grep -vE '\.md$' | grep -E '^(backend/|plugins/|docker/|third_party/|scripts/generate_third_party_notices\.py|\.github/workflows/|\.node-version$)' >/dev/null; then
             echo "code=true" >> "$GITHUB_OUTPUT"
           else
             echo "Only documentation/unrelated files changed - skipping tests."
@@ -124,7 +124,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 24
+          node-version-file: .node-version
           cache: npm
           cache-dependency-path: backend/package-lock.json
 
