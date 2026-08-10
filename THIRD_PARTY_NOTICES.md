@@ -53,7 +53,7 @@ are licensed under GNU AGPL-3.0 as described in `LICENSE`.
 | Component | Version | License | Distributed files | Exact source archive |
 | --- | --- | --- | --- | --- |
 | Alpine.js | 3.15.12 | MIT | `backend/app/static/vendor/alpinejs.min.js` | [source](https://registry.npmjs.org/alpinejs/-/alpinejs-3.15.12.tgz) |
-| htmx | 1.9.12 | 0BSD | `backend/app/static/vendor/htmx.min.js` | [source](https://registry.npmjs.org/htmx.org/-/htmx.org-1.9.12.tgz) |
+| htmx | 2.0.10 | 0BSD | `backend/app/static/vendor/htmx.min.js` | [source](https://registry.npmjs.org/htmx.org/-/htmx.org-2.0.10.tgz) |
 | Tailwind CSS | 3.4.19 | MIT | `backend/app/static/css/tailwind.css` | [source](https://registry.npmjs.org/tailwindcss/-/tailwindcss-3.4.19.tgz) |
 
 ## Container base
@@ -101,7 +101,7 @@ Project: https://alpinejs.dev
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 
-### htmx 1.9.12
+### htmx 2.0.10
 
 License: `0BSD`
 
@@ -110,7 +110,7 @@ Project: https://htmx.org
 #### LICENSE
 
     Zero-Clause BSD
-    ===============
+    =============
 
     Permission to use, copy, modify, and/or distribute this software for
     any purpose with or without fee is hereby granted.

@@ -20,14 +20,14 @@ license_files = ["third_party/licenses/alpinejs-3.15.12/LICENSE.md"]
 
 [[components]]
 name = "htmx"
-version = "1.9.12"
+version = "2.0.10"
 license = "0BSD"
 homepage = "https://htmx.org"
-source = "https://github.com/bigskysoftware/htmx/tree/v1.9.12"
-source_archive = "https://registry.npmjs.org/htmx.org/-/htmx.org-1.9.12.tgz"
+source = "https://github.com/bigskysoftware/htmx/tree/v2.0.10"
+source_archive = "https://registry.npmjs.org/htmx.org/-/htmx.org-2.0.10.tgz"
 distributed_files = ["backend/app/static/vendor/htmx.min.js"]
-sha256 = ["449317ade7881e949510db614991e195c3a099c4c791c24dacec55f9f4a2a452"]
-license_files = ["third_party/licenses/htmx-1.9.12/LICENSE"]
+sha256 = ["71ea67185bfa8c98c39d31717c6fce5d852370fcdfd129db4543774d3145c0de"]
+license_files = ["third_party/licenses/htmx-2.0.10/LICENSE"]
 
 [[components]]
 name = "Tailwind CSS"
