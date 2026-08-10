@@ -95,7 +95,7 @@ requires-dist = [
     { name = "authlib", specifier = ">=1.7.2" },
     { name = "cryptography", specifier = ">=50.0.0" },
     { name = "fastapi", specifier = ">=0.141.1" },
-    { name = "greenlet", specifier = ">=3.5.4" },
+    { name = "greenlet", specifier = ">=3.5.4,<3.5.5" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "itsdangerous", specifier = ">=2.2.0" },
     { name = "jinja2", specifier = ">=3.1.6" },
@@ -346,7 +346,7 @@ wheels = [
 
 [[package]]
 name = "cyclonedx-python-lib"
-version = "11.11.0"
+version = "11.11.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "license-expression" },
@@ -354,9 +354,9 @@ dependencies = [
     { name = "py-serializable" },
     { name = "sortedcontainers" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/75/c9/5d0ccdd19bc7d8ab803b90695c1706aa2ea8529685d18e682dc2524d2630/cyclonedx_python_lib-11.11.0.tar.gz", hash = "sha256:4b3194db72b613717f2912447e67ab618c75ff7dcac6c4af3c0e9e1ac617c102", size = 1442983, upload-time = "2026-06-17T11:57:49.055Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/bd/32/3380dc26e6f07d6b14997c2af51ff66d7c2427cc902de76854ba047a9c3b/cyclonedx_python_lib-11.11.1.tar.gz", hash = "sha256:e41f52bf399fc6346accd520a2b9a6e5a48b59f4dc27a471cd536c8d621d99f4", size = 1443335, upload-time = "2026-08-10T13:05:27.003Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/22/f3/56ccb2884aaa3db5622368e5191a3384b15f35392aa93df8b2f508c660d2/cyclonedx_python_lib-11.11.0-py3-none-any.whl", hash = "sha256:3049fc83e06a059b5c5907a527625a8ed5073caab10607ed4c9e5503b590fd44", size = 528689, upload-time = "2026-06-17T11:57:47.358Z" },
+    { url = "https://files.pythonhosted.org/packages/bf/91/310a890f8f6fba3f3f98f8240013c48dc452e7c53d1483ffdbef1769aeec/cyclonedx_python_lib-11.11.1-py3-none-any.whl", hash = "sha256:a93a8288e90a55c7c7c578559a0f5fdd8b9318c59ddde1c7a9ac67ad6f36e354", size = 528689, upload-time = "2026-08-10T13:05:24.485Z" },
 ]
 
 [[package]]
