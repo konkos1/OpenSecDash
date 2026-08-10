@@ -121,13 +121,26 @@ jobs:
           python_version="$(tr -d '[:space:]' < backend/.python-version)"
           backend/.venv/bin/pyright --pythonversion "${python_version%.*}" backend/app backend/tests plugins
 
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install and audit Tailwind build dependencies
+        working-directory: backend
+        run: |
+          npm ci --no-audit
+          npm audit --audit-level=high
+
       - name: Check pre-built Tailwind CSS is up to date
         working-directory: backend
         run: |
-          npx -y tailwindcss@3.4.19 -c tailwind.config.js -i tailwind.input.css -o app/static/css/tailwind.css --minify
+          npm run tailwind:build
           if ! git diff --exit-code app/static/css/tailwind.css; then
             echo "::error file=backend/app/static/css/tailwind.css::tailwind.css is out of date. Rebuild it locally and commit the result:"
-            echo "::error::cd backend && npx -y tailwindcss@3.4.19 -c tailwind.config.js -i tailwind.input.css -o app/static/css/tailwind.css --minify"
+            echo "::error::cd backend && npm ci && npm run tailwind:build"
             exit 1
           fi
 

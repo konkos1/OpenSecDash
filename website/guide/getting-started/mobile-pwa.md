@@ -4,6 +4,10 @@ OpenSecDash is built to be used on phones and tablets, not just on a desktop
 browser. Every function is available on a small screen, and the app can be
 installed like a native app.
 
+The generated Tailwind 4 stylesheet targets Safari 16.4+, Chrome/Edge 111+,
+and Firefox 128+. Older browser versions may render individual styles
+incorrectly and are not part of the supported browser baseline.
+
 ## Responsive UI
 
 The interface adapts to the screen you are on:

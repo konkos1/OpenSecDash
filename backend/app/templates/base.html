@@ -15,7 +15,7 @@
 
         {# All UI assets are served locally: no external CDN round trips, no
            flash of unstyled content from the Tailwind Play CDN's in-browser
-           JIT (tailwind.css is pre-built, see tailwind.config.js), and the
+           JIT (tailwind.css is pre-built from tailwind.input.css), and the
            dashboard keeps working on hosts without internet access. #}
         {# ?v= busts the Cache-Control max-age (see main.py) on app updates. #}
         <script src="/static/vendor/htmx.min.js?v={{ app_version }}"></script>

@@ -67,7 +67,16 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: website/package-lock.json
+          cache-dependency-path: |
+            backend/package-lock.json
+            website/package-lock.json
+
+      - name: Audit Tailwind build dependencies
+        working-directory: backend
+        run: |
+          npm ci --no-audit
+          npm audit --audit-level=high
+          npm audit --package-lock-only --json > ../npm-audit-backend.json || true
 
       - name: Audit website build dependencies
         working-directory: website
@@ -91,8 +100,7 @@ jobs:
           DATABASE_URL="sqlite:///${scratch_dir}/alembic.db" .venv/bin/alembic upgrade head
           DATABASE_URL="sqlite:///${scratch_dir}/alembic.db" .venv/bin/alembic heads
           DATABASE_URL="sqlite:///${scratch_dir}/alembic.db" .venv/bin/alembic check
-          npx -y tailwindcss@3.4.19 -c tailwind.config.js \
-            -i tailwind.input.css -o app/static/css/tailwind.css --minify
+          npm run tailwind:build
           git diff --exit-code app/static/css/tailwind.css
           cd ../website
           npm run docs:build
@@ -257,6 +265,7 @@ jobs:
           path: |
             image-packages-a.json
             image-packages-b.json
+            npm-audit-backend.json
             npm-audit.json
             pip-audit.json
             release-gate-reports/

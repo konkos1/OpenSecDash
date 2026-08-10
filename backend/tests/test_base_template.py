@@ -112,3 +112,12 @@ def test_info_text_uses_the_shared_decorative_icon():
     assert 'content: ""' in icon_rule.group(1)
     assert "url('/static/img/info.svg')" in icon_rule.group(1)
     assert Path("app/static/img/info.svg").is_file()
+
+
+def test_form_controls_keep_their_touch_target_size_with_tailwind_preflight():
+    css = Path("app/static/css/app.css").read_text()
+
+    input_rule = re.search(r'input\[type="file"\]\.input\s*\{([^}]*)\}', css)
+
+    assert input_rule is not None
+    assert "min-height: 3rem" in input_rule.group(1)

@@ -1,0 +1,17 @@
+{
+  "name": "opensecdash-backend-assets",
+  "private": true,
+  "scripts": {
+    "tailwind:build": "tailwindcss -i tailwind.input.css -o app/static/css/tailwind.css --minify"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "4.3.3",
+    "tailwindcss": "4.3.3"
+  },
+  "allowScripts": {
+    "@parcel/watcher": false
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

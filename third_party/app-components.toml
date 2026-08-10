@@ -31,16 +31,16 @@ license_files = ["third_party/licenses/htmx-2.0.10/LICENSE"]
 
 [[components]]
 name = "Tailwind CSS"
-version = "3.4.19"
+version = "4.3.3"
 license = "MIT"
 homepage = "https://tailwindcss.com"
-source = "https://github.com/tailwindlabs/tailwindcss/tree/v3.4.19"
-source_archive = "https://registry.npmjs.org/tailwindcss/-/tailwindcss-3.4.19.tgz"
+source = "https://github.com/tailwindlabs/tailwindcss/tree/v4.3.3"
+source_archive = "https://registry.npmjs.org/tailwindcss/-/tailwindcss-4.3.3.tgz"
 distributed_files = ["backend/app/static/css/tailwind.css"]
 # The generated stylesheet is expected to change when templates gain or lose
 # utilities, so its content is verified by the existing Tailwind rebuild gate
 # instead of a fixed digest in this manifest.
-license_files = ["third_party/licenses/tailwindcss-3.4.19/LICENSE"]
+license_files = ["third_party/licenses/tailwindcss-4.3.3/LICENSE"]
 
 [python_overrides."cryptography"]
 license = "BSD-3-Clause"
