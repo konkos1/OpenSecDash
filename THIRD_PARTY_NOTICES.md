@@ -11,7 +11,7 @@ are licensed under GNU AGPL-3.0 as described in `LICENSE`.
 
 | Package | Version | License | Exact source archive |
 | --- | --- | --- | --- |
-| alembic | 1.18.5 | MIT | [source](https://files.pythonhosted.org/packages/1a/cc/ac0bed8e562e7407fe55c3ba85a4dce86e6dbd8730887bd1e406a6c5c18a/alembic-1.18.5.tar.gz) |
+| alembic | 1.19.1 | MIT | [source](https://files.pythonhosted.org/packages/16/2b/e4153978368de59918115c9e01d3ebf58a558a7285efa7e960c383c4b59a/alembic-1.19.1.tar.gz) |
 | annotated-doc | 0.0.4 | MIT | [source](https://files.pythonhosted.org/packages/57/ba/046ceea27344560984e26a590f90bc7f4a75b06701f653222458922b558c/annotated_doc-0.0.4.tar.gz) |
 | annotated-types | 0.7.0 | MIT | [source](https://files.pythonhosted.org/packages/ee/67/531ea369ba64dcff5ec9c3402f9f51bf748cec26dde048a2f973a4eea7f5/annotated_types-0.7.0.tar.gz) |
 | anyio | 4.14.1 | MIT | [source](https://files.pythonhosted.org/packages/3b/72/5562aabb8dd7181e8e860622a38bea08d17842b99ecd4c91f84ac95251b0/anyio-4.14.1.tar.gz) |
@@ -21,8 +21,8 @@ are licensed under GNU AGPL-3.0 as described in `LICENSE`.
 | charset-normalizer | 3.4.7 | MIT | [source](https://files.pythonhosted.org/packages/e7/a1/67fe25fac3c7642725500a3f6cfe5821ad557c3abb11c9d20d12c7008d3e/charset_normalizer-3.4.7.tar.gz) |
 | click | 8.4.2 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/76/d4/81420972a676e8ffea40450d8c8c92943e7218a78fe9b64359836cc9876b/click-8.4.2.tar.gz) |
 | cryptography | 50.0.0 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/de/41/6cbdcf9142d00fe82836fbb51e503e58088575cf7a0fe1dbff6695bf0840/cryptography-50.0.0.tar.gz) |
-| fastapi | 0.140.0 | MIT | [source](https://files.pythonhosted.org/packages/0d/fb/fd7671137d9fa3df1d93a2f5111eb982709201724b29f211e4beb2d58688/fastapi-0.140.0.tar.gz) |
-| greenlet | 3.5.3 | MIT AND PSF-2.0 | [source](https://files.pythonhosted.org/packages/e2/f1/fbbfef6af0bad0548f09bc28948ea3c275b4edb19e17fc5ca9900a6a634d/greenlet-3.5.3.tar.gz) |
+| fastapi | 0.141.1 | MIT | [source](https://files.pythonhosted.org/packages/8a/02/91e3416a8fdd715abb903a952a6bec7cdd8d14eed55d415fc8595524c319/fastapi-0.141.1.tar.gz) |
+| greenlet | 3.5.4 | MIT AND PSF-2.0 | [source](https://files.pythonhosted.org/packages/a3/74/b13368064b09053253555d3f2839cc2684d22d5aed0d2ccffbf7a6736558/greenlet-3.5.4.tar.gz) |
 | h11 | 0.16.0 | MIT | [source](https://files.pythonhosted.org/packages/01/ee/02a2c011bdab74c6fb3c75474d40b3052059d95df7e73351460c8588d963/h11-0.16.0.tar.gz) |
 | httpcore | 1.0.9 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/06/94/82699a10bca87a5556c9c59b5963f2d039dbd239f25bc2a63907a05a14cb/httpcore-1.0.9.tar.gz) |
 | httpx | 0.28.1 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/b1/df/48c586a5fe32a0f01324ee087459e112ebb7224f646c0b5023f5e79e9956/httpx-0.28.1.tar.gz) |
@@ -35,7 +35,7 @@ are licensed under GNU AGPL-3.0 as described in `LICENSE`.
 | paho-mqtt | 2.1.0 | EDL-1.0 | [source](https://files.pythonhosted.org/packages/39/15/0a6214e76d4d32e7f663b109cf71fb22561c2be0f701d67f93950cd40542/paho_mqtt-2.1.0.tar.gz) |
 | pycparser | 3.0 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/1b/7d/92392ff7815c21062bea51aa7b87d45576f649f16458d78b7cf94b9ab2e6/pycparser-3.0.tar.gz) |
 | pydantic | 2.13.4 | MIT | [source](https://files.pythonhosted.org/packages/18/a5/b60d21ac674192f8ab0ba4e9fd860690f9b4a6e51ca5df118733b487d8d6/pydantic-2.13.4.tar.gz) |
-| pydantic-settings | 2.14.2 | MIT | [source](https://files.pythonhosted.org/packages/5c/b5/8f48e906c3e0205276e8bd8cb7512217a87b2685304d64be27cad5b3019f/pydantic_settings-2.14.2.tar.gz) |
+| pydantic-settings | 2.15.0 | MIT | [source](https://files.pythonhosted.org/packages/68/ca/31c57507b13119d7d3cfa1576dad2911a4861e3be07b579395f4e9d393f9/pydantic_settings-2.15.0.tar.gz) |
 | pydantic_core | 2.46.4 | MIT | [source](https://files.pythonhosted.org/packages/9d/56/921726b776ace8d8f5db44c4ef961006580d91dc52b803c489fafd1aa249/pydantic_core-2.46.4.tar.gz) |
 | python-dotenv | 1.2.2 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/82/ed/0301aeeac3e5353ef3d94b6ec08bbcabd04a72018415dcb29e588514bba8/python_dotenv-1.2.2.tar.gz) |
 | python-multipart | 0.0.32 | Apache-2.0 | [source](https://files.pythonhosted.org/packages/5b/42/55c32bb9b12693c092ad250a0e82edb5b31ddeda6eb772de5f308b3804ad/python_multipart-0.0.32.tar.gz) |
@@ -45,8 +45,8 @@ are licensed under GNU AGPL-3.0 as described in `LICENSE`.
 | typing-inspection | 0.4.2 | MIT | [source](https://files.pythonhosted.org/packages/55/e3/70399cb7dd41c10ac53367ae42139cf4b1ca5f36bb3dc6c9d33acdb43655/typing_inspection-0.4.2.tar.gz) |
 | typing_extensions | 4.15.0 | PSF-2.0 | [source](https://files.pythonhosted.org/packages/72/94/1a15dd82efb362ac84269196e94cf00f187f7ed21c242792a923cdb1c61f/typing_extensions-4.15.0.tar.gz) |
 | urllib3 | 2.7.0 | MIT | [source](https://files.pythonhosted.org/packages/53/0c/06f8b233b8fd13b9e5ee11424ef85419ba0d8ba0b3138bf360be2ff56953/urllib3-2.7.0.tar.gz) |
-| uvicorn | 0.51.0 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/a2/65/b7c6c443ccc58678c91e1e973bbe2a878591538655d6e1d47f24ba1c51f3/uvicorn-0.51.0.tar.gz) |
-| websockets | 16.1.1 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/21/f7/bc3a25c5ec26ce62ce487690becc2f3710bbc7b33338f005ad390db0b986/websockets-16.1.1.tar.gz) |
+| uvicorn | 0.52.1 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/03/18/ccce41535dee1be77735592bd19965f3972c82e07ee703d324709496b716/uvicorn-0.52.1.tar.gz) |
+| websockets | 17.0.1 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/f7/96/e01084f83a64bcb3a27994bd0cb0db68ff29d9c6707fae37ec19b18ba990/websockets-17.0.1.tar.gz) |
 
 ## Browser components shipped with the application
 
@@ -153,7 +153,7 @@ Project: https://tailwindcss.com
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 
-### alembic 1.18.5
+### alembic 1.19.1
 
 License: `MIT`
 
@@ -471,7 +471,7 @@ License: `BSD-3-Clause`
     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
     SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-### fastapi 0.140.0
+### fastapi 0.141.1
 
 License: `MIT`
 
@@ -501,7 +501,7 @@ Project: https://github.com/fastapi/fastapi
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
     THE SOFTWARE.
 
-### greenlet 3.5.3
+### greenlet 3.5.4
 
 License: `MIT AND PSF-2.0`
 
@@ -1004,7 +1004,7 @@ Project: https://github.com/pydantic/pydantic
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 
-### pydantic-settings 2.14.2
+### pydantic-settings 2.15.0
 
 License: `MIT`
 
@@ -1908,7 +1908,7 @@ License: `MIT`
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 
-### uvicorn 0.51.0
+### uvicorn 0.52.1
 
 License: `BSD-3-Clause`
 
@@ -1944,7 +1944,7 @@ Project: https://github.com/Kludex/uvicorn
     OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-### websockets 16.1.1
+### websockets 17.0.1
 
 License: `BSD-3-Clause`
 
