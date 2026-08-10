@@ -9,7 +9,32 @@ PYTHON_FROM_PATTERN = re.compile(
     r"FROM python:(?P<version>\d+\.\d+\.\d+)-(?P<variant>[^@\s]+)"
     r"@sha256:(?P<digest>[0-9a-f]{64}) AS (?P<stage>builder|runtime)"
 )
+UV_FROM_PATTERN = re.compile(
+    r"FROM ghcr\.io/astral-sh/uv:(?P<version>\d+\.\d+\.\d+)"
+    r"@sha256:(?P<digest>[0-9a-f]{64}) AS uv"
+)
+SETUP_UV_PATTERN = re.compile(
+    r"uses: astral-sh/setup-uv@[^\n]+\n"
+    r"\s+with:\n"
+    r'\s+version: "(?P<version>\d+\.\d+\.\d+)"'
+)
+UV_DOCUMENTATION_PATTERN = re.compile(
+    r"officially pinned `uv` (?P<version>\d+\.\d+\.\d+) release"
+)
 EXPECTED_STAGES = {"builder", "runtime"}
+UV_WORKFLOW_PATHS = (
+    Path(".github/workflows/tests.yml"),
+    Path(".github/workflows/docker-publish.yml"),
+)
+UV_DOCUMENTATION_PATH = Path("website/guide/installation/bare-metal.md")
+
+
+def _extract_version(path: Path, pattern: re.Pattern[str], description: str) -> str:
+    text = path.read_text(encoding="utf-8")
+    matches = list(pattern.finditer(text))
+    if len(matches) != 1:
+        raise ValueError(f"{path} must contain exactly one {description} version pin")
+    return matches[0]["version"]
 
 
 def main() -> int:
@@ -61,7 +86,40 @@ def main() -> int:
         print("Docker builder and runtime must use the same pinned Python image", file=sys.stderr)
         return 1
 
+    try:
+        uv_version = _extract_version(dockerfile_path, UV_FROM_PATTERN, "Docker uv")
+        uv_versions = {
+            str(path): _extract_version(
+                repository_root / path,
+                SETUP_UV_PATTERN,
+                "setup-uv",
+            )
+            for path in UV_WORKFLOW_PATHS
+        }
+        uv_versions[str(UV_DOCUMENTATION_PATH)] = _extract_version(
+            repository_root / UV_DOCUMENTATION_PATH,
+            UV_DOCUMENTATION_PATTERN,
+            "documented uv",
+        )
+    except ValueError as error:
+        print(error, file=sys.stderr)
+        return 1
+
+    mismatched_uv = [
+        f"{path} ({version})"
+        for path, version in uv_versions.items()
+        if version != uv_version
+    ]
+    if mismatched_uv:
+        print(
+            f"Docker uses uv {uv_version}, but these pins differ: "
+            f"{', '.join(mismatched_uv)}",
+            file=sys.stderr,
+        )
+        return 1
+
     print(f"Development and Docker use Python {expected_version}")
+    print(f"Docker, CI, and installation documentation use uv {uv_version}")
     return 0
 
 
