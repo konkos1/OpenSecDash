@@ -1,6 +1,6 @@
 FROM ghcr.io/astral-sh/uv:0.11.32@sha256:df4cae8f3a96d175e2e5f992e597550000edbe78fdc2594d5cd8de1a217f504c AS uv
 
-FROM python:3.14.6-slim-trixie@sha256:cea0e6040540fb2b965b6e7fb5ffa00871e632eef63719f0ea54bca189ce14a6 AS builder
+FROM python:3.15.0rc1-slim-trixie@sha256:858b8c9b2c764d1a3076e2c2ed64fb3f76ca2ec068ec81c1c059d3a5fcc1088e AS builder
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy
@@ -14,7 +14,7 @@ COPY backend/pyproject.toml backend/uv.lock backend/.python-version ./
 RUN test "$(python -c 'import platform; print(platform.python_version())')" = "$(cat .python-version)" \
     && uv sync --python /usr/local/bin/python --frozen --no-dev --no-editable --no-install-project
 
-FROM python:3.14.6-slim-trixie@sha256:cea0e6040540fb2b965b6e7fb5ffa00871e632eef63719f0ea54bca189ce14a6 AS runtime
+FROM python:3.15.0rc1-slim-trixie@sha256:858b8c9b2c764d1a3076e2c2ed64fb3f76ca2ec068ec81c1c059d3a5fcc1088e AS runtime
 
 ARG OPENSECDASH_VERSION=dev
 
