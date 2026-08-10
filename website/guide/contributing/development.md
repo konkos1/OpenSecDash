@@ -6,6 +6,9 @@ Install backend dependencies and run checks:
 cd backend
 uv lock --check
 uv sync --python "$(cat .python-version)" --frozen --group dev
+npm ci
+npm audit --audit-level=high
+npm run tailwind:build
 .venv/bin/python -m pytest tests/ -q
 .venv/bin/pyright --pythonversion "$(cut -d. -f1,2 .python-version)" app tests ../plugins
 cd ..

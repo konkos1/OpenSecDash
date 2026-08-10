@@ -54,7 +54,7 @@ are licensed under GNU AGPL-3.0 as described in `LICENSE`.
 | --- | --- | --- | --- | --- |
 | Alpine.js | 3.15.12 | MIT | `backend/app/static/vendor/alpinejs.min.js` | [source](https://registry.npmjs.org/alpinejs/-/alpinejs-3.15.12.tgz) |
 | htmx | 2.0.10 | 0BSD | `backend/app/static/vendor/htmx.min.js` | [source](https://registry.npmjs.org/htmx.org/-/htmx.org-2.0.10.tgz) |
-| Tailwind CSS | 3.4.19 | MIT | `backend/app/static/css/tailwind.css` | [source](https://registry.npmjs.org/tailwindcss/-/tailwindcss-3.4.19.tgz) |
+| Tailwind CSS | 4.3.3 | MIT | `backend/app/static/css/tailwind.css` | [source](https://registry.npmjs.org/tailwindcss/-/tailwindcss-4.3.3.tgz) |
 
 ## Container base
 
@@ -123,7 +123,7 @@ Project: https://htmx.org
     AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT
     OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-### Tailwind CSS 3.4.19
+### Tailwind CSS 4.3.3
 
 License: `MIT`
 

@@ -1,3 +1,20 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Keep source detection explicit so builds scan only files that can contain
+   application utility classes. Paths are relative to this stylesheet. */
+@import "tailwindcss" source(none);
+
+@source "./app/templates";
+@source "./app/static/js/app.js";
+@source "./app/api/pages.py";
+
+/* Preserve intentional v3 interaction defaults that changed in v4. */
+@layer base {
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--color-gray-400);
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}

@@ -77,12 +77,11 @@ These rules apply to all AI assistants, coding agents, and automated tools worki
 ## 11. Rebuild Tailwind after affecting changes
 
 - The UI uses a pre-generated stylesheet at `backend/app/static/css/tailwind.css`, not the Tailwind Play CDN.
-- Whenever a change affects this stylesheet — new or changed Tailwind utility classes in templates (`backend/app/templates/**/*.html`), `backend/app/static/js/app.js`, `backend/app/api/pages.py`, or edits to `backend/tailwind.config.js` / `backend/tailwind.input.css` — Tailwind must be rebuilt and the regenerated `tailwind.css` committed together with the change.
+- Whenever a change affects this stylesheet — new or changed Tailwind utility classes in templates (`backend/app/templates/**/*.html`), `backend/app/static/js/app.js`, `backend/app/api/pages.py`, or edits to `backend/tailwind.input.css` — Tailwind must be rebuilt and the regenerated `tailwind.css` committed together with the change.
 - Rebuild from `backend/` with:
 
   ```
-  npx -y tailwindcss@3.4.19 -c tailwind.config.js \
-    -i tailwind.input.css -o app/static/css/tailwind.css --minify
+  npm run tailwind:build
   ```
 
 - Do not present such a change as complete without the corresponding stylesheet rebuild.

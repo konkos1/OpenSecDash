@@ -59,12 +59,12 @@
       "homepage": "https://tailwindcss.com",
       "license": "MIT",
       "name": "Tailwind CSS",
-      "source": "https://github.com/tailwindlabs/tailwindcss/tree/v3.4.19",
-      "source_archive": "https://registry.npmjs.org/tailwindcss/-/tailwindcss-3.4.19.tgz",
+      "source": "https://github.com/tailwindlabs/tailwindcss/tree/v4.3.3",
+      "source_archive": "https://registry.npmjs.org/tailwindcss/-/tailwindcss-4.3.3.tgz",
       "source_archive_sha256": "",
       "source_archive_size": 0,
       "source_required": false,
-      "version": "3.4.19"
+      "version": "4.3.3"
     },
     {
       "distributed_files": [],

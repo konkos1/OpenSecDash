@@ -80,11 +80,14 @@ fixes. Before opening a pull request, run the required checks:
 cd backend
 uv lock --check
 uv sync --python "$(cat .python-version)" --frozen --group dev
+npm ci
+npm audit --audit-level=high
+npm run tailwind:build
 .venv/bin/python -m pytest tests/ -q
 .venv/bin/pyright --pythonversion "$(cut -d. -f1,2 .python-version)" app tests ../plugins
 ```
 
-Both checks must pass without errors. If a check was not run, state that clearly in the
+All checks must pass without errors. If a check was not run, state that clearly in the
 pull request description.
 
 Maintainers may ask for changes to keep the project maintainable, safe for homelabs, and aligned with the plugin-first architecture. Please do not take review comments personally; they are part of keeping a security-focused project healthy.
