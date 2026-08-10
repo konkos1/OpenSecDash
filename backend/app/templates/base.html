@@ -49,7 +49,7 @@
 
                 <button class="nav-menu-toggle rounded bg-slate-800 px-3 py-2" @click="menu=!menu">☰</button>
 
-                <nav class="nav-links-desktop gap-2 text-sm" id="navigation-primary" data-navigation-primary hx-swap-oob="innerHTML">
+                <nav class="nav-links-desktop gap-2 text-sm" id="navigation-primary" data-navigation-primary>
                     <a class="nav {{ 'nav-active' if current_path == '/' else '' }}" href="/">{{ t("nav.dashboard") }}</a>
                     {% for item in plugin_nav_items %}<a class="nav {{ 'nav-active' if current_path.startswith(item.active_prefix) else '' }}" href="{{ item.href }}">{{ item.label }}</a>{% endfor %}
                     {% if event_plugins_enabled %}<a class="nav {{ 'nav-active' if current_path.startswith('/events') or current_path.startswith('/ip') else '' }}" href="/events">{{ t("nav.events") }}</a>{% endif %}
@@ -78,7 +78,7 @@
 
             {# x-cloak: without it the mobile menu is visible for a moment on
                every page load until Alpine initializes and x-show hides it. #}
-            <nav class="nav-links-mobile px-4 pb-4 grid gap-2" id="navigation-mobile" x-show="menu" x-cloak hx-swap-oob="innerHTML">
+            <nav class="nav-links-mobile px-4 pb-4 grid gap-2" id="navigation-mobile" x-show="menu" x-cloak>
                 <a class="nav {{ 'nav-active' if current_path == '/' else '' }}" href="/">{{ t("nav.dashboard") }}</a>
                 {% for item in plugin_nav_items %}<a class="nav {{ 'nav-active' if current_path.startswith(item.active_prefix) else '' }}" href="{{ item.href }}">{{ item.label }}</a>{% endfor %}
                 {% if event_plugins_enabled %}<a class="nav {{ 'nav-active' if current_path.startswith('/events') or current_path.startswith('/ip') else '' }}" href="/events">{{ t("nav.events") }}</a>{% endif %}

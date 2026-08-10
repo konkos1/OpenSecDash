@@ -51,7 +51,7 @@ def test_navigation_orders_core_and_plugin_links_consistently():
     assert "data-navigation-primary" in html
     assert 'id="navigation-primary"' in html
     assert 'id="navigation-mobile"' in html
-    assert html.count('hx-swap-oob="innerHTML"') == 2
+    assert 'hx-swap-oob="innerHTML"' not in html
     assert "navigationResizeObserver.observe(navigationPrimary)" in Path("app/static/js/app.js").read_text()
     assert html.count('class="icon user-icon"') == 2
     assert html.count('class="icon logout-icon"') == 2

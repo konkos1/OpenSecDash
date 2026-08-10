@@ -301,14 +301,17 @@ def test_plugin_settings_refresh_desktop_and_mobile_navigation(settings_client):
 
     assert enabled.status_code == 200
     assert disabled.status_code == 200
+    navigation_selection = 'hx-select-oob="#navigation-primary:innerHTML,#navigation-mobile:innerHTML"'
+    assert navigation_selection in enabled.text
+    assert navigation_selection in disabled.text
     for navigation_id in ("navigation-primary", "navigation-mobile"):
         enabled_navigation = re.search(
-            rf'<nav[^>]*id="{navigation_id}"[^>]*hx-swap-oob="innerHTML"[^>]*>(.*?)</nav>',
+            rf'<nav[^>]*id="{navigation_id}"[^>]*>(.*?)</nav>',
             enabled.text,
             re.DOTALL,
         )
         disabled_navigation = re.search(
-            rf'<nav[^>]*id="{navigation_id}"[^>]*hx-swap-oob="innerHTML"[^>]*>(.*?)</nav>',
+            rf'<nav[^>]*id="{navigation_id}"[^>]*>(.*?)</nav>',
             disabled.text,
             re.DOTALL,
         )
@@ -316,6 +319,16 @@ def test_plugin_settings_refresh_desktop_and_mobile_navigation(settings_client):
         assert disabled_navigation is not None
         assert 'href="/crowdsec"' in enabled_navigation.group(1)
         assert 'href="/crowdsec"' not in disabled_navigation.group(1)
+
+
+def test_periodic_page_refresh_does_not_replace_navigation(settings_client):
+    _, client = settings_client
+
+    response = client.get("/diagnostics", headers={"HX-Request": "true"})
+
+    assert response.status_code == 200
+    assert 'id="diagnostics-results"' in response.text
+    assert 'hx-swap-oob="innerHTML"' not in response.text
 
 
 class TwoConditionSecretPlugin(Plugin):
