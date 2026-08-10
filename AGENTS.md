@@ -81,7 +81,7 @@ These rules apply to all AI assistants, coding agents, and automated tools worki
 - Rebuild from `backend/` with:
 
   ```
-  npx -y tailwindcss@3.4.17 -c tailwind.config.js \
+  npx -y tailwindcss@3.4.19 -c tailwind.config.js \
     -i tailwind.input.css -o app/static/css/tailwind.css --minify
   ```
 

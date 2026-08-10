@@ -15,7 +15,7 @@ concurrency:
 
 env:
   IMAGE_NAME: opensecdash
-  SYFT_VERSION: v1.49.0
+  SYFT_VERSION: v1.50.0
 
 jobs:
   build:
@@ -38,7 +38,7 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
-          version: "0.12.2"
+          version: "0.12.3"
           enable-cache: true
           cache-dependency-glob: backend/uv.lock
 
@@ -65,7 +65,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
           cache-dependency-path: website/package-lock.json
 
@@ -91,7 +91,7 @@ jobs:
           DATABASE_URL="sqlite:///${scratch_dir}/alembic.db" .venv/bin/alembic upgrade head
           DATABASE_URL="sqlite:///${scratch_dir}/alembic.db" .venv/bin/alembic heads
           DATABASE_URL="sqlite:///${scratch_dir}/alembic.db" .venv/bin/alembic check
-          npx -y tailwindcss@3.4.17 -c tailwind.config.js \
+          npx -y tailwindcss@3.4.19 -c tailwind.config.js \
             -i tailwind.input.css -o app/static/css/tailwind.css --minify
           git diff --exit-code app/static/css/tailwind.css
           cd ../website
