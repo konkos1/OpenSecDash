@@ -20,6 +20,10 @@ development, CI, release validation, and the production image. `uv.lock` supplie
 same application dependencies to development and production; development additionally
 installs the tools from the `dev` dependency group.
 
+Use the exact Node.js 24 LTS patch version in the repository's `.node-version` for all
+backend asset and website npm commands. CI and release workflows read the same file, and
+both package manifests declare Node.js major 24 as the supported runtime.
+
 Run the app locally:
 
 ```bash
