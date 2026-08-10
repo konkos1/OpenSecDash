@@ -5,7 +5,7 @@ description = "OpenSecDash App Backend"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "alembic>=1.19.0",
+    "alembic>=1.19.1",
     "authlib>=1.7.2",
     "cryptography>=50.0.0",
     "fastapi>=0.141.1",

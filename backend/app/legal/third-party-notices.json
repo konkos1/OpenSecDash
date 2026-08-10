@@ -80,11 +80,11 @@
       "license": "MIT",
       "name": "alembic",
       "source": "https://github.com/sqlalchemy/alembic/",
-      "source_archive": "https://files.pythonhosted.org/packages/1a/cc/ac0bed8e562e7407fe55c3ba85a4dce86e6dbd8730887bd1e406a6c5c18a/alembic-1.18.5.tar.gz",
-      "source_archive_sha256": "1554982221dd17e9a749b53902407578eb305e453f71999e8c7f0a48389fff8e",
-      "source_archive_size": 2060480,
+      "source_archive": "https://files.pythonhosted.org/packages/16/2b/e4153978368de59918115c9e01d3ebf58a558a7285efa7e960c383c4b59a/alembic-1.19.1.tar.gz",
+      "source_archive_sha256": "e0fca0518118c78acc493e31bcb5402f190057aaf6df8b5b95ce94c4789cf648",
+      "source_archive_size": 2070816,
       "source_required": false,
-      "version": "1.18.5"
+      "version": "1.19.1"
     },
     {
       "distributed_files": [],
@@ -285,11 +285,11 @@
       "license": "MIT",
       "name": "fastapi",
       "source": "https://github.com/fastapi/fastapi",
-      "source_archive": "https://files.pythonhosted.org/packages/0d/fb/fd7671137d9fa3df1d93a2f5111eb982709201724b29f211e4beb2d58688/fastapi-0.140.0.tar.gz",
-      "source_archive_sha256": "f338951b82fd74ca8f843163aec43ea1a1ce84d515415a50fa98fa25572a5544",
-      "source_archive_size": 420968,
+      "source_archive": "https://files.pythonhosted.org/packages/8a/02/91e3416a8fdd715abb903a952a6bec7cdd8d14eed55d415fc8595524c319/fastapi-0.141.1.tar.gz",
+      "source_archive_sha256": "e8822fc40db1e1858054d7a949a888695bc9bdce70139178e33bd2871a453ca1",
+      "source_archive_size": 425799,
       "source_required": false,
-      "version": "0.140.0"
+      "version": "0.141.1"
     },
     {
       "distributed_files": [],
@@ -310,11 +310,11 @@
       "license": "MIT AND PSF-2.0",
       "name": "greenlet",
       "source": "https://github.com/python-greenlet/greenlet",
-      "source_archive": "https://files.pythonhosted.org/packages/e2/f1/fbbfef6af0bad0548f09bc28948ea3c275b4edb19e17fc5ca9900a6a634d/greenlet-3.5.3.tar.gz",
-      "source_archive_sha256": "a61efc018fd3eb317eeca31aba90ee9e7f26f22884a79b6c6ec715bf71bb62f1",
-      "source_archive_size": 200270,
+      "source_archive": "https://files.pythonhosted.org/packages/a3/74/b13368064b09053253555d3f2839cc2684d22d5aed0d2ccffbf7a6736558/greenlet-3.5.4.tar.gz",
+      "source_archive_sha256": "0232ae1de90a8e07867bb127d7a6ba2301e859145489f25cda8a6096dabe1d20",
+      "source_archive_size": 206538,
       "source_required": false,
-      "version": "3.5.3"
+      "version": "3.5.4"
     },
     {
       "distributed_files": [],
@@ -575,11 +575,11 @@
       "license": "MIT",
       "name": "pydantic-settings",
       "source": "https://github.com/pydantic/pydantic-settings",
-      "source_archive": "https://files.pythonhosted.org/packages/5c/b5/8f48e906c3e0205276e8bd8cb7512217a87b2685304d64be27cad5b3019f/pydantic_settings-2.14.2.tar.gz",
-      "source_archive_sha256": "c19dd64b19097f1de80184f0cc7b0272a13ae6e170cbf240a3e27e381ed14a5f",
-      "source_archive_size": 237700,
+      "source_archive": "https://files.pythonhosted.org/packages/68/ca/31c57507b13119d7d3cfa1576dad2911a4861e3be07b579395f4e9d393f9/pydantic_settings-2.15.0.tar.gz",
+      "source_archive_sha256": "694b793e84f766ba76a90ebdefc01d0a9a045dab0382bee70393da93712ad117",
+      "source_archive_size": 261253,
       "source_required": false,
-      "version": "2.14.2"
+      "version": "2.15.0"
     },
     {
       "distributed_files": [],
@@ -780,11 +780,11 @@
       "license": "BSD-3-Clause",
       "name": "uvicorn",
       "source": "https://github.com/Kludex/uvicorn",
-      "source_archive": "https://files.pythonhosted.org/packages/a2/65/b7c6c443ccc58678c91e1e973bbe2a878591538655d6e1d47f24ba1c51f3/uvicorn-0.51.0.tar.gz",
-      "source_archive_sha256": "f6f4b69b657c312f516dd2d268ab9ae6f254b11e4bac504f37b2ab58b24dd0b0",
-      "source_archive_size": 94412,
+      "source_archive": "https://files.pythonhosted.org/packages/03/18/ccce41535dee1be77735592bd19965f3972c82e07ee703d324709496b716/uvicorn-0.52.1.tar.gz",
+      "source_archive_sha256": "112ec661814189acbccd3f7b86460147cc065fc92c0821afa78918780e4354dd",
+      "source_archive_size": 100571,
       "source_required": false,
-      "version": "0.51.0"
+      "version": "0.52.1"
     },
     {
       "distributed_files": [],
@@ -800,11 +800,11 @@
       "license": "BSD-3-Clause",
       "name": "websockets",
       "source": "https://github.com/python-websockets/websockets",
-      "source_archive": "https://files.pythonhosted.org/packages/21/f7/bc3a25c5ec26ce62ce487690becc2f3710bbc7b33338f005ad390db0b986/websockets-16.1.1.tar.gz",
-      "source_archive_sha256": "db234eda965dcce15df96bb9709f587cd87d4d52aaf0e80e2f34ec04c7670c57",
-      "source_archive_size": 182204,
+      "source_archive": "https://files.pythonhosted.org/packages/f7/96/e01084f83a64bcb3a27994bd0cb0db68ff29d9c6707fae37ec19b18ba990/websockets-17.0.1.tar.gz",
+      "source_archive_sha256": "5baa9bc0dfbae8c507e51c8cf1b6d4628086f7a87bbd3a9952bd5f035451f1cc",
+      "source_archive_size": 183298,
       "source_required": false,
-      "version": "16.1.1"
+      "version": "17.0.1"
     }
   ],
   "container_base": {
