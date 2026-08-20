@@ -310,11 +310,11 @@
       "license": "MIT AND PSF-2.0",
       "name": "greenlet",
       "source": "https://github.com/python-greenlet/greenlet",
-      "source_archive": "https://files.pythonhosted.org/packages/a3/74/b13368064b09053253555d3f2839cc2684d22d5aed0d2ccffbf7a6736558/greenlet-3.5.4.tar.gz",
-      "source_archive_sha256": "0232ae1de90a8e07867bb127d7a6ba2301e859145489f25cda8a6096dabe1d20",
-      "source_archive_size": 206538,
+      "source_archive": "https://files.pythonhosted.org/packages/0b/d8/7cc97c142388aef03f622e001c572c4f84e9252a439549d483f555771970/greenlet-3.5.5.tar.gz",
+      "source_archive_sha256": "adb4bae02e91a8e863e48b177e4014bdcac8a6b5e047ea1df687a61534b85e6c",
+      "source_archive_size": 207585,
       "source_required": false,
-      "version": "3.5.4"
+      "version": "3.5.5"
     },
     {
       "distributed_files": [],
@@ -680,11 +680,11 @@
       "license": "MIT",
       "name": "SQLAlchemy",
       "source": "https://www.sqlalchemy.org",
-      "source_archive": "https://files.pythonhosted.org/packages/02/f1/a7a892f18d4d224e6b26f706531eafccc41e37594d37d304786969ee13cb/sqlalchemy-2.0.51.tar.gz",
-      "source_archive_sha256": "804dccd8a4a6242c4e30ad961e540e18a588f6527202f2d6791b01845d59fdc9",
-      "source_archive_size": 9912201,
+      "source_archive": "https://files.pythonhosted.org/packages/3b/21/77b4c147963073040dc3c3a5cb7a8c3001a1893c0209432cb77f9df836aa/sqlalchemy-2.0.52.tar.gz",
+      "source_archive_sha256": "5e2d46356ac2ccb7d268ab6c2319ac6a2b42f1b8d5fd8bd3d46855cd82abee97",
+      "source_archive_size": 9945637,
       "source_required": false,
-      "version": "2.0.51"
+      "version": "2.0.52"
     },
     {
       "distributed_files": [],
@@ -780,11 +780,11 @@
       "license": "BSD-3-Clause",
       "name": "uvicorn",
       "source": "https://github.com/Kludex/uvicorn",
-      "source_archive": "https://files.pythonhosted.org/packages/03/18/ccce41535dee1be77735592bd19965f3972c82e07ee703d324709496b716/uvicorn-0.52.1.tar.gz",
-      "source_archive_sha256": "112ec661814189acbccd3f7b86460147cc065fc92c0821afa78918780e4354dd",
-      "source_archive_size": 100571,
+      "source_archive": "https://files.pythonhosted.org/packages/2e/28/64ca011edf31c715b4fad359c587ea52391aaffa125065695590241ff617/uvicorn-0.52.3.tar.gz",
+      "source_archive_sha256": "18857b9e6579300be55c91c0a1cfd37d9a2cf0cabea33b88275f199eb73b8b58",
+      "source_archive_size": 100621,
       "source_required": false,
-      "version": "0.52.1"
+      "version": "0.52.3"
     },
     {
       "distributed_files": [],

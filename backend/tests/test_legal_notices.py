@@ -24,7 +24,7 @@ def test_generated_notices_cover_runtime_browser_and_first_party_assets():
     assert components[("htmx", "2.0.10")]["license"] == "0BSD"
     assert components[("tailwind css", "4.3.3")]["license"] == "MIT"
     assert components[("cffi", "2.1.1")]["license"] == "MIT-0"
-    assert components[("greenlet", "3.5.4")]["license"] == "MIT AND PSF-2.0"
+    assert components[("greenlet", "3.5.5")]["license"] == "MIT AND PSF-2.0"
     assert components[("paho-mqtt", "2.1.0")]["license"] == "EDL-1.0"
     assert components[("certifi", "2026.7.22")]["source_required"] is True
     assert components[("certifi", "2026.7.22")]["source_archive_sha256"] == (
