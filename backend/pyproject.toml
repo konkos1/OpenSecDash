@@ -9,7 +9,7 @@ dependencies = [
     "authlib>=1.7.2",
     "cryptography>=50.0.0",
     "fastapi>=0.141.1",
-    # 3.5.5 has no source distribution; release evidence requires a locked sdist.
+    # Keep greenlet on a patch release with a locked sdist for release evidence.
     "greenlet>=3.5.5,<3.5.6",
     "httpx>=0.28.1",
     "itsdangerous>=2.2.0",
