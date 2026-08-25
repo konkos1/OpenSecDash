@@ -15,6 +15,7 @@ def configure_sqlite_pragmas(dbapi_connection, connection_record=None) -> None:
     # NORMAL is the recommended pairing with WAL: still crash-safe, without
     # fsync-ing on every single commit.
     cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
     cursor.execute("PRAGMA journal_mode=WAL")
     cursor.execute("PRAGMA synchronous=NORMAL")
     cursor.close()

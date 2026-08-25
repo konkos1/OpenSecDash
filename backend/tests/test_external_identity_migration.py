@@ -93,6 +93,7 @@ def test_migration_preserves_existing_users_and_classifies_sessions_as_password(
     assert _columns(inspector, "users")["password_hash"]["nullable"] is False
 
     command.upgrade(config, REVISION)
+    command.upgrade(config, "head")
     command.check(config)
 
     inspector = inspect(engine)
@@ -178,6 +179,7 @@ def test_downgrade_keeps_passwordless_users_locked_out_and_upgrade_repeats(tmp_p
     assert verify_password("password123", DISABLED_PASSWORD_MARKER) is False
 
     command.upgrade(config, REVISION)
+    command.upgrade(config, "head")
     command.check(config)
     with engine.connect() as connection:
         assert connection.execute(
@@ -195,6 +197,7 @@ def test_migration_accepts_schema_already_created_from_metadata(tmp_path: Path, 
     command.stamp(config, PREVIOUS_HEAD)
 
     command.upgrade(config, REVISION)
+    command.upgrade(config, "head")
     command.check(config)
 
     engine.dispose()
