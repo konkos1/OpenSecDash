@@ -45,7 +45,7 @@ are licensed under GNU AGPL-3.0 as described in `LICENSE`.
 | typing-inspection | 0.4.3 | MIT | [source](https://files.pythonhosted.org/packages/6d/bc/4eae18cd40c65798a16267572ba346c11f599d44b01603dbd843342042bc/typing_inspection-0.4.3.tar.gz) |
 | typing_extensions | 4.16.0 | PSF-2.0 | [source](https://files.pythonhosted.org/packages/f6/cc/6253133b5bb138fc3306cebfbda2c520f545d36b5be2c7255cc528bb45d6/typing_extensions-4.16.0.tar.gz) |
 | urllib3 | 2.7.0 | MIT | [source](https://files.pythonhosted.org/packages/53/0c/06f8b233b8fd13b9e5ee11424ef85419ba0d8ba0b3138bf360be2ff56953/urllib3-2.7.0.tar.gz) |
-| uvicorn | 0.52.3 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/2e/28/64ca011edf31c715b4fad359c587ea52391aaffa125065695590241ff617/uvicorn-0.52.3.tar.gz) |
+| uvicorn | 0.52.4 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/f2/0f/3f86e61397dd33bf2ccf28188c40db6a740658aeebbbf6e7dbc101a1f487/uvicorn-0.52.4.tar.gz) |
 | websockets | 17.0.1 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/f7/96/e01084f83a64bcb3a27994bd0cb0db68ff29d9c6707fae37ec19b18ba990/websockets-17.0.1.tar.gz) |
 
 ## Browser components shipped with the application
@@ -1908,7 +1908,7 @@ License: `MIT`
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 
-### uvicorn 0.52.3
+### uvicorn 0.52.4
 
 License: `BSD-3-Clause`
 

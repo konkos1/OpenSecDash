@@ -780,11 +780,11 @@
       "license": "BSD-3-Clause",
       "name": "uvicorn",
       "source": "https://github.com/Kludex/uvicorn",
-      "source_archive": "https://files.pythonhosted.org/packages/2e/28/64ca011edf31c715b4fad359c587ea52391aaffa125065695590241ff617/uvicorn-0.52.3.tar.gz",
-      "source_archive_sha256": "18857b9e6579300be55c91c0a1cfd37d9a2cf0cabea33b88275f199eb73b8b58",
-      "source_archive_size": 100621,
+      "source_archive": "https://files.pythonhosted.org/packages/f2/0f/3f86e61397dd33bf2ccf28188c40db6a740658aeebbbf6e7dbc101a1f487/uvicorn-0.52.4.tar.gz",
+      "source_archive_sha256": "73acfee47a0b133c5de13d219492d62d8a31e935f4fe6e41a232451a15379f86",
+      "source_archive_size": 100627,
       "source_required": false,
-      "version": "0.52.3"
+      "version": "0.52.4"
     },
     {
       "distributed_files": [],
