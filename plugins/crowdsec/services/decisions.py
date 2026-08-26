@@ -102,6 +102,17 @@ def active_decision_for_ip(db: Session, ip: str) -> CrowdSecDecision | None:
     )
 
 
+def active_decision_by_id(db: Session, decision_id: str) -> CrowdSecDecision | None:
+    return (
+        db.query(CrowdSecDecision)
+        .filter(
+            CrowdSecDecision.decision_id == str(decision_id),
+            CrowdSecDecision.decision_type == "ban",
+        )
+        .first()
+    )
+
+
 def _fetch_decisions_via_lapi(db: Session) -> tuple[bool, str, list[Any]]:
     from .lapi import LapiError, lapi_active_ban_decisions, lapi_login
 
@@ -153,6 +164,10 @@ def sync_crowdsec_decisions(db: Session, *, force: bool = False) -> tuple[bool, 
             )
         )
         count += 1
+    db.flush()
     _update_decision_diagnostic(db, "healthy", f"{count} active CrowdSec ban decision(s) synced.")
+    from .policies import reconcile_enforcements_after_sync
+
+    reconcile_enforcements_after_sync(db)
     logger.info("Synced %d active CrowdSec decisions", count)
     return True, f"{count} active CrowdSec ban decision(s) synced."

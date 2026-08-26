@@ -37,6 +37,7 @@ def test_seed_default_notification_rules_is_idempotent_and_preserves_user_change
         "core.asset_offline",
         "core.crowdsec_ban",
         "core.plugin_error",
+        "insight.asn_policy_security_ban",
         "insight.ban_after_access",
         "insight.blocked_request",
         "insight.geoblock_denied_request",
@@ -54,7 +55,7 @@ def test_seed_default_notification_rules_is_idempotent_and_preserves_user_change
     seed_default_notification_rules(db_session)
     db_session.commit()
 
-    assert db_session.query(NotificationRule).count() == 8
+    assert db_session.query(NotificationRule).count() == 9
     assert db_session.query(NotificationRule).filter_by(rule_id="core.crowdsec_ban").one().enabled is False
 
 

@@ -1,6 +1,6 @@
 # ADR-047: Permanent manual ASN bans
 
-> **Implementation status (2026-08-25):** Accepted. The persistent data model is implemented; policy enforcement is not yet implemented.
+> **Implementation status (2026-08-26):** The persistent data model and policy enforcement are implemented; management UI and documentation remain pending.
 
 ## Status: accepted (2026-08-25)
 
@@ -48,6 +48,10 @@ logic remains in the CrowdSec plugin as required by ADR-044.
 - If later GeoIP enrichment assigns an enforced IP to a different ASN which is not
   blocked, OpenSecDash removes only the exact old policy-owned decision. A failed
   removal remains pending for an ID-specific retry and creates no exception.
+- If the new ASN is also permanently blocked, the existing policy-owned decision
+  remains attributed to the old policy until it expires. Ownership is never moved
+  between policies in place; only a later observation after expiry may create a
+  decision attributed to the new policy.
 - Each successful automatic policy ban creates a direct, high-confidence insight. The
   insight records the ban as a historical fact and is not the source of current
   CrowdSec decision state.

@@ -70,7 +70,7 @@
         <table class="w-full text-sm table-middle">
           <tbody>
             {% for row in scenario_rows %}
-              <tr><td data-label="{{ t('rollups.label_scenario') }}">{{ row.key }}</td><td class="text-right" data-label="{{ t('rollups.label_count') }}"><strong>{{ row.value }}</strong></td></tr>
+              <tr><td data-label="{{ t('rollups.label_scenario') }}"><a href="{{ row.href }}">{{ t(row.label_key) if row.label_key else row.key }}</a></td><td class="text-right" data-label="{{ t('rollups.label_count') }}"><a href="{{ row.href }}"><strong>{{ row.value }}</strong></a></td></tr>
             {% else %}
               <tr><td colspan="2">{{ t("dashboard.no_data") }}</td></tr>
             {% endfor %}

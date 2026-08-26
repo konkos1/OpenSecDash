@@ -4,7 +4,7 @@ import asyncio
 import ipaddress
 import logging
 from threading import Lock
-from typing import Any
+from typing import Any, Literal
 
 from sqlalchemy.orm import Session
 
@@ -60,6 +60,63 @@ def create_action(
     parameters: dict | None = None,
     confirmed: bool = False,
 ) -> Action:
+    return _create_action(
+        db,
+        action_type,
+        target,
+        target_type,
+        parameters,
+        confirmed,
+        internal=False,
+        manual=True,
+        trigger="manual",
+        commit=True,
+    )
+
+
+def _create_internal_action(
+    db: Session,
+    action_type: str,
+    target: str,
+    parameters: dict[str, Any],
+    *,
+    trigger: Literal["asn_policy", "asn_policy_reclassified"],
+    asn_ban_id: int,
+) -> Action:
+    """Run one server-controlled action without exposing its context to HTTP."""
+    if get_setting_value(db, "action_dry_run", "true").lower() == "true":
+        raise ValueError("Internal actions are disabled while action simulation is active")
+    controlled_parameters = {
+        **parameters,
+        "asn_ban_id": asn_ban_id,
+    }
+    return _create_action(
+        db,
+        action_type,
+        target,
+        "ip",
+        controlled_parameters,
+        confirmed=True,
+        internal=True,
+        manual=False,
+        trigger=trigger,
+        commit=False,
+    )
+
+
+def _create_action(
+    db: Session,
+    action_type: str,
+    target: str,
+    target_type: str,
+    parameters: dict | None,
+    confirmed: bool,
+    *,
+    internal: bool,
+    manual: bool,
+    trigger: str,
+    commit: bool,
+) -> Action:
     manager = get_plugin_manager()
     action_plugin = manager.action_plugin_for(action_type)
     if action_plugin is None:
@@ -81,15 +138,20 @@ def create_action(
     )
     if definition is None:
         raise ValueError(f"Unknown action type: {action_type}")
+    if internal == definition.user_invocable:
+        raise ValueError(
+            f"Action type is {'not internally invocable' if internal else 'internal only'}: {action_type}"
+        )
     if target_type not in definition.target_types:
         raise ValueError(f"Unsupported target type for {action_type}: {target_type}")
+    dry_run = get_setting_value(db, "action_dry_run", "true").lower() == "true"
+    target = action_plugin.normalize_action_target(db, action_type, target, parameters or {}, dry_run)
     critical = manager.critical_action_types()
     requires_confirmation = action_type in critical
     if requires_confirmation and not confirmed:
         raise ValueError("Action requires confirmation")
     if target_type == "ip" and action_type in critical:
         validate_ip_target(target)
-    dry_run = get_setting_value(db, "action_dry_run", "true").lower() == "true"
     # Plugin-specific validation/normalization (e.g. CrowdSec checks an unban
     # against an active decision and fills in its id). May raise ValueError.
     if action_plugin is not None:
@@ -117,14 +179,27 @@ def create_action(
             new_parameters = action_plugin.prepare_parameters(db, action)
             if new_parameters is not None:
                 action.parameters = new_parameters  # reassignment: plain JSON column, no MutableDict
-        execute_action(db, action)
-        db.commit()
+        if internal:
+            execute_action(db, action, internal=True, manual=manual, trigger=trigger)
+        else:
+            execute_action(db, action)
+        if commit:
+            db.commit()
+        else:
+            db.flush()
         return action
     finally:
         _release_action(action_key)
 
 
-def execute_action(db: Session, action: Action) -> None:
+def execute_action(
+    db: Session,
+    action: Action,
+    *,
+    internal: bool = False,
+    manual: bool = True,
+    trigger: str = "manual",
+) -> None:
     manager = get_plugin_manager()
     action_plugin = manager.action_plugin_for(action.action_type)
     dry_run = get_setting_value(db, "action_dry_run", "true").lower() == "true"
@@ -136,14 +211,22 @@ def execute_action(db: Session, action: Action) -> None:
         logger.info("Action id=%s completed in dry-run mode", action.id)
     else:
         try:
-            result = asyncio.run(
-                manager.execute_action(
+            if internal:
+                result = manager.execute_internal_action(
                     db,
                     action.action_type,
                     action.target,
                     action.parameters or {},
                 )
-            )
+            else:
+                result = asyncio.run(
+                    manager.execute_action(
+                        db,
+                        action.action_type,
+                        action.target,
+                        action.parameters or {},
+                    )
+                )
             action.status = (result or {}).get("status", "completed")
             action.result = (result or {}).get("result", "action plugin execution completed")
             logger.info("Action id=%s finished with status=%s", action.id, action.status)
@@ -164,8 +247,8 @@ def execute_action(db: Session, action: Action) -> None:
         "target": action.target,
         "status": action.status,
         "result": action.result,
-        "manual": True,
-        "trigger": "manual",
+        "manual": manual,
+        "trigger": trigger,
     }
     # e.g. CrowdSec adds scenario/duration for ban rows so its page can show them.
     if action_plugin is not None:

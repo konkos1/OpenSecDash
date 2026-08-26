@@ -10,6 +10,7 @@ from app.models.events import Event
 from app.web.render import render
 
 from .services.decisions import crowdsec_lapi_status, sync_crowdsec_decisions
+from .services.policies import POLICY_SCENARIO_GROUP
 from .services.rollups import _top_rollup_metric
 
 # Enabled-gated by the plugin router mount (see app.main); no require_plugin_enabled here.
@@ -30,7 +31,18 @@ def crowdsec_page(request: Request, db: Session = Depends(get_db)):
     if is_data_request:
         bans = db.query(Event).filter(Event.event_type.startswith("security.ban")).order_by(Event.event_time.desc()).limit(100).all()
         active_decisions = {decision.ip: decision for decision in db.query(CrowdSecDecision).filter(CrowdSecDecision.decision_type == "ban").all()}
-        scenarios = _top_rollup_metric(db, "scenario", 10)
+        scenarios = [
+            {
+                "key": scenario or "unknown",
+                "label_key": (
+                    "crowdsec.scenario.manual_permanent_asn_ban"
+                    if scenario == POLICY_SCENARIO_GROUP
+                    else None
+                ),
+                "count": count,
+            }
+            for scenario, count in _top_rollup_metric(db, "scenario", 10)
+        ]
         countries = (
             db.query(Event.country, func.count(Event.id))
             .filter(Event.event_type.startswith("security.ban"), Event.country.isnot(None))

@@ -398,7 +398,22 @@ class PluginManager:
         values = {}
         for setting in plugin.settings:
             values[setting.key] = get_setting_value(db, self.setting_key(plugin.metadata.id, setting.key), setting.default)
-        return PluginContext(db, values, self.export_asset_update, manual_export)
+        return PluginContext(
+            db,
+            values,
+            self.export_asset_update,
+            manual_export,
+            self._report_event_enriched,
+        )
+
+    def _report_event_enriched(self, db: Session, event: Any) -> None:
+        """Dispatch a completed enrichment without coupling producers to consumers."""
+        for plugin_id, plugin in self.plugins.items():
+            try:
+                with db.begin_nested():
+                    plugin.on_event_enriched(db, event)
+            except Exception:
+                logger.exception("Post-enrichment hook failed for plugin %s event=%s", plugin_id, event.id)
 
     async def startup(self) -> None:
         logger.info("Starting %d plugin task groups", len(self.plugins))
@@ -934,7 +949,11 @@ class PluginManager:
         result: list[tuple[str, ActionDefinition]] = []
         for plugin_id, definition in self.action_definitions():
             plugin = self.plugins.get(plugin_id)
-            if not isinstance(plugin, ActionPlugin) or target_type not in definition.target_types:
+            if (
+                not isinstance(plugin, ActionPlugin)
+                or not definition.user_invocable
+                or target_type not in definition.target_types
+            ):
                 continue
             if plugin.action_available(db, definition.action_type, target, dry_run):
                 result.append((plugin_id, definition))
@@ -950,6 +969,29 @@ class PluginManager:
             return None
         ctx = self.context(db, plugin)
         return await plugin.execute(ctx, action_type, target, parameters)
+
+    def execute_internal_action(
+        self,
+        db: Session,
+        action_type: str,
+        target: str,
+        parameters: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        plugin = self.action_plugin_for(action_type)
+        if plugin is None:
+            return None
+        return plugin.execute_internal(self.context(db, plugin), action_type, target, parameters)
+
+    def rollup_display_label_key(self, metric: str, key: str) -> str | None:
+        for plugin_id, plugin in self.plugins.items():
+            try:
+                label_key = plugin.rollup_display_label_key(metric, key)
+            except Exception:
+                logger.exception("Rollup display hook failed for plugin %s", plugin_id)
+                continue
+            if label_key:
+                return label_key
+        return None
 
     async def export_asset_update(self, db: Session, asset: Any, manual: bool = False) -> None:
         # Cross-plugin calls must attribute failures to the callee. For example,

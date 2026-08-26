@@ -906,6 +906,13 @@ def rollups_page(request: Request, db: Session = Depends(get_db)):
         if not summary and event_type_rows:
             summary = summary_from_event_type_rows(event_type_rows)
         scenario_rows = rollup_rows(db, period, selected_value, "scenario") if selected_value else []
+        manager = get_plugin_manager()
+        for row in scenario_rows:
+            key = str(row["key"])
+            label_key = manager.rollup_display_label_key("scenario", key)
+            if label_key:
+                row["label_key"] = label_key
+            row["href"] = f"/events?{urlencode({'event_type': 'security.ban*', 'q': key, 'include_raw_data': 'true'})}"
         country_rows = rollup_rows(db, period, selected_value, "country", limit=20) if selected_value else []
     return render(
         request,

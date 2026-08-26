@@ -430,6 +430,7 @@ DE = {
     "insight.title.security_ban_observed": "Security-Ban erkannt",
     "insight.description.security_ban_observed": "Für diese IP wurde ein Security-Ban aus den Logdaten erkannt.",
     "insight.title.manual_security_ban": "Manueller Security-Ban",
+    "insight.title.asn_policy_security_ban": "Durch dauerhafte ASN-Sperre gebannt",
     "insight.description.manual_security_ban": "Diese IP wurde manuell über OpenSecDash gebannt.",
     "insight.title.blocked_request": "Blockierte Anfrage erkannt",
     "insight.description.blocked_request": "Eine blockierte Anfrage und ein Access-Fehler traten im Korrelationsfenster auf.",

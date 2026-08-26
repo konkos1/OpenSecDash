@@ -80,6 +80,8 @@ def validate_widget(widget: DashboardWidget) -> bool:
                 return False
             if not isinstance(row.get("label"), str):
                 return False
+            if row.get("label_key") is not None and not isinstance(row.get("label_key"), str):
+                return False
             if not isinstance(row.get("value"), int) or isinstance(row.get("value"), bool):
                 return False
             if not required_href(row.get("href")):

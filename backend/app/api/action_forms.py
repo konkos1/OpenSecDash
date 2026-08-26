@@ -19,6 +19,7 @@ def action_ip_page(
     action_type: str = Form(...),
     ip: str = Form(...),
     duration: str = Form("4h"),
+    decision_id: str = Form(""),
     confirmed: bool = Form(False),
     db: Session = Depends(get_db),
 ):
@@ -35,6 +36,8 @@ def action_ip_page(
         )
         if definition is None:
             raise ValueError(f"Unknown action type: {action_type}")
+        if not definition.user_invocable:
+            raise ValueError(f"Action type is internal only: {action_type}")
         for parameter in definition.parameters:
             if parameter.name != "duration":
                 raise ValueError(f"Unsupported action parameter: {parameter.name}")
@@ -44,6 +47,8 @@ def action_ip_page(
             parameters[parameter.name] = value
             if value not in parameter.options:
                 raise ValueError(f"Invalid value for action parameter: {parameter.name}")
+        if action_type in {"security.unban", "crowdsec_unban"} and decision_id.strip():
+            parameters["decision_id"] = decision_id.strip()
         create_action(db, action_type, ip, "ip", parameters, confirmed)
     except ActionAlreadyRunning as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc

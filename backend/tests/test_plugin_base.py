@@ -3,6 +3,7 @@ from typing import cast
 
 from sqlalchemy.orm import Session
 
+from app.models.events import Event
 from app.plugins.base import PluginContext, tail_text_file
 
 
@@ -80,3 +81,17 @@ def test_plugin_context_report_backlog_clears_percent_when_not_pending():
     context.report_backlog(False, 99)
     assert context.backlog_pending is False
     assert context.backlog_progress_percent is None
+
+
+def test_plugin_context_reports_completed_enrichment_through_injected_callback():
+    reported: list[Event] = []
+    context = PluginContext(
+        db=cast(Session, None),
+        settings={},
+        event_enrichment_reporter=lambda _db, event: reported.append(event),
+    )
+    event = Event(event_type="access.allowed", ip="8.8.8.8", asn="AS15169", geoip_checked=True)
+
+    context.report_event_enriched(event)
+
+    assert reported == [event]

@@ -30,6 +30,9 @@ MAX_LINES_PER_TICK = 2000
 
 BAN_ACTION_TYPES = frozenset({"security.ban", "crowdsec_ban"})
 UNBAN_ACTION_TYPES = frozenset({"security.unban", "crowdsec_unban"})
+ASN_POLICY_INTERNAL_ACTION_TYPES = frozenset(
+    {"security.ban.asn_policy", "security.unban.asn_policy_reclassified"}
+)
 
 
 class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
@@ -61,6 +64,50 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
             critical=True,
             permission="security.unban",
         ),
+        ActionDefinition(
+            action_type="security.asn_ban.enable",
+            label_key="crowdsec.asn_ban.enable",
+            target_types=frozenset({"asn"}),
+            critical=True,
+            permission="security.ban",
+        ),
+        ActionDefinition(
+            action_type="security.asn_ban.disable",
+            label_key="crowdsec.asn_ban.disable",
+            target_types=frozenset({"asn"}),
+            critical=True,
+            permission="security.unban",
+        ),
+        ActionDefinition(
+            action_type="security.ban.asn_policy",
+            label_key="crowdsec.asn_ban.internal_ban",
+            target_types=frozenset({"ip"}),
+            critical=True,
+            permission="security.ban",
+            user_invocable=False,
+        ),
+        ActionDefinition(
+            action_type="security.unban.asn_policy_reclassified",
+            label_key="crowdsec.asn_ban.internal_reclassified_unban",
+            target_types=frozenset({"ip"}),
+            critical=True,
+            permission="security.unban",
+            user_invocable=False,
+        ),
+        ActionDefinition(
+            action_type="security.asn_ban.exception.remove",
+            label_key="crowdsec.asn_ban.exception.remove",
+            target_types=frozenset({"ip"}),
+            critical=True,
+            permission="security.ban",
+        ),
+        ActionDefinition(
+            action_type="security.asn_ban.provider_change.acknowledge",
+            label_key="crowdsec.asn_ban.provider_change.acknowledge",
+            target_types=frozenset({"asn"}),
+            critical=True,
+            permission="security.ban",
+        ),
     )
     metadata = PluginMetadata(
         id="crowdsec",
@@ -68,7 +115,19 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
         version="1.0.0",
         api_version="2",
         capabilities=["datasource", "action", "page", "widget"],
-        event_types=["security.ban", "security.ban.manual", "security.unban.manual"],
+        event_types=[
+            "security.ban",
+            "security.ban.manual",
+            "security.unban.manual",
+            "security.asn_ban.enabled",
+            "security.asn_ban.disabled",
+            "security.asn_ban.exception.added",
+            "security.asn_ban.exception.removed",
+            "security.asn_ban.provider_changed",
+            "security.asn_ban.provider_change.acknowledged",
+            "security.ban.asn_policy",
+            "security.unban.asn_policy_reclassified",
+        ],
         description="CrowdSec log datasource and LAPI ban/unban actions."
     )
     settings = [
@@ -106,7 +165,11 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
             return
         # Decision sync owns the LAPI diagnostic. Returning normally lets the
         # manager commit that result without misclassifying it as plugin health.
-        sync_crowdsec_decisions(context.db)
+        ok, _message = sync_crowdsec_decisions(context.db)
+        if ok:
+            from .services.policies import retry_pending_policy_work
+
+            retry_pending_policy_work(context.db)
 
     async def collect(self, context) -> list[dict[str, Any]]:
         path = Path(context.get("log_path"))
@@ -168,9 +231,36 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
         }
 
     async def execute(self, context, action_type: str, target: str, parameters: dict[str, Any]) -> dict[str, Any] | None:
-        if action_type not in {"security.ban", "security.unban", "crowdsec_ban", "crowdsec_unban"}:
+        return self._execute_action(context, action_type, target, parameters)
+
+    def execute_internal(self, context, action_type: str, target: str, parameters: dict[str, Any]) -> dict[str, Any] | None:
+        if action_type not in ASN_POLICY_INTERNAL_ACTION_TYPES:
+            raise ValueError(f"Action type is not internally invocable: {action_type}")
+        return self._execute_action(context, action_type, target, parameters)
+
+    def _execute_action(self, context, action_type: str, target: str, parameters: dict[str, Any]) -> dict[str, Any] | None:
+        from .services import policies
+
+        if action_type == "security.asn_ban.enable":
+            return {"status": "completed", "result": policies.enable_policy(context.db, target, parameters)}
+        if action_type == "security.asn_ban.disable":
+            return {"status": "completed", "result": policies.disable_policy(context.db, target)}
+        if action_type == "security.asn_ban.exception.remove":
+            return {"status": "completed", "result": policies.remove_exception(context.db, target, parameters)}
+        if action_type == "security.asn_ban.provider_change.acknowledge":
+            return {
+                "status": "completed",
+                "result": policies.acknowledge_provider_change(context.db, target, parameters),
+            }
+        if action_type not in {
+            "security.ban",
+            "security.unban",
+            "crowdsec_ban",
+            "crowdsec_unban",
+            *ASN_POLICY_INTERNAL_ACTION_TYPES,
+        }:
             return None
-        is_ban = action_type in {"security.ban", "crowdsec_ban"}
+        is_ban = action_type in {"security.ban", "crowdsec_ban", "security.ban.asn_policy"}
         decision_id = str(parameters.get("decision_id") or "").strip()
         if not is_ban and not decision_id:
             raise RuntimeError("Missing active CrowdSec decision id for unban")
@@ -181,7 +271,17 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
         logger.info("Executing CrowdSec action via LAPI type=%s target=%s", action_type, target)
         token = lapi_login(url, context.get("lapi_login", ""), context.get("lapi_password", ""))
         if is_ban:
-            lapi_add_ban(url, token, target, parameters.get("duration", "4h"), parameters.get("reason", "OpenSecDash manual ban"))
+            if action_type == "security.ban.asn_policy":
+                lapi_add_ban(
+                    url,
+                    token,
+                    target,
+                    "7d",
+                    parameters.get("reason", "OpenSecDash permanent ASN ban"),
+                    scenario=str(parameters["scenario"]),
+                )
+            else:
+                lapi_add_ban(url, token, target, parameters.get("duration", "4h"), parameters.get("reason", "OpenSecDash manual ban"))
             return {"status": "completed", "result": f"LAPI ban created for {target}"}
         lapi_delete_decision(url, token, decision_id)
         return {"status": "completed", "result": f"LAPI decision {decision_id} deleted"}
@@ -189,13 +289,60 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
     # --- Action framework hooks (see app.plugins.base.ActionPlugin) ---
 
     def action_available(self, db: Session, action_type: str, target: str, dry_run: bool) -> bool:
+        if action_type in ASN_POLICY_INTERNAL_ACTION_TYPES or action_type == "security.asn_ban.exception.remove":
+            return False
         if not dry_run and get_setting_value(db, "plugin.crowdsec.enabled", "false") != "true":
             return False
+        if action_type.startswith("security.asn_ban."):
+            from app.models.core import CrowdSecAsnBan
+            from .services.policies import normalize_asn
+
+            try:
+                asn = normalize_asn(target)
+            except ValueError:
+                return False
+            policy = db.query(CrowdSecAsnBan).filter(CrowdSecAsnBan.asn == asn).first()
+            if action_type == "security.asn_ban.enable":
+                return (
+                    get_setting_value(db, "plugin.geoip.enabled", "false") == "true"
+                    and policy is None
+                )
+            if action_type == "security.asn_ban.disable":
+                return policy is not None
+            if action_type == "security.asn_ban.provider_change.acknowledge":
+                return bool(policy and policy.provider_review_required)
         if action_type in UNBAN_ACTION_TYPES and not dry_run:
             return active_decision_for_ip(db, target) is not None
         return True
 
+    def normalize_action_target(
+        self,
+        db: Session,
+        action_type: str,
+        target: str,
+        parameters: dict[str, Any],
+        dry_run: bool,
+    ) -> str:
+        from .services.policies import normalize_asn, normalize_global_ip
+
+        if action_type.startswith("security.asn_ban.") and action_type != "security.asn_ban.exception.remove":
+            return normalize_asn(target)
+        if action_type in ASN_POLICY_INTERNAL_ACTION_TYPES or action_type == "security.asn_ban.exception.remove":
+            return normalize_global_ip(target)
+        return target
+
     def validate_action(self, db: Session, action_type: str, target: str, parameters: dict[str, Any], dry_run: bool) -> dict[str, Any]:
+        from .services import policies
+
+        if action_type.startswith("security.asn_ban.") or action_type in ASN_POLICY_INTERNAL_ACTION_TYPES:
+            _target, validated = policies.validate_action_parameters(
+                db,
+                action_type,
+                target,
+                parameters,
+                dry_run,
+            )
+            return validated
         if not parameters.get("reason"):
             if action_type in BAN_ACTION_TYPES:
                 parameters = {**parameters, "reason": "Manual ban via OpenSecDash"}
@@ -210,15 +357,7 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
         # sent to CrowdSec. Skipped in dry-run (nothing is really executed).
         if action_type not in UNBAN_ACTION_TYPES or dry_run:
             return parameters
-        decision = active_decision_for_ip(db, target)
-        decision_id = str((parameters or {}).get("decision_id") or "").strip()
-        if decision is None:
-            raise ValueError("No active CrowdSec ban decision found for this IP")
-        if not decision_id:
-            return {**(parameters or {}), "decision_id": decision.decision_id}
-        if decision_id != decision.decision_id:
-            raise ValueError("CrowdSec decision id does not match the active ban for this IP")
-        return parameters
+        return policies.enrich_manual_unban_parameters(db, target, parameters)
 
     def prepare_parameters(self, db: Session, action: Any) -> dict[str, Any] | None:
         if action.action_type not in BAN_ACTION_TYPES or not action.parameters or not action.parameters.get("reason"):
@@ -231,6 +370,14 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
         return {**action.parameters, "reason": f"{action.parameters['reason']} (action #{action.id})"}
 
     def success_event_type(self, action_type: str) -> str | None:
+        event_types = {
+            "security.asn_ban.enable": "security.asn_ban.enabled",
+            "security.asn_ban.disable": "security.asn_ban.disabled",
+            "security.ban.asn_policy": "security.ban.asn_policy",
+            "security.unban.asn_policy_reclassified": "security.unban.asn_policy_reclassified",
+        }
+        if action_type in event_types:
+            return event_types[action_type]
         if action_type in BAN_ACTION_TYPES:
             return "security.ban.manual"
         if action_type in UNBAN_ACTION_TYPES:
@@ -238,6 +385,29 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
         return None
 
     def action_event_data(self, action: Any) -> dict[str, Any]:
+        if action.action_type in ASN_POLICY_INTERNAL_ACTION_TYPES:
+            parameters = action.parameters or {}
+            keys = (
+                "asn",
+                "old_asn",
+                "new_asn",
+                "asn_ban_id",
+                "enforcement_id",
+                "decision_id",
+                "event_id",
+                "provider_name",
+                "scenario",
+                "scenario_group",
+                "duration",
+            )
+            return {key: parameters.get(key) for key in keys if parameters.get(key) is not None}
+        if action.action_type.startswith("security.asn_ban."):
+            parameters = action.parameters or {}
+            return {
+                key: parameters.get(key)
+                for key in ("asn", "asn_ban_id", "event_id", "ip", "provider_name")
+                if parameters.get(key) is not None
+            }
         if action.action_type not in BAN_ACTION_TYPES:
             return {}
         # The CrowdSec page reads data_json.scenario/duration for every ban row
@@ -247,7 +417,29 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
         return {"scenario": parameters.get("reason") or "Manual ban via OpenSecDash", "duration": parameters.get("duration")}
 
     def after_execute(self, db: Session, action: Any) -> None:
-        sync_crowdsec_decisions(db, force=True)
+        if action.action_type in {
+            *BAN_ACTION_TYPES,
+            *UNBAN_ACTION_TYPES,
+            *ASN_POLICY_INTERNAL_ACTION_TYPES,
+        }:
+            ok, message = sync_crowdsec_decisions(db, force=True)
+            if not ok:
+                raise RuntimeError(message)
+        from .services.policies import finalize_action
+
+        finalize_action(db, action)
+
+    def on_event_enriched(self, db: Session, event: Event) -> None:
+        from .services.policies import process_enriched_event
+
+        process_enriched_event(db, event)
+
+    def rollup_display_label_key(self, metric: str, key: str) -> str | None:
+        from .services.policies import POLICY_SCENARIO_GROUP
+
+        if metric == "scenario" and key == POLICY_SCENARIO_GROUP:
+            return "crowdsec.scenario.manual_permanent_asn_ban"
+        return None
 
     # --- Event dedupe rules (see app.services.events) ---
 
@@ -307,8 +499,9 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
                 rows=tuple(
                     {
                         "label": scenario or "unknown",
+                        "label_key": self.rollup_display_label_key("scenario", scenario or ""),
                         "value": count,
-                        "href": f"/events?{urlencode({'event_type': 'security.ban*', 'q': scenario or 'unknown', 'today': 'true'})}",
+                        "href": f"/events?{urlencode({'event_type': 'security.ban*', 'q': scenario or 'unknown', 'include_raw_data': 'true', 'today': 'true'})}",
                     }
                     for scenario, count in _top_daily_rollup_metric(db, "scenario", 10)
                 ),
