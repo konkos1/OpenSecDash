@@ -77,6 +77,15 @@ def test_help_tooltips_are_restored_after_htmx_refreshes():
     assert "trigger.focus({ preventScroll: true })" in script
 
 
+def test_refreshable_details_are_restored_after_htmx_swaps():
+    script = Path("app/static/js/app.js").read_text()
+
+    assert 'target.querySelectorAll("details[data-refresh-state]")' in script
+    assert "details.dataset.refreshState" in script
+    assert "details.open" in script
+    assert "detailsStatesByKey" in script
+
+
 def test_live_refresh_dispatches_to_the_htmx_synchronized_result_region():
     script = Path("app/static/js/app.js").read_text()
     live_mode = script.split("function openSecDashLiveMode", 1)[1].split("function openSecDashAutoRefresh", 1)[0]
