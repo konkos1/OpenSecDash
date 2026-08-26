@@ -191,6 +191,8 @@ def test_crowdsec_policy_management_is_deferred_and_shows_owned_state(db_session
     assert "Provider changed – please review" in data
     assert "8.8.8.8" in data and "1.1.1.1" in data
     assert "owned-2" in data and "safe retry error" in data
+    assert f'data-refresh-state="crowdsec-asn-policy-{policy.id}-active-decisions"' in data
+    assert f'data-refresh-state="crowdsec-asn-policy-{policy.id}-exceptions"' in data
     assert "/exceptions/" in data
     assert "/provider-change/acknowledge" in data
     assert "Only the displayed policy-owned decision ID is retried" in data

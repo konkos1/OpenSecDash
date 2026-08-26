@@ -154,9 +154,10 @@ document.addEventListener("DOMContentLoaded", () => {
     // swap. That replaces the DOM node, which would otherwise silently reset
     // both the page's vertical scroll and any inner horizontal table scroll
     // back to the top/left on every refresh - especially disruptive on small
-    // (mobile) screens where users are scrolled deep into a list. Restoring
-    // it here, once, covers every such region instead of duplicating this in
-    // each place that triggers a refresh.
+    // (mobile) screens where users are scrolled deep into a list. Explicitly
+    // marked details elements also keep their expanded state. Restoring this
+    // here, once, covers every such region instead of duplicating it in each
+    // place that triggers a refresh.
     let pendingScrollRestore = null;
     let pendingTooltipRestore = null;
 
@@ -188,6 +189,10 @@ document.addEventListener("DOMContentLoaded", () => {
             id: target.id,
             windowScrollY: window.scrollY,
             scrollLefts: Array.from(target.querySelectorAll(".overflow-x-auto")).map(el => el.scrollLeft),
+            detailsStates: Array.from(target.querySelectorAll("details[data-refresh-state]")).map(details => ({
+                key: details.dataset.refreshState,
+                open: details.open,
+            })),
         };
     });
 
@@ -234,10 +239,16 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!pendingScrollRestore) {
             return;
         }
-        const { id, windowScrollY, scrollLefts } = pendingScrollRestore;
+        const { id, windowScrollY, scrollLefts, detailsStates } = pendingScrollRestore;
         pendingScrollRestore = null;
         const target = document.getElementById(id);
         if (target) {
+            const detailsStatesByKey = new Map(detailsStates.map(state => [state.key, state.open]));
+            target.querySelectorAll("details[data-refresh-state]").forEach(details => {
+                if (detailsStatesByKey.has(details.dataset.refreshState)) {
+                    details.open = detailsStatesByKey.get(details.dataset.refreshState);
+                }
+            });
             Array.from(target.querySelectorAll(".overflow-x-auto")).forEach((el, index) => {
                 if (scrollLefts[index] !== undefined) {
                     el.scrollLeft = scrollLefts[index];
