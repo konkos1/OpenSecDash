@@ -47,6 +47,58 @@ def test_fresh_crowdsec_ban_queues_pending_notification(db_session):
     assert notifications[0].payload["event_id"] == event.id
 
 
+def test_asn_policy_ban_queues_crowdsec_notification_with_policy_details(db_session):
+    store_event(
+        db_session,
+        source="Action Framework",
+        plugin="crowdsec",
+        event_type="security.ban.asn_policy",
+        severity="warning",
+        event_time=utc_now().replace(tzinfo=None),
+        ip="198.51.100.11",
+        data_json={
+            "asn": "AS64501",
+            "provider_name": "Example Network GmbH",
+            "duration": "7d",
+            "scenario": "opensecdash/manual-permanent-asn-ban/AS64501",
+        },
+    )
+
+    notifications = _notifications(db_session, "core.crowdsec_ban")
+    assert len(notifications) == 1
+    assert notifications[0].payload is not None
+    assert notifications[0].payload["ip"] == "198.51.100.11"
+    assert notifications[0].payload["asn"] == "AS64501"
+    assert notifications[0].payload["provider_name"] == "Example Network GmbH"
+    assert notifications[0].payload["duration"] == "7d"
+    assert notifications[0].payload["scenario"] == "opensecdash/manual-permanent-asn-ban/AS64501"
+
+
+def test_asn_provider_change_queues_notification_with_previous_and_current_details(db_session):
+    store_event(
+        db_session,
+        source="GeoIP enrichment",
+        plugin="crowdsec",
+        event_type="security.asn_ban.provider_changed",
+        severity="warning",
+        event_time=utc_now().replace(tzinfo=None),
+        data_json={
+            "asn": "AS64502",
+            "previous_provider_name": "Old Network AG",
+            "provider_name": "New Network GmbH",
+            "provider_name_changed_at": "2026-08-26T12:34:56",
+        },
+    )
+
+    notifications = _notifications(db_session, "core.asn_provider_changed")
+    assert len(notifications) == 1
+    assert notifications[0].payload is not None
+    assert notifications[0].payload["asn"] == "AS64502"
+    assert notifications[0].payload["previous_provider_name"] == "Old Network AG"
+    assert notifications[0].payload["provider_name"] == "New Network GmbH"
+    assert notifications[0].payload["provider_name_changed_at"] == "2026-08-26T12:34:56"
+
+
 def test_reprocessing_fresh_event_updates_pending_notification_without_duplicate(db_session):
     event = store_event(
         db_session,
