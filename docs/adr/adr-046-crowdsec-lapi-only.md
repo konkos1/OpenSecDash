@@ -27,3 +27,12 @@ This decision supersedes the subprocess-based CrowdSec examples in ADR-007, ADR-
 - Same-host Docker installations continue to work with `http://127.0.0.1:8080` when host networking is enabled.
 - Bridge-network installations use a reachable host address or the CrowdSec container name on a shared Docker network.
 - Administrators that require stricter egress policy can enforce a host or network allowlist outside OpenSecDash, for example with container networking or firewall rules.
+
+## Implementation notes (2026-08-26)
+
+Permanent ASN policies follow the same LAPI-only boundary. For each newly observed
+matching public IP, OpenSecDash sends an ordinary global `scope=Ip` decision with a
+seven-day duration and `opensecdash` origin. It never launches `cscli`, sends a native
+ASN scope, or assumes ASN support in a bouncer. Exact LAPI decision IDs are synchronized
+and retained so reclassification release and policy removal can target only policy-owned
+decisions.

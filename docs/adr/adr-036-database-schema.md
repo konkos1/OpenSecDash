@@ -1,7 +1,9 @@
 # ADR-036 Database Schema
 
 > **Implementation status (2026-07-09):** Implemented.
-> Current SQLAlchemy models include settings, plugins, datasources, events, insights, insight_rules, systems, assets, actions, aggregations, diagnostics, CrowdSec decisions, and GeoIP cache.
+> Current SQLAlchemy models include settings, plugins, datasources, events, insights,
+> insight rules, systems, assets, actions, aggregations, diagnostics, CrowdSec decisions,
+> permanent ASN policies/exceptions/enforcements, and GeoIP cache.
 
 
 ## Tables
@@ -330,3 +332,28 @@ is_local_ip
 
 The `assets` table includes source identity, host URLs, release API/web URLs, update status, MQTT publish flag, and last checked timestamps.
 
+## Implementation notes (2026-08-26)
+
+Permanent manual ASN bans add three central tables alongside `crowdsec_decisions`:
+
+```none
+crowdsec_asn_bans
+crowdsec_asn_ban_exceptions
+crowdsec_asn_ban_enforcements
+```
+
+`crowdsec_asn_bans` has one unique normalized ASN and stores policy status, current and
+previous provider-name snapshots, review timestamps/flag, last match, and removal error.
+Its status is constrained to `active` or `removing`.
+
+`crowdsec_asn_ban_exceptions` belongs to one policy with cascading deletion and has a
+unique `(asn_ban_id, ip)` pair. `source_action_id` is a nullable audit correlation value,
+not a foreign key, so Action retention cannot invalidate an exception.
+
+`crowdsec_asn_ban_enforcements` also belongs to one policy with cascading deletion and
+has a unique `(asn_ban_id, ip)` pair. It retains the exact CrowdSec decision ID, expiry,
+scenario, last classified ASN, last event/action correlation values, and ID-specific
+release-pending state. `last_event_id` and `action_id` are nullable correlations rather
+than foreign keys because Event or Action retention must not remove ownership evidence.
+The table is not a second active-decision inventory; `crowdsec_decisions` remains the
+synchronized CrowdSec state.

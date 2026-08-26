@@ -82,6 +82,101 @@ When dry run is disabled, unban buttons are shown only when OpenSecDash knows ab
 
 See [Actions and safety](../operations/actions.md) for central target validation, permissions, confirmations, and audit history.
 
+## Permanent manual ASN bans
+
+OpenSecDash can keep a permanent local policy for an unwanted ASN and respond to newly
+observed matching IPs. This requires all of the following:
+
+- the CrowdSec plugin enabled, with an authenticated and reachable LAPI;
+- [GeoIP](./geoip.md#geoip-and-permanent-asn-bans) enabled and usable;
+- Action simulation disabled for real activation and enforcement;
+- an Operator or Admin for policy actions.
+
+In Events or Access, open **Columns** and enable the optional **ASN** column if it
+is hidden. Select the ASN value to open its popup, review the ASN and provider snapshot,
+and confirm **Permanently ban ASN**. Activation bans only the popup's current public IP;
+it does not scan older events for other IPs.
+
+### What CrowdSec receives
+
+For each newly observed public IP that a successful GeoIP enrichment assigns to the
+policy ASN, OpenSecDash sends a normal global decision with:
+
+```text
+scope=Ip
+duration=7d
+origin=opensecdash
+scenario=opensecdash/manual-permanent-asn-ban/AS...
+```
+
+OpenSecDash explicitly does **not** use `scope=As`. It neither resolves the ASN to BGP
+prefixes nor depends on ASN-aware bouncers; standard bouncers only need their normal IP
+decision support. The local ASN policy is permanent, but each CrowdSec decision is not.
+
+An existing active CrowdSec ban for the IP prevents a duplicate policy decision. When a
+policy decision expires, no timer renews it. Only a later newly stored and enriched event
+can create another seven-day decision. If that event maps the IP to a different ASN:
+
+- a new non-blocked ASN releases only the exact old policy-owned decision ID;
+- an independent decision for the same IP remains untouched;
+- a failed release stays `release_pending` for an ID-specific retry during a later
+  CrowdSec tick;
+- if the new ASN is also blocked, the existing decision remains attributed to the old
+  policy until expiry; ownership is never transferred in place.
+
+### Exceptions and removal
+
+Manually unbanning a policy-owned decision automatically creates a durable exception for
+that ASN/IP pair after the LAPI deletion succeeds. It is not a global allowlist, and
+there is no ambiguous one-time unban. A failed or simulated unban creates no exception;
+an independent CrowdSec unban follows the existing flow and creates none.
+
+Removing an exception is confirmed and re-enables future matching for that pair, but old
+events are not reprocessed. Removing an ASN policy is also confirmed and deletes only
+active decisions whose exact ID, scenario, origin, IP, and ownership record still match.
+A partial failure leaves the policy in `removing` with its error visible and retryable.
+
+The CrowdSec page manages the policies, latest provider snapshots, active policy-owned
+decisions, exceptions, pending releases, and removal failures. Existing policies and
+exceptions remain visible if GeoIP or CrowdSec is disabled; new enforcement pauses.
+
+### Insights, counters, and scenario history
+
+Every successful automatic policy ban creates one high-confidence IP Explorer insight
+that records the ASN, provider snapshot, and `7d` duration. Its wording is historical:
+it says that the IP **was banned**, not that its decision is still active. Current state
+comes from the CrowdSec active-ban panel.
+
+Policy bans count in ban totals, IP Explorer counts, CrowdSec history, active decisions,
+rollups, and the Dashboard. The complete ASN-specific scenario stays visible in Events
+and CrowdSec history. Rollups, CrowdSec top scenarios, and the Dashboard combine all of
+them under the localized **Manual permanent ASN ban** group; its drill-down searches the
+complete scenarios and therefore finds each contributing ASN.
+
+### Provider-name review
+
+The provider or organization name is a mutable GeoIP display snapshot, not ASN identity.
+A substantially different non-empty name keeps the previous and current snapshots plus
+the detection time and shows **Provider changed – review required**. Case or whitespace
+alone does not trigger it. Acknowledging the warning confirms only that the latest
+snapshot was reviewed; it does not prove an ownership change, pause enforcement, or
+remove a policy or decision. Policy removal remains a separate confirmed action.
+
+::: warning The first access is always observed before enforcement
+The sequence is:
+
+```text
+first access reaches the service
+→ event is stored
+→ GeoIP enriches it asynchronously
+→ OpenSecDash creates the 7d IP decision
+→ the CrowdSec bouncer fetches and applies it
+```
+
+Blocking is therefore possible **no earlier than the second access**, and even that is
+not guaranteed. GeoIP, LAPI, and bouncer latency or errors can allow further accesses.
+:::
+
 ## Connection diagnostics
 
 The CrowdSec page and IP Explorer show LAPI reachability and authentication status. In dry-run mode, connection errors are not shown as prominent action errors because real actions are not executed.

@@ -19,6 +19,7 @@ OpenSecDash collects security events, access logs, asset information, and update
 - Who is knocking on my services?
 - Which requests were blocked or failed?
 - What happened around a specific IP address?
+- Can I permanently ban an unwanted ASN?
 - Which events look like meaningful security insights instead of background noise?
 - Which apps are installed, and which need updates?
 - Are my plugins and datasources healthy?
@@ -65,6 +66,8 @@ See the [Docker installation guide](https://opensecdash.app/guide/installation/d
 ## Built-in integrations
 
 OpenSecDash includes plugins for CrowdSec, Traefik access logs, GeoBlock logs, GeoIP enrichment, JSON/Proxmox assets, and MQTT export.
+
+The CrowdSec integration also includes permanent manual ASN bans.
 
 See the [plugin documentation](https://opensecdash.app/guide/plugins/) for setup details.
 
