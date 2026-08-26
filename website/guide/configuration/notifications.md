@@ -65,15 +65,26 @@ separate notification rule for every built-in, downloaded, or plugin-provided In
 You can enable or disable each rule without losing that choice after a restart or an
 Insight ruleset update.
 
+All newly created notification rules start disabled. Notifications are always opt-in:
+enabling the global notification setting and configuring SMTP does not activate any
+event, system, ASN, or Insight rule. Select each rule you want to receive explicitly on
+the Notifications page. Existing saved rule choices are preserved during upgrades.
+
 | Rule | Trigger | Default cooldown |
 | --- | --- | --- |
-| CrowdSec ban | `security.ban` event | 1 minute |
+| CrowdSec ban | `security.ban` or successful permanent ASN-policy ban | 1 minute |
+| ASN organization changed | a confirmed organization change for a permanent ASN policy | 60 minutes |
 | Asset offline | a system becomes stale | 60 minutes |
 | Plugin error | a plugin diagnostic changes to error | 60 minutes |
 
-New Insight notification rules start disabled. When upgrading from the earlier shared
-**Scanner detected** rule, currently known high-severity Insights inherit its enabled
-state and the wildcard rule is retired to prevent duplicate email.
+ASN-policy ban emails include the IP, ASN, current ASN organization, decision duration,
+and CrowdSec scenario. ASN-organization change emails include the ASN, previous and
+current organization snapshots, and the time the change was confirmed. These names are
+GeoIP snapshots for operator review; they do not prove that the ASN changed ownership.
+
+When upgrading from the earlier shared **Scanner detected** rule, currently known
+high-severity Insights inherit its enabled state and the wildcard rule is retired to
+prevent duplicate email.
 
 Plugins declare the event types they can produce. An Insight rule is selectable and
 effective only while enabled plugins can produce all of its required input event types.

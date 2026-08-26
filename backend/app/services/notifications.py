@@ -31,6 +31,14 @@ BACKLOG_PROTECTION_WINDOW = timedelta(minutes=15)
 PENDING_NOTIFICATION_LIMIT = 25
 INSIGHT_NOTIFICATION_RULE_PREFIX = "insight."
 LEGACY_INSIGHT_NOTIFICATION_RULE_ID = "core.scanner_detected"
+EVENT_NOTIFICATION_DETAIL_KEYS = (
+    "asn",
+    "previous_provider_name",
+    "provider_name",
+    "provider_name_changed_at",
+    "duration",
+    "scenario",
+)
 
 
 @dataclass(frozen=True)
@@ -68,11 +76,23 @@ DEFAULT_NOTIFICATION_RULES = (
         "rule_id": "core.crowdsec_ban",
         "name": "CrowdSec ban",
         "source": "event",
-        "match_types": ["security.ban"],
+        "match_types": ["security.ban", "security.ban.asn_policy"],
         "min_severity": "warning",
         "min_count": 1,
         "window_minutes": 10,
         "cooldown_minutes": 1,
+        "enabled": False,
+    },
+    {
+        "rule_id": "core.asn_provider_changed",
+        "name": "ASN organization changed",
+        "source": "event",
+        "match_types": ["security.asn_ban.provider_changed"],
+        "min_severity": "warning",
+        "min_count": 1,
+        "window_minutes": 10,
+        "cooldown_minutes": 60,
+        "enabled": False,
     },
     {
         "rule_id": "core.asset_offline",
@@ -83,6 +103,7 @@ DEFAULT_NOTIFICATION_RULES = (
         "min_count": 1,
         "window_minutes": 10,
         "cooldown_minutes": 60,
+        "enabled": False,
     },
     {
         "rule_id": "core.plugin_error",
@@ -93,16 +114,21 @@ DEFAULT_NOTIFICATION_RULES = (
         "min_count": 1,
         "window_minutes": 10,
         "cooldown_minutes": 60,
+        "enabled": False,
     },
 )
 
 
 def seed_default_notification_rules(db: Session) -> None:
     """Add missing built-in notification rules without changing user settings."""
-    existing_rule_ids = {rule_id for (rule_id,) in db.query(NotificationRule.rule_id).all()}
+    existing_rules = {rule.rule_id: rule for rule in db.query(NotificationRule).all()}
     for rule in DEFAULT_NOTIFICATION_RULES:
-        if rule["rule_id"] not in existing_rule_ids:
+        if rule["rule_id"] not in existing_rules:
             db.add(NotificationRule(**rule))
+    crowdsec_rule = existing_rules.get("core.crowdsec_ban")
+    if crowdsec_rule is not None and crowdsec_rule.match_types == ["security.ban"]:
+        crowdsec_rule.match_types = ["security.ban", "security.ban.asn_policy"]
+        crowdsec_rule.updated_at = utc_now().replace(tzinfo=None)
     sync_insight_notification_rules(db)
 
 
@@ -339,6 +365,12 @@ def handle_event(db: Session, event: Event) -> None:
                 continue
             if rule.asset_id is not None and event.asset_id != rule.asset_id:
                 continue
+            event_data = event.data_json or {}
+            details = {}
+            for key in EVENT_NOTIFICATION_DETAIL_KEYS:
+                value = event_data.get(key)
+                if value is not None and value != "":
+                    details[key] = value
             _enqueue_event(
                 db,
                 rule,
@@ -351,6 +383,7 @@ def handle_event(db: Session, event: Event) -> None:
                     "country": event.country,
                     "path": event.path,
                     "asset_id": event.asset_id,
+                    **details,
                 },
             )
     except Exception:
@@ -408,12 +441,25 @@ def render_notification(db: Session, rule: NotificationRule, pending: list[Notif
     items: list[str] = []
     more_text: str | None = None
     links: list[tuple[str, str]] = []
+    fields = (
+        ("ip", "notification.email.ip"),
+        ("country", "notification.email.country"),
+        ("path", "notification.email.path"),
+        ("asn", "notification.email.asn"),
+        ("previous_provider_name", "notification.email.previous_asn_organization"),
+        ("provider_name", "notification.email.asn_organization"),
+        ("provider_name_changed_at", "notification.email.detected_at"),
+        ("duration", "notification.email.duration"),
+        ("scenario", "notification.email.scenario"),
+        ("severity", "notification.email.severity"),
+        ("level", "notification.email.level"),
+    )
     if len(pending) > 1:
         heading = text("notification.email.digest_title").format(count=len(pending), name=name, minutes=rule.window_minutes)
         lines = [heading, ""]
         for item in pending[:5]:
             payload = item.payload or {}
-            parts = [str(payload[key]) for key in ("ip", "country", "path") if payload.get(key)]
+            parts = [f"{text(label)}: {payload[key]}" for key, label in fields if payload.get(key)]
             if parts:
                 summary = " · ".join(parts)
                 lines.append(summary)
@@ -425,7 +471,6 @@ def render_notification(db: Session, rule: NotificationRule, pending: list[Notif
         payload = pending[0].payload or {}
         heading = name
         lines = [name]
-        fields = (("ip", "notification.email.ip"), ("country", "notification.email.country"), ("path", "notification.email.path"), ("severity", "notification.email.severity"), ("level", "notification.email.level"))
         for key, label in fields:
             if payload.get(key):
                 label_text = text(label)

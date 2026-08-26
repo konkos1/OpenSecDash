@@ -40,6 +40,10 @@ class FakeChannel:
 @pytest.fixture(autouse=True)
 def notification_settings(db_session, _test_secret_key):
     seed_default_notification_rules(db_session)
+    db_session.query(NotificationRule).filter(NotificationRule.rule_id.startswith("core.")).update(
+        {NotificationRule.enabled: True},
+        synchronize_session=False,
+    )
     for key, value in {
         "notifications.enabled": "true",
         "notifications.base_url": "http://dashboard.example",
@@ -72,6 +76,59 @@ def test_dispatch_sends_pending_event_with_deep_link(db_session, monkeypatch):
     assert "http://dashboard.example/ip/1.2.3.4" in channel.messages[0][1]
     assert '<a href="http://dashboard.example/ip/1.2.3.4"' in (channel.messages[0][2] or "")
     assert "cid:opensecdash-logo" in (channel.messages[0][2] or "")
+
+
+def test_dispatch_includes_asn_policy_ban_details(db_session, monkeypatch):
+    channel = FakeChannel()
+    monkeypatch.setattr(notifications, "get_channel", lambda _: channel)
+    db_session.add(
+        _pending(
+            "core.crowdsec_ban",
+            source="event",
+            type="security.ban.asn_policy",
+            ip="198.51.100.11",
+            asn="AS64501",
+            provider_name="Example Network GmbH",
+            duration="7d",
+            scenario="opensecdash/manual-permanent-asn-ban/AS64501",
+            severity="warning",
+        )
+    )
+    db_session.commit()
+
+    assert dispatch_pending_notifications(db_session) == 1
+    body = channel.messages[0][1]
+    assert "IP: 198.51.100.11" in body
+    assert "ASN: AS64501" in body
+    assert "ASN organization: Example Network GmbH" in body
+    assert "Duration: 7d" in body
+    assert "Scenario: opensecdash/manual-permanent-asn-ban/AS64501" in body
+
+
+def test_dispatch_localizes_asn_provider_change_details(db_session, monkeypatch):
+    channel = FakeChannel()
+    monkeypatch.setattr(notifications, "get_channel", lambda _: channel)
+    save_setting(db_session, "language", "de")
+    db_session.add(
+        _pending(
+            "core.asn_provider_changed",
+            source="event",
+            type="security.asn_ban.provider_changed",
+            asn="AS64502",
+            previous_provider_name="Altes Netz AG",
+            provider_name="Neues Netz GmbH",
+            provider_name_changed_at="2026-08-26T12:34:56",
+            severity="warning",
+        )
+    )
+    db_session.commit()
+
+    assert dispatch_pending_notifications(db_session) == 1
+    body = channel.messages[0][1]
+    assert "ASN: AS64502" in body
+    assert "Vorherige ASN-Organisation: Altes Netz AG" in body
+    assert "ASN-Organisation: Neues Netz GmbH" in body
+    assert "Erkannt: 2026-08-26T12:34:56" in body
 
 
 def test_dispatch_omits_links_without_base_url(db_session, monkeypatch):
@@ -108,7 +165,7 @@ def test_dispatch_aggregates_pending_notifications_and_respects_cooldown(db_sess
 def test_threshold_skips_expired_pending_and_sends_when_reached(db_session, monkeypatch):
     channel = FakeChannel()
     monkeypatch.setattr(notifications, "get_channel", lambda _: channel)
-    rule = NotificationRule(rule_id="test.threshold", name="Threshold", source="event", match_types=["test"], min_count=3, window_minutes=10)
+    rule = NotificationRule(rule_id="test.threshold", name="Threshold", source="event", match_types=["test"], min_count=3, window_minutes=10, enabled=True)
     old = _pending("test.threshold", source="event", type="test")
     old.created_at = utc_now().replace(tzinfo=None) - timedelta(minutes=11)
     db_session.add_all([rule, old, _pending("test.threshold", source="event", type="test"), _pending("test.threshold", source="event", type="test")])
@@ -127,7 +184,7 @@ def test_dispatch_marks_failed_and_continues_with_other_rules(db_session, monkey
     successful_channel = FakeChannel()
     monkeypatch.setattr(notifications, "get_channel", lambda channel_id: failed_channel if channel_id == "email" else successful_channel)
     failing = _pending("core.crowdsec_ban", source="event", type="security.ban")
-    other_rule = NotificationRule(rule_id="test.other", name="Other", source="event", match_types=["other"], channel="other")
+    other_rule = NotificationRule(rule_id="test.other", name="Other", source="event", match_types=["other"], channel="other", enabled=True)
     successful = _pending("test.other", source="event", type="other")
     db_session.add_all([failing, other_rule, successful])
     db_session.commit()
