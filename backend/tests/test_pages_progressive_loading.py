@@ -17,7 +17,7 @@ from starlette.requests import Request
 import app.main  # noqa: F401
 from app.api import pages
 from app.models.assets import Asset
-from app.models.core import AggregationMonthly
+from app.models.core import AggregationDaily, AggregationMonthly
 from app.models.events import Event
 from app.models.settings import Setting
 from app.models.systems import System
@@ -135,6 +135,24 @@ def test_rollups_shell_defers_and_data_loads(db_session):
 
     _assert_shell(shell, marker="security.rollupmarker")
     _assert_data(data, marker="security.rollupmarker")
+
+
+def test_rollups_year_period_combines_daily_and_monthly_data(db_session):
+    _enable(db_session, "crowdsec")
+    db_session.add(AggregationMonthly(month="2026-01", metric="event_type", key="security.yearmarker", value=13))
+    db_session.add(AggregationDaily(date="2026-07-02", metric="event_type", key="security.yearmarker", value=2))
+    db_session.commit()
+
+    data = _html(
+        pages.rollups_page(
+            _req("/rollups", hx=True, query_string=b"period=year&value=2026"),
+            db=db_session,
+        )
+    )
+
+    assert '<option value="year" selected>Year</option>' in data
+    assert "security.yearmarker" in data
+    assert "<strong>15</strong>" in data
 
 
 def test_ip_explorer_shell_defers_and_data_loads(db_session):

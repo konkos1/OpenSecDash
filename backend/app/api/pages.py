@@ -281,14 +281,18 @@ def diagnostic_component_visible(item: Diagnostic) -> bool:
 
 
 def rollup_rows(db: Session, period: str, value: str, metric: str, limit: int | None = None) -> list[dict[str, str | int]]:
-    if period == "month":
-        # Month view = compacted monthly rows PLUS any daily rows of that
-        # month that compaction hasn't merged yet. Summing the leftovers in at
-        # read time keeps the month exact while daily precision is retained for
-        # the Dashboard trend and when late events arrive for an older month.
+    if period in {"month", "year"}:
+        # Month/year views combine compacted monthly rows with daily rows that
+        # compaction has not merged yet. This keeps totals exact while recent
+        # daily precision is retained and when late events arrive after a
+        # month's existing rows were compacted.
+        monthly_period = AggregationMonthly.month == value
+        if period == "year":
+            monthly_period = AggregationMonthly.month.like(f"{value}-%")
         stored_rows = list(
-            db.query(AggregationMonthly.key, AggregationMonthly.value)
-            .filter(AggregationMonthly.month == value, AggregationMonthly.metric == metric)
+            db.query(AggregationMonthly.key, func.sum(AggregationMonthly.value))
+            .filter(monthly_period, AggregationMonthly.metric == metric)
+            .group_by(AggregationMonthly.key)
             .all()
         )
         stored_rows.extend(
@@ -317,12 +321,13 @@ def rollup_rows(db: Session, period: str, value: str, metric: str, limit: int | 
     return [{"key": key, "value": row_value} for key, row_value in rows]
 
 
-def available_rollup_periods(db: Session) -> tuple[list[str], list[str]]:
+def available_rollup_periods(db: Session) -> tuple[list[str], list[str], list[str]]:
     days = [str(day) for (day,) in db.query(AggregationDaily.date).distinct().order_by(AggregationDaily.date.desc()).all()]
     monthly_months = {str(month) for (month,) in db.query(AggregationMonthly.month).distinct().all()}
     daily_months = {day[:7] for day in days}
     months = sorted(monthly_months | daily_months, reverse=True)
-    return days, months
+    years = sorted({month[:4] for month in months}, reverse=True)
+    return days, months, years
 
 
 def summary_from_event_type_rows(rows: list[dict[str, str | int]]) -> dict[str, int]:
@@ -883,12 +888,12 @@ async def reset_dashboard_layout(request: Request, db: Session = Depends(get_db)
 def rollups_page(request: Request, db: Session = Depends(get_db)):
     require_events_feature_enabled(db)
     # No compaction here: a GET must not have write side effects, the hourly
-    # background loop compacts anyway, and the month view merges leftover
+    # background loop compacts anyway, and the month/year views merge leftover
     # daily rows at read time - so the numbers are exact without it.
-    days, months = available_rollup_periods(db)
+    days, months, years = available_rollup_periods(db)
     requested_period = request.query_params.get("period") or "month"
-    period = requested_period if requested_period in {"day", "month"} else "month"
-    available_values = months if period == "month" else days
+    period = requested_period if requested_period in {"day", "month", "year"} else "month"
+    available_values = {"day": days, "month": months, "year": years}[period]
     requested_value = (request.query_params.get("value") or "").strip()
     selected_value = requested_value if requested_value in available_values else (available_values[0] if available_values else "")
 
@@ -923,6 +928,7 @@ def rollups_page(request: Request, db: Session = Depends(get_db)):
         selected_value=selected_value,
         available_days=days,
         available_months=months,
+        available_years=years,
         summary=summary,
         event_type_rows=event_type_rows,
         scenario_rows=scenario_rows,

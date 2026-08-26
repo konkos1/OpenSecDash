@@ -17,6 +17,7 @@
       <label class="text-sm sm:w-40">
         <span class="muted block mb-1">{{ t("rollups.period") }}</span>
         <select class="input" name="period" data-rollups-period>
+          <option value="year" {% if period == 'year' %}selected{% endif %}>{{ t("rollups.year") }}</option>
           <option value="month" {% if period == 'month' %}selected{% endif %}>{{ t("rollups.month") }}</option>
           <option value="day" {% if period == 'day' %}selected{% endif %}>{{ t("rollups.day") }}</option>
         </select>
@@ -24,7 +25,13 @@
       <label class="text-sm sm:w-48">
         <span class="muted block mb-1">{{ t("rollups.value") }}</span>
         <select class="input" name="value" data-rollups-value {% if not selected_value %}disabled{% endif %}>
-          {% if period == 'month' %}
+          {% if period == 'year' %}
+            {% if available_years %}
+              {% for value in available_years %}<option value="{{ value }}" {% if value == selected_value %}selected{% endif %}>{{ value }}</option>{% endfor %}
+            {% else %}
+              <option value="">{{ t("rollups.no_years") }}</option>
+            {% endif %}
+          {% elif period == 'month' %}
             {% if available_months %}
               {% for value in available_months %}<option value="{{ value }}" {% if value == selected_value %}selected{% endif %}>{{ value }}</option>{% endfor %}
             {% else %}
