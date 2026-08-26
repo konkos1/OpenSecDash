@@ -28,6 +28,7 @@ def test_rollups_page_renders_translated_data_labels():
     translations = {
         "rollups.label_event_type": "Event type",
         "rollups.label_scenario": "Scenario",
+        "rollups.year": "Year",
         "events.country": "Country",
         "rollups.label_count": "Count",
     }
@@ -56,6 +57,7 @@ def test_rollups_page_renders_translated_data_labels():
         selected_value="2026-06",
         available_days=[],
         available_months=["2026-06"],
+        available_years=["2026"],
         summary={},
         event_type_rows=[{"key": "security.ban", "value": 1}],
         scenario_rows=[{"key": "ssh-bf", "value": 1}],
@@ -66,6 +68,7 @@ def test_rollups_page_renders_translated_data_labels():
     assert 'data-label="Scenario"' in html
     assert 'data-label="Country"' in html
     assert 'data-label="Count"' in html
+    assert '<option value="year" >Year</option>' in html
 
 
 def test_update_rollups_adds_summary_metrics(db_session):
@@ -100,6 +103,25 @@ def test_rollup_rows_combines_existing_manual_ban_scenario_action_ids(db_session
     ]
     assert rollup_rows(db_session, "month", "2026-07", "scenario") == [
         {"key": "Manual ban via OpenSecDash", "value": 9}
+    ]
+
+
+def test_rollup_rows_combines_monthly_and_daily_values_for_year(db_session):
+    db_session.add_all(
+        [
+            AggregationMonthly(month="2025-12", metric="summary", key="total_events", value=100),
+            AggregationMonthly(month="2026-01", metric="summary", key="total_events", value=10),
+            AggregationMonthly(month="2026-07", metric="summary", key="total_events", value=20),
+            AggregationDaily(date="2026-07-02", metric="summary", key="total_events", value=3),
+            AggregationDaily(date="2026-08-01", metric="summary", key="security_events", value=4),
+            AggregationDaily(date="2027-01-01", metric="summary", key="total_events", value=200),
+        ]
+    )
+    db_session.commit()
+
+    assert rollup_rows(db_session, "year", "2026", "summary") == [
+        {"key": "total_events", "value": 33},
+        {"key": "security_events", "value": 4},
     ]
 
 
@@ -437,12 +459,12 @@ def test_rollup_summary_falls_back_to_event_type_rows(db_session):
     }
 
 
-def test_available_rollup_periods_includes_current_daily_month_and_monthly(db_session):
+def test_available_rollup_periods_includes_days_months_and_years(db_session):
     db_session.add(AggregationDaily(date="2026-07-02", metric="summary", key="total_events", value=2))
-    db_session.add(AggregationMonthly(month="2026-06", metric="summary", key="total_events", value=10))
+    db_session.add(AggregationMonthly(month="2025-12", metric="summary", key="total_events", value=10))
     db_session.commit()
 
-    assert available_rollup_periods(db_session) == (["2026-07-02"], ["2026-07", "2026-06"])
+    assert available_rollup_periods(db_session) == (["2026-07-02"], ["2026-07", "2025-12"], ["2026", "2025"])
 
 
 def test_retention_cleanup_keeps_daily_rollups_needed_for_current_month(db_session):

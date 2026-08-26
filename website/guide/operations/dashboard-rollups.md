@@ -23,6 +23,7 @@ You can select:
 
 - a specific day, backed by daily rollups
 - a specific calendar month, backed by daily rollups while the month overlaps the Dashboard trend and by monthly rollups after compaction
+- a calendar year, calculated from its daily and monthly rollups; the current year covers the year to date
 
 The page shows summary cards and breakdown tables.
 
