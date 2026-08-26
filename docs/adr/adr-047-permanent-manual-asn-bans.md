@@ -1,8 +1,10 @@
 # ADR-047: Permanent manual ASN bans
 
-> **Implementation status (2026-08-26):** The persistent data model and policy enforcement are implemented; management UI and documentation remain pending.
+> **Implementation status (2026-08-26):** Implemented. The persistent data model,
+> event-driven enforcement, management UI, provider-review workflow, and operator
+> documentation are complete.
 
-## Status: accepted (2026-08-25)
+## Status: implemented (2026-08-26)
 
 ## Context
 
@@ -100,3 +102,12 @@ logic remains in the CrowdSec plugin as required by ADR-044.
 - Provider changes remain visible for review while enforcement continues unchanged.
 - A small generic post-enrichment hook expands the plugin contract without introducing
   direct cross-plugin imports or a remotely configurable event bus.
+
+## Implementation notes (2026-08-26)
+
+The implementation follows this decision without functional deviations. Policy-owned
+decisions are synchronized through CrowdSec LAPI, their exact IDs are retained for
+release and cleanup, and the UI exposes active decisions, exceptions, pending work,
+provider snapshots, and review acknowledgement. The direct ASN-policy Insight is stored
+as historical evidence of a successful ban; current decision state remains sourced from
+the CrowdSec decision synchronization.

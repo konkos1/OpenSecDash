@@ -126,7 +126,7 @@ Available columns:
 | User agent | User agent string. Long values can be opened in an overlay. |
 | Router | Router name from supported reverse proxy logs. |
 | Service | Service/backend name from supported reverse proxy logs. |
-| ASN | GeoIP ASN, for example `AS15169`. |
+| ASN | GeoIP ASN, for example `AS15169`. Selecting a visible ASN opens the combined ASN/provider popup and, for Operators with usable GeoIP and CrowdSec, the confirmed permanent-policy action. |
 | ISP | GeoIP ISP/organization. Long values can be opened in an overlay. |
 
 Default Events columns:
@@ -140,6 +140,10 @@ Default Access columns:
 ```text
 time, ip, host, method, status, path
 ```
+
+ASN is not in either default set. To start a permanent ASN policy from Events or Access,
+open **Columns**, enable **ASN** for that page, then select the ASN value. The
+choice is saved separately for Events and Access.
 
 ## Events and Access search
 

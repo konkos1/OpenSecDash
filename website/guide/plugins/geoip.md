@@ -94,6 +94,49 @@ is currently selected. After you switch providers, the stored entries of the pre
 provider are therefore not served: the next lookup for that address refreshes the entry
 through the new provider.
 
+## GeoIP and permanent ASN bans
+
+Permanent ASN policies act on the `asn` and `isp` fields stored with an event. The ASN
+number is the policy key; `isp` is only the latest provider or organization display
+snapshot. When an event producer already supplies GeoIP fields, those values win and the
+remote provider does not overwrite them. Otherwise, the selected remote provider and its
+cached result supply the classification.
+
+The selected provider, cache TTL, and provider changes therefore affect freshness. A
+successful result is reused until its TTL expires. Switching providers bypasses entries
+from the previous provider, while a producer-supplied value can remain as current as the
+producer makes it. GeoIP data can be wrong, stale, incomplete, or temporarily unavailable;
+OpenSecDash makes no accuracy guarantee for an external provider. A wrong ASN can cause a
+wrong automatic ban.
+
+ASN allocation can be transferred, and organizations can rename or change. The stored
+`isp` value is not an authoritative registry name or permanent identity. When a blocked
+ASN later receives a substantially different non-empty provider name, OpenSecDash keeps
+the old and new snapshots and detection time and marks the policy for manual review.
+Case and whitespace differences alone are ignored. The warning reports a changed GeoIP
+label; it does not prove ownership changed. Detection and acknowledgement leave the policy
+and its decisions active. Use the separate confirmed policy-removal action if review shows
+that the policy itself should end.
+
+An ASN-specific IP exception is the correction path for one false match without allowing
+the IP globally. Disabling GeoIP stops new automatic classifications and policy bans, but
+does not delete stored policies or exceptions. They remain visible on the CrowdSec page.
+
+::: warning Classification follows the first event
+GeoIP enrichment runs asynchronously after an event is stored:
+
+```text
+first access is stored
+→ GeoIP assigns ASN and provider data
+→ OpenSecDash creates a seven-day CrowdSec IP decision
+→ the bouncer fetches and applies it
+```
+
+The first access cannot be blocked by the ASN policy. Blocking can happen **no earlier
+than the second access**, but provider, enrichment, LAPI, and bouncer latency or errors
+mean further accesses may also get through.
+:::
+
 ## For contributors
 
 Each provider lives in its own module under
@@ -107,3 +150,4 @@ never discovered dynamically or loaded from configuration.
 ## Display
 
 Country, city, ASN, and ISP can be enabled as optional columns in Events and Access views.
+Use **Columns** to show ASN before opening its permanent-policy popup.

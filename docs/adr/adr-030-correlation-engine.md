@@ -508,5 +508,19 @@ Insights
 User
 ```
 
+---
+
+## Implementation notes (2026-08-26)
+
+The direct Insight type `asn_policy_security_ban` is created only from a successful
+`security.ban.asn_policy` event. It has high confidence and records the matching ASN,
+provider-name snapshot, and seven-day duration. Dedupe uses the related source event ID,
+so one successful automatic ban produces one Insight.
+
+This is direct event evidence rather than a new heuristic or remote rule. Its wording is
+deliberately historical: it states that the IP was banned because of the permanent ASN
+policy and does not claim that the CrowdSec decision is still active. Current state is
+read from the synchronized CrowdSec decisions.
+
 
 ---

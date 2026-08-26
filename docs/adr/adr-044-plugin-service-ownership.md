@@ -42,3 +42,16 @@ This was a deliberate transitional solution: The previous plugin loader only loa
 - The action framework remains plugin-agnostic and uses plugin hooks for validation, event data, dedupe, and follow-up work.
 - The core imports no concrete plugin modules; it uses managers, registries, and hooks.
 - Plugin API Version `2` describes the package layout with `__init__.py`, relative imports, optional web/IP/dedupe/action hooks, and the `asset_source` capability.
+
+## Implementation notes (2026-08-26)
+
+Permanent ASN policy logic, CrowdSec LAPI calls, routes, templates, locales, diagnostics,
+and retry work are owned by the CrowdSec plugin. GeoIP reports a completed event
+enrichment through the generic `on_event_enriched` Plugin API hook; the plugin manager
+dispatches it with per-plugin failure isolation. Neither core nor GeoIP imports the
+CrowdSec plugin.
+
+The three ASN policy tables remain central schemas in `app/models/core.py` alongside
+`CrowdSecDecision`. This is a documented schema exception only: services and UI remain
+plugin-owned, and core consumers use generic event, action, Insight, rollup, and plugin
+interfaces.

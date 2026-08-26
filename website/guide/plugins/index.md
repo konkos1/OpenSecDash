@@ -8,10 +8,10 @@ Current plugins include:
 
 | Plugin | Purpose |
 | --- | --- |
-| [CrowdSec](./crowdsec.md) | Import ban history and execute ban/unban actions through CrowdSec's Local API |
+| [CrowdSec](./crowdsec.md) | Import ban history, execute LAPI actions, and manage permanent local ASN-response policies |
 | [Traefik Access Log](./traefik.md) | Import and classify reverse proxy access log entries |
 | [GeoBlock Log](./geoblock.md) | Import geoblock events |
-| [GeoIP / ASN / ISP / City](./geoip.md) | Enrich public IP events |
+| [GeoIP / ASN / ISP / City](./geoip.md) | Enrich public IP events and classify observations for permanent ASN policies |
 | [JSON Assets](./json-assets.md) | Import systems and apps from JSON |
 | [Proxmox Assets](./proxmox-assets.md) | Import Proxmox nodes, VMs/LXCs, and optional app declarations |
 | [Asset update checks](./asset-update-checks.md) | Check known asset release URLs for updates |

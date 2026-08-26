@@ -219,3 +219,15 @@ state across the upgrade — active installations continue unchanged, open ones 
 reachable and only receive a permanent security prompt. `OSD_AUTH_DISABLED` is the single
 deliberate opt-out. See ADR-028 for the full decision, the boundary conditions, and the
 upgrade behavior.
+
+## Implementation notes (2026-08-26)
+
+Permanent manual ASN bans were added after the original V1 scope freeze as a core
+OpenSecDash response workflow. The original list above remains an historical record and
+is not rewritten to imply that the feature was included in that freeze.
+
+The later feature stores a durable local ASN policy and turns only newly observed,
+successfully GeoIP-classified public IPs into ordinary seven-day CrowdSec IP decisions.
+It adds ASN-specific IP exceptions, exact decision ownership and release, provider-name
+review, a direct historical Insight, and management on the CrowdSec page. It does not
+add native ASN decisions, prefix expansion, a historical sweep, or timer renewal.

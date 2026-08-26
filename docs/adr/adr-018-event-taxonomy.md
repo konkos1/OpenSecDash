@@ -259,5 +259,28 @@ security.torblock
 ...
 ```
 
+---
+
+## Implementation notes (2026-08-26)
+
+Permanent manual ASN policies extend the security taxonomy with:
+
+```none
+security.asn_ban.enabled
+security.asn_ban.disabled
+security.asn_ban.exception.added
+security.asn_ban.exception.removed
+security.asn_ban.provider_changed
+security.asn_ban.provider_change.acknowledged
+security.ban.asn_policy
+security.unban.asn_policy_reclassified
+```
+
+The `security.asn_ban.*` events describe local policy lifecycle and review state.
+`security.ban.asn_policy` records one successful seven-day IP decision caused by a
+policy and therefore participates in the existing `security.ban*` counters.
+`security.unban.asn_policy_reclassified` records the exact policy-owned decision release
+after a later GeoIP classification. Failed actions continue to use `action.failed`.
+
 
 ---
