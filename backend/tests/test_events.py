@@ -48,6 +48,7 @@ def test_store_event_never_enriches_geoip_inline(db_session):
                 country="US",
                 city="Mountain View",
                 asn="AS15169",
+                asn_organization="Google LLC",
                 isp="Google LLC",
                 looked_up_at=utc_now().replace(tzinfo=None),
                 expires_at=(utc_now() + timedelta(days=1)).replace(tzinfo=None),
@@ -147,7 +148,7 @@ def test_event_filters_support_taxonomy_wildcards_local_ips_and_boolean_search(d
     now = datetime(2026, 1, 2, 12, 0, 0)
     rows = [
         Event(event_time=now, timestamp=now, source="test", plugin="traefik_log", event_type="access.allowed", severity="info", ip="10.0.0.5", path="/health", status_code=200),
-        Event(event_time=now + timedelta(seconds=1), timestamp=now, source="test", plugin="traefik_log", event_type="access.error", severity="error", ip="8.8.8.8", path="/wp-login.php", status_code=404, country="US"),
+        Event(event_time=now + timedelta(seconds=1), timestamp=now, source="test", plugin="traefik_log", event_type="access.error", severity="error", ip="8.8.8.8", path="/wp-login.php", status_code=404, country="US", asn="AS15169", asn_organization="Google LLC"),
         Event(event_time=now + timedelta(seconds=2), timestamp=now, source="test", plugin="crowdsec", event_type="security.geoblock", severity="warning", ip="1.1.1.1", path="/admin", status_code=403, country="-"),
     ]
     db_session.add_all(rows)
@@ -164,6 +165,7 @@ def test_event_filters_support_taxonomy_wildcards_local_ips_and_boolean_search(d
 
     search_result = apply_event_filters(db_session.query(Event), {"q": "wp-login && 404"}).one()
     assert search_result.ip == "8.8.8.8"
+    assert apply_event_filters(db_session.query(Event), {"q": "Google LLC"}).one().asn == "AS15169"
     assert tokenize_search_expression('wp-login && (404 || "access denied")') == ["wp-login", "&&", "(", "404", "||", "access denied", ")"]
 
 

@@ -1,7 +1,7 @@
 # ADR-047: Permanent manual ASN bans
 
 > **Implementation status (2026-08-26):** Implemented. The persistent data model,
-> event-driven enforcement, management UI, provider-review workflow, and operator
+> event-driven enforcement, management UI, ASN-organization review workflow, and operator
 > documentation are complete.
 
 ## Status: implemented (2026-08-26)
@@ -14,8 +14,8 @@ but common bouncers normally remediate IP and range decisions. Expanding every B
 prefix of an ASN would add a new intelligence dependency, produce broad decisions,
 and still become stale as routing changes.
 
-GeoIP enrichment already supplies the observed ASN and provider or organization name
-for an event. That information is useful for a local policy, but it is neither
+GeoIP enrichment supplies the observed ASN, ASN organization, and IP-specific ISP or
+company name for an event. The ASN organization is useful for a local policy, but it is neither
 authoritative nor immutable. Provider errors, cached results, ASN transfers, and name
 changes can all change the classification. The first request also has to be observed
 before the policy can match it, so no design can guarantee blocking that request or
@@ -65,11 +65,17 @@ logic remains in the CrowdSec plugin as required by ADR-044.
   so one ASN has one policy and one IP has at most one row of each kind per policy.
   Event and action IDs are nullable audit correlation values rather than foreign keys,
   because their retention must not invalidate enforcement ownership.
-- The provider name is a mutable display snapshot, not ASN identity. A later non-empty,
-  substantially different name replaces the snapshot, preserves the previous value,
-  and requires operator review. Whitespace and case-only differences do not trigger a
-  review. Acknowledgement clears only the review flag; no name change or acknowledgement
-  pauses a policy or removes a decision.
+- ASN organization is stored separately from the IP-specific ISP/company value. The
+  organization is a mutable display snapshot, not ASN identity, and the ISP value is
+  never its fallback. A producer-supplied ASN only accepts a remotely resolved
+  organization when the remote ASN agrees.
+- A non-empty, substantially different organization becomes a review warning after three
+  matching observations across at least two IPs. Unicode, case, whitespace, and
+  punctuation around common trailing legal-form variants are normalized conservatively;
+  other text remains significant. Returning to the accepted organization resets the
+  candidate. A confirmed change replaces the snapshot and preserves the previous value;
+  an open warning produces no duplicate warning events. Acknowledgement clears only the
+  review flag; no name change or acknowledgement pauses a policy or removes a decision.
 - Policy mutations remain critical, confirmed, role-protected Action Framework
   operations with audit records. Ban operations require `security.ban`, unban operations
   require `security.unban`, and global action dry-run prevents real enforcement.
@@ -99,7 +105,8 @@ logic remains in the CrowdSec plugin as required by ADR-044.
   later decision.
 - Exact ownership data makes targeted unban, reclassification release, retry, and
   cleanup possible without touching community or independently created decisions.
-- Provider changes remain visible for review while enforcement continues unchanged.
+- Confirmed ASN-organization changes remain visible for review while enforcement
+  continues unchanged.
 - A small generic post-enrichment hook expands the plugin contract without introducing
   direct cross-plugin imports or a remotely configurable event bus.
 
@@ -108,6 +115,6 @@ logic remains in the CrowdSec plugin as required by ADR-044.
 The implementation follows this decision without functional deviations. Policy-owned
 decisions are synchronized through CrowdSec LAPI, their exact IDs are retained for
 release and cleanup, and the UI exposes active decisions, exceptions, pending work,
-provider snapshots, and review acknowledgement. The direct ASN-policy Insight is stored
+ASN-organization snapshots, and review acknowledgement. The direct ASN-policy Insight is stored
 as historical evidence of a successful ban; current decision state remains sourced from
 the CrowdSec decision synchronization.

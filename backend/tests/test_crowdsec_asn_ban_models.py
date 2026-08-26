@@ -23,6 +23,11 @@ def test_asn_ban_metadata_has_required_constraints_and_indexes(db_session):
         "provider_review_required",
         "provider_name_changed_at",
         "provider_reviewed_at",
+        "provider_candidate_name",
+        "provider_candidate_first_ip",
+        "provider_candidate_last_event_id",
+        "provider_candidate_observations",
+        "provider_candidate_distinct_ip_seen",
         "status",
         "created_at",
         "last_matched_at",
@@ -108,6 +113,8 @@ def test_asn_ban_defaults_create_no_implicit_children(db_session):
 
     assert ban.status == "active"
     assert ban.provider_review_required is False
+    assert ban.provider_candidate_observations == 0
+    assert ban.provider_candidate_distinct_ip_seen is False
     assert ban.created_at is not None
     assert ban.updated_at is not None
     assert db_session.query(CrowdSecAsnBanException).count() == 0

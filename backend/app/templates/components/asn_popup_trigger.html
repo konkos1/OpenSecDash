@@ -23,7 +23,7 @@
     {% elif can_operate and asn_popup.availability_key %}
       data-availability="{{ t(asn_popup.availability_key) }}"
     {% endif %}
-  >{{ asn_popup.asn }}</button>
+  >{{ asn_popup.asn }}{% if asn_popup.provider_name %} · {{ asn_popup.provider_name }}{% endif %}</button>
 {% else %}
-  {{ event.asn or '-' }}
+  {{ event.asn or '-' }}{% if event.asn and event.asn_organization %} · {{ event.asn_organization }}{% endif %}
 {% endif %}

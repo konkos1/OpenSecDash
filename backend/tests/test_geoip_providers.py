@@ -120,6 +120,7 @@ def test_plugin_geoip_services_are_exported_from_the_package():
         "lookup_country",
         "lookup_geoip",
         "normalize_asn",
+        "normalize_asn_organization",
         "normalize_city",
         "normalize_isp",
         "normalize_lookup_target",
@@ -146,7 +147,7 @@ def test_service_holds_no_provider_url_or_wire_field_names():
 
 
 def test_ip_api_sends_the_unchanged_streamed_request(monkeypatch):
-    response = FakeResponse(json.dumps({"status": "success", "countryCode": "de", "city": " Berlin ", "as": "15169 Google LLC", "isp": "Example ISP"}).encode())
+    response = FakeResponse(json.dumps({"status": "success", "countryCode": "de", "city": " Berlin ", "as": "AS15169 Google LLC", "isp": "Example ISP"}).encode())
     calls = _patch_get(monkeypatch, response)
 
     result = ip_api.lookup(_request(timeout=7))
@@ -156,7 +157,13 @@ def test_ip_api_sends_the_unchanged_streamed_request(monkeypatch):
     assert kwargs["params"] == {"fields": "status,countryCode,city,as,isp,message"}
     assert kwargs["timeout"] == 7
     assert kwargs["stream"] is True
-    assert (result.country, result.city, result.asn, result.isp) == ("de", " Berlin ", "15169 Google LLC", "Example ISP")
+    assert (result.country, result.city, result.asn, result.asn_organization, result.isp) == (
+        "de",
+        " Berlin ",
+        "AS15169 Google LLC",
+        "Google LLC",
+        "Example ISP",
+    )
     assert response.closed is True
 
 
@@ -294,14 +301,20 @@ def test_iplocate_fills_all_four_fields_from_a_valid_answer(monkeypatch):
 
     result = iplocate.lookup(_iplocate_request())
 
-    assert (result.country, result.city, result.asn, result.isp) == (" de ", " Berlin ", "AS15169", "Example Company")
+    assert (result.country, result.city, result.asn, result.asn_organization, result.isp) == (
+        " de ",
+        " Berlin ",
+        "AS15169",
+        "Google LLC",
+        "Example Company",
+    )
 
 
 @pytest.mark.parametrize(
     ("payload", "expected_isp"),
     [
         ({"company": {"name": "  "}, "hosting": {"provider": "Example Hosting"}, "asn": {"name": "Example ASN"}}, "Example Hosting"),
-        ({"company": None, "hosting": {}, "asn": {"name": "Example ASN"}}, "Example ASN"),
+        ({"company": None, "hosting": {}, "asn": {"name": "Example ASN"}}, None),
         ({"company": "not-an-object", "hosting": ["nope"], "asn": 5}, None),
         ({}, None),
     ],
@@ -312,6 +325,9 @@ def test_iplocate_isp_falls_back_and_survives_unexpected_shapes(monkeypatch, pay
     result = iplocate.lookup(_iplocate_request())
 
     assert result.isp == expected_isp
+    assert result.asn_organization == (
+        payload.get("asn", {}).get("name") if isinstance(payload.get("asn"), dict) else None
+    )
     assert (result.country, result.city) == (None, None)
 
 
@@ -368,7 +384,7 @@ def test_iplocate_rejects_non_object_invalid_and_oversized_json(monkeypatch):
 
 
 def test_service_normalizes_iplocate_values(monkeypatch, db_session):
-    payload = {"country_code": " de ", "city": " Berlin ", "asn": {"asn": "15169"}, "company": {"name": " Example Company "}}
+    payload = {"country_code": " de ", "city": " Berlin ", "asn": {"asn": "15169", "name": " Example ASN "}, "company": {"name": " Example Company "}}
     _patch_get(monkeypatch, FakeResponse(json.dumps(payload).encode()), iplocate)
     db_session.add(Setting(key="plugin.geoip.iplocate_api_key", value=DUMMY_KEY))
     db_session.commit()
@@ -377,17 +393,19 @@ def test_service_normalizes_iplocate_values(monkeypatch, db_session):
         "DE",
         "Berlin",
         "AS15169",
+        "Example ASN",
         "Example Company",
     )
 
 
 def test_service_normalizes_provider_values_and_rejects_unknown_providers(monkeypatch, db_session):
-    response = FakeResponse(json.dumps({"status": "success", "countryCode": "de", "city": " Berlin " + "x" * 300, "as": "15169 Google LLC", "isp": "y" * 300}).encode())
+    response = FakeResponse(json.dumps({"status": "success", "countryCode": "de", "city": " Berlin " + "x" * 300, "as": "AS15169 Google LLC", "isp": "y" * 300}).encode())
     _patch_get(monkeypatch, response)
 
-    country, city, asn, isp = geoip_service._lookup_provider_geoip(db_session, "ip-api", "203.0.113.7")
+    country, city, asn, asn_organization, isp = geoip_service._lookup_provider_geoip(db_session, "ip-api", "203.0.113.7")
 
     assert (country, asn) == ("DE", "AS15169")
+    assert asn_organization == "Google LLC"
     assert city is not None and city.startswith("Berlin") and len(city) == 255
     assert isp is not None and len(isp) == 255
 
@@ -477,14 +495,14 @@ def test_rejected_iplocate_key_is_reported_and_not_retried_until_it_changes(monk
 
     monkeypatch.setattr(iplocate.requests, "get", provider_response)
 
-    assert geoip_service.lookup_geoip(db_session, "8.8.8.8") == (None, None, None, None)
+    assert geoip_service.lookup_geoip(db_session, "8.8.8.8") == (None, None, None, None, None)
     failed = _health(db_session, provider="iplocate", iplocate_api_key=DUMMY_KEY)
     assert failed["status"] == "error"
     assert "latest GeoIP lookup through iplocate failed" in failed["message"]
     assert DUMMY_KEY not in failed["message"]
 
     # A second pending address must not send the same rejected credential.
-    assert geoip_service.lookup_geoip(db_session, "1.1.1.1") == (None, None, None, None)
+    assert geoip_service.lookup_geoip(db_session, "1.1.1.1") == (None, None, None, None, None)
     assert len(calls) == 1
 
     db_session.query(Setting).filter_by(key="plugin.geoip.iplocate_api_key").one().value = "rotated-key"
@@ -493,7 +511,7 @@ def test_rejected_iplocate_key_is_reported_and_not_retried_until_it_changes(monk
     assert unverified["status"] == "warning"
     assert "reachability has not been verified" in unverified["message"]
 
-    assert geoip_service.lookup_geoip(db_session, "1.1.1.1") == ("DE", None, None, None)
+    assert geoip_service.lookup_geoip(db_session, "1.1.1.1") == ("DE", None, None, None, None)
     assert len(calls) == 2
     assert calls[-1][1]["headers"] == {"X-API-Key": "rotated-key"}
     recovered = _health(db_session, provider="iplocate", iplocate_api_key="rotated-key")

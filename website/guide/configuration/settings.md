@@ -126,7 +126,7 @@ Available columns:
 | User agent | User agent string. Long values can be opened in an overlay. |
 | Router | Router name from supported reverse proxy logs. |
 | Service | Service/backend name from supported reverse proxy logs. |
-| ASN | GeoIP ASN, for example `AS15169`. Selecting a visible ASN opens the combined ASN/provider popup and, for Operators with usable GeoIP and CrowdSec, the confirmed permanent-policy action. |
+| ASN | GeoIP ASN and organization, for example `AS15169 · Google LLC`. Selecting the value opens the combined ASN/organization popup and, for Operators with usable GeoIP and CrowdSec, the confirmed permanent-policy action. |
 | ISP | GeoIP ISP/organization. Long values can be opened in an overlay. |
 
 Default Events columns:
@@ -154,7 +154,7 @@ does not silently turn a search into an all-time scan. The Events API uses the s
 24-hour default and accepts `range=all` for an explicit unbounded request.
 
 The text search checks structured event fields such as event type, plugin/source,
-severity, IP, country, city, ASN, ISP, hostname, method, status code, path, and
+severity, IP, country, city, ASN, ASN organization, ISP, hostname, method, status code, path, and
 timestamps. **Include JSON and raw data** adds `data_json` and `raw_data` to that search
 for investigations that need original payload content. This option can be noticeably
 slower, so it is off by default and is preserved by saved views.

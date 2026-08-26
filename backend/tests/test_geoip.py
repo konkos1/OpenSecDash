@@ -19,6 +19,7 @@ enrich_event_values = geoip_service.enrich_event_values
 enrich_pending_events = geoip_service.enrich_pending_events
 lookup_geoip = geoip_service.lookup_geoip
 normalize_asn = geoip_service.normalize_asn
+normalize_asn_organization = geoip_service.normalize_asn_organization
 normalize_city = geoip_service.normalize_city
 normalize_isp = geoip_service.normalize_isp
 normalize_lookup_target = geoip_service.normalize_lookup_target
@@ -28,6 +29,8 @@ def test_geoip_normalizes_asn_city_and_truncates_isp():
     assert normalize_asn("15169 Google LLC") == "AS15169"
     assert normalize_asn("AS8075 Microsoft") == "AS8075"
     assert normalize_asn("not-an-asn") is None
+    assert normalize_asn_organization("  Google LLC  ") == "Google LLC"
+    assert len(normalize_asn_organization("x" * 300) or "") == 255
     assert normalize_city("  Berlin  ") == "Berlin"
     assert len(normalize_city("x" * 300) or "") == 255
     assert normalize_isp("  Example ISP  ") == "Example ISP"
@@ -53,6 +56,7 @@ def test_geoip_cache_is_used_and_plugin_values_win(db_session):
                 country="US",
                 city="Mountain View",
                 asn="AS15169",
+                asn_organization="Google LLC",
                 isp="Google LLC",
                 looked_up_at=utc_now().replace(tzinfo=None),
                 expires_at=(utc_now() + timedelta(days=1)).replace(tzinfo=None),
@@ -61,11 +65,11 @@ def test_geoip_cache_is_used_and_plugin_values_win(db_session):
     )
     db_session.commit()
 
-    assert lookup_geoip(db_session, "8.8.8.8", require_city=True, require_asn=True, require_isp=True) == ("US", "Mountain View", "AS15169", "Google LLC")
+    assert lookup_geoip(db_session, "8.8.8.8", require_city=True, require_asn=True, require_isp=True) == ("US", "Mountain View", "AS15169", "Google LLC", "Google LLC")
 
     values = {"ip": "8.8.8.8", "country": "DE"}
     enrich_event_values(db_session, values)
-    assert values == {"ip": "8.8.8.8", "country": "DE", "city": "Mountain View", "asn": "AS15169", "isp": "Google LLC"}
+    assert values == {"ip": "8.8.8.8", "country": "DE", "city": "Mountain View", "asn": "AS15169", "asn_organization": "Google LLC", "isp": "Google LLC"}
 
     producer_values = {"ip": "8.8.8.8", "country": "DE", "city": "Berlin", "asn": "AS64500", "isp": "Producer ISP"}
     enrich_event_values(db_session, producer_values)
@@ -80,20 +84,20 @@ def test_geoip_cache_of_another_provider_is_refreshed_instead_of_reused(db_sessi
     db_session.commit()
     calls = _fake_iplocate_response(
         monkeypatch,
-        {"country_code": "FR", "city": "Paris", "asn": {"asn": "AS64500"}, "company": {"name": "Example EU"}},
+        {"country_code": "FR", "city": "Paris", "asn": {"asn": "AS64500", "name": "Example ASN"}, "company": {"name": "Example EU"}},
     )
 
     switched = lookup_geoip(db_session, "8.8.8.8", require_city=True, require_asn=True, require_isp=True)
     db_session.commit()
 
     # The ip-api row is not a hit for IPLocate: the same row is refreshed.
-    assert switched == ("FR", "Paris", "AS64500", "Example EU")
+    assert switched == ("FR", "Paris", "AS64500", "Example ASN", "Example EU")
     assert len(calls) == 1
     row = db_session.query(GeoIPCache).filter_by(lookup_key="8.8.8.8").one()
     assert (row.provider, row.country) == ("iplocate", "FR")
 
     # A row of the selected provider stays a hit - no second request.
-    assert lookup_geoip(db_session, "8.8.8.8", require_city=True) == ("FR", "Paris", "AS64500", "Example EU")
+    assert lookup_geoip(db_session, "8.8.8.8", require_city=True) == ("FR", "Paris", "AS64500", "Example ASN", "Example EU")
     assert len(calls) == 1
 
 
@@ -131,6 +135,7 @@ def _cached_geoip_setup(db_session):
                 country="US",
                 city="Mountain View",
                 asn="AS15169",
+                asn_organization="Google LLC",
                 isp="Google LLC",
                 looked_up_at=utc_now().replace(tzinfo=None),
                 expires_at=(utc_now() + timedelta(days=1)).replace(tzinfo=None),
@@ -151,7 +156,13 @@ def test_enrich_pending_events_backfills_from_cache_and_marks_checked(db_session
     assert processed == 1
     db_session.refresh(event)
     assert event.geoip_checked is True
-    assert (event.country, event.city, event.asn, event.isp) == ("US", "Mountain View", "AS15169", "Google LLC")
+    assert (event.country, event.city, event.asn, event.asn_organization, event.isp) == (
+        "US",
+        "Mountain View",
+        "AS15169",
+        "Google LLC",
+        "Google LLC",
+    )
 
 
 def test_completed_geoip_event_is_reported_before_its_commit(db_session):

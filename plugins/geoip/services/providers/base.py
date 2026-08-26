@@ -39,7 +39,7 @@ class GeoIPLookupRequest:
 
 @dataclass(frozen=True)
 class GeoIPLookupResult:
-    """Provider values for the four GeoIP fields OpenSecDash stores.
+    """Provider values for the GeoIP fields OpenSecDash stores.
 
     Values stay as the provider reported them: length limits, ASN and country
     formatting are applied centrally so every provider yields identical rows.
@@ -48,6 +48,7 @@ class GeoIPLookupResult:
     country: object = None
     city: object = None
     asn: object = None
+    asn_organization: object = None
     isp: object = None
 
 

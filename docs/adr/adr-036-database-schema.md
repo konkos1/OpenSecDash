@@ -317,6 +317,7 @@ ip
 country
 city
 asn
+asn_organization
 isp
 hostname
 asset_id
@@ -343,8 +344,10 @@ crowdsec_asn_ban_enforcements
 ```
 
 `crowdsec_asn_bans` has one unique normalized ASN and stores policy status, current and
-previous provider-name snapshots, review timestamps/flag, last match, and removal error.
-Its status is constrained to `active` or `removing`.
+previous ASN-organization snapshots, review timestamps/flag, a debounced organization
+candidate with observation/IP evidence, last match, and removal error. Its status is
+constrained to `active` or `removing`. Events and GeoIP cache rows store
+`asn_organization` separately from the IP-specific `isp` value.
 
 `crowdsec_asn_ban_exceptions` belongs to one policy with cascading deletion and has a
 unique `(asn_ban_id, ip)` pair. `source_action_id` is a nullable audit correlation value,

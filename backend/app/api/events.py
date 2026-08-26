@@ -27,6 +27,7 @@ class EventCreate(BaseModel):
     country: Annotated[str | None, Field(max_length=8)] = None
     city: Annotated[str | None, Field(max_length=255)] = None
     asn: Annotated[str | None, Field(max_length=32)] = None
+    asn_organization: Annotated[str | None, Field(max_length=255)] = None
     isp: Annotated[str | None, Field(max_length=255)] = None
     hostname: Annotated[str | None, Field(max_length=255)] = None
     asset_id: int | None = None

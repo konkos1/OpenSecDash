@@ -84,6 +84,7 @@ def _migrate_legacy_sqlite() -> None:
         "source_id VARCHAR(100)",
         "plugin_id VARCHAR(100)",
         "asn VARCHAR(32)",
+        "asn_organization VARCHAR(255)",
         "isp VARCHAR(255)",
         "city VARCHAR(255)",
         "asset_id INTEGER",
@@ -117,7 +118,13 @@ def _migrate_legacy_sqlite() -> None:
     _add_column("systems", "source_plugin VARCHAR(100)")
     _add_column("systems", "external_id VARCHAR(255)")
     _add_column("geoip_cache", "isp VARCHAR(255)")
+    _add_column("geoip_cache", "asn_organization VARCHAR(255)")
     _add_column("geoip_cache", "city VARCHAR(255)")
+    _add_column("crowdsec_asn_bans", "provider_candidate_name VARCHAR(255)")
+    _add_column("crowdsec_asn_bans", "provider_candidate_first_ip VARCHAR(64)")
+    _add_column("crowdsec_asn_bans", "provider_candidate_last_event_id INTEGER")
+    _add_column("crowdsec_asn_bans", "provider_candidate_observations INTEGER DEFAULT 0 NOT NULL")
+    _add_column("crowdsec_asn_bans", "provider_candidate_distinct_ip_seen BOOLEAN DEFAULT 0 NOT NULL")
 
 
 def _migrate_asset_update_settings(db: Session) -> None:

@@ -93,7 +93,8 @@ observed matching IPs. This requires all of the following:
 - an Operator or Admin for policy actions.
 
 In Events or Access, open **Columns** and enable the optional **ASN** column if it
-is hidden. Select the ASN value to open its popup, review the ASN and provider snapshot,
+is hidden. The column shows the ASN number and its organization. Select the value to open
+its popup, review the ASN organization snapshot,
 and confirm **Permanently ban ASN**. Activation bans only the popup's current public IP;
 it does not scan older events for other IPs.
 
@@ -136,14 +137,14 @@ events are not reprocessed. Removing an ASN policy is also confirmed and deletes
 active decisions whose exact ID, scenario, origin, IP, and ownership record still match.
 A partial failure leaves the policy in `removing` with its error visible and retryable.
 
-The CrowdSec page manages the policies, latest provider snapshots, active policy-owned
+The CrowdSec page manages the policies, latest ASN organization snapshots, active policy-owned
 decisions, exceptions, pending releases, and removal failures. Existing policies and
 exceptions remain visible if GeoIP or CrowdSec is disabled; new enforcement pauses.
 
 ### Insights, counters, and scenario history
 
 Every successful automatic policy ban creates one high-confidence IP Explorer insight
-that records the ASN, provider snapshot, and `7d` duration. Its wording is historical:
+that records the ASN, organization snapshot, and `7d` duration. Its wording is historical:
 it says that the IP **was banned**, not that its decision is still active. Current state
 comes from the CrowdSec active-ban panel.
 
@@ -153,14 +154,18 @@ and CrowdSec history. Rollups, CrowdSec top scenarios, and the Dashboard combine
 them under the localized **Manual permanent ASN ban** group; its drill-down searches the
 complete scenarios and therefore finds each contributing ASN.
 
-### Provider-name review
+### ASN-organization review
 
-The provider or organization name is a mutable GeoIP display snapshot, not ASN identity.
-A substantially different non-empty name keeps the previous and current snapshots plus
-the detection time and shows **Provider changed – review required**. Case or whitespace
-alone does not trigger it. Acknowledging the warning confirms only that the latest
-snapshot was reviewed; it does not prove an ownership change, pause enforcement, or
-remove a policy or decision. Policy removal remains a separate confirmed action.
+The ASN organization name is a mutable GeoIP display snapshot, not ASN identity. It is
+stored separately from the IP-specific ISP/company value. A substantially different
+non-empty name must appear in three matching observations from at least two IPs before
+OpenSecDash keeps the previous and current snapshots plus the detection time and shows
+**ASN organization changed – review required**. Unicode, case, whitespace, and common
+trailing legal-form variants are normalized conservatively; other text remains
+significant. Returning to the current name resets the candidate, and an already open
+warning is not emitted repeatedly. Acknowledging the warning confirms only that the
+latest snapshot was reviewed; it does not prove an ownership change, pause enforcement,
+or remove a policy or decision. Policy removal remains a separate confirmed action.
 
 ::: warning The first access is always observed before enforcement
 The sequence is:

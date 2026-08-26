@@ -277,6 +277,8 @@ security.unban.asn_policy_reclassified
 ```
 
 The `security.asn_ban.*` events describe local policy lifecycle and review state.
+The stable `provider_changed` event name is retained for compatibility, but the compared
+value is the ASN organization rather than the IP-specific ISP/company label.
 `security.ban.asn_policy` records one successful seven-day IP decision caused by a
 policy and therefore participates in the existing `security.ban*` counters.
 `security.unban.asn_policy_reclassified` records the exact policy-owned decision release
