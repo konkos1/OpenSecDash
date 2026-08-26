@@ -544,7 +544,7 @@ EN = {
 
     "settings.title": "Settings",
     "settings.core": "General",
-    "settings.version": "OpenSecDash version",
+    "settings.version": "OSD version",
     "settings.domain": "Primary Domain",
     "settings.instance_description": "Instance Description",
     "settings.language": "Language",

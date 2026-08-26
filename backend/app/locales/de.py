@@ -545,7 +545,7 @@ DE = {
 
     "settings.title": "Einstellungen",
     "settings.core": "Allgemein",
-    "settings.version": "OpenSecDash-Version",
+    "settings.version": "OSD-Version",
     "settings.domain": "Primäre Domäne",
     "settings.instance_description": "Instanzbeschreibung",
     "settings.language": "Sprache",
