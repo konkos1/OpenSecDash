@@ -9,7 +9,18 @@ def test_crowdsec_action_types_are_derived_from_definitions():
     plugin = get_plugin_manager().plugins["crowdsec"]
     assert isinstance(plugin, ActionPlugin)
 
-    assert plugin.action_types == {"security.ban", "crowdsec_ban", "security.unban", "crowdsec_unban"}
+    assert plugin.action_types == {
+        "security.ban",
+        "crowdsec_ban",
+        "security.unban",
+        "crowdsec_unban",
+        "security.asn_ban.enable",
+        "security.asn_ban.disable",
+        "security.ban.asn_policy",
+        "security.unban.asn_policy_reclassified",
+        "security.asn_ban.exception.remove",
+        "security.asn_ban.provider_change.acknowledge",
+    }
     assert plugin.critical_action_types == plugin.action_types
 
 

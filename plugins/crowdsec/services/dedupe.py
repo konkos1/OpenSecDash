@@ -15,7 +15,7 @@ from app.services.events import DuplicateRule
 # datasource plugin would otherwise re-import it as a second, separate event
 # for the same IP at essentially the same time - visible as an apparent
 # duplicate with different (and each incomplete) data.
-CROWDSEC_BAN_EVENT_TYPES = ("security.ban", "security.ban.manual")
+CROWDSEC_BAN_EVENT_TYPES = ("security.ban", "security.ban.manual", "security.ban.asn_policy")
 
 # The Action framework embeds its own action id into the ban reason it hands
 # to CrowdSec (e.g. "Manual ban via OpenSecDash (action #42)", see

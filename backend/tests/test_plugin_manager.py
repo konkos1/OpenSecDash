@@ -77,6 +77,16 @@ class ExampleDatasourcePlugin(DatasourcePlugin):
     }
 
 
+class EnrichmentConsumerPlugin(Plugin):
+    metadata = PluginMetadata(id="enrichment_consumer", name="Enrichment Consumer")
+
+    def __init__(self) -> None:
+        self.event_ids: list[int] = []
+
+    def on_event_enriched(self, db, event) -> None:
+        self.event_ids.append(event.id)
+
+
 def test_enrichment_hook_runs_only_for_an_enabled_plugin(db_session):
     manager = PluginManager(Path("/not-used"))
     plugin = ExampleEnrichmentPlugin()
@@ -91,6 +101,19 @@ def test_enrichment_hook_runs_only_for_an_enabled_plugin(db_session):
 
     assert manager._run_enrichment_tick(db_session, plugin) == 7
     assert plugin.calls == [manager_module.ENRICHMENT_BATCH_SIZE]
+
+
+def test_manager_dispatches_completed_enrichment_without_concrete_plugin_imports(db_session):
+    manager = PluginManager(Path("/not-used"))
+    consumer = EnrichmentConsumerPlugin()
+    manager.plugins = {consumer.metadata.id: consumer}
+    event = Event(event_type="access.allowed", ip="8.8.8.8", asn="AS15169", geoip_checked=True)
+    db_session.add(event)
+    db_session.flush()
+
+    manager._report_event_enriched(db_session, event)
+
+    assert consumer.event_ids == [event.id]
 
 
 def test_asset_update_diagnostic_includes_failed_assets(monkeypatch, db_session):

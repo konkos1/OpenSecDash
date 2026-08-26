@@ -81,6 +81,10 @@ def role_clients(tmp_path: Path, monkeypatch):
         ("POST", "/api/assets/import", "admin"),
         ("POST", "/views", "viewer"),
         ("POST", "/dashboard/layout", "viewer"),
+        ("POST", "/crowdsec/asn-bans/enable", "operator"),
+        ("POST", "/crowdsec/asn-bans/1/disable", "operator"),
+        ("POST", "/crowdsec/asn-bans/1/exceptions/2/remove", "operator"),
+        ("POST", "/crowdsec/asn-bans/1/provider-change/acknowledge", "operator"),
     ],
 )
 def test_required_role_matrix(method, path, role):

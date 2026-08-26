@@ -127,6 +127,60 @@ Safety controls are applied before a plugin runs:
 
 See [Actions and safety](../operations/actions.md) for the execution model and troubleshooting guidance.
 
+## Persistent manual ASN bans
+
+Persistent manual ASN bans are a characteristic OpenSecDash core workflow for repeated
+unwanted traffic from one autonomous system. In Events or Access, use **Columns**
+to show the optional **ASN** column, open an ASN popup, and confirm **Permanently ban
+ASN**. The popup also shows the current provider or organization snapshot. Only an
+Operator or Admin can perform the action.
+
+OpenSecDash stores the ASN as a permanent local policy. It does not create a permanent
+CrowdSec ASN decision and does not expand the ASN into prefixes. After a new public-IP
+event has been stored and successfully enriched by GeoIP, a matching policy creates an
+ordinary CrowdSec `scope=Ip` decision for `7d`. An expired decision is not renewed by a
+timer; a later, newly enriched event is required before that IP can be banned again.
+
+The workflow deliberately keeps ownership narrow:
+
+- A reclassification to a different, non-blocked ASN immediately releases only the
+  exact policy-owned decision. Independent CrowdSec decisions for the IP remain.
+- A failed release stays queued against the exact decision ID for retry.
+- Manually unbanning a policy-owned IP creates an exception for that ASN and IP only.
+  Removing the exception is confirmed and requires another matching observation before
+  a new ban can occur.
+- The CrowdSec page shows policies, active policy-owned decisions, exceptions, removal
+  errors, pending releases, and provider-review warnings.
+
+Every successful automatic policy ban creates one high-confidence IP Explorer insight
+with the ASN, provider snapshot, and `7d` duration. It records that a ban **happened**;
+the CrowdSec panel remains the source for whether a decision is currently active. Ban
+counters and active-decision displays include these bans. Rollups, CrowdSec top
+scenarios, and the Dashboard group all ASN-specific scenarios under **Manual permanent
+ASN ban**, while Events and CrowdSec history retain the complete
+`opensecdash/manual-permanent-asn-ban/AS...` value for investigation and drill-down.
+
+ASN allocation and the GeoIP provider or organization name can change. A substantially
+different non-empty name is kept with the previous snapshot and time as a review warning;
+case and whitespace changes alone do not count. Acknowledging the warning confirms only
+that it was reviewed. It neither proves an ownership transfer nor pauses the policy or
+removes decisions. Removing the policy is a separate confirmed action.
+
+GeoIP and CrowdSec must be usable and Action simulation must be off to activate a real
+policy. Activation, removal, exception removal, and provider-review acknowledgement are
+confirmed, permission-checked, and audited. Existing policies stay visible if GeoIP later
+becomes unavailable, but no new automatic classification is enforced while it is down.
+
+::: warning The first access cannot be blocked by this workflow
+The event is stored before asynchronous GeoIP enrichment creates a CrowdSec decision,
+and a bouncer must then fetch and apply it. Blocking can therefore happen **no earlier
+than the second access**, and that is not a guarantee: enrichment, LAPI, and bouncer
+latency or errors can allow additional accesses.
+:::
+
+See [CrowdSec](../plugins/crowdsec.md) for policy behavior and
+[GeoIP](../plugins/geoip.md#geoip-and-permanent-asn-bans) for classification limits.
+
 ## Responsive UI
 
 OpenSecDash is designed to work on phones, tablets, and desktops:

@@ -151,10 +151,21 @@ def lapi_active_ban_decisions(url: str, token: str) -> list[dict[str, Any]]:
     return decisions
 
 
-def lapi_add_ban(url: str, token: str, ip: str, duration: str, reason: str) -> None:
+def lapi_add_ban(
+    url: str,
+    token: str,
+    ip: str,
+    duration: str,
+    reason: str,
+    scenario: str | None = None,
+) -> None:
     """Create a manual CrowdSec ban decision through LAPI."""
     now = utc_now()
-    scenario = f"manual 'ban' from '{DECISION_ORIGIN}' ({reason})" if reason else f"manual 'ban' from '{DECISION_ORIGIN}'"
+    effective_scenario = scenario or (
+        f"manual 'ban' from '{DECISION_ORIGIN}' ({reason})"
+        if reason
+        else f"manual 'ban' from '{DECISION_ORIGIN}'"
+    )
     scope = "Range" if "/" in ip else "Ip"
     alert = {
         "capacity": 0,
@@ -162,7 +173,7 @@ def lapi_add_ban(url: str, token: str, ip: str, duration: str, reason: str) -> N
             {
                 "duration": duration,
                 "origin": DECISION_ORIGIN,
-                "scenario": scenario,
+                "scenario": effective_scenario,
                 "scope": scope,
                 "type": "ban",
                 "value": ip,
@@ -172,8 +183,8 @@ def lapi_add_ban(url: str, token: str, ip: str, duration: str, reason: str) -> N
         "events_count": 1,
         "labels": None,
         "leakspeed": "0",
-        "message": scenario,
-        "scenario": scenario,
+        "message": effective_scenario,
+        "scenario": effective_scenario,
         "scenario_hash": "",
         "scenario_version": "",
         "simulated": False,

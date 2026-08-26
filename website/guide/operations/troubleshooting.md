@@ -122,6 +122,59 @@ Setting a log path (or enabling a log-based plugin) for the first time makes Ope
 
 A banner near the top of every page shows while a plugin is still catching up on a backlog, with a rough progress percentage, and disappears automatically once it reaches the end of the file. GeoIP country/city/ASN/ISP lookups for the imported events are filled in afterwards at their own pace, so they may briefly show as unknown right after a large first import.
 
+## Permanent ASN ban troubleshooting
+
+### The ASN action is missing or unavailable
+
+Use **Columns** on Events or Access to show the optional **ASN** column first.
+The action also requires an Operator or Admin, a public source IP, a stored ASN from a
+completed GeoIP enrichment, enabled and healthy GeoIP, enabled CrowdSec with a healthy
+LAPI connection, and Action simulation turned off. The popup explains the first failing
+prerequisite; Diagnostics shows the GeoIP and `crowdsec · lapi` details.
+
+### A policy is active but an IP was not banned
+
+The first event may still await GeoIP enrichment, enrichment may have failed, or the IP
+may have an exception for this policy. OpenSecDash also does not create a second policy
+decision while any active CrowdSec ban decision for that IP is already known. Check LAPI
+reachability and allow for bouncer propagation latency. Expired policy decisions are not
+renewed by a timer; another matching enriched event is required.
+
+### An IP is banned despite an exception
+
+An exception is scoped to one ASN policy and IP. Check the active decision's scenario and
+origin: a different blocked ASN or an independent CrowdSec decision can still ban the IP.
+
+### An IP remains policy-banned after its ASN changed
+
+On the CrowdSec policy card, look for a pending release and its exact decision ID, then
+check `crowdsec · lapi` in Diagnostics. A failed release stays `release_pending` and is
+retried only for that stored ID. Do not use a broad IP unban: another decision for the
+same IP may be independent and must remain untouched. If the new ASN is also permanently
+blocked, the existing decision deliberately stays owned by the previous policy until it
+expires.
+
+### A policy remains in `removing`
+
+Policy removal stops new matches before deleting its active, exactly owned decisions.
+Inspect the displayed removal error and LAPI diagnostic, restore connectivity, then use
+the retry action. OpenSecDash leaves a partial removal visible instead of deleting
+unverified or foreign decisions.
+
+### The ASN or provider name is unexpected
+
+Review the selected GeoIP provider, its latest real-lookup diagnostic, cache TTL, and any
+recent provider switch. Producer-supplied event fields win over remote enrichment, and
+external data can be stale, incomplete, or wrong. The displayed provider name is not an
+authoritative registry identity.
+
+If **Provider changed – review required** appears, compare the previous and current
+snapshots and detection time, the GeoIP source, and a possible rename or ASN transfer.
+The warning only reports a changed GeoIP label; it does not prove ownership changed and
+does not pause or remove the policy. After review, either acknowledge only the warning or
+remove the ASN policy with the separate confirmed action. A newer provider change makes
+an older acknowledgement stale and requires another review.
+
 ## Proxmox guest visibility
 
 If the Proxmox plugin imports nodes but no guests, check the plugin diagnostic message and verify the API token can see `qemu` or `lxc` entries from:

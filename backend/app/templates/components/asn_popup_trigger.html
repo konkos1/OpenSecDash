@@ -1,0 +1,29 @@
+{% set asn_popup = crowdsec_asn_popups.get(event.id) if crowdsec_asn_popups is defined and event.id else None %}
+{% if event.asn and asn_popup %}
+  {% set asn_provider = asn_popup.provider_name or t('crowdsec.asn_ban.provider_unknown') %}
+  <button
+    type="button"
+    class="text-action"
+    aria-haspopup="dialog"
+    data-asn-popup
+    data-asn="{{ asn_popup.asn }}"
+    data-provider="{{ asn_provider }}"
+    data-close-label="{{ t('common.close') }}"
+    data-management-label="{{ t('crowdsec.asn_ban.open_management') }}"
+    data-management-url="/crowdsec#asn-policies"
+    data-policy-help="{{ t('crowdsec.asn_ban.popup.help') }}"
+    {% if asn_popup.policy_status == 'active' %}data-policy-status="{{ t('crowdsec.asn_ban.status.active') }}"{% elif asn_popup.policy_status == 'removing' %}data-policy-status="{{ t('crowdsec.asn_ban.status.removing') }}"{% endif %}
+    {% if asn_popup.provider_review_required %}data-provider-review="{{ t('crowdsec.asn_ban.provider_change.warning') }}"{% endif %}
+    {% if can_operate and asn_popup.enable_available %}
+      data-enable-url="/crowdsec/asn-bans/enable?next={{ request.url.path|urlencode }}"
+      data-event-id="{{ event.id }}"
+      data-enable-label="{{ t('crowdsec.asn_ban.enable') }}"
+      data-enable-confirm="{{ t('crowdsec.asn_ban.enable.confirm').replace('{asn}', asn_popup.asn).replace('{provider}', asn_provider) }}"
+      data-processing-label="{{ t('common.processing') }}"
+    {% elif can_operate and asn_popup.availability_key %}
+      data-availability="{{ t(asn_popup.availability_key) }}"
+    {% endif %}
+  >{{ asn_popup.asn }}</button>
+{% else %}
+  {{ event.asn or '-' }}
+{% endif %}

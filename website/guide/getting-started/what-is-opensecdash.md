@@ -12,6 +12,7 @@ It collects security events, access logs, asset information, and update signals 
 - Are my plugins and datasources healthy?
 - Which findings should notify me instead of waiting for a dashboard visit?
 - Can I safely test or execute a CrowdSec ban from the investigation view?
+- Can I mark an unwanted ASN once and safely respond to newly observed matching IPs?
 
 ## What it is not
 
@@ -27,6 +28,7 @@ OpenSecDash is not a Grafana replacement. Grafana is excellent for metrics, time
 - **Assets**: systems and apps imported from inventory sources.
 - **Notifications**: cooldown-aware SMTP alerts and delivery history for events, insights, offline assets, and plugin errors.
 - **Actions**: confirmed, permission-aware, audited responses such as CrowdSec ban and unban, with dry-run simulation enabled by default.
+- **Persistent ASN response**: a controlled local policy that turns future GeoIP matches into seven-day CrowdSec IP decisions, with narrow IP exceptions and no claim of blocking an entire ASN immediately.
 - **Plugins**: integrations such as CrowdSec, Proxmox, Traefik, GeoIP, and MQTT.
 - **Diagnostics**: runtime state for plugins, datasources, actions, and migrations.
 

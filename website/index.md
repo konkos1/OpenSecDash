@@ -36,6 +36,9 @@ features:
   - icon: ⚡
     title: Controlled actions
     details: Ban or unban public IPs through CrowdSec LAPI with confirmations, permissions, dry-run simulation, and audit history.
+  - icon: 🌐
+    title: Persistent ASN response
+    details: Mark an ASN once, ban newly observed matching IPs for seven days through CrowdSec, and correct false matches with ASN-specific IP exceptions.
   - icon: 🔔
     title: Useful notifications
     details: Send SMTP alerts for matching events, insights, offline assets, and plugin errors with cooldowns and digest aggregation.
@@ -62,6 +65,14 @@ Datasources → Enrichment → Events → Insights → Dashboard / Explorer → 
 ```
 
 It is not a Grafana replacement. Instead of asking you to build a general-purpose observability stack, OpenSecDash focuses on security-oriented homelab workflows: IP-centric investigations, structured event filters, access-log correlation, deterministic insights, asset inventory, update signals, plugin health, notifications, and controlled CrowdSec actions.
+
+One characteristic OpenSecDash workflow is the persistent ASN response: an Operator
+marks an ASN from Events or Access, and future public IPs that GeoIP assigns to that ASN
+receive ordinary seven-day CrowdSec IP decisions. Individual false classifications can
+be kept as ASN-specific IP exceptions. The first access must already have reached the
+service before OpenSecDash can classify it, so blocking can happen **no earlier than the
+second access**; asynchronous enrichment, LAPI latency, errors, and bouncer updates can
+allow further accesses too.
 
 ![OpenSecDash dashboard](/assets/screenshots/dashboard.png)
 

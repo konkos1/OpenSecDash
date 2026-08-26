@@ -159,11 +159,13 @@ class PluginContext:
         settings: dict[str, str],
         asset_exporter: Callable[[Session, Any, bool], Awaitable[None]] | None = None,
         manual_export: bool = False,
+        event_enrichment_reporter: Callable[[Session, Event], None] | None = None,
     ) -> None:
         self.db = db
         self.settings = settings
         self.manual_export = manual_export
         self._asset_exporter = asset_exporter
+        self._event_enrichment_reporter = event_enrichment_reporter
         self.backlog_pending = False
         self.backlog_progress_percent: int | None = None
 
@@ -186,6 +188,11 @@ class PluginContext:
     async def export_asset_update(self, asset: Any, manual: bool = False) -> None:
         if self._asset_exporter is not None:
             await self._asset_exporter(self.db, asset, manual)
+
+    def report_event_enriched(self, event: Event) -> None:
+        """Report one completed event enrichment to generic plugin hooks."""
+        if self._event_enrichment_reporter is not None:
+            self._event_enrichment_reporter(self.db, event)
 
 
 class Plugin:
@@ -247,6 +254,10 @@ class Plugin:
         """
         return {}
 
+    def event_table_context(self, db: Session, events: list[Event]) -> dict[str, Any]:
+        """Extra template context for bounded event tables (side-effect-free)."""
+        return {}
+
     def ip_page_count_widgets(self, db: Session, ip: str) -> list[dict[str, Any]]:
         """Count cards this plugin contributes to the IP explorer (side-effect-free).
 
@@ -263,6 +274,14 @@ class Plugin:
         ``ip_page_count_widgets``. See app.web.dashboard.DashboardWidget.
         """
         return []
+
+    def on_event_enriched(self, db: Session, event: Event) -> None:
+        """React to a completed event enrichment before its transaction commits."""
+        return None
+
+    def rollup_display_label_key(self, metric: str, key: str) -> str | None:
+        """Return an optional translation key for a stored rollup value."""
+        return None
 
 
 class DatasourcePlugin(Plugin):
@@ -304,6 +323,7 @@ class ActionDefinition:
     critical: bool = False
     permission: str = ""
     parameters: tuple[ActionParameter, ...] = ()
+    user_invocable: bool = True
 
 
 class ActionPlugin(Plugin):
@@ -341,6 +361,16 @@ class ActionPlugin(Plugin):
     ) -> dict[str, Any] | None:
         raise NotImplementedError
 
+    def execute_internal(
+        self,
+        context: PluginContext,
+        action_type: str,
+        target: str,
+        parameters: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        """Execute a server-only action from an already synchronous worker."""
+        raise NotImplementedError
+
     def validate_action(
         self, db: Session, action_type: str, target: str, parameters: dict[str, Any], dry_run: bool
     ) -> dict[str, Any]:
@@ -350,6 +380,17 @@ class ActionPlugin(Plugin):
         the failed action). Returns the (possibly updated) parameters.
         """
         return parameters
+
+    def normalize_action_target(
+        self,
+        db: Session,
+        action_type: str,
+        target: str,
+        parameters: dict[str, Any],
+        dry_run: bool,
+    ) -> str:
+        """Validate and normalize an action target before it is persisted."""
+        return target
 
     def prepare_parameters(self, db: Session, action: Any) -> dict[str, Any] | None:
         """Called after the Action row got its id (db.flush), before execution.

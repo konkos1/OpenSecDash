@@ -145,7 +145,16 @@ ROUTE_PERMISSIONS = (
     *_permissions("traefik_log", "read-only", "viewer", ("GET", "/access")),
     *_permissions("traefik_log", "personal-preference", "viewer", ("POST", "/access/columns")),
     *_permissions("crowdsec", "read-only", "viewer", ("GET", "/crowdsec")),
-    *_permissions("crowdsec", "operational", "operator", ("POST", "/crowdsec/decisions/refresh")),
+    *_permissions(
+        "crowdsec",
+        "operational",
+        "operator",
+        ("POST", "/crowdsec/decisions/refresh"),
+        ("POST", "/crowdsec/asn-bans/enable"),
+        ("POST", "/crowdsec/asn-bans/{policy_id}/disable"),
+        ("POST", "/crowdsec/asn-bans/{policy_id}/exceptions/{exception_id}/remove"),
+        ("POST", "/crowdsec/asn-bans/{policy_id}/provider-change/acknowledge"),
+    ),
     *_permissions("proxmox_assets", "operational", "operator", ("POST", "/assets/proxmox-sync")),
     *_permissions("mqtt", "operational", "operator", ("POST", "/assets/mqtt-publish")),
     *_permissions(

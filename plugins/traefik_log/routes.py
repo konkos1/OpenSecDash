@@ -130,6 +130,7 @@ def access_page(
     # already replaces only #access-results for later event notifications.
     events = apply_event_filters(db.query(Event), filters).order_by(Event.event_time.desc()).limit(200).all()
     event_asset_links = asset_links_for_events(db, events)
+    event_table_context = get_plugin_manager().event_table_context(db, events)
     column_options, active_columns = table_columns(db, "ui.access.visible_columns", DEFAULT_ACCESS_COLUMNS)
     saved_view_context = _saved_view_context(db, request)
     return render(
@@ -149,6 +150,7 @@ def access_page(
         range=range_value or "",
         snapshot_before=snapshot_before or "",
         view_to_query=view_to_query,
+        **event_table_context,
         **saved_view_context,
     )
 

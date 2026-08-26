@@ -460,3 +460,27 @@ Event
 The current implementation supports plugin registration through `ActionDefinition` metadata (id, label, permission, target types, and standardized Ban/Unban parameters such as `ip`, `duration`, and `reason`), confirmation requirements, dry-run mode, action records/status, plugin validation and availability hooks, plugin execution, and registry-driven IP Explorer UI. The registry provides API availability, confirmation dialogs, audit records/events, and action buttons from one definition.
 
 A persistent background action queue is not implemented yet. Execution is synchronous and guarded by in-process locks to avoid conflicting concurrent actions. The Dashboard widget `Latest actions` remains a later item; recent actions are currently shown in Diagnostics.
+
+## Implementation notes (2026-08-26)
+
+Permanent ASN policy management adds confirmed ASN-target actions:
+
+| Action type | Permission | Invocation |
+| --- | --- | --- |
+| `security.asn_ban.enable` | `security.ban` | Operator/Admin UI |
+| `security.asn_ban.disable` | `security.unban` | Operator/Admin UI |
+| `security.asn_ban.exception.remove` | `security.ban` | Operator/Admin UI |
+| `security.asn_ban.provider_change.acknowledge` | `security.ban` | Operator/Admin UI |
+| `security.ban.asn_policy` | `security.ban` | Internal only |
+| `security.unban.asn_policy_reclassified` | `security.unban` | Internal only |
+
+Policy activation revalidates the stored enriched source event server-side. Internal
+actions are registered with `user_invocable=False` and execute through a separate
+manager path, so HTTP clients cannot select or emulate their triggers. All mutations
+retain confirmation, permission, status, and audit behavior. Action simulation prevents
+policy creation and automatic enforcement; a successful manual unban creates an
+ASN-specific exception only during its successful follow-up processing.
+
+Failed exact-ID releases and partial policy removals are persisted for periodic retry by
+the CrowdSec plugin. This does not implement the general background action queue; normal
+Action Framework execution remains synchronous as described above.

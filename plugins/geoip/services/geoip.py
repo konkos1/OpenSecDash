@@ -13,7 +13,7 @@ import json
 import logging
 import secrets
 import threading
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from types import MappingProxyType
@@ -422,7 +422,12 @@ def _reconcile_country_derived_data(db: Session, event: Event) -> None:
     handle_event(db, event)
 
 
-def enrich_pending_event_batch(db: Session, limit: int = 50, before_id: int | None = None) -> GeoIPEnrichmentBatch:
+def enrich_pending_event_batch(
+    db: Session,
+    limit: int = 50,
+    before_id: int | None = None,
+    report_enriched: Callable[[Event], None] | None = None,
+) -> GeoIPEnrichmentBatch:
     """Backfill GeoIP fields for recently stored events, a few at a time.
 
     Ingestion (``store_event``) never enriches inline anymore - a fresh import
@@ -470,6 +475,8 @@ def enrich_pending_event_batch(db: Session, limit: int = 50, before_id: int | No
         event.geoip_checked = outcome.complete
         if outcome.complete:
             processed += 1
+            if event.ip and event.asn and report_enriched is not None:
+                report_enriched(event)
         db.commit()
         if outcome.stop_batch:
             # A missing/rejected credential affects the provider rather than

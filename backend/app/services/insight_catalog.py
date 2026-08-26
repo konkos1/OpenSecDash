@@ -46,6 +46,12 @@ BUILTIN_INSIGHT_DEFINITIONS = (
         event_type_requirements=(("security.ban.manual",),),
     ),
     InsightDefinition(
+        type="asn_policy_security_ban",
+        title="Banned by permanent ASN ban",
+        level="high",
+        event_type_requirements=(("security.ban.asn_policy",),),
+    ),
+    InsightDefinition(
         type="blocked_request",
         title="Blocked request detected",
         level="high",

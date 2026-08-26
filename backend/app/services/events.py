@@ -313,7 +313,11 @@ def rollup_metrics_for_event(event: Event) -> list[tuple[str, str]]:
         metrics.append(("summary", "geoblocks"))
     if event.country:
         metrics.append(("country", event.country))
-    scenario = (event.data_json or {}).get("scenario") or (event.data_json or {}).get("crowdsec_scenario")
+    scenario = (
+        (event.data_json or {}).get("scenario_group")
+        or (event.data_json or {}).get("scenario")
+        or (event.data_json or {}).get("crowdsec_scenario")
+    )
     if scenario:
         metrics.append(("scenario", normalize_rollup_key("scenario", scenario)))
     return metrics
@@ -496,6 +500,26 @@ def create_rule_based_insights(db: Session, event: Event) -> None:
                     if event.event_type == "security.ban.manual"
                     else f"{event.ip} was banned for {duration} due to {scenario}."
                 ),
+                related_event_ids=ids,
+                ip=event.ip,
+                asset_id=event.asset_id,
+            )
+            db.add(insight)
+            handle_insight(db, insight, event.event_time)
+
+    if event.event_type == "security.ban.asn_policy":
+        insight_type = "asn_policy_security_ban"
+        if not _insight_exists(db, insight_type, ids):
+            data = event.data_json or {}
+            asn = str(data.get("asn") or "unknown ASN")
+            provider_name = str(data.get("provider_name") or "unknown provider")
+            duration = str(data.get("duration") or "7d")
+            insight = Insight(
+                type=insight_type,
+                confidence=0.95,
+                level="high",
+                title="Banned by permanent ASN ban",
+                description=f"{asn} · {provider_name} · {duration}",
                 related_event_ids=ids,
                 ip=event.ip,
                 asset_id=event.asset_id,

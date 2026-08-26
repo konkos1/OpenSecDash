@@ -154,6 +154,25 @@ def test_enrich_pending_events_backfills_from_cache_and_marks_checked(db_session
     assert (event.country, event.city, event.asn, event.isp) == ("US", "Mountain View", "AS15169", "Google LLC")
 
 
+def test_completed_geoip_event_is_reported_before_its_commit(db_session):
+    _cached_geoip_setup(db_session)
+    event = Event(source="test", plugin="traefik_log", event_type="access.allowed", ip="8.8.8.8", geoip_checked=False)
+    db_session.add(event)
+    db_session.commit()
+    reported: list[tuple[int, bool, str | None]] = []
+
+    batch = geoip_service.enrich_pending_event_batch(
+        db_session,
+        limit=10,
+        report_enriched=lambda enriched: reported.append(
+            (enriched.id, enriched.geoip_checked, enriched.asn)
+        ),
+    )
+
+    assert batch.processed == 1
+    assert reported == [(event.id, True, "AS15169")]
+
+
 def test_enrich_pending_events_reconciles_country_rollup_insight_and_notifications(db_session):
     _cached_geoip_setup(db_session)
     db_session.add_all(

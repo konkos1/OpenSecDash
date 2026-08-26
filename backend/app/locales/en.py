@@ -429,6 +429,8 @@ EN = {
     "insight.title.security_ban_observed": "Security ban observed",
     "insight.description.security_ban_observed": "A security ban for this IP was observed in the log data.",
     "insight.title.manual_security_ban": "Manual security ban",
+    "insight.title.asn_policy_security_ban": "Banned by permanent ASN ban",
+    "insight.description.asn_policy_security_ban": "This IP was banned for seven days after matching a permanent ASN policy. This is a historical finding, not the current decision status.",
     "insight.description.manual_security_ban": "This IP was manually banned via OpenSecDash.",
     "insight.title.blocked_request": "Blocked request detected",
     "insight.description.blocked_request": "A blocked request and an access error occurred inside the correlation window.",
@@ -542,7 +544,7 @@ EN = {
 
     "settings.title": "Settings",
     "settings.core": "General",
-    "settings.version": "OpenSecDash version",
+    "settings.version": "OSD version",
     "settings.domain": "Primary Domain",
     "settings.instance_description": "Instance Description",
     "settings.language": "Language",

@@ -41,10 +41,10 @@
 
     <div class="card">
       <h3 class="font-semibold mb-3">{{ t("crowdsec.top_scenarios") }} <button type="button" class="help" data-tooltip="{{ t('crowdsec.top_scenarios_help') }}">?</button></h3>
-        {% for scenario,count in scenarios %}
-          <a class="row" href="/events?event_type=security.ban*&q={{ (scenario or 'unknown')|urlencode }}">
-            <span>{{ scenario or t("crowdsec.unknown") }}</span>
-            <b>{{ count }}</b>
+        {% for scenario in scenarios %}
+          <a class="row" href="/events?event_type=security.ban*&q={{ scenario.key|urlencode }}&include_raw_data=true">
+            <span>{{ t(scenario.label_key) if scenario.label_key else scenario.key }}</span>
+            <b>{{ scenario.count }}</b>
           </a>
         {% else %}
           <p class="muted">{{ t("crowdsec.no_scenarios") }}</p>
@@ -60,6 +60,124 @@
         </a>
       {% else %}
         <p class="muted">{{ t("crowdsec.no_countries") }}</p>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section id="asn-policies" class="card mb-5">
+    <h3 class="font-semibold mb-1">{{ t("crowdsec.asn_ban.management.title") }}</h3>
+    <p class="info-text text-sm mb-3">{{ t("crowdsec.asn_ban.management.help") }}</p>
+
+    {% if asn_policy_state.action_dry_run %}
+      <p class="alert-error text-sm">{{ t("crowdsec.asn_ban.notice.dry_run") }}</p>
+    {% endif %}
+    {% if not asn_policy_state.geoip_enabled %}
+      <p class="alert-error text-sm">{{ t("crowdsec.asn_ban.notice.geoip_disabled") }}</p>
+    {% elif not asn_policy_state.geoip_healthy %}
+      <p class="alert-error text-sm">{{ t("crowdsec.asn_ban.notice.geoip_error") }} <a href="/diagnostics">{{ t("crowdsec.asn_ban.open_diagnostics") }}</a></p>
+    {% endif %}
+    {% if not asn_policy_state.crowdsec_enabled %}
+      <p class="alert-error text-sm">{{ t("crowdsec.asn_ban.notice.crowdsec_disabled") }}</p>
+    {% elif not asn_policy_state.lapi_ready %}
+      <p class="alert-error text-sm">{{ t("crowdsec.asn_ban.notice.lapi_error") }} <a href="/diagnostics">{{ t("crowdsec.asn_ban.open_diagnostics") }}</a></p>
+    {% endif %}
+
+    <div class="flex flex-col gap-4 mt-4">
+      {% for row in asn_policies %}
+        {% set policy = row.policy %}
+        <article class="rounded-xl border border-slate-700 p-4">
+          <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+            <div>
+              <h4 class="font-semibold text-lg">{{ policy.asn }}</h4>
+              <p>{{ policy.provider_name or t("crowdsec.asn_ban.provider_unknown") }}</p>
+              <p class="muted text-sm">
+                {{ t("crowdsec.asn_ban.status.label") }}:
+                <strong>{{ t("crowdsec.asn_ban.status.active") if policy.status == "active" else t("crowdsec.asn_ban.status.removing") }}</strong>
+              </p>
+            </div>
+            {% if can_operate %}
+              <form method="post" action="/crowdsec/asn-bans/{{ policy.id }}/disable?next=/crowdsec%23asn-policies" data-confirm="{{ t('crowdsec.asn_ban.disable.confirm').replace('{asn}', policy.asn) }}" data-submit-busy>
+                <input type="hidden" name="confirmed" value="true">
+                <button class="btn-small" data-busy-label="{{ t('common.processing') }}">
+                  {{ t("crowdsec.asn_ban.retry_removal") if policy.status == "removing" else t("crowdsec.asn_ban.disable") }}
+                </button>
+              </form>
+            {% endif %}
+          </div>
+
+          <dl class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 mt-3 text-sm">
+            <div><dt class="muted">{{ t("crowdsec.asn_ban.created_at") }}</dt><dd>{{ policy.created_at|datetime }}</dd></div>
+            <div><dt class="muted">{{ t("crowdsec.asn_ban.last_matched_at") }}</dt><dd>{{ policy.last_matched_at|datetime if policy.last_matched_at else '-' }}</dd></div>
+            <div><dt class="muted">{{ t("crowdsec.asn_ban.active_decisions") }}</dt><dd>{{ row.active_decisions|length }}</dd></div>
+            <div><dt class="muted">{{ t("crowdsec.asn_ban.exceptions") }}</dt><dd>{{ row.exceptions|length }}</dd></div>
+          </dl>
+
+          {% if policy.provider_review_required %}
+            <div class="alert-error text-sm mt-3">
+              <strong>{{ t("crowdsec.asn_ban.provider_change.warning") }}</strong>
+              <p>{{ t("crowdsec.asn_ban.provider_change.explanation") }}</p>
+              <dl class="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
+                <div><dt class="muted">{{ t("crowdsec.asn_ban.provider_change.previous") }}</dt><dd>{{ policy.previous_provider_name or t("crowdsec.asn_ban.provider_unknown") }}</dd></div>
+                <div><dt class="muted">{{ t("crowdsec.asn_ban.provider_change.current") }}</dt><dd>{{ policy.provider_name or t("crowdsec.asn_ban.provider_unknown") }}</dd></div>
+                <div><dt class="muted">{{ t("crowdsec.asn_ban.provider_change.detected_at") }}</dt><dd>{{ policy.provider_name_changed_at|datetime }}</dd></div>
+              </dl>
+              {% if can_operate %}
+                <form class="mt-3" method="post" action="/crowdsec/asn-bans/{{ policy.id }}/provider-change/acknowledge?next=/crowdsec%23asn-policies" data-confirm="{{ t('crowdsec.asn_ban.provider_change.acknowledge_confirm').replace('{asn}', policy.asn) }}" data-submit-busy>
+                  <input type="hidden" name="provider_name_changed_at" value="{{ policy.provider_name_changed_at.isoformat() }}">
+                  <input type="hidden" name="confirmed" value="true">
+                  <button class="btn-small" data-busy-label="{{ t('common.processing') }}">{{ t("crowdsec.asn_ban.provider_change.acknowledge") }}</button>
+                </form>
+              {% endif %}
+            </div>
+          {% endif %}
+
+          {% if policy.removal_error %}
+            <p class="alert-error text-sm mt-3">{{ t("crowdsec.asn_ban.removal_error") }}: {{ policy.removal_error }}</p>
+          {% endif %}
+
+          {% if row.pending_releases %}
+            <div class="alert-error text-sm mt-3">
+              <strong>{{ t("crowdsec.asn_ban.pending_releases") }}</strong>
+              <p>{{ t("crowdsec.asn_ban.pending_releases.help") }}</p>
+              {% for pending in row.pending_releases %}
+                <p><a href="/ip/{{ pending.ip|url_path_quote }}">{{ pending.ip }}</a> · {{ t("crowdsec.asn_ban.decision_id") }} {{ pending.decision_id or '-' }}{% if pending.error %} · {{ pending.error }}{% endif %}</p>
+              {% endfor %}
+            </div>
+          {% endif %}
+
+          <details class="mt-3">
+            <summary class="font-semibold">{{ t("crowdsec.asn_ban.active_decisions") }} ({{ row.active_decisions|length }})</summary>
+            <div class="flex flex-col gap-1 mt-2 text-sm">
+              {% for decision in row.active_decisions %}
+                <p><a href="/ip/{{ decision.ip|url_path_quote }}">{{ decision.ip }}</a>{% if decision.until %} · {{ t("crowdsec.asn_ban.until") }} {{ decision.until|datetime }}{% endif %}</p>
+              {% else %}
+                <p class="muted">{{ t("crowdsec.asn_ban.no_active_decisions") }}</p>
+              {% endfor %}
+            </div>
+          </details>
+
+          <details class="mt-3">
+            <summary class="font-semibold">{{ t("crowdsec.asn_ban.exceptions") }} ({{ row.exceptions|length }})</summary>
+            <div class="flex flex-col gap-2 mt-2 text-sm">
+              {% for exception in row.exceptions %}
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <p><a href="/ip/{{ exception.ip|url_path_quote }}">{{ exception.ip }}</a> · {{ exception.created_at|datetime }}{% if exception.source_action_id %} · {{ t("crowdsec.asn_ban.action_id") }} {{ exception.source_action_id }}{% endif %}</p>
+                  {% if can_operate %}
+                    <form method="post" action="/crowdsec/asn-bans/{{ policy.id }}/exceptions/{{ exception.id }}/remove?next=/crowdsec%23asn-policies" data-confirm="{{ t('crowdsec.asn_ban.exception.remove_confirm').replace('{ip}', exception.ip).replace('{asn}', policy.asn) }}" data-submit-busy>
+                      <input type="hidden" name="confirmed" value="true">
+                      <button class="btn-small" data-busy-label="{{ t('common.processing') }}">{{ t("crowdsec.asn_ban.exception.remove") }}</button>
+                    </form>
+                  {% endif %}
+                </div>
+              {% else %}
+                <p class="muted">{{ t("crowdsec.asn_ban.no_exceptions") }}</p>
+              {% endfor %}
+            </div>
+          </details>
+        </article>
+      {% else %}
+        <p class="muted">{{ t("crowdsec.asn_ban.empty") }}</p>
+        <p class="info-text text-sm">{{ t("crowdsec.asn_ban.column_help") }}</p>
       {% endfor %}
     </div>
   </section>
@@ -88,7 +206,8 @@
             {% if can_operate %}<td data-label="{{ t('common.action') }}">
               {% set active_decision = active_decisions.get(ban.ip) if ban.ip else None %}
               {% if active_decision or action_dry_run %}
-                <form method="post" action="/actions/ip" data-confirm="{{ t('crowdsec.confirm_unban') }} {{ ban.ip }}?" data-submit-busy>
+                {% set policy_asn = policy_asn_by_decision.get(active_decision.decision_id) if active_decision else None %}
+                <form method="post" action="/actions/ip" data-confirm="{% if policy_asn %}{{ t('crowdsec.asn_ban.policy_unban.confirm').replace('{ip}', ban.ip).replace('{asn}', policy_asn) }}{% else %}{{ t('crowdsec.confirm_unban') }} {{ ban.ip }}?{% endif %}" data-submit-busy>
                   <input type="hidden" name="action_type" value="security.unban">
                   <input type="hidden" name="ip" value="{{ ban.ip }}">
                   <input type="hidden" name="decision_id" value="{{ active_decision.decision_id if active_decision else '' }}">

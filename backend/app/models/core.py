@@ -1,10 +1,9 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Index, JSON, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, JSON, String, Text, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.time import utc_now
-from sqlalchemy.orm import Mapped, mapped_column
-
 from app.database.base import Base
 
 
@@ -133,6 +132,83 @@ class CrowdSecDecision(Base):
     until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
     raw_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     synced_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, index=True)
+
+
+class CrowdSecAsnBan(Base):
+    __tablename__ = "crowdsec_asn_bans"
+    __table_args__ = (
+        CheckConstraint("status IN ('active', 'removing')", name="ck_crowdsec_asn_ban_status"),
+        UniqueConstraint("asn", name="uq_crowdsec_asn_ban_asn"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    asn: Mapped[str] = mapped_column(String(32), index=True)
+    provider_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    previous_provider_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    provider_review_required: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    provider_name_changed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
+    provider_reviewed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="active", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, index=True)
+    last_matched_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
+    removal_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now)
+
+    exceptions: Mapped[list["CrowdSecAsnBanException"]] = relationship(
+        back_populates="asn_ban",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    enforcements: Mapped[list["CrowdSecAsnBanEnforcement"]] = relationship(
+        back_populates="asn_ban",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+
+class CrowdSecAsnBanException(Base):
+    __tablename__ = "crowdsec_asn_ban_exceptions"
+    __table_args__ = (
+        UniqueConstraint("asn_ban_id", "ip", name="uq_crowdsec_asn_ban_exception_ip"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    asn_ban_id: Mapped[int] = mapped_column(
+        ForeignKey("crowdsec_asn_bans.id", ondelete="CASCADE"),
+        index=True,
+    )
+    ip: Mapped[str] = mapped_column(String(64), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, index=True)
+    source_action_id: Mapped[int | None] = mapped_column(nullable=True)
+
+    asn_ban: Mapped["CrowdSecAsnBan"] = relationship(back_populates="exceptions")
+
+
+class CrowdSecAsnBanEnforcement(Base):
+    __tablename__ = "crowdsec_asn_ban_enforcements"
+    __table_args__ = (
+        UniqueConstraint("asn_ban_id", "ip", name="uq_crowdsec_asn_ban_enforcement_ip"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    asn_ban_id: Mapped[int] = mapped_column(
+        ForeignKey("crowdsec_asn_bans.id", ondelete="CASCADE"),
+        index=True,
+    )
+    ip: Mapped[str] = mapped_column(String(64), index=True)
+    last_event_id: Mapped[int | None] = mapped_column(nullable=True)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
+    action_id: Mapped[int | None] = mapped_column(nullable=True)
+    decision_id: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
+    decision_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
+    scenario: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    last_observed_asn: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    release_pending: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    release_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now)
+
+    asn_ban: Mapped["CrowdSecAsnBan"] = relationship(back_populates="enforcements")
 
 
 class GeoIPCache(Base):

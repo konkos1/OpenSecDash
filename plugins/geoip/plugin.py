@@ -160,6 +160,16 @@ class Plugin(EnrichmentPlugin):
             if deleted:
                 logger.debug("Removed %d expired GeoIP cache entries", deleted)
             self._last_cache_cleanup = now
-        batch = enrich_pending_event_batch(context.db, limit, self._next_event_before_id)
+        def report_enriched(event) -> None:
+            callback = getattr(context, "report_event_enriched", None)
+            if callable(callback):
+                callback(event)
+
+        batch = enrich_pending_event_batch(
+            context.db,
+            limit,
+            self._next_event_before_id,
+            report_enriched,
+        )
         self._next_event_before_id = batch.next_before_id
         return batch.processed

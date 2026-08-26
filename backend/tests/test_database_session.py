@@ -10,15 +10,17 @@ from app.database.session import configure_sqlite_pragmas, write_lock
 from app.models.settings import Setting
 
 
-def test_configure_sqlite_pragmas_enables_wal_and_synchronous_normal(tmp_path):
+def test_configure_sqlite_pragmas_enables_foreign_keys_wal_and_synchronous_normal(tmp_path):
     db_path = tmp_path / "pragma_test.db"
     connection = sqlite3.connect(str(db_path))
     try:
         configure_sqlite_pragmas(connection)
 
+        foreign_keys = connection.execute("PRAGMA foreign_keys").fetchone()[0]
         journal_mode = connection.execute("PRAGMA journal_mode").fetchone()[0]
         synchronous = connection.execute("PRAGMA synchronous").fetchone()[0]
 
+        assert foreign_keys == 1
         assert journal_mode.lower() == "wal"
         # SQLite reports synchronous as an integer: 0=OFF, 1=NORMAL, 2=FULL.
         assert synchronous == 1

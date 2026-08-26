@@ -906,6 +906,13 @@ def rollups_page(request: Request, db: Session = Depends(get_db)):
         if not summary and event_type_rows:
             summary = summary_from_event_type_rows(event_type_rows)
         scenario_rows = rollup_rows(db, period, selected_value, "scenario") if selected_value else []
+        manager = get_plugin_manager()
+        for row in scenario_rows:
+            key = str(row["key"])
+            label_key = manager.rollup_display_label_key("scenario", key)
+            if label_key:
+                row["label_key"] = label_key
+            row["href"] = f"/events?{urlencode({'event_type': 'security.ban*', 'q': key, 'include_raw_data': 'true'})}"
         country_rows = rollup_rows(db, period, selected_value, "country", limit=20) if selected_value else []
     return render(
         request,
@@ -1056,6 +1063,7 @@ def events_page(
     # the cost of subsequent updates.
     events = apply_event_filters(db.query(Event), filters).order_by(Event.event_time.desc()).limit(200).all()
     event_asset_links = asset_links_for_events(db, events)
+    event_table_context = get_plugin_manager().event_table_context(db, events)
     column_options, active_columns = table_columns(db, "ui.events.visible_columns", DEFAULT_EVENTS_COLUMNS)
     saved_view_context = _saved_view_context(db, "events", request)
     return render(
@@ -1069,6 +1077,7 @@ def events_page(
         active_columns=active_columns,
         columns_setting_action="/events/columns",
         view_to_query=view_to_query,
+        **event_table_context,
         **saved_view_context,
     )
 
