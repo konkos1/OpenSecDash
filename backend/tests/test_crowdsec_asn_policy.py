@@ -4,6 +4,7 @@ from datetime import timedelta
 from typing import Any
 
 import pytest
+from starlette.requests import Request
 
 from app.core.time import utc_now
 from app.models.core import (
@@ -25,6 +26,7 @@ from conftest import import_plugin_module
 decisions = import_plugin_module("crowdsec", "services.decisions")
 lapi = import_plugin_module("crowdsec", "services.lapi")
 policies = import_plugin_module("crowdsec", "services.policies")
+routes = import_plugin_module("crowdsec", "routes")
 
 
 class FakeLapi:
@@ -135,6 +137,56 @@ def _enable(db, event: Event) -> Action:
         {"event_id": event.id, "ip": "1.2.3.4", "provider_name": "untrusted"},
         confirmed=True,
     )
+
+
+def _form_request(path: str, next_url: str = "/events") -> Request:
+    return Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": path,
+            "headers": [],
+            "query_string": f"next={next_url}".encode(),
+            "scheme": "http",
+            "server": ("testserver", 80),
+        }
+    )
+
+
+def test_enable_form_route_uses_only_server_event_values(policy_runtime):
+    db, fake = policy_runtime
+    source = _event(db, "8.8.8.8", "AS15169", "Server Provider")
+
+    response = routes.crowdsec_asn_ban_enable(
+        _form_request("/crowdsec/asn-bans/enable"),
+        event_id=source.id,
+        confirmed=True,
+        db=db,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/events"
+    assert db.query(CrowdSecAsnBan).one().provider_name == "Server Provider"
+    assert db.query(CrowdSecAsnBanEnforcement).one().ip == "8.8.8.8"
+    assert len(fake.adds) == 1
+
+
+def test_enable_form_route_requires_confirmation(policy_runtime):
+    db, fake = policy_runtime
+    source = _event(db, "8.8.8.8", "AS15169")
+
+    routes.crowdsec_asn_ban_enable(
+        _form_request("/crowdsec/asn-bans/enable"),
+        event_id=source.id,
+        confirmed=False,
+        db=db,
+    )
+
+    assert db.query(CrowdSecAsnBan).count() == 0
+    assert fake.adds == []
+    failed = db.query(Action).one()
+    assert failed.status == "failed"
+    assert failed.result == "Action requires confirmation"
 
 
 def test_enable_uses_server_event_and_creates_one_exact_ip_decision(policy_runtime):

@@ -450,16 +450,39 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
 
     # --- Web surface: page, IP-explorer panel, nav (see app.plugins.web) ---
 
+    def event_table_context(self, db: Session, events: list[Event]) -> dict[str, Any]:
+        from .services.policies import event_popup_context
+
+        return {"crowdsec_asn_popups": event_popup_context(db, events)}
+
     def ip_page_context(self, db: Session, ip: str) -> dict[str, Any]:
         # The panel is included on the IP explorer for everyone (it also shows
         # in dry-run while the plugin is disabled), so guard the enabled-only
         # bits here. When the plugin is env-disabled it isn't loaded at all and
         # this hook never runs, so the panel disappears entirely.
         enabled = get_setting_value(db, "plugin.crowdsec.enabled", "false") == "true"
+        active_decision = active_decision_for_ip(db, ip) if enabled else None
+        from .services.policies import policy_asn_for_decision
+
+        policy_asn = policy_asn_for_decision(
+            db,
+            active_decision.decision_id if active_decision is not None else None,
+        )
+        action_confirmations = (
+            {
+                "security.unban": {
+                    "key": "crowdsec.asn_ban.policy_unban.confirm",
+                    "asn": policy_asn,
+                }
+            }
+            if policy_asn
+            else {}
+        )
         return {
             "crowdsec_enabled": enabled,
-            "active_decision": active_decision_for_ip(db, ip) if enabled else None,
+            "active_decision": active_decision,
             "lapi_status": crowdsec_lapi_status(db) if enabled else None,
+            "ip_action_confirmations": action_confirmations,
         }
 
     def ip_page_count_widgets(self, db: Session, ip: str) -> list[dict[str, Any]]:
@@ -517,7 +540,7 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
         from .routes import router
 
         return PluginWebRegistration(
-            router=router,
+            ungated_router=router,
             templates_dir=Path(__file__).parent / "templates",
             nav_items=(PluginNavItem(label_key="nav.crowdsec", href="/crowdsec", active_prefix="/crowdsec"),),
             ip_page_panels=("crowdsec/ip_panel.html",),

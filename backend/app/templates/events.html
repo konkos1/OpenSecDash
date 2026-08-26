@@ -124,6 +124,7 @@
         <div>
           <strong>{{ t("table.columns") }}</strong>
           <p class="info-text text-sm">{{ t("table.columns_help") }}</p>
+          <p class="info-text text-sm">{{ t("crowdsec.asn_ban.column_help") }}</p>
         </div>
         <button type="button" class="text-overlay-close" data-columns-close="events-columns" aria-label="{{ t('common.close') }}">×</button>
       </div>
@@ -186,7 +187,7 @@
             {% if 'user_agent' in active_columns %}{% set user_agent = event_data_value(event, 'user_agent', 'request_User-Agent') %}<td class="path-cell{% if user_agent %} cell-stack{% endif %}" data-label="{{ t('events.user_agent') }}">{% if user_agent %}<button type="button" class="path-truncate text-action" data-full-text="{{ user_agent }}" data-overlay-title="{{ t('events.user_agent') }}">{{ user_agent }}</button>{% else %}-{% endif %}</td>{% endif %}
             {% if 'router' in active_columns %}<td data-label="{{ t('events.router') }}">{{ event_data_value(event, 'router_name', 'RouterName') or '-' }}</td>{% endif %}
             {% if 'service' in active_columns %}<td data-label="{{ t('events.service') }}">{{ event_data_value(event, 'service_name', 'ServiceName') or '-' }}</td>{% endif %}
-            {% if 'asn' in active_columns %}<td data-label="{{ t('events.asn') }}">{{ event.asn or '-' }}</td>{% endif %}
+            {% if 'asn' in active_columns %}<td data-label="{{ t('events.asn') }}">{% include "components/asn_popup_trigger.html" %}</td>{% endif %}
             {% if 'isp' in active_columns %}<td class="path-cell cell-stack" data-label="{{ t('events.isp') }}">{% if event.isp %}<button type="button" class="path-truncate text-action" data-full-text="{{ event.isp }}" data-overlay-title="{{ t('events.isp') }}">{{ event.isp }}</button>{% else %}-{% endif %}</td>{% endif %}
           </tr>
         {% else %}

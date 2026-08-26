@@ -254,6 +254,10 @@ class Plugin:
         """
         return {}
 
+    def event_table_context(self, db: Session, events: list[Event]) -> dict[str, Any]:
+        """Extra template context for bounded event tables (side-effect-free)."""
+        return {}
+
     def ip_page_count_widgets(self, db: Session, ip: str) -> list[dict[str, Any]]:
         """Count cards this plugin contributes to the IP explorer (side-effect-free).
 

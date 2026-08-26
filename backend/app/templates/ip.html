@@ -33,7 +33,12 @@
             <div class="row">
                 <span>{{ t("insight.title." ~ insight.type) if t("insight.title." ~ insight.type) != "insight.title." ~ insight.type else insight.title }}
                     <br>
-                    <small class="muted">{{ t("insight.description." ~ insight.type) if t("insight.description." ~ insight.type) != "insight.description." ~ insight.type else insight.description }}</small>
+                    {% if insight.type == "asn_policy_security_ban" %}
+                        <small class="muted">{{ t("insight.description.asn_policy_security_ban") }}</small><br>
+                        <small class="muted">{{ insight.description }}</small>
+                    {% else %}
+                        <small class="muted">{{ t("insight.description." ~ insight.type) if t("insight.description." ~ insight.type) != "insight.description." ~ insight.type else insight.description }}</small>
+                    {% endif %}
                 </span>
                 <b>{{ badge }} {{ t("insight.certainty." ~ certainty) }}</b>
             </div>

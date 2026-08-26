@@ -138,6 +138,9 @@ def test_plugin_default_views_are_rendered_as_read_only(monkeypatch, db_session)
         def default_views(self):
             return [{"plugin_id": "traefik_log", "scope": "events", "name": "Plugin errors", "filter": {"status_code_min": 400}}]
 
+        def event_table_context(self, db, events):
+            return {}
+
     captured: dict[str, Any] = {}
     monkeypatch.setattr(pages, "get_plugin_manager", lambda: FakeManager())
     monkeypatch.setattr(pages, "render", lambda request, db, template, **context: captured.update(context) or context)

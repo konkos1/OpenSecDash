@@ -1063,6 +1063,7 @@ def events_page(
     # the cost of subsequent updates.
     events = apply_event_filters(db.query(Event), filters).order_by(Event.event_time.desc()).limit(200).all()
     event_asset_links = asset_links_for_events(db, events)
+    event_table_context = get_plugin_manager().event_table_context(db, events)
     column_options, active_columns = table_columns(db, "ui.events.visible_columns", DEFAULT_EVENTS_COLUMNS)
     saved_view_context = _saved_view_context(db, "events", request)
     return render(
@@ -1076,6 +1077,7 @@ def events_page(
         active_columns=active_columns,
         columns_setting_action="/events/columns",
         view_to_query=view_to_query,
+        **event_table_context,
         **saved_view_context,
     )
 

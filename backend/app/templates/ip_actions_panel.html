@@ -11,7 +11,8 @@
         {% else %}
             <div class="flex flex-col gap-3">
                 {% for _plugin_id, definition in available_ip_actions %}
-                    <form class="flex flex-col sm:flex-row sm:items-end gap-2" method="post" action="/actions/ip"{% if definition.critical %} data-confirm="{{ t('action.confirm').replace('{label}', t(definition.label_key)).replace('{target}', ip) }}"{% endif %} data-submit-busy>
+                    {% set action_confirmation = ip_action_confirmations.get(definition.action_type) if ip_action_confirmations is defined else None %}
+                    <form class="flex flex-col sm:flex-row sm:items-end gap-2" method="post" action="/actions/ip"{% if action_confirmation %} data-confirm="{{ t(action_confirmation.key).replace('{ip}', ip).replace('{asn}', action_confirmation.asn) }}"{% elif definition.critical %} data-confirm="{{ t('action.confirm').replace('{label}', t(definition.label_key)).replace('{target}', ip) }}"{% endif %} data-submit-busy>
                         <input type="hidden" name="action_type" value="{{ definition.action_type }}">
                         <input type="hidden" name="ip" value="{{ ip }}">
                         <input type="hidden" name="confirmed" value="true">

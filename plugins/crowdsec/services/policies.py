@@ -4,9 +4,9 @@ import ipaddress
 import re
 from typing import Any
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
-from app.core.template_context import get_setting_value
+from app.core.template_context import get_setting_value, get_setting_values
 from app.core.time import utc_now
 from app.models.core import (
     Action,
@@ -14,6 +14,7 @@ from app.models.core import (
     CrowdSecAsnBanEnforcement,
     CrowdSecAsnBanException,
     CrowdSecDecision,
+    Diagnostic,
 )
 from app.models.events import Event
 from app.services.actions import _create_internal_action
@@ -23,6 +24,195 @@ ASN_MAX = 4_294_967_295
 POLICY_DURATION = "7d"
 POLICY_SCENARIO_GROUP = "opensecdash/manual-permanent-asn-ban"
 POLICY_SCENARIO_PREFIX = f"{POLICY_SCENARIO_GROUP}/"
+
+
+def policy_ui_state(db: Session) -> dict[str, Any]:
+    """Return the effective prerequisites shown by ASN policy web surfaces."""
+    values = get_setting_values(
+        db,
+        {
+            "action_dry_run": "true",
+            "plugin.crowdsec.enabled": "false",
+            "plugin.geoip.enabled": "false",
+        },
+    )
+    crowdsec_enabled = values["plugin.crowdsec.enabled"].lower() == "true"
+    geoip_enabled = values["plugin.geoip.enabled"].lower() == "true"
+    action_dry_run = values["action_dry_run"].lower() == "true"
+    lapi_status = (
+        db.query(Diagnostic)
+        .filter(Diagnostic.plugin == "crowdsec", Diagnostic.component == "lapi")
+        .first()
+    )
+    geoip_status = (
+        db.query(Diagnostic)
+        .filter(Diagnostic.plugin == "geoip", Diagnostic.component == "plugin")
+        .first()
+    )
+    lapi_ready = _lapi_configuration_ready(db) and bool(
+        lapi_status and lapi_status.status == "healthy"
+    )
+    geoip_healthy = geoip_status is None or geoip_status.status != "error"
+    can_enable = (
+        crowdsec_enabled
+        and geoip_enabled
+        and geoip_healthy
+        and lapi_ready
+        and not action_dry_run
+    )
+    if action_dry_run:
+        availability_key = "crowdsec.asn_ban.unavailable.dry_run"
+    elif not crowdsec_enabled:
+        availability_key = "crowdsec.asn_ban.unavailable.crowdsec"
+    elif not geoip_enabled:
+        availability_key = "crowdsec.asn_ban.unavailable.geoip"
+    elif not geoip_healthy:
+        availability_key = "crowdsec.asn_ban.unavailable.geoip_error"
+    elif not lapi_ready:
+        availability_key = "crowdsec.asn_ban.unavailable.lapi"
+    else:
+        availability_key = None
+    return {
+        "crowdsec_enabled": crowdsec_enabled,
+        "geoip_enabled": geoip_enabled,
+        "geoip_healthy": geoip_healthy,
+        "action_dry_run": action_dry_run,
+        "lapi_ready": lapi_ready,
+        "lapi_status": lapi_status,
+        "geoip_status": geoip_status,
+        "can_enable": can_enable,
+        "availability_key": availability_key,
+    }
+
+
+def event_popup_context(db: Session, events: list[Event]) -> dict[int, dict[str, Any]]:
+    """Build ASN popup data with one policy query for a bounded event table."""
+    normalized_by_event: dict[int, str] = {}
+    for event in events:
+        if event.id is None or not event.asn:
+            continue
+        try:
+            normalized_by_event[event.id] = normalize_asn(event.asn)
+        except ValueError:
+            continue
+    if not normalized_by_event:
+        return {}
+    policies = {
+        policy.asn: policy
+        for policy in (
+            db.query(CrowdSecAsnBan)
+            .filter(CrowdSecAsnBan.asn.in_(set(normalized_by_event.values())))
+            .all()
+        )
+    }
+    ui_state = policy_ui_state(db)
+    result: dict[int, dict[str, Any]] = {}
+    for event in events:
+        if event.id not in normalized_by_event:
+            continue
+        asn = normalized_by_event[event.id]
+        policy = policies.get(asn)
+        valid_source = False
+        if event.geoip_checked and event.ip:
+            try:
+                normalize_global_ip(event.ip)
+                valid_source = True
+            except ValueError:
+                pass
+        result[event.id] = {
+            "asn": asn,
+            "provider_name": str(event.isp or "").strip()[:255] or None,
+            "policy_status": policy.status if policy is not None else None,
+            "provider_review_required": bool(policy and policy.provider_review_required),
+            "enable_available": bool(policy is None and valid_source and ui_state["can_enable"]),
+            "availability_key": ui_state["availability_key"] if policy is None else None,
+        }
+    return result
+
+
+def policy_management_rows(db: Session) -> list[dict[str, Any]]:
+    """Load policy management rows, exceptions and enforcements without N+1 queries."""
+    policies = (
+        db.query(CrowdSecAsnBan)
+        .options(
+            selectinload(CrowdSecAsnBan.exceptions),
+            selectinload(CrowdSecAsnBan.enforcements),
+        )
+        .order_by(CrowdSecAsnBan.created_at.desc(), CrowdSecAsnBan.asn)
+        .all()
+    )
+    decision_ids = {
+        str(enforcement.decision_id)
+        for policy in policies
+        for enforcement in policy.enforcements
+        if enforcement.decision_id
+    }
+    decisions = {
+        decision.decision_id: decision
+        for decision in (
+            db.query(CrowdSecDecision)
+            .filter(
+                CrowdSecDecision.decision_type == "ban",
+                CrowdSecDecision.decision_id.in_(decision_ids),
+            )
+            .all()
+            if decision_ids
+            else []
+        )
+    }
+    rows: list[dict[str, Any]] = []
+    for policy in policies:
+        active_decisions = []
+        pending_releases = []
+        expected_scenario = policy_scenario(policy.asn)
+        for enforcement in sorted(policy.enforcements, key=lambda item: item.ip):
+            if enforcement.release_pending:
+                pending_releases.append(
+                    {
+                        "ip": enforcement.ip,
+                        "decision_id": enforcement.decision_id,
+                        "error": enforcement.release_error,
+                    }
+                )
+            decision = decisions.get(str(enforcement.decision_id))
+            if (
+                decision is not None
+                and decision.ip == enforcement.ip
+                and decision.origin == "opensecdash"
+                and decision.scenario == expected_scenario
+            ):
+                active_decisions.append(
+                    {
+                        "ip": enforcement.ip,
+                        "decision_id": decision.decision_id,
+                        "until": decision.until,
+                    }
+                )
+        rows.append(
+            {
+                "policy": policy,
+                "active_decisions": active_decisions,
+                "pending_releases": pending_releases,
+                "exceptions": sorted(policy.exceptions, key=lambda item: item.ip),
+            }
+        )
+    return rows
+
+
+def policy_asn_for_decision(db: Session, decision_id: str | None) -> str | None:
+    """Return the active policy ASN that owns one exact synced decision."""
+    if not decision_id:
+        return None
+    enforcement = (
+        db.query(CrowdSecAsnBanEnforcement)
+        .join(CrowdSecAsnBan)
+        .filter(
+            CrowdSecAsnBanEnforcement.decision_id == decision_id,
+            CrowdSecAsnBan.status == "active",
+        )
+        .first()
+    )
+    return enforcement.asn_ban.asn if enforcement is not None else None
 
 
 def normalize_asn(value: object) -> str:

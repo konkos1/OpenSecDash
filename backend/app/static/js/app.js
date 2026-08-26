@@ -61,6 +61,16 @@ function initializeResponsiveNavigation() {
 
 initializeResponsiveNavigation();
 
+let activeTextOverlayTrigger = null;
+
+function closeTextOverlays() {
+    document.querySelectorAll(".text-overlay-backdrop").forEach(overlay => overlay.remove());
+    if (activeTextOverlayTrigger && activeTextOverlayTrigger.isConnected) {
+        activeTextOverlayTrigger.focus({preventScroll: true});
+    }
+    activeTextOverlayTrigger = null;
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     localizeOpenSecDashDatetimes();
     localizeOpenSecDashCountries();
@@ -273,39 +283,33 @@ document.addEventListener("DOMContentLoaded", () => {
                 });
         });
 
-    document.querySelectorAll("[data-confirm]")
-        .forEach(element => {
-            element.addEventListener("submit", event => {
-                const text = element.dataset.confirm;
+    document.addEventListener("submit", event => {
+        const form = event.target.closest("form[data-confirm]");
+        if (form && !confirm(form.dataset.confirm || "")) {
+            event.preventDefault();
+        }
+    });
 
-                if (!confirm(text)) {
-                    event.preventDefault();
-                }
-            });
-        });
-
-    document.querySelectorAll("form[data-submit-busy]")
-        .forEach(form => {
-            form.addEventListener("submit", event => {
-                if (event.defaultPrevented) {
-                    return;
-                }
-                const associatedButton = form.id
-                    ? document.querySelector(`button[form="${CSS.escape(form.id)}"][type="submit"], button[form="${CSS.escape(form.id)}"]:not([type])`)
-                    : null;
-                const button = form.querySelector('button[type="submit"], button:not([type])') || associatedButton;
-                if (!button || button.disabled) {
-                    event.preventDefault();
-                    return;
-                }
-                const label = button.dataset.busyLabel;
-                button.disabled = true;
-                button.setAttribute("aria-busy", "true");
-                if (label) {
-                    button.innerHTML = `<span class="button-spinner" aria-hidden="true"></span>${label}`;
-                }
-            });
-        });
+    document.addEventListener("submit", event => {
+        const form = event.target.closest("form[data-submit-busy]");
+        if (!form || event.defaultPrevented) {
+            return;
+        }
+        const associatedButton = form.id
+            ? document.querySelector(`button[form="${CSS.escape(form.id)}"][type="submit"], button[form="${CSS.escape(form.id)}"]:not([type])`)
+            : null;
+        const button = form.querySelector('button[type="submit"], button:not([type])') || associatedButton;
+        if (!button || button.disabled) {
+            event.preventDefault();
+            return;
+        }
+        const label = button.dataset.busyLabel;
+        button.disabled = true;
+        button.setAttribute("aria-busy", "true");
+        if (label) {
+            button.innerHTML = `<span class="button-spinner" aria-hidden="true"></span>${label}`;
+        }
+    });
 
     const settingsRestoreKey = "opensecdash:settings-restore";
     const settingsRestoreCookie = "opensecdash_settings_restore";
@@ -401,7 +405,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.addEventListener("keydown", event => {
         if (event.key === "Escape") {
             hideTooltip();
-            document.querySelectorAll(".text-overlay-backdrop").forEach(overlay => overlay.remove());
+            closeTextOverlays();
         }
     });
 
@@ -454,6 +458,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const chartBar = event.target.closest(".dashboard-trend-bar[data-chart-tooltip]");
         const overlayTrigger = event.target.closest(".text-overlay-trigger[data-full-text]");
         const pathButton = event.target.closest(".path-truncate[data-full-text]");
+        const asnTrigger = event.target.closest("[data-asn-popup]");
         const overlayClose = event.target.closest("[data-text-overlay-close]");
         const columnsOpen = event.target.closest("[data-columns-open]");
         const columnsClose = event.target.closest("[data-columns-close]");
@@ -467,7 +472,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (overlayClose || overlayBackdrop) {
             event.preventDefault();
             event.stopPropagation();
-            document.querySelectorAll(".text-overlay-backdrop").forEach(overlay => overlay.remove());
+            closeTextOverlays();
             return;
         }
 
@@ -514,11 +519,18 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
+        if (asnTrigger) {
+            event.preventDefault();
+            event.stopPropagation();
+            showAsnOverlay(asnTrigger);
+            return;
+        }
+
         if (overlayTrigger || pathButton) {
             const trigger = overlayTrigger || pathButton;
             event.preventDefault();
             event.stopPropagation();
-            showTextOverlay(trigger.dataset.fullText || trigger.textContent || "", trigger.dataset.overlayTitle || "");
+            showTextOverlay(trigger.dataset.fullText || trigger.textContent || "", trigger.dataset.overlayTitle || "", trigger);
             return;
         }
 
@@ -625,8 +637,9 @@ function localizeOpenSecDashCountries() {
         });
 }
 
-function showTextOverlay(text, overlayTitle) {
-    document.querySelectorAll(".text-overlay-backdrop").forEach(overlay => overlay.remove());
+function createTextOverlay(overlayTitle, closeLabel, trigger) {
+    closeTextOverlays();
+    activeTextOverlayTrigger = trigger;
 
     const backdrop = document.createElement("div");
     backdrop.className = "text-overlay-backdrop";
@@ -646,20 +659,96 @@ function showTextOverlay(text, overlayTitle) {
     close.type = "button";
     close.className = "text-overlay-close";
     close.setAttribute("data-text-overlay-close", "true");
-    close.setAttribute("aria-label", "Close");
+    close.setAttribute("aria-label", closeLabel || "Close");
     close.textContent = "×";
-
-    const content = document.createElement("div");
-    content.className = "text-overlay-content";
-    content.textContent = text;
 
     header.appendChild(title);
     header.appendChild(close);
     panel.appendChild(header);
-    panel.appendChild(content);
     backdrop.appendChild(panel);
     document.body.appendChild(backdrop);
     close.focus();
+    return panel;
+}
+
+function showTextOverlay(text, overlayTitle, trigger) {
+    const panel = createTextOverlay(overlayTitle, "", trigger);
+    const content = document.createElement("div");
+    content.className = "text-overlay-content";
+    content.textContent = text;
+    panel.appendChild(content);
+}
+
+function showAsnOverlay(trigger) {
+    const panel = createTextOverlay(
+        trigger.dataset.asn || "ASN",
+        trigger.dataset.closeLabel || "",
+        trigger,
+    );
+    const content = document.createElement("div");
+    content.className = "text-overlay-content flex flex-col gap-3";
+
+    const provider = document.createElement("p");
+    provider.textContent = trigger.dataset.provider || "";
+    content.appendChild(provider);
+
+    if (trigger.dataset.policyStatus) {
+        const status = document.createElement("strong");
+        status.textContent = trigger.dataset.policyStatus;
+        content.appendChild(status);
+    }
+    if (trigger.dataset.providerReview) {
+        const review = document.createElement("p");
+        review.className = "text-amber-300 font-semibold";
+        review.textContent = trigger.dataset.providerReview;
+        content.appendChild(review);
+    }
+    if (trigger.dataset.policyHelp) {
+        const help = document.createElement("p");
+        help.className = "text-sm text-slate-300";
+        help.textContent = trigger.dataset.policyHelp;
+        content.appendChild(help);
+    }
+    if (trigger.dataset.availability) {
+        const availability = document.createElement("p");
+        availability.className = "text-sm text-amber-300";
+        availability.textContent = trigger.dataset.availability;
+        content.appendChild(availability);
+    }
+    if (trigger.dataset.policyStatus || trigger.dataset.providerReview) {
+        const management = document.createElement("a");
+        management.href = trigger.dataset.managementUrl || "/crowdsec";
+        management.textContent = trigger.dataset.managementLabel || "";
+        content.appendChild(management);
+    }
+    if (trigger.dataset.enableUrl && trigger.dataset.eventId) {
+        const form = document.createElement("form");
+        form.method = "post";
+        form.action = trigger.dataset.enableUrl;
+        form.dataset.confirm = trigger.dataset.enableConfirm || "";
+        form.setAttribute("data-submit-busy", "true");
+
+        const eventId = document.createElement("input");
+        eventId.type = "hidden";
+        eventId.name = "event_id";
+        eventId.value = trigger.dataset.eventId;
+
+        const confirmed = document.createElement("input");
+        confirmed.type = "hidden";
+        confirmed.name = "confirmed";
+        confirmed.value = "true";
+
+        const button = document.createElement("button");
+        button.className = "btn-small";
+        button.textContent = trigger.dataset.enableLabel || "";
+        button.dataset.busyLabel = trigger.dataset.processingLabel || "";
+
+        form.appendChild(eventId);
+        form.appendChild(confirmed);
+        form.appendChild(button);
+        content.appendChild(form);
+    }
+    panel.appendChild(content);
 }
 
 function formatOpenSecDashDate(date, timezone) {

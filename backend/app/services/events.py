@@ -519,10 +519,7 @@ def create_rule_based_insights(db: Session, event: Event) -> None:
                 confidence=0.95,
                 level="high",
                 title="Banned by permanent ASN ban",
-                description=(
-                    f"{event.ip} was banned for {duration} after matching permanent ASN ban "
-                    f"{asn} ({provider_name})."
-                ),
+                description=f"{asn} · {provider_name} · {duration}",
                 related_event_ids=ids,
                 ip=event.ip,
                 asset_id=event.asset_id,

@@ -19,6 +19,7 @@ from app.core.template_context import get_setting_value
 from app.database.session import SessionLocal
 from app.models.assets import Asset
 from app.models.core import Datasource, Diagnostic, InsightRule as InsightRuleModel, PluginRecord
+from app.models.events import Event
 from app.models.settings import Setting
 from app.plugins.base import ActionDefinition, CURRENT_PLUGIN_API_VERSION, ActionPlugin, DatasourcePlugin, EnrichmentPlugin, ExportPlugin, PeriodicPlugin, Plugin, PluginContext, PluginSetting
 from app.plugins.loader import env_disable_var, import_plugin_module, is_plugin_env_disabled
@@ -992,6 +993,16 @@ class PluginManager:
             if label_key:
                 return label_key
         return None
+
+    def event_table_context(self, db: Session, events: list[Event]) -> dict[str, Any]:
+        """Collect plugin context for one bounded Events or Access result set."""
+        result: dict[str, Any] = {}
+        for plugin_id, plugin in self.plugins.items():
+            try:
+                result.update(plugin.event_table_context(db, events))
+            except Exception:
+                logger.exception("Event table context hook failed for plugin %s", plugin_id)
+        return result
 
     async def export_asset_update(self, db: Session, asset: Any, manual: bool = False) -> None:
         # Cross-plugin calls must attribute failures to the callee. For example,
