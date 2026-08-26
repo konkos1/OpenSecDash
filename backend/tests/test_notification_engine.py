@@ -15,6 +15,10 @@ from app.services.settings import save_setting
 def notification_rules(db_session, _test_secret_key):
     invalidate_rules_cache()
     seed_default_notification_rules(db_session)
+    db_session.query(NotificationRule).filter(NotificationRule.rule_id.startswith("core.")).update(
+        {NotificationRule.enabled: True},
+        synchronize_session=False,
+    )
     save_setting(db_session, "notifications.enabled", "true")
     save_setting(db_session, "notifications.smtp_host", "smtp.example")
     save_setting(db_session, "notifications.smtp_sender", "sender@example")
@@ -164,6 +168,7 @@ def test_event_matching_honors_severity_country_and_wildcard(db_session):
                 match_types=["access.error"],
                 min_severity="error",
                 countries=["RU"],
+                enabled=True,
             ),
             NotificationRule(
                 rule_id="test.system_wildcard",
@@ -171,6 +176,7 @@ def test_event_matching_honors_severity_country_and_wildcard(db_session):
                 source="event",
                 match_types=["system.*"],
                 min_severity="info",
+                enabled=True,
             ),
         ]
     )

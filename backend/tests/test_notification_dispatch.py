@@ -40,6 +40,10 @@ class FakeChannel:
 @pytest.fixture(autouse=True)
 def notification_settings(db_session, _test_secret_key):
     seed_default_notification_rules(db_session)
+    db_session.query(NotificationRule).filter(NotificationRule.rule_id.startswith("core.")).update(
+        {NotificationRule.enabled: True},
+        synchronize_session=False,
+    )
     for key, value in {
         "notifications.enabled": "true",
         "notifications.base_url": "http://dashboard.example",
@@ -161,7 +165,7 @@ def test_dispatch_aggregates_pending_notifications_and_respects_cooldown(db_sess
 def test_threshold_skips_expired_pending_and_sends_when_reached(db_session, monkeypatch):
     channel = FakeChannel()
     monkeypatch.setattr(notifications, "get_channel", lambda _: channel)
-    rule = NotificationRule(rule_id="test.threshold", name="Threshold", source="event", match_types=["test"], min_count=3, window_minutes=10)
+    rule = NotificationRule(rule_id="test.threshold", name="Threshold", source="event", match_types=["test"], min_count=3, window_minutes=10, enabled=True)
     old = _pending("test.threshold", source="event", type="test")
     old.created_at = utc_now().replace(tzinfo=None) - timedelta(minutes=11)
     db_session.add_all([rule, old, _pending("test.threshold", source="event", type="test"), _pending("test.threshold", source="event", type="test")])
@@ -180,7 +184,7 @@ def test_dispatch_marks_failed_and_continues_with_other_rules(db_session, monkey
     successful_channel = FakeChannel()
     monkeypatch.setattr(notifications, "get_channel", lambda channel_id: failed_channel if channel_id == "email" else successful_channel)
     failing = _pending("core.crowdsec_ban", source="event", type="security.ban")
-    other_rule = NotificationRule(rule_id="test.other", name="Other", source="event", match_types=["other"], channel="other")
+    other_rule = NotificationRule(rule_id="test.other", name="Other", source="event", match_types=["other"], channel="other", enabled=True)
     successful = _pending("test.other", source="event", type="other")
     db_session.add_all([failing, other_rule, successful])
     db_session.commit()

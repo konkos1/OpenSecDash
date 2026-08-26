@@ -1,6 +1,17 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, JSON, String, Text, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    JSON,
+    String,
+    Text,
+    UniqueConstraint,
+    false,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.time import utc_now
@@ -260,7 +271,7 @@ class NotificationRule(Base):
     min_count: Mapped[int] = mapped_column(default=1)
     window_minutes: Mapped[int] = mapped_column(default=10)
     cooldown_minutes: Mapped[int] = mapped_column(default=1)
-    enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false(), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
 

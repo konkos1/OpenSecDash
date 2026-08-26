@@ -198,6 +198,7 @@ def test_enrich_pending_events_reconciles_country_rollup_insight_and_notificatio
                 source="event",
                 match_types=["security.geoblock"],
                 min_severity="warning",
+                enabled=True,
             ),
             NotificationRule(
                 rule_id="test.us_geoblocks",
@@ -206,6 +207,7 @@ def test_enrich_pending_events_reconciles_country_rollup_insight_and_notificatio
                 match_types=["security.geoblock"],
                 min_severity="warning",
                 countries=["US"],
+                enabled=True,
             ),
         ]
     )

@@ -10,7 +10,7 @@ from app.core import settings as settings_module
 
 PREVIOUS_HEAD = "b1c2d3e4f5a6"
 ASN_BAN_REVISION = "b2c3d4e5f6a7"
-REVISION = "c3d4e5f6a7b8"
+REVISION = "d5e6f7a8b9c0"
 TABLES = {
     "crowdsec_asn_bans",
     "crowdsec_asn_ban_exceptions",

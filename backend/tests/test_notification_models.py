@@ -48,7 +48,7 @@ def test_seed_default_notification_rules_is_idempotent_and_preserves_user_change
     assert rules[0].cooldown_minutes == 60
     assert rules[2].match_types == ["security.ban", "security.ban.asn_policy"]
     assert rules[4].source == "insight"
-    assert all(rule.enabled is False for rule in rules[4:])
+    assert all(rule.enabled is False for rule in rules)
 
     crowdsec_rule = next(rule for rule in rules if rule.rule_id == "core.crowdsec_ban")
     crowdsec_rule.enabled = False

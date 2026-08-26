@@ -29,6 +29,10 @@
 > An Insight notification rule is effective only while enabled plugins can
 > produce every required input. Plugin disablement preserves the user's choice;
 > it only makes the checkbox and matcher temporarily unavailable.
+>
+> All newly seeded event, system, ASN, and Insight notification rules are disabled.
+> Delivery is opt-in per rule in addition to the global notification setting. Rule
+> synchronization and upgrades preserve an existing enabled or disabled choice.
 
 ## Goal
 

@@ -81,6 +81,7 @@ DEFAULT_NOTIFICATION_RULES = (
         "min_count": 1,
         "window_minutes": 10,
         "cooldown_minutes": 1,
+        "enabled": False,
     },
     {
         "rule_id": "core.asn_provider_changed",
@@ -91,6 +92,7 @@ DEFAULT_NOTIFICATION_RULES = (
         "min_count": 1,
         "window_minutes": 10,
         "cooldown_minutes": 60,
+        "enabled": False,
     },
     {
         "rule_id": "core.asset_offline",
@@ -101,6 +103,7 @@ DEFAULT_NOTIFICATION_RULES = (
         "min_count": 1,
         "window_minutes": 10,
         "cooldown_minutes": 60,
+        "enabled": False,
     },
     {
         "rule_id": "core.plugin_error",
@@ -111,6 +114,7 @@ DEFAULT_NOTIFICATION_RULES = (
         "min_count": 1,
         "window_minutes": 10,
         "cooldown_minutes": 60,
+        "enabled": False,
     },
 )
 
