@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ipaddress
 import re
+import unicodedata
 from typing import Any
 
 from sqlalchemy.orm import Session, selectinload
@@ -24,6 +25,16 @@ ASN_MAX = 4_294_967_295
 POLICY_DURATION = "7d"
 POLICY_SCENARIO_GROUP = "opensecdash/manual-permanent-asn-ban"
 POLICY_SCENARIO_PREFIX = f"{POLICY_SCENARIO_GROUP}/"
+# One IP-specific GeoIP label must not open an ownership review. Requiring
+# repeated agreement across addresses keeps the warning useful without
+# treating its external data as authoritative.
+PROVIDER_CHANGE_MIN_OBSERVATIONS = 3
+
+_CORPORATE_SUFFIX_PATTERN = re.compile(
+    r"(?:\s+|,\s*)(?:incorporated|inc\.?|l\.?l\.?c\.?|limited|ltd\.?|"
+    r"gmbh|a\.?g\.?|p\.?l\.?c\.?|s\.?a\.?|s\.?r\.?l\.?|b\.?v\.?|n\.?v\.?)\s*[,.]?$",
+    flags=re.IGNORECASE,
+)
 
 
 def policy_ui_state(db: Session) -> dict[str, Any]:
@@ -121,7 +132,7 @@ def event_popup_context(db: Session, events: list[Event]) -> dict[int, dict[str,
                 pass
         result[event.id] = {
             "asn": asn,
-            "provider_name": str(event.isp or "").strip()[:255] or None,
+            "provider_name": str(event.asn_organization or "").strip()[:255] or None,
             "policy_status": policy.status if policy is not None else None,
             "provider_review_required": bool(policy and policy.provider_review_required),
             "enable_available": bool(policy is None and valid_source and ui_state["can_enable"]),
@@ -300,7 +311,7 @@ def validate_action_parameters(
             "event_id": event.id,
             "ip": normalize_global_ip(event.ip),
             "asn": asn,
-            "provider_name": str(event.isp or "").strip()[:255] or None,
+            "provider_name": str(event.asn_organization or "").strip()[:255] or None,
         }
 
     if action_type == "security.asn_ban.disable":
@@ -580,20 +591,49 @@ def process_enriched_event(db: Session, event: Event) -> None:
 
 def _record_policy_match(db: Session, policy: CrowdSecAsnBan, event: Event) -> None:
     policy.last_matched_at = event.event_time
-    provider_name = str(event.isp or "").strip()[:255]
+    provider_name = str(event.asn_organization or "").strip()[:255]
     if not provider_name:
         return
     if not policy.provider_name:
         policy.provider_name = provider_name
         return
     if _provider_comparison_value(policy.provider_name) == _provider_comparison_value(provider_name):
+        _clear_provider_candidate(policy)
         return
+    if policy.provider_review_required:
+        return
+    if (
+        not policy.provider_candidate_name
+        or _provider_comparison_value(policy.provider_candidate_name)
+        != _provider_comparison_value(provider_name)
+    ):
+        policy.provider_candidate_name = provider_name
+        policy.provider_candidate_first_ip = event.ip
+        policy.provider_candidate_last_event_id = event.id
+        policy.provider_candidate_observations = 1
+        policy.provider_candidate_distinct_ip_seen = False
+        return
+
+    if policy.provider_candidate_last_event_id == event.id:
+        return
+    policy.provider_candidate_last_event_id = event.id
+    policy.provider_candidate_observations += 1
+    if policy.provider_candidate_first_ip != event.ip:
+        policy.provider_candidate_distinct_ip_seen = True
+    if (
+        policy.provider_candidate_observations < PROVIDER_CHANGE_MIN_OBSERVATIONS
+        or not policy.provider_candidate_distinct_ip_seen
+    ):
+        return
+
     previous = policy.provider_name
+    confirmed = policy.provider_candidate_name
     changed_at = utc_now().replace(tzinfo=None)
     policy.previous_provider_name = previous
-    policy.provider_name = provider_name
+    policy.provider_name = confirmed
     policy.provider_name_changed_at = changed_at
     policy.provider_review_required = True
+    _clear_provider_candidate(policy)
     store_event(
         db,
         source="GeoIP enrichment",
@@ -606,14 +646,26 @@ def _record_policy_match(db: Session, policy: CrowdSecAsnBan, event: Event) -> N
             "asn": policy.asn,
             "asn_ban_id": policy.id,
             "previous_provider_name": previous,
-            "provider_name": provider_name,
+            "provider_name": confirmed,
             "provider_name_changed_at": changed_at.isoformat(),
         },
     )
 
 
 def _provider_comparison_value(value: str) -> str:
-    return re.sub(r"\s+", " ", value.strip()).casefold()
+    normalized = unicodedata.normalize("NFKC", value).strip().casefold()
+    normalized = re.sub(r"\s+", " ", normalized).strip(" ,")
+    while match := _CORPORATE_SUFFIX_PATTERN.search(normalized):
+        normalized = normalized[: match.start()].rstrip(" ,")
+    return normalized
+
+
+def _clear_provider_candidate(policy: CrowdSecAsnBan) -> None:
+    policy.provider_candidate_name = None
+    policy.provider_candidate_first_ip = None
+    policy.provider_candidate_last_event_id = None
+    policy.provider_candidate_observations = 0
+    policy.provider_candidate_distinct_ip_seen = False
 
 
 def _release_reclassified_enforcements(

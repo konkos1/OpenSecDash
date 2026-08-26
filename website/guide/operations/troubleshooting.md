@@ -161,19 +161,21 @@ Inspect the displayed removal error and LAPI diagnostic, restore connectivity, t
 the retry action. OpenSecDash leaves a partial removal visible instead of deleting
 unverified or foreign decisions.
 
-### The ASN or provider name is unexpected
+### The ASN or ASN organization is unexpected
 
 Review the selected GeoIP provider, its latest real-lookup diagnostic, cache TTL, and any
 recent provider switch. Producer-supplied event fields win over remote enrichment, and
-external data can be stale, incomplete, or wrong. The displayed provider name is not an
-authoritative registry identity.
+external data can be stale, incomplete, or wrong. ASN organization is stored separately
+from the IP-specific ISP/company value and is not an authoritative registry identity.
 
-If **Provider changed – review required** appears, compare the previous and current
-snapshots and detection time, the GeoIP source, and a possible rename or ASN transfer.
-The warning only reports a changed GeoIP label; it does not prove ownership changed and
-does not pause or remove the policy. After review, either acknowledge only the warning or
-remove the ASN policy with the separate confirmed action. A newer provider change makes
-an older acknowledgement stale and requires another review.
+If **ASN organization changed – review required** appears, compare the previous and
+current snapshots and detection time, the GeoIP source, and a possible rename or ASN
+transfer. OpenSecDash only raises it after three matching observations across at least
+two IPs and suppresses duplicates while it is open. The warning still does not prove
+ownership changed and does not pause or remove the policy. After review, either
+acknowledge only the warning or remove the ASN policy with the separate confirmed action.
+A newer confirmed organization change makes an older acknowledgement stale and requires
+another review.
 
 ## Proxmox guest visibility
 

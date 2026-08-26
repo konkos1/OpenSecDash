@@ -20,6 +20,8 @@ def test_events_api_create_list_and_get(db_session):
             severity="warning",
             ip="8.8.8.8",
             country="US",
+            asn="AS15169",
+            asn_organization="Google LLC",
             status_code=404,
             path="/missing",
         ),
@@ -27,6 +29,7 @@ def test_events_api_create_list_and_get(db_session):
     )
 
     assert created.id is not None
+    assert created.asn_organization == "Google LLC"
     assert get_event(created.id, db_session).path == "/missing"
     listed = list_events(limit=10, event_type="access.*", ip="8.8.8.8", country="US", status_code=404, range="all", db=db_session)
     assert [event.id for event in listed] == [created.id]

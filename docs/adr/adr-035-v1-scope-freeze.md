@@ -228,6 +228,6 @@ is not rewritten to imply that the feature was included in that freeze.
 
 The later feature stores a durable local ASN policy and turns only newly observed,
 successfully GeoIP-classified public IPs into ordinary seven-day CrowdSec IP decisions.
-It adds ASN-specific IP exceptions, exact decision ownership and release, provider-name
-review, a direct historical Insight, and management on the CrowdSec page. It does not
+It adds ASN-specific IP exceptions, exact decision ownership and release, debounced
+ASN-organization review, a direct historical Insight, and management on the CrowdSec page. It does not
 add native ASN decisions, prefix expansion, a historical sweep, or timer renewal.

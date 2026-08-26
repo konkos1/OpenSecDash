@@ -132,7 +132,7 @@ See [Actions and safety](../operations/actions.md) for the execution model and t
 Persistent manual ASN bans are a characteristic OpenSecDash core workflow for repeated
 unwanted traffic from one autonomous system. In Events or Access, use **Columns**
 to show the optional **ASN** column, open an ASN popup, and confirm **Permanently ban
-ASN**. The popup also shows the current provider or organization snapshot. Only an
+ASN**. The column and popup also show the current ASN organization snapshot. Only an
 Operator or Admin can perform the action.
 
 OpenSecDash stores the ASN as a permanent local policy. It does not create a permanent
@@ -150,24 +150,27 @@ The workflow deliberately keeps ownership narrow:
   Removing the exception is confirmed and requires another matching observation before
   a new ban can occur.
 - The CrowdSec page shows policies, active policy-owned decisions, exceptions, removal
-  errors, pending releases, and provider-review warnings.
+  errors, pending releases, and ASN-organization review warnings.
 
 Every successful automatic policy ban creates one high-confidence IP Explorer insight
-with the ASN, provider snapshot, and `7d` duration. It records that a ban **happened**;
+with the ASN, organization snapshot, and `7d` duration. It records that a ban **happened**;
 the CrowdSec panel remains the source for whether a decision is currently active. Ban
 counters and active-decision displays include these bans. Rollups, CrowdSec top
 scenarios, and the Dashboard group all ASN-specific scenarios under **Manual permanent
 ASN ban**, while Events and CrowdSec history retain the complete
 `opensecdash/manual-permanent-asn-ban/AS...` value for investigation and drill-down.
 
-ASN allocation and the GeoIP provider or organization name can change. A substantially
-different non-empty name is kept with the previous snapshot and time as a review warning;
-case and whitespace changes alone do not count. Acknowledging the warning confirms only
-that it was reviewed. It neither proves an ownership transfer nor pauses the policy or
-removes decisions. Removing the policy is a separate confirmed action.
+ASN allocation and its organization name can change. OpenSecDash keeps ASN organization
+separate from the IP-specific ISP/company value and shows both number and organization in
+the ASN column. A substantially different non-empty organization must be observed three
+times across at least two IPs before its previous snapshot and detection time become a
+review warning. Case, whitespace, punctuation around a legal suffix, and common legal-form
+variants alone do not count. An open warning is not repeated. Acknowledging the warning
+confirms only that it was reviewed. It neither proves an ownership transfer nor pauses the
+policy or removes decisions. Removing the policy is a separate confirmed action.
 
 GeoIP and CrowdSec must be usable and Action simulation must be off to activate a real
-policy. Activation, removal, exception removal, and provider-review acknowledgement are
+policy. Activation, removal, exception removal, and organization-review acknowledgement are
 confirmed, permission-checked, and audited. Existing policies stay visible if GeoIP later
 becomes unavailable, but no new automatic classification is enforced while it is down.
 

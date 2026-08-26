@@ -579,6 +579,7 @@ def searchable_event_fields(*, include_raw_data: bool = False):
         Event.country,
         Event.city,
         Event.asn,
+        Event.asn_organization,
         Event.isp,
         Event.hostname,
         Event.asset_id,

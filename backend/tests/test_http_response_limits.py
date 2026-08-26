@@ -52,7 +52,13 @@ def test_geoip_reads_streamed_response_with_cap(monkeypatch, db_session):
 
     monkeypatch.setattr(ip_api.requests, "get", fake_get)
 
-    assert geoip_service._lookup_provider_geoip(db_session, "ip-api", "8.8.8.8") == ("DE", None, None, None)
+    assert geoip_service._lookup_provider_geoip(db_session, "ip-api", "8.8.8.8") == (
+        "DE",
+        None,
+        None,
+        None,
+        None,
+    )
     assert calls[0][1]["stream"] is True
     assert response.closed is True
 

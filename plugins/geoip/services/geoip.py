@@ -37,7 +37,7 @@ ERROR_CACHE_TTL = timedelta(hours=1)
 
 @dataclass(frozen=True)
 class _GeoIPLookupOutcome:
-    values: tuple[str | None, str | None, str | None, str | None]
+    values: tuple[str | None, str | None, str | None, str | None, str | None]
     complete: bool
     stop_batch: bool = False
 
@@ -122,38 +122,50 @@ def _is_non_public_network(network: ipaddress._BaseNetwork) -> bool:
 def enrich_event_values(db: Session, values: dict[str, Any]) -> bool:
     """Add GeoIP-derived fields to event values when applicable.
 
-    Producers win: if a plugin already supplied ``country``, ``city``, ``asn``
-    or ``isp`` we never overwrite that field.
+    Producers win: if a plugin already supplied ``country``, ``city``, ``asn``,
+    ``asn_organization`` or ``isp`` we never overwrite that field.
     """
     return _enrich_event_values_outcome(db, values).complete
 
 
 def _enrich_event_values_outcome(db: Session, values: dict[str, Any]) -> _GeoIPLookupOutcome:
     if not geoip_enabled(db):
-        return _GeoIPLookupOutcome((None, None, None, None), complete=False, stop_batch=True)
-    if values.get("country") and values.get("city") and values.get("asn") and values.get("isp"):
-        return _GeoIPLookupOutcome((None, None, None, None), complete=True)
+        return _GeoIPLookupOutcome((None, None, None, None, None), complete=False, stop_batch=True)
+    if (
+        values.get("country")
+        and values.get("city")
+        and values.get("asn")
+        and values.get("asn_organization")
+        and values.get("isp")
+    ):
+        return _GeoIPLookupOutcome((None, None, None, None, None), complete=True)
+    require_asn_organization = not bool(values.get("asn_organization"))
     outcome = _lookup_geoip_outcome(
         db,
         values.get("ip"),
         require_city=not bool(values.get("city")),
-        require_asn=not bool(values.get("asn")),
+        require_asn=not bool(values.get("asn")) or require_asn_organization,
+        require_asn_organization=require_asn_organization,
         require_isp=not bool(values.get("isp")),
     )
-    country, city, asn, isp = outcome.values
+    country, city, asn, asn_organization, isp = outcome.values
     if country and not values.get("country"):
         values["country"] = country
     if city and not values.get("city"):
         values["city"] = city
     if asn and not values.get("asn"):
         values["asn"] = asn
+    if asn_organization and not values.get("asn_organization"):
+        supplied_asn = normalize_asn(values.get("asn"))
+        if supplied_asn is None or supplied_asn == asn:
+            values["asn_organization"] = asn_organization
     if isp and not values.get("isp"):
         values["isp"] = isp
     return outcome
 
 
 def lookup_country(db: Session, ip_or_range: str | None) -> str | None:
-    country, _city, _asn, _isp = lookup_geoip(db, ip_or_range)
+    country, _city, _asn, _asn_organization, _isp = lookup_geoip(db, ip_or_range)
     return country
 
 
@@ -163,8 +175,16 @@ def lookup_geoip(
     require_city: bool = False,
     require_asn: bool = False,
     require_isp: bool = False,
-) -> tuple[str | None, str | None, str | None, str | None]:
-    return _lookup_geoip_outcome(db, ip_or_range, require_city, require_asn, require_isp).values
+    require_asn_organization: bool = False,
+) -> tuple[str | None, str | None, str | None, str | None, str | None]:
+    return _lookup_geoip_outcome(
+        db,
+        ip_or_range,
+        require_city,
+        require_asn,
+        require_isp,
+        require_asn_organization,
+    ).values
 
 
 def _lookup_geoip_outcome(
@@ -173,10 +193,11 @@ def _lookup_geoip_outcome(
     require_city: bool = False,
     require_asn: bool = False,
     require_isp: bool = False,
+    require_asn_organization: bool = False,
 ) -> _GeoIPLookupOutcome:
     target = normalize_lookup_target(ip_or_range)
     if target is None:
-        return _GeoIPLookupOutcome((None, None, None, None), complete=True)
+        return _GeoIPLookupOutcome((None, None, None, None, None), complete=True)
     lookup_key, lookup_ip = target
     provider = get_setting_value(db, "plugin.geoip.provider", "iplocate")
     ttl_days = _int_setting(db, "plugin.geoip.cache_ttl_days", 30, minimum=1)
@@ -196,10 +217,11 @@ def _lookup_geoip_outcome(
         and cached.provider == provider
         and (not require_city or cached.city is not None or cached.error)
         and (not require_asn or cached.asn is not None or cached.error)
+        and (not require_asn_organization or cached.asn_organization is not None or cached.error)
         and (not require_isp or cached.isp is not None or cached.error)
     ):
         return _GeoIPLookupOutcome(
-            (cached.country, cached.city, cached.asn, cached.isp),
+            (cached.country, cached.city, cached.asn, cached.asn_organization, cached.isp),
             complete=not bool(cached.error),
         )
 
@@ -212,10 +234,10 @@ def _lookup_geoip_outcome(
         and provider_state.configuration_signature == configuration_signature
         and provider_state.blocks_retry
     ):
-        return _GeoIPLookupOutcome((None, None, None, None), complete=False, stop_batch=True)
+        return _GeoIPLookupOutcome((None, None, None, None, None), complete=False, stop_batch=True)
 
     try:
-        country, city, asn, isp = _lookup_provider_geoip(
+        country, city, asn, asn_organization, isp = _lookup_provider_geoip(
             db,
             provider,
             lookup_ip,
@@ -228,16 +250,30 @@ def _lookup_geoip_outcome(
         # retried immediately, while the rejected value is not sent every 15s.
         logger.warning("GeoIP lookup skipped provider=%s: %s", provider, exc)
         _record_provider_attempt(provider, configuration_signature, now, str(exc), blocks_retry=True)
-        return _GeoIPLookupOutcome((None, None, None, None), complete=False, stop_batch=True)
+        return _GeoIPLookupOutcome((None, None, None, None, None), complete=False, stop_batch=True)
     except Exception as exc:
         logger.warning("GeoIP lookup failed provider=%s target=%s: %s", provider, lookup_key, exc)
         _record_provider_attempt(provider, configuration_signature, now, str(exc))
-        _store_cache(db, cached, lookup_key, provider, None, None, None, None, now, now + ERROR_CACHE_TTL, str(exc), now)
-        return _GeoIPLookupOutcome((None, None, None, None), complete=False)
+        _store_cache(db, cached, lookup_key, provider, None, None, None, None, None, now, now + ERROR_CACHE_TTL, str(exc), now)
+        return _GeoIPLookupOutcome((None, None, None, None, None), complete=False)
 
     _record_provider_attempt(provider, configuration_signature, now, None)
-    _store_cache(db, cached, lookup_key, provider, country, city, asn, isp, now, now + timedelta(days=ttl_days), None, None)
-    return _GeoIPLookupOutcome((country, city, asn, isp), complete=True)
+    _store_cache(
+        db,
+        cached,
+        lookup_key,
+        provider,
+        country,
+        city,
+        asn,
+        asn_organization,
+        isp,
+        now,
+        now + timedelta(days=ttl_days),
+        None,
+        None,
+    )
+    return _GeoIPLookupOutcome((country, city, asn, asn_organization, isp), complete=True)
 
 
 def _lookup_provider_geoip(
@@ -247,7 +283,7 @@ def _lookup_provider_geoip(
     *,
     implementation: GeoIPProvider | None = None,
     provider_settings: Mapping[str, str] | None = None,
-) -> tuple[str | None, str | None, str | None, str | None]:
+) -> tuple[str | None, str | None, str | None, str | None, str | None]:
     implementation = implementation or get_provider(provider)
     result = implementation.lookup(
         GeoIPLookupRequest(
@@ -264,6 +300,7 @@ def _lookup_provider_geoip(
         normalize_country(result.country),
         normalize_city(result.city),
         normalize_asn(result.asn),
+        normalize_asn_organization(result.asn_organization),
         normalize_isp(result.isp),
     )
 
@@ -353,6 +390,13 @@ def normalize_isp(value: object) -> str | None:
     return text[:255]
 
 
+def normalize_asn_organization(value: object) -> str | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    return text[:255]
+
+
 def _pending_cache_row(db: Session, lookup_key: str) -> GeoIPCache | None:
     # A datasource import can enrich hundreds of events before the session is
     # committed. Pending ORM rows are not returned by normal queries, so check
@@ -371,6 +415,7 @@ def _store_cache(
     country: str | None,
     city: str | None,
     asn: str | None,
+    asn_organization: str | None,
     isp: str | None,
     looked_up_at,
     expires_at,
@@ -384,6 +429,7 @@ def _store_cache(
     row.country = country
     row.city = city
     row.asn = asn
+    row.asn_organization = asn_organization
     row.isp = isp
     row.looked_up_at = looked_up_at
     row.expires_at = expires_at
@@ -463,12 +509,14 @@ def enrich_pending_event_batch(
             "country": event.country,
             "city": event.city,
             "asn": event.asn,
+            "asn_organization": event.asn_organization,
             "isp": event.isp,
         }
         outcome = _enrich_event_values_outcome(db, values)
         event.country = values.get("country") or event.country
         event.city = values.get("city") or event.city
         event.asn = values.get("asn") or event.asn
+        event.asn_organization = values.get("asn_organization") or event.asn_organization
         event.isp = values.get("isp") or event.isp
         if outcome.complete and not previous_country and event.country:
             _reconcile_country_derived_data(db, event)

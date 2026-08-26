@@ -5,6 +5,7 @@ The GeoIP plugin enriches public IP events with:
 - country
 - city
 - ASN
+- ASN organization
 - ISP
 
 Lookups are cached to reduce provider calls. Local, private, reserved, and otherwise non-public addresses are skipped.
@@ -49,10 +50,10 @@ Settings only shows whether a key is stored. Saving with an empty field keeps th
 stored key, entering a new value replaces it, and a separate confirmed delete action
 removes it.
 
-OpenSecDash requests only the fields it stores — country, city, ASN, and company or
-hosting provider. IPLocate's threat, VPN/proxy, abuse-contact, and coordinate data is
-neither requested nor stored. ISP is filled from the company name, falling back to the
-hosting provider and then to the ASN name.
+OpenSecDash requests only the fields it stores — country, city, ASN number, ASN
+organization, and company or hosting provider. IPLocate's threat, VPN/proxy,
+abuse-contact, and coordinate data is neither requested nor stored. ASN organization is
+filled from `asn.name`; ISP is filled from the company name and then the hosting provider.
 
 A free IPLocate account was enough for a typical homelab when this integration was
 added (checked 2026-08-01). Quotas and plans are the provider's decision and can
@@ -66,11 +67,14 @@ which addresses you look up. An installation that already uses it keeps using it
 an upgrade; it is never selected automatically, and a failing IPLocate lookup never
 falls back to it.
 
+The ASN organization is extracted from ip-api.com's combined `as` field. Its separate
+`isp` field remains the IP-specific ISP value.
+
 ## Settings
 
 | Setting | What it does |
 | --- | --- |
-| Enabled | Adds country, city, ASN, and ISP to new public-IP events when the producer did not already provide them. Disabled by default. |
+| Enabled | Adds country, city, ASN, ASN organization, and ISP to new public-IP events when the producer did not already provide them. Disabled by default. |
 | Provider | GeoIP provider. The selected option shows its own transport and privacy note. |
 | IPLocate API key | Required for IPLocate lookups. Only visible while GeoIP is enabled and IPLocate is selected. |
 | Cache TTL days | How long successful lookups stay cached before being refreshed. 30 days by default. |
@@ -96,11 +100,14 @@ through the new provider.
 
 ## GeoIP and permanent ASN bans
 
-Permanent ASN policies act on the `asn` and `isp` fields stored with an event. The ASN
-number is the policy key; `isp` is only the latest provider or organization display
-snapshot. When an event producer already supplies GeoIP fields, those values win and the
-remote provider does not overwrite them. Otherwise, the selected remote provider and its
-cached result supply the classification.
+Permanent ASN policies act on the `asn` and `asn_organization` fields stored with an
+event. The ASN number is the policy key; `asn_organization` is its latest display
+snapshot. The separate `isp` field remains specific to the IP range and is never used as
+an ASN-organization fallback. When an event producer already supplies GeoIP fields, those
+values win and the remote provider does not overwrite them. A remotely resolved
+organization is only paired with a producer-supplied ASN when the provider returned the
+same ASN. Otherwise, the selected remote provider and its cached result supply the
+classification.
 
 The selected provider, cache TTL, and provider changes therefore affect freshness. A
 successful result is reused until its TTL expires. Switching providers bypasses entries
@@ -110,13 +117,16 @@ OpenSecDash makes no accuracy guarantee for an external provider. A wrong ASN ca
 wrong automatic ban.
 
 ASN allocation can be transferred, and organizations can rename or change. The stored
-`isp` value is not an authoritative registry name or permanent identity. When a blocked
-ASN later receives a substantially different non-empty provider name, OpenSecDash keeps
-the old and new snapshots and detection time and marks the policy for manual review.
-Case and whitespace differences alone are ignored. The warning reports a changed GeoIP
-label; it does not prove ownership changed. Detection and acknowledgement leave the policy
-and its decisions active. Use the separate confirmed policy-removal action if review shows
-that the policy itself should end.
+`asn_organization` value is not an authoritative registry name or permanent identity.
+When a blocked ASN receives the same substantially different non-empty organization on
+three matching observations across at least two IPs, OpenSecDash keeps the old and new
+snapshots and detection time and marks the policy for manual review. Unicode, case and
+whitespace are normalized for comparison; punctuation around common trailing legal forms
+and legal-form variants such as `Inc`/`Inc.` are ignored conservatively. Other words and
+punctuation remain significant. A return to the current organization resets a pending
+candidate, and an open warning is not emitted again. The warning does not prove ownership
+changed. Detection and acknowledgement leave the policy and its decisions active. Use the
+separate confirmed policy-removal action if review shows that the policy itself should end.
 
 An ASN-specific IP exception is the correction path for one false match without allowing
 the IP globally. Disabling GeoIP stops new automatic classifications and policy bans, but
@@ -127,7 +137,7 @@ GeoIP enrichment runs asynchronously after an event is stored:
 
 ```text
 first access is stored
-→ GeoIP assigns ASN and provider data
+→ GeoIP assigns ASN, ASN organization, and ISP data
 → OpenSecDash creates a seven-day CrowdSec IP decision
 → the bouncer fetches and applies it
 ```
@@ -149,5 +159,5 @@ never discovered dynamically or loaded from configuration.
 
 ## Display
 
-Country, city, ASN, and ISP can be enabled as optional columns in Events and Access views.
+Country, city, ASN with organization, and ISP can be enabled as optional columns in Events and Access views.
 Use **Columns** to show ASN before opening its permanent-policy popup.

@@ -120,6 +120,7 @@ def _event(db, ip: str, asn: str, provider: str = "Example Network") -> Event:
         event_type="access.allowed",
         ip=ip,
         asn=asn,
+        asn_organization=provider,
         isp=provider,
         geoip_checked=True,
     )
@@ -433,20 +434,36 @@ def test_provider_change_audit_and_race_safe_acknowledgement(policy_runtime):
 
     same = _event(db, "8.8.4.4", "AS15169", "  example   NETWORK ")
     policies.process_enriched_event(db, same)
+    legal_suffix = _event(db, "1.0.0.1", "AS15169", "Example Network, Inc.")
+    policies.process_enriched_event(db, legal_suffix)
     empty = _event(db, "1.1.1.1", "AS15169", "")
     policies.process_enriched_event(db, empty)
     assert db.query(Event).filter_by(event_type="security.asn_ban.provider_changed").count() == 0
 
-    changed = _event(db, "9.9.9.9", "AS15169", "Example Transit")
-    policies.process_enriched_event(db, changed)
+    changed_first = _event(db, "9.9.9.9", "AS15169", "Example Transit")
+    policies.process_enriched_event(db, changed_first)
+    policies.process_enriched_event(db, changed_first)
+    changed_second = _event(db, "9.9.9.9", "AS15169", "Example Transit")
+    policies.process_enriched_event(db, changed_second)
+    assert policy.provider_name == "Example Network"
+    assert policy.provider_review_required is False
+
+    changed_third = _event(db, "4.4.4.4", "AS15169", "Example Transit")
+    policies.process_enriched_event(db, changed_third)
     assert policy.previous_provider_name == "Example Network"
     assert policy.provider_name == "Example Transit"
     assert policy.provider_review_required is True
+    assert policy.provider_candidate_name is None
     assert policy.status == "active"
     assert fake.deletes == []
     assert db.query(Event).filter_by(event_type="security.asn_ban.provider_changed").count() == 1
     changed_at = policy.provider_name_changed_at
     assert changed_at is not None
+
+    while_open = _event(db, "8.8.8.8", "AS15169", "Third Network")
+    policies.process_enriched_event(db, while_open)
+    assert policy.provider_name == "Example Transit"
+    assert db.query(Event).filter_by(event_type="security.asn_ban.provider_changed").count() == 1
 
     with pytest.raises(ValueError, match="changed again"):
         create_action(
@@ -471,8 +488,9 @@ def test_provider_change_audit_and_race_safe_acknowledgement(policy_runtime):
     assert policy.status == "active"
     assert fake.deletes == []
 
-    changed_again = _event(db, "4.4.4.4", "AS15169", "Third Network")
-    policies.process_enriched_event(db, changed_again)
+    for ip in ("4.4.4.4", "4.4.4.4", "8.8.8.8"):
+        changed_again = _event(db, ip, "AS15169", "Third Network")
+        policies.process_enriched_event(db, changed_again)
     assert policy.provider_review_required is True
     assert db.query(Event).filter_by(event_type="security.asn_ban.provider_changed").count() == 2
 

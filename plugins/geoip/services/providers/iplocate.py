@@ -67,10 +67,10 @@ def lookup(request: GeoIPLookupRequest) -> GeoIPLookupResult:
         country=payload.get("country_code"),
         city=payload.get("city"),
         asn=_nested(payload, "asn", "asn"),
+        asn_organization=_nested(payload, "asn", "name"),
         isp=_first_value(
             _nested(payload, "company", "name"),
             _nested(payload, "hosting", "provider"),
-            _nested(payload, "asn", "name"),
         ),
     )
 

@@ -7,6 +7,8 @@ selected it keep working exactly as before.
 
 from __future__ import annotations
 
+import re
+
 import requests
 
 from app.core.http_responses import read_capped_json
@@ -45,8 +47,14 @@ def lookup(request: GeoIPLookupRequest) -> GeoIPLookupResult:
         country=payload.get("countryCode"),
         city=payload.get("city"),
         asn=payload.get("as"),
+        asn_organization=_asn_organization(payload.get("as")),
         isp=payload.get("isp"),
     )
+
+
+def _asn_organization(value: object) -> str | None:
+    match = re.fullmatch(r"AS\d+\s+(.+)", str(value or "").strip(), flags=re.IGNORECASE)
+    return match.group(1) if match else None
 
 
 PROVIDER = GeoIPProvider(id=PROVIDER_ID, lookup=lookup)

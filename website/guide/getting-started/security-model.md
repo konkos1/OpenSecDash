@@ -111,19 +111,21 @@ See the [GeoIP plugin guide](../plugins/geoip.md).
 
 ### GeoIP as security-relevant input
 
-Permanent ASN policies make the stored GeoIP classification security-relevant. ASN and
-ISP/provider fields can be wrong, stale, incomplete, or supplied by the event producer;
-an ASN can be transferred and an organization name can change. OpenSecDash therefore
-treats the provider name as a display snapshot rather than authoritative ASN identity,
-marks substantial name changes for review, and provides ASN-specific IP exceptions.
-Neither detecting nor acknowledging a changed name automatically releases a decision.
+Permanent ASN policies make the stored GeoIP classification security-relevant. ASN,
+ASN-organization, and ISP/company fields can be wrong, stale, incomplete, or supplied by
+the event producer; an ASN can be transferred and an organization name can change.
+OpenSecDash keeps the ASN organization separate from the IP-specific ISP/company value,
+treats it as a display snapshot rather than authoritative ASN identity, and confirms a
+substantial name change through three observations across at least two IPs before marking
+it for review. Neither detecting nor acknowledging a changed name automatically releases
+a decision.
 
 This workflow adds no new external destination: it uses the already selected GeoIP
 provider and CrowdSec LAPI. Before activation, OpenSecDash re-reads the server-side source
 event, requires completed GeoIP enrichment, normalizes the ASN, and validates the IP as
 globally routable. Policy enforcement and release use the exact stored CrowdSec decision
 ID, scenario, and origin; they never broadly unban an IP or remove an independent
-CrowdSec decision. Provider names are inserted into the UI as text, not HTML.
+CrowdSec decision. ASN organization names are inserted into the UI as text, not HTML.
 
 ::: warning Response starts only after observation
 The permanent ASN workflow cannot protect the request that supplies its classification:

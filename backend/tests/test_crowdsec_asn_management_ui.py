@@ -75,6 +75,7 @@ def test_events_and_access_render_escaped_asn_popup_without_changing_columns(db_
         plugin="traefik_log",
         ip="8.8.8.8",
         asn="15169",
+        asn_organization='<img src=x onerror="alert(1)">',
         isp='<img src=x onerror="alert(1)">',
         geoip_checked=True,
     )
@@ -103,6 +104,7 @@ def test_viewer_popup_has_no_mutation_and_policy_states_are_server_declared(db_s
         plugin="traefik_log",
         ip="8.8.8.8",
         asn="AS15169",
+        asn_organization="Example Provider",
         isp="Example Provider",
         geoip_checked=True,
     )
@@ -111,6 +113,7 @@ def test_viewer_popup_has_no_mutation_and_policy_states_are_server_declared(db_s
 
     viewer_html = _html(pages.events_page(_request("/events", role="viewer"), range="all", db=db_session))
     assert "data-asn-popup" in viewer_html
+    assert "AS15169 · Example Provider" in viewer_html
     assert "data-enable-url" not in viewer_html
 
     policy = CrowdSecAsnBan(
@@ -125,7 +128,7 @@ def test_viewer_popup_has_no_mutation_and_policy_states_are_server_declared(db_s
     db_session.commit()
     operator_html = _html(pages.events_page(_request("/events", role="operator"), range="all", db=db_session))
     assert 'data-policy-status="Removal pending"' in operator_html
-    assert 'data-provider-review="Provider changed – please review"' in operator_html
+    assert 'data-provider-review="ASN organization changed – please review"' in operator_html
     assert "data-enable-url" not in operator_html
 
 
@@ -188,7 +191,7 @@ def test_crowdsec_policy_management_is_deferred_and_shows_owned_state(db_session
     assert "AS15169" not in shell
     assert "AS15169" in data
     assert "New Provider" in data and "Old Provider" in data
-    assert "Provider changed – please review" in data
+    assert "ASN organization changed – please review" in data
     assert "8.8.8.8" in data and "1.1.1.1" in data
     assert "owned-2" in data and "safe retry error" in data
     assert f'data-refresh-state="crowdsec-asn-policy-{policy.id}-active-decisions"' in data
