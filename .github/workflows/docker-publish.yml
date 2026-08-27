@@ -176,19 +176,19 @@ jobs:
             --entrypoint python -v "${report_dir}:/reports" \
             opensecdash:release-candidate-a \
             -m tests.performance.event_search_benchmark --events 0 \
-            --iterations 5 --default-range 24h --enforce-gates \
+            --iterations 20 --default-range 24h --enforce-gates \
             --output /reports/profile-fresh.json
           docker run --rm --user "${runner_user}" --memory 512m --cpus 1 \
             --entrypoint python -v "${report_dir}:/reports" \
             opensecdash:release-candidate-a \
             -m tests.performance.event_search_benchmark --events 10000 \
-            --iterations 5 --default-range 24h --enforce-gates \
+            --iterations 20 --default-range 24h --enforce-gates \
             --output /reports/profile-small.json
           docker run --rm --user "${runner_user}" --memory 1g --cpus 2 \
             --entrypoint python -v "${report_dir}:/reports" \
             opensecdash:release-candidate-a \
             -m tests.performance.event_search_benchmark --events 1000000 \
-            --iterations 5 --default-range 24h --enforce-gates \
+            --iterations 20 --default-range 24h --enforce-gates \
             --output /reports/profile-large.json
           docker run --rm --user "${runner_user}" --memory 1g --cpus 2 \
             --entrypoint python -v "${report_dir}:/reports" \

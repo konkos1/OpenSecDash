@@ -10,6 +10,7 @@ from app.core import settings as settings_module
 
 PREVIOUS_REVISION = "c3d4e5f6a7b8"
 REVISION = "d5e6f7a8b9c0"
+HEAD_REVISION = "e7f8a9b0c1d2"
 
 
 def _config() -> Config:
@@ -73,5 +74,7 @@ def test_notification_default_changes_without_overwriting_saved_choices(tmp_path
         if column["name"] == "enabled"
     )
     assert enabled_column["default"] in {"0", "(0)"}
+    command.upgrade(config, "head")
+    assert _revision(engine) == HEAD_REVISION
     command.check(config)
     engine.dispose()

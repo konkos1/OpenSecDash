@@ -568,25 +568,24 @@ def create_rule_based_insights(db: Session, event: Event) -> None:
 
 def searchable_event_fields(*, include_raw_data: bool = False):
     fields = [
-        Event.id,
+        # Common human-entered terms go first so SQLite can stop evaluating the
+        # OR expression as soon as a path, hostname, or event identity matches.
+        Event.path,
+        Event.hostname,
+        Event.ip,
+        Event.event_type,
         Event.source,
         Event.source_id,
         Event.plugin,
         Event.plugin_id,
-        Event.event_type,
         Event.severity,
-        Event.ip,
         Event.country,
         Event.city,
         Event.asn,
-        Event.asn_organization,
         Event.isp,
-        Event.hostname,
-        Event.asset_id,
         Event.method,
-        Event.status_code,
-        Event.path,
         Event.retention_class,
+        Event.asn_organization,
     ]
     if include_raw_data:
         fields.extend([Event.data_json, Event.raw_data])

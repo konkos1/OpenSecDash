@@ -2,6 +2,9 @@
 
 > **Implementation status (2026-07-09):** Implemented.
 > Events use integer primary keys, structured columns, raw_data, data_json, created_at/event_time, retention_class, indexes, deduplication, rollups, and insight generation.
+> Update (2026-08-27): Status-filtered bounded searches use a composite
+> `(status_code, event_time)` index. It replaces the single-column status index while
+> preserving status-only lookups through SQLite's leftmost-prefix rule.
 
 
 

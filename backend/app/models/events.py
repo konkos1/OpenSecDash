@@ -37,6 +37,7 @@ class Event(Base):
         Index("ix_events_plugin_local_time", "plugin", "is_local_ip", "event_time"),
         Index("ix_events_country_time", "country", "event_time"),
         Index("ix_events_plugin_country_time", "plugin", "country", "event_time"),
+        Index("ix_events_status_time", "status_code", "event_time"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -65,7 +66,7 @@ class Event(Base):
 
     method: Mapped[str | None] = mapped_column(String(16), nullable=True)
     path: Mapped[str | None] = mapped_column(String(2048), nullable=True, index=True)
-    status_code: Mapped[int | None] = mapped_column(nullable=True, index=True)
+    status_code: Mapped[int | None] = mapped_column(nullable=True)
 
     data_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     raw_data: Mapped[str | None] = mapped_column(Text, nullable=True)

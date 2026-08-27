@@ -104,7 +104,8 @@ Build reports and supply-chain reports are retained as separate artifacts:
 Fresh and Small are limited to 1 vCPU/512 MiB. Large and Upgrade are limited to
 2 vCPU/1 GiB. Search publication gates are p95 below 250 ms for initial lists, 750 ms
 for typical terms, and 1,000 ms for no-match searches; serial and parallel readiness
-must remain below 250 ms and must not change the database. Reports are uploaded even
+must remain below 250 ms and must not change the database. Search p95 values use 20
+recorded samples after one warm-up query. Reports are uploaded even
 when a later gate fails. The release-candidate image transfer artifact expires after
 one day and is not release evidence.
 
