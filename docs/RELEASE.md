@@ -98,7 +98,7 @@ Build reports and supply-chain reports are retained as separate artifacts:
 | Fresh/Small/Large/Upgrade profiles | JSON p50/p95, size, RSS, readiness, search, migration, and startup reports |
 | Locked dependencies | Python/npm audit reports and two compared image package lists |
 | License compliance | Application/website notices, Debian package/source report, copyleft source archive |
-| Image security | SPDX SBOM and Trivy OS/Python report |
+| Image security | SPDX SBOM, Trivy OS/Python report, and reviewed exception manifest |
 | Runtime container | Hardened named-volume health/ready/static/plugin/shutdown smoke |
 
 Fresh and Small are limited to 1 vCPU/512 MiB. Large and Upgrade are limited to
@@ -116,6 +116,7 @@ until it is removed or explicitly renewed with fresh evidence.
 
 | Risk | Owner | Priority | Expiry/review |
 | --- | --- | --- | --- |
+| OpenSSL `CVE-2026-14456` remains in the immutable, digest-pinned Python 3.14.7 Trixie image. OpenSecDash does not run the affected OpenSSL QUIC server; `.trivyignore.yaml` limits the exception to this CVE instead of installing from a mutable package repository. | Release maintainer | P1 | 2026-09-27 |
 | Remote Insight authenticity uses the release-pinned SHA-256 manifest rather than an offline signing key. | Release maintainer | P1 | 2026-10-31 |
 | The Vite development server advisory remains in build-only dependencies; docs servers stay loopback-only. | Website maintainer | P1 | 2026-10-31 |
 | JSON Assets cannot completely eliminate DNS rebinding between validation and connect. | Security maintainer | P2 | 2026-10-31 |

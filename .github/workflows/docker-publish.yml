@@ -354,6 +354,9 @@ jobs:
             and (.packages | type == "array" and length > 0)
           ' opensecdash.spdx.json >/dev/null
 
+      - name: Validate time-bounded vulnerability exceptions
+        run: python3 docker/validate-trivy-ignore.py .trivyignore.yaml
+
       - name: Scan image for fixable high and critical vulnerabilities
         id: trivy
         continue-on-error: true
@@ -365,6 +368,7 @@ jobs:
           output: trivy-report.json
           exit-code: "1"
           ignore-unfixed: true
+          trivyignores: .trivyignore.yaml
           vuln-type: os,library
           severity: HIGH,CRITICAL
 
@@ -391,12 +395,14 @@ jobs:
             LICENSE
             THIRD_PARTY_NOTICES.md
             THIRD_PARTY_SOURCE.md
+            .trivyignore.yaml
             container-os-packages.json
             opensecdash.spdx.json
             opensecdash-copyleft-sources.tar.gz
             trivy-report.json
             website/public/third-party-notices.txt
           if-no-files-found: warn
+          include-hidden-files: true
           overwrite: true
 
       - name: Enforce supply-chain gate

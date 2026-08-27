@@ -1,0 +1,9 @@
+{
+  "vulnerabilities": [
+    {
+      "id": "CVE-2026-14456",
+      "expired_at": "2026-09-27T00:00:00Z",
+      "statement": "Temporary exception for OpenSSL 3.5.6 in the digest-pinned Python 3.14.7 Debian Trixie base image. OpenSecDash does not run an OpenSSL QUIC server, which is the affected component. The fixed Debian package is not yet part of the immutable official Python base, and installing from the mutable package repository would weaken build reproducibility. Remove the exception as soon as the official Python image contains OpenSSL 3.5.7, and no later than the expiry date."
+    }
+  ]
+}

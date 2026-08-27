@@ -56,6 +56,11 @@
 > after that evidence is attached; the GitHub release is made public after the image
 > push succeeds. The separate Release workflow continues to deploy the website but
 > no longer races the Docker workflow to create the GitHub release.
+> Update (2026-08-27): vulnerability exceptions use a repository-owned,
+> JSON-compatible `.trivyignore.yaml`. Every entry must name exactly one CVE, explain
+> its limited scope, and carry a future expiry date. A separate release step validates
+> those properties so an expired or malformed exception blocks publication even when
+> the scanner no longer reports the finding.
 
 
 
