@@ -11,6 +11,7 @@ from app.core import settings as settings_module
 PREVIOUS_HEAD = "b1c2d3e4f5a6"
 ASN_BAN_REVISION = "b2c3d4e5f6a7"
 REVISION = "d5e6f7a8b9c0"
+HEAD_REVISION = "e7f8a9b0c1d2"
 TABLES = {
     "crowdsec_asn_bans",
     "crowdsec_asn_ban_exceptions",
@@ -34,7 +35,7 @@ def test_fresh_database_upgrades_to_head_without_seeded_policies(tmp_path: Path,
 
     command.upgrade(config, "head")
     engine = create_engine(database_url)
-    assert _revision(engine) == REVISION
+    assert _revision(engine) == HEAD_REVISION
     assert TABLES.issubset(inspect(engine).get_table_names())
     inspector = inspect(engine)
     assert "asn_organization" in {
@@ -76,9 +77,9 @@ def test_asn_organization_upgrade_preserves_existing_policy(tmp_path: Path, monk
             )
         )
 
-    command.upgrade(config, REVISION)
+    command.upgrade(config, "head")
 
-    assert _revision(engine) == REVISION
+    assert _revision(engine) == HEAD_REVISION
     with engine.connect() as connection:
         row = connection.execute(
             text(
@@ -100,9 +101,9 @@ def test_existing_database_upgrades_without_data_loss_or_policy_seeds(tmp_path: 
     with engine.begin() as connection:
         connection.execute(text("INSERT INTO settings (key, value) VALUES ('test.phase1', 'kept')"))
 
-    command.upgrade(config, REVISION)
+    command.upgrade(config, "head")
 
-    assert _revision(engine) == REVISION
+    assert _revision(engine) == HEAD_REVISION
     with engine.connect() as connection:
         assert connection.scalar(text("SELECT value FROM settings WHERE key = 'test.phase1'")) == "kept"
         assert all(

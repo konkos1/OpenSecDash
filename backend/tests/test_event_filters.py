@@ -5,7 +5,12 @@ from app.models.events import Event
 from app.models.systems import System
 import pytest
 
-from app.services.events import MAX_SEARCH_DEPTH, MAX_SEARCH_LENGTH, MAX_SEARCH_TOKENS, apply_event_filters
+from app.services.events import (
+    MAX_SEARCH_DEPTH,
+    MAX_SEARCH_LENGTH,
+    MAX_SEARCH_TOKENS,
+    apply_event_filters,
+)
 
 
 def _matching_ids(db_session, filters):
@@ -140,6 +145,18 @@ def test_search_uses_bound_structured_predicates_for_ip_asn_status_and_country(d
     assert "events.asn =" in str(apply_event_filters(db_session.query(Event), {"q": "AS64500"}))
     assert "events.status_code =" in str(apply_event_filters(db_session.query(Event), {"q": "404"}))
     assert "events.country =" in str(apply_event_filters(db_session.query(Event), {"q": "DE"}))
+
+
+def test_text_search_checks_common_fields_first_and_skips_numeric_columns(db_session):
+    query_text = str(apply_event_filters(db_session.query(Event), {"q": "marker"}))
+
+    path_position = query_text.index("CAST(events.path AS VARCHAR) LIKE")
+    hostname_position = query_text.index("CAST(events.hostname AS VARCHAR) LIKE")
+    organization_position = query_text.index("CAST(events.asn_organization AS VARCHAR) LIKE")
+    assert path_position < hostname_position < organization_position
+    assert "CAST(events.id AS VARCHAR) LIKE" not in query_text
+    assert "CAST(events.asset_id AS VARCHAR) LIKE" not in query_text
+    assert "CAST(events.status_code AS VARCHAR) LIKE" not in query_text
 
 
 def test_search_keeps_structured_ip_semantics_in_expressions_quotes_and_raw_search(db_session):

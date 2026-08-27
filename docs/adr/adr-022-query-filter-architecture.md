@@ -8,6 +8,9 @@
 > Structured fields remain the default search surface, while JSON and raw payloads
 > require an explicit, saved-view-compatible opt-in. Exact IP, ASN, status, and country
 > terms use bound structured predicates.
+> Update (2026-08-27): General text terms check common text fields first and exclude
+> integer columns. Numeric search terms continue to use the existing bound structured
+> predicates instead of generating string casts and wildcard comparisons.
 
 > **Intentional scope:** Filter operators are explicit structured keys, not a free-text DSL, so validation and SQLAlchemy-bound queries remain straightforward and safe. Custom time ranges use `range=custom` with `from`/`to` URL parameters, and only the selected time range is preserved between Events and Access. Saved views with the same name in the same scope are overwritten; plugin-provided views are supported as read-only defaults. Torblock is not applicable because no Torblock plugin exists. Generated drill-down values link to matching Events/Access views where a meaningful filter exists; technical, inventory, notification, current-decision, and Rollup values remain intentionally non-drill-down.
 

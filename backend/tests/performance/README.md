@@ -9,11 +9,11 @@ Run from `backend/`:
 
 ```bash
 .venv/bin/python -m tests.performance.event_search_benchmark \
-  --events 0 --iterations 5 --default-range 24h --enforce-gates
+  --events 0 --iterations 20 --default-range 24h --enforce-gates
 .venv/bin/python -m tests.performance.event_search_benchmark \
-  --events 10000 --iterations 5 --default-range 24h --enforce-gates
+  --events 10000 --iterations 20 --default-range 24h --enforce-gates
 .venv/bin/python -m tests.performance.event_search_benchmark \
-  --events 1000000 --iterations 5 --default-range 24h --enforce-gates
+  --events 1000000 --iterations 20 --default-range 24h --enforce-gates
 .venv/bin/python -m tests.performance.upgrade_benchmark \
   --events 10000 --enforce-gates
 .venv/bin/python -m tests.performance.websocket_fanout_benchmark
@@ -26,9 +26,10 @@ image publication.
 
 The search fixture covers three plugins, four event types, paths, public IPs,
 countries, hostnames, ASNs, status codes, 30 days of timestamps, JSON payloads, raw
-lines, and occasional 2 KiB payload values. Every case is warmed once and then run five
-times; the report includes p50/p95, the SQLite query plan, database size, fixture build
-time, connection/first-query startup time, process peak RSS, 100 serial and 20 parallel
+lines, and occasional 2 KiB payload values. Every case is warmed once and then run 20
+times so p95 is not determined by a five-sample outlier. The report includes every
+sample, p50/p95, the SQLite query plan, database size, fixture build time,
+connection/first-query startup time, process peak RSS, 100 serial and 20 parallel
 readiness calls, connection cleanup, and a machine-readable gate result. The upgrade
 profile builds a representative supported legacy schema from the first migration,
 preserves synthetic legacy events, migrates secrets, runs startup maintenance,
@@ -67,6 +68,16 @@ After the bounded search changes:
 The final 24-hour fixture was 1,046.41 MiB, took 22.70 s to build and 0.73 ms to
 open/execute its first query, with 90.38 MiB peak RSS. The explicit all-time run was
 also checked: even its worst no-match case stayed below the 1,000 ms gate.
+
+## Status/time index verification from 2026-08-27
+
+Environment: the locally built release image on Docker/Darwin arm64, limited to 2 CPUs
+and 1 GiB RAM like the Large release profile. The million-event profile used 20
+recorded samples after warm-up. The combined boolean search reached 12.85 ms p50 and
+13.16 ms p95; its two branches both used
+`ix_events_status_time (status_code=? AND event_time>?)`. The no-match search reached
+27.98 ms p95. The 1,078.49 MiB fixture carried 741.70 MiB of indexes, peaked at
+123.20 MiB RSS, and every release gate passed.
 
 FTS5 is therefore not required. The bounded `LIKE` path meets the 250/750/1,000 ms
 list/typical/no-match targets, including the explicit all-time no-match gate, without a

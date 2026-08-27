@@ -25,9 +25,9 @@ device:
 | Large | 1,000,000 | 2 vCPU | 1 GiB | Documented large local database |
 | Upgrade | 10,000 synthetic legacy events | 2 vCPU | 1 GiB | Full migration and startup compatibility |
 
-The checks cover startup, read-only readiness, bounded search, migration, and clean
-connection shutdown. Real ingestion rates and plugin memory use still depend on log
-volume and enabled integrations.
+The checks cover startup, read-only readiness, 20-sample bounded search measurements,
+migration, and clean connection shutdown. Real ingestion rates and plugin memory use
+still depend on log volume and enabled integrations.
 
 As a rough guide, measured on SQLite after `VACUUM` (events plus their indexes and rollups):
 

@@ -32,6 +32,7 @@ from app.services.events import apply_event_filters
 
 
 DEFAULT_EVENT_COUNT = 1_000_000
+DEFAULT_ITERATIONS = 20
 INSERT_BATCH_SIZE = 10_000
 
 
@@ -117,11 +118,12 @@ def _percentile_95(values: list[float]) -> float:
     return statistics.quantiles(values, n=20, method="inclusive")[18]
 
 
-def _timing_summary(values: list[float]) -> dict[str, float]:
+def _timing_summary(values: list[float]) -> dict[str, Any]:
     return {
         "p50_ms": round(statistics.median(values), 2),
         "p95_ms": round(_percentile_95(values), 2),
         "min_ms": round(min(values), 2),
+        "samples_ms": [round(value, 2) for value in values],
     }
 
 
@@ -272,7 +274,7 @@ def run(event_count: int, iterations: int, default_range: str) -> dict[str, Any]
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--events", type=int, default=DEFAULT_EVENT_COUNT)
-    parser.add_argument("--iterations", type=int, default=5)
+    parser.add_argument("--iterations", type=int, default=DEFAULT_ITERATIONS)
     parser.add_argument("--default-range", choices=("24h", "all"), default="24h")
     parser.add_argument("--enforce-gates", action="store_true")
     parser.add_argument("--output", type=Path)
