@@ -33,6 +33,7 @@ from app.services.notifications import (
     invalidate_rules_cache,
     sync_insight_notification_rules,
 )
+from app.services.rollups import clear_rollup_groupers, register_rollup_grouper
 from app.services.settings import save_setting
 
 
@@ -88,6 +89,7 @@ class PluginManager:
         self.plugins.clear()
         clear_extra_locales()
         clear_duplicate_rules()
+        clear_rollup_groupers()
         plugin_registry.register_plugins(())
         if not self.plugin_dir.exists():
             logger.warning("Plugin directory does not exist: %s", self.plugin_dir)
@@ -134,6 +136,9 @@ class PluginManager:
             register_extra_locales(plugin.locales)
             # Plugin-provided event dedupe rules (e.g. CrowdSec ban correlation).
             register_duplicate_rules(plugin.metadata.id, plugin.duplicate_rules())
+            # Stable grouping remains plugin-owned while generic rollup storage
+            # can normalize both new events and previously stored keys.
+            register_rollup_grouper(plugin.metadata.id, plugin.rollup_group_key)
             logger.debug("Discovered plugin %s from %s", plugin.metadata.id, plugin_py)
 
         # Publish the discovered set so dependency-free core code (feature flags,

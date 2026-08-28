@@ -441,6 +441,17 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
             return "crowdsec.scenario.manual_permanent_asn_ban"
         return None
 
+    def rollup_group_key(self, metric: str, key: str) -> str | None:
+        from .services.policies import POLICY_SCENARIO_GROUP, POLICY_SCENARIO_PREFIX, normalize_asn
+
+        if metric != "scenario" or not key.startswith(POLICY_SCENARIO_PREFIX):
+            return None
+        try:
+            normalize_asn(key.removeprefix(POLICY_SCENARIO_PREFIX))
+        except ValueError:
+            return None
+        return POLICY_SCENARIO_GROUP
+
     # --- Event dedupe rules (see app.services.events) ---
 
     def duplicate_rules(self):

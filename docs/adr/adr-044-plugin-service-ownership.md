@@ -54,4 +54,5 @@ CrowdSec plugin.
 The three ASN policy tables remain central schemas in `app/models/core.py` alongside
 `CrowdSecDecision`. This is a documented schema exception only: services and UI remain
 plugin-owned, and core consumers use generic event, action, Insight, rollup, and plugin
-interfaces.
+interfaces. Plugin-owned rollup grouping uses the generic `rollup_group_key` hook so the
+core does not need to know CrowdSec scenario formats.

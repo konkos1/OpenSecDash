@@ -117,4 +117,6 @@ decisions are synchronized through CrowdSec LAPI, their exact IDs are retained f
 release and cleanup, and the UI exposes active decisions, exceptions, pending work,
 ASN-organization snapshots, and review acknowledgement. The direct ASN-policy Insight is stored
 as historical evidence of a successful ban; current decision state remains sourced from
-the CrowdSec decision synchronization.
+the CrowdSec decision synchronization. CrowdSec's rollup grouping hook maps both new and
+previously stored ASN-specific scenario keys to the stable policy group without changing
+the complete scenario retained on Events or CrowdSec history records.

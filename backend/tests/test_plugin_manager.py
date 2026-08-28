@@ -12,6 +12,7 @@ from app.core import plugin_registry
 from app.core.template_context import get_setting_value
 from app.plugins.manager import PluginManager, get_plugin_manager
 from app.services.events import DuplicateRule, _DUPLICATE_RULES, register_duplicate_rules
+from app.services.rollups import _ROLLUP_GROUPERS, register_rollup_grouper
 from app.services.settings import save_setting
 import app.plugins.manager as manager_module
 
@@ -161,8 +162,10 @@ def test_asset_update_diagnostic_calls_out_global_failure(monkeypatch, db_sessio
 def test_discover_clears_plugin_owned_process_state(tmp_path):
     register_extra_locales({"en": {"stale.plugin.key": "Stale text"}})
     register_duplicate_rules("stale_plugin", (DuplicateRule(lambda db, values: None),))
+    register_rollup_grouper("stale_plugin", lambda metric, key: key)
     assert translate("stale.plugin.key") == "Stale text"
     assert "stale_plugin" in _DUPLICATE_RULES
+    assert "stale_plugin" in _ROLLUP_GROUPERS
 
     try:
         manager = PluginManager(tmp_path)
@@ -170,6 +173,7 @@ def test_discover_clears_plugin_owned_process_state(tmp_path):
 
         assert translate("stale.plugin.key") == "stale.plugin.key"
         assert "stale_plugin" not in _DUPLICATE_RULES
+        assert "stale_plugin" not in _ROLLUP_GROUPERS
         assert plugin_registry.plugin_ids() == []
     finally:
         # Restore session-global plugin discovery state for tests that run after

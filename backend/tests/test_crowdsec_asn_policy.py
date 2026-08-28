@@ -21,6 +21,7 @@ from app.models.settings import Setting
 from app.plugins.manager import get_plugin_manager
 from app.services.actions import create_action
 from app.services.events import apply_event_filters, store_event
+from app.services.rollups import normalize_rollup_key
 from conftest import import_plugin_module
 
 decisions = import_plugin_module("crowdsec", "services.decisions")
@@ -595,6 +596,14 @@ def test_rollup_label_hook_localizes_group_and_keeps_prefix_filter(policy_runtim
         "scenario",
         "opensecdash/manual-permanent-asn-ban/AS15169",
     ) is None
+    assert normalize_rollup_key(
+        "scenario",
+        "opensecdash/manual-permanent-asn-ban/AS15169",
+    ) == policies.POLICY_SCENARIO_GROUP
+    assert normalize_rollup_key(
+        "scenario",
+        "opensecdash/manual-permanent-asn-ban/not-an-asn",
+    ) == "opensecdash/manual-permanent-asn-ban/not-an-asn"
 
     first = store_event(
         db,
@@ -633,6 +642,24 @@ def test_rollup_label_hook_localizes_group_and_keeps_prefix_filter(policy_runtim
         {"q": policies.POLICY_SCENARIO_GROUP, "include_raw_data": True},
     ).all()
     assert {event.id for event in drilldown} == {first.id, second.id}
+
+
+def test_asn_specific_scenario_without_group_uses_stable_rollup_key(policy_runtime):
+    db, _fake = policy_runtime
+
+    event = store_event(
+        db,
+        source="CrowdSec Log",
+        plugin="crowdsec",
+        event_type="security.ban",
+        ip="3.5.140.1",
+        data_json={"scenario": policies.policy_scenario("AS14618"), "duration": "7d"},
+        raw_data="standalone CrowdSec ASN scenario regression event",
+    )
+
+    assert (event.data_json or {})["scenario"] == policies.policy_scenario("AS14618")
+    rollup = db.query(AggregationDaily).filter_by(metric="scenario").one()
+    assert rollup.key == policies.POLICY_SCENARIO_GROUP
 
 
 def test_ambiguous_policy_decision_is_not_claimed_or_reported_as_success(policy_runtime, monkeypatch):

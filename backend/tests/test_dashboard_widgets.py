@@ -250,6 +250,32 @@ def test_crowdsec_dashboard_top_scenarios_uses_only_today_daily_rollup(db_sessio
     assert all_time_scenarios["Manual ban via OpenSecDash"] == 11
 
 
+def test_crowdsec_top_scenarios_combines_existing_asn_specific_rollups(db_session, monkeypatch):
+    rollups = import_module("osd_plugins.crowdsec.services.rollups")
+    scenario_group = "opensecdash/manual-permanent-asn-ban"
+    monkeypatch.setattr(rollups, "utc_now", lambda: datetime(2026, 7, 11, 12, tzinfo=UTC))
+    db_session.add_all(
+        [
+            Setting(key="plugin.crowdsec.enabled", value="true"),
+            AggregationDaily(date="2026-07-11", metric="scenario", key=scenario_group, value=1),
+            AggregationDaily(date="2026-07-11", metric="scenario", key=f"{scenario_group}/AS14618", value=2),
+            AggregationDaily(date="2026-07-11", metric="scenario", key=f"{scenario_group}/AS15169", value=3),
+            AggregationMonthly(month="2026-06", metric="scenario", key=f"{scenario_group}/AS13335", value=4),
+        ]
+    )
+    db_session.commit()
+
+    crowdsec = get_plugin_manager().plugins["crowdsec"]
+    widgets = {widget.id: widget for widget in crowdsec.dashboard_widgets(db_session)}
+    scenario_rows = widgets["crowdsec.top_scenarios"].rows
+
+    assert len(scenario_rows) == 1
+    assert scenario_rows[0]["label"] == scenario_group
+    assert scenario_rows[0]["label_key"] == "crowdsec.scenario.manual_permanent_asn_ban"
+    assert scenario_rows[0]["value"] == 6
+    assert dict(rollups._top_rollup_metric(db_session, "scenario", 10)) == {scenario_group: 10}
+
+
 def test_collect_dashboard_widgets_includes_plugin_widgets_and_isolates_failures(monkeypatch):
     class InlinePlugin(Plugin):
         metadata = PluginMetadata(id="inline", name="Inline")
