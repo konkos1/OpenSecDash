@@ -283,6 +283,10 @@ class Plugin:
         """Return an optional translation key for a stored rollup value."""
         return None
 
+    def rollup_group_key(self, metric: str, key: str) -> str | None:
+        """Return a stable group for one plugin-owned rollup value, if applicable."""
+        return None
+
 
 class DatasourcePlugin(Plugin):
     async def collect(self, context: PluginContext) -> Iterable[dict[str, Any]]:

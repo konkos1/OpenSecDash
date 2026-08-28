@@ -106,6 +106,26 @@ def test_rollup_rows_combines_existing_manual_ban_scenario_action_ids(db_session
     ]
 
 
+def test_rollup_rows_combines_existing_asn_specific_scenario_keys(db_session):
+    scenario_group = "opensecdash/manual-permanent-asn-ban"
+    db_session.add_all(
+        [
+            AggregationDaily(date="2026-07-02", metric="scenario", key=scenario_group, value=1),
+            AggregationDaily(date="2026-07-02", metric="scenario", key=f"{scenario_group}/AS14618", value=2),
+            AggregationDaily(date="2026-07-02", metric="scenario", key=f"{scenario_group}/AS15169", value=3),
+            AggregationMonthly(month="2026-07", metric="scenario", key=f"{scenario_group}/AS13335", value=4),
+        ]
+    )
+    db_session.commit()
+
+    assert rollup_rows(db_session, "day", "2026-07-02", "scenario") == [
+        {"key": scenario_group, "value": 6}
+    ]
+    assert rollup_rows(db_session, "month", "2026-07", "scenario") == [
+        {"key": scenario_group, "value": 10}
+    ]
+
+
 def test_rollup_rows_combines_monthly_and_daily_values_for_year(db_session):
     db_session.add_all(
         [
