@@ -3,12 +3,8 @@
 The MQTT plugin publishes OpenSecDash asset update states to MQTT so Home Assistant can discover them as update entities.
 
 ::: danger Protect MQTT credentials and publishing
-Do not configure MQTT credentials or publish MQTT data unless OpenSecDash requires
-either [internal sign-in](../configuration/authentication.md) or an external
-authentication provider and is accessed exclusively through an HTTPS
-[reverse proxy](../installation/reverse-proxy.md) with a browser-trusted certificate.
-An unauthenticated dashboard allows every reachable client to trigger publishing or
-change broker settings with OpenSecDash's MQTT access.
+Do not configure MQTT credentials or publish MQTT data unless OpenSecDash requires either [internal sign-in](../configuration/authentication.md) or an external authentication provider and is accessed exclusively through an HTTPS [reverse proxy](../installation/reverse-proxy.md) with a browser-trusted certificate.
+An unauthenticated dashboard allows every reachable client to trigger publishing or change broker settings with OpenSecDash's MQTT access.
 :::
 
 It is useful when you want app update information from OpenSecDash to appear in Home Assistant dashboards or automations.
@@ -181,7 +177,4 @@ max: 10
 
 ## Diagnostics
 
-Diagnostics verifies whether the configured broker host/port is reachable. In TLS
-mode it completes a certificate- and hostname-verified TLS handshake. Plain MQTT is
-reported as a warning. Publish failures are reported on the MQTT plugin diagnostic
-row.
+Diagnostics verifies whether the configured broker host/port is reachable. In TLS mode it completes a certificate- and hostname-verified TLS handshake. Plain MQTT is reported as a warning. Publish failures are reported on the MQTT plugin diagnostic row.

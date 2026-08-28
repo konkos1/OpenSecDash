@@ -23,58 +23,38 @@ Before contributing, read the repository files:
 
 ### Using AI tools
 
-If you use an AI assistant or coding agent for a contribution, read
-[`agents/AGENTS.md`](https://github.com/konkos1/OpenSecDash/blob/main/agents/AGENTS.md)
-and make sure the AI tool receives and follows those instructions. They apply to all
-AI-assisted work in this repository in addition to the other contribution guidelines.
+If you use an AI assistant or coding agent for a contribution, read [`AGENTS.md`](https://github.com/konkos1/OpenSecDash/blob/main/AGENTS.md) and make sure the AI tool receives and follows those instructions. They apply to all AI-assisted work in this repository in addition to the other contribution guidelines.
 
 ## Contributor License Agreement
 
-The project uses a Contributor License Agreement (CLA). Pull requests should confirm that the contributor agrees to the CLA. The CLA text lives in `docs/CLA.md` in the repository.
+The project uses a Contributor License Agreement (CLA). Pull requests should confirm that the contributor agrees to the CLA. The CLA text lives in [`docs/CLA.md`](https://github.com/konkos1/OpenSecDash/blob/main/docs/CLA.md) in the repository.
 
 ## Security reports
 
-Please do not report security vulnerabilities in public issues. Use the instructions in `SECURITY.md`.
+Please do not report security vulnerabilities in public issues. Use the instructions in [`SECURITY.md`](https://github.com/konkos1/OpenSecDash/blob/main/SECURITY.md).
 
 ## Releases
 
-Release preparation is documented in `docs/RELEASE.md`.
+Release preparation is documented in [`docs/RELEASE.md`](https://github.com/konkos1/OpenSecDash/blob/main/docs/RELEASE.md).
 
 The Git tag is the release version source of truth. For a tag such as `v0.2.0`, the Docker publish workflow derives `0.2.0`, passes it into the container as `OPENSECDASH_VERSION`, and publishes matching Docker tags. `backend/pyproject.toml` intentionally stays at `0.0.0`.
 
-Before Docker Hub publication, the release workflow audits the locked Python runtime
-and website build dependencies, builds the image twice with cold dependency caches,
-compares all installed Python package versions, verifies core runtime versions against
-`uv.lock`, creates an SPDX SBOM, and scans OS and Python packages. Fixable high or
-critical image findings block the push. The package lists, audit reports, image scan,
-SBOM, generated notices, Debian package/source report, and corresponding copyleft
-source archive are retained as workflow artifacts and attached to tagged releases.
+Before Docker Hub publication, the release workflow audits the locked Python runtime and website build dependencies, builds the image twice with cold dependency caches, compares all installed Python package versions, verifies core runtime versions against `uv.lock`, creates an SPDX SBOM, and scans OS and Python packages. Fixable high or critical image findings block the push. The package lists, audit reports, image scan, SBOM, generated notices, Debian package/source report, and corresponding copyleft source archive are retained as workflow artifacts and attached to tagged releases.
 
-Build validation, supply-chain checks, draft release evidence, and publication are
-separate jobs that exchange the same short-lived release-candidate image artifact. The
-pinned SBOM generator is retried once when it fails, its SPDX output is validated, and
-publication runs only after the supply-chain and license-evidence gates pass. The
-GitHub Release stays a draft until the verified image is pushed.
+Build validation, supply-chain checks, draft release evidence, and publication are separate jobs that exchange the same short-lived release-candidate image artifact. The pinned SBOM generator is retried once when it fails, its SPDX output is validated, and publication runs only after the supply-chain and license-evidence gates pass. The GitHub Release stays a draft until the verified image is pushed.
 
 Release notes are generated from pull requests associated with the tagged changes. The notes list PR number, title, and contributor instead of dumping every commit.
 
 ## Third-party licenses
 
-Application notices are generated from `backend/uv.lock`, installed wheel metadata,
-and the browser-component manifest under `third_party/`. Website notices are generated
-from `website/package-lock.json`. Both generated files are committed and checked in CI.
-The application exposes its project license, third-party notices, and
-source-availability information without requiring sign-in at `/legal`.
+Application notices are generated from `backend/uv.lock`, installed wheel metadata, and the browser-component manifest under `third_party/`. Website notices are generated from `website/package-lock.json`. Both generated files are committed and checked in CI.
+The application exposes its project license, third-party notices, and source-availability information without requiring sign-in at `/legal`.
 
-The SVG assets currently shipped by OpenSecDash were created for the project and are
-first-party content under GNU AGPL-3.0. New copied or derived assets must be added to the
-third-party manifest with their provenance and license before distribution.
+The SVG assets currently shipped by OpenSecDash were created for the project and are first-party content under GNU AGPL-3.0. New copied or derived assets must be added to the third-party manifest with their provenance and license before distribution.
 
 ## Code style and review
 
-Follow the [Code style](./code-style.md) guide for all contributions. Match the
-surrounding code, keep changes focused, use type hints, and add regression tests for bug
-fixes. Before opening a pull request, run the required checks:
+Follow the [Code style](./code-style.md) guide for all contributions. Match the surrounding code, keep changes focused, use type hints, and add regression tests for bug fixes. Before opening a pull request, run the required checks:
 
 ```bash
 cd backend
@@ -87,8 +67,7 @@ npm run tailwind:build
 .venv/bin/pyright --pythonversion "$(cut -d. -f1,2 .python-version)" app tests ../plugins
 ```
 
-All checks must pass without errors. If a check was not run, state that clearly in the
-pull request description.
+All checks must pass without errors. If a check was not run, state that clearly in the pull request description.
 
 Maintainers may ask for changes to keep the project maintainable, safe for homelabs, and aligned with the plugin-first architecture. Please do not take review comments personally; they are part of keeping a security-focused project healthy.
 

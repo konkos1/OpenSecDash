@@ -15,17 +15,9 @@ The Insights engine ships with a local fallback ruleset, imports active rules in
 https://opensecdash.app/rules/insights-rules.json
 ```
 
-Before importing that file, the app downloads the fixed
-`/rules/insights-rules-v1.sha256.json` manifest, checks its expiry and expected path,
-and verifies the exact ruleset bytes with SHA-256. Responses are bounded to 8 KiB for
-the manifest and 256 KiB for the ruleset. A failure leaves the last valid database
-rules active.
+Before importing that file, the app downloads the fixed `/rules/insights-rules-v1.sha256.json` manifest, checks its expiry and expected path, and verifies the exact ruleset bytes with SHA-256. Responses are bounded to 8 KiB for the manifest and 256 KiB for the ruleset. A failure leaves the last valid database rules active.
 
-This is an explicitly temporary authenticity layer expiring on 2026-10-31. It detects
-accidental or partial publication changes, but because the manifest and rules are
-served by the same HTTPS website, a compromise of that site or its TLS delivery could
-replace both. A later release must replace this with an offline-key signature or renew
-the exception with a new documented scope and expiry.
+This is an explicitly temporary authenticity layer expiring on 2026-10-31. It detects accidental or partial publication changes, but because the manifest and rules are served by the same HTTPS website, a compromise of that site or its TLS delivery could replace both. A later release must replace this with an offline-key signature or renew the exception with a new documented scope and expiry.
 
 The source URL is intentionally hardcoded and not configurable in the UI. This keeps the feature predictable and avoids turning the app into a generic remote-code/rule loader.
 
@@ -59,13 +51,9 @@ Rules can use either grouping mode:
 - `group_by: "ip"` counts matching requests from the triggering IP.
 - `group_by: "path"` counts matching requests for the same path pattern across IPs.
 
-`min_distinct_ips` sets how many different IPs must match. It defaults to `1` and
-accepts values from `1` to `1000`. For example, the bundled scanner-wave rule
-requires 20 requests to common WordPress paths from at least 5 IPs in 5 minutes.
+`min_distinct_ips` sets how many different IPs must match. It defaults to `1` and accepts values from `1` to `1000`. For example, the bundled scanner-wave rule requires 20 requests to common WordPress paths from at least 5 IPs in 5 minutes.
 
-After a rule creates an insight, OpenSecDash applies a cooldown for that rule and
-correlation key for the rule window. Repeated matching events during that window do
-not create duplicate insights. Raw events remain unchanged.
+After a rule creates an insight, OpenSecDash applies a cooldown for that rule and correlation key for the rule window. Repeated matching events during that window do not create duplicate insights. Raw events remain unchanged.
 
 ## Diagnostics and debug reports
 
@@ -81,8 +69,7 @@ Debug reports include `insight-rules.txt` with:
 - last fetch time
 - active rule IDs/titles and their source (`bundled` or `remote`)
 
-Plugin-provided rules use a `plugin:<plugin_id>` source and appear in the same
-diagnostic summary after validation.
+Plugin-provided rules use a `plugin:<plugin_id>` source and appear in the same diagnostic summary after validation.
 
 ## Rule format
 

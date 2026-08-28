@@ -46,13 +46,8 @@ The page shows summary cards and breakdown tables.
 | Scenario | Counts grouped by correlated scenario value, such as CrowdSec scenarios. Permanent ASN policy scenarios are stored under one stable group for rollups. |
 | Country | Counts grouped by event country. |
 
-Each successful permanent ASN policy ban contributes once to the security-event and ban
-summaries. Its Event and CrowdSec History records keep the complete scenario
-`opensecdash/manual-permanent-asn-ban/AS...`, but rollups normalize all of those values to
-one localized **Manual permanent ASN ban** group. The CrowdSec top-scenarios panel and
-Dashboard use the same grouping, so several blocked ASNs do not fragment the ranking.
-The group link searches the stored full scenarios and can therefore drill down to events
-from every contributing ASN.
+Each successful permanent ASN policy ban contributes once to the security-event and ban summaries. Its Event and CrowdSec History records keep the complete scenario `opensecdash/manual-permanent-asn-ban/AS...`, but rollups normalize all of those values to one localized **Manual permanent ASN ban** group. The CrowdSec top-scenarios panel and Dashboard use the same grouping, so several blocked ASNs do not fragment the ranking.
+The group link searches the stored full scenarios and can therefore drill down to events from every contributing ASN.
 
 ## Dashboard
 

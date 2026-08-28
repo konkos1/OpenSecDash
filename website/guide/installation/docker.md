@@ -14,9 +14,7 @@ Minimum for a small homelab instance:
 
 OpenSecDash is lightweight, but storage usage depends on imported event volume, configured retention, and debug/log output.
 
-The release gate exercises these resource profiles against the published container
-shape. They are validation boundaries, not promises for every plugin mix or storage
-device:
+The release gate exercises these resource profiles against the published container shape. They are validation boundaries, not promises for every plugin mix or storage device:
 
 | Profile | Events | CPU limit | RAM limit | Expected use |
 | --- | ---: | ---: | ---: | --- |
@@ -25,9 +23,7 @@ device:
 | Large | 1,000,000 | 2 vCPU | 1 GiB | Documented large local database |
 | Upgrade | 10,000 synthetic legacy events | 2 vCPU | 1 GiB | Full migration and startup compatibility |
 
-The checks cover startup, read-only readiness, 20-sample bounded search measurements,
-migration, and clean connection shutdown. Real ingestion rates and plugin memory use
-still depend on log volume and enabled integrations.
+The checks cover startup, read-only readiness, 20-sample bounded search measurements, migration, and clean connection shutdown. Real ingestion rates and plugin memory use still depend on log volume and enabled integrations.
 
 As a rough guide, measured on SQLite after `VACUUM` (events plus their indexes and rollups):
 
@@ -150,18 +146,14 @@ docker compose up -d
 Then open OpenSecDash through the hostname your reverse proxy serves:
 
 ```text
-https://dash.example.com
+https://opensecdash.example.com
 ```
 
 ## First start of a new installation
 
-A new installation starts with internal sign-in enabled. The first visit shows a one-time
-setup page that creates the first Admin account; nothing else is reachable until it is
-finished, apart from `/health` and `/ready`.
+A new installation starts with internal sign-in enabled. The first visit shows a one-time setup page that creates the first Admin account; nothing else is reachable until it is finished, apart from `/health` and `/ready`.
 
-Configure the reverse proxy before that first visit. The setup can only be completed when
-the request arrives over HTTPS on external port 443, from a proxy listed explicitly in
-`OSD_TRUSTED_PROXIES`, under the hostname you enter:
+Configure the reverse proxy before that first visit. The setup can only be completed when the request arrives over HTTPS on external port 443, from a proxy listed explicitly in `OSD_TRUSTED_PROXIES`, under the hostname you enter:
 
 ```yaml
 environment:
@@ -169,16 +161,11 @@ environment:
   OSD_TRUSTED_PROXIES: 192.0.2.10
 ```
 
-See [Reverse proxy](reverse-proxy.md) and
-[Authentication](../configuration/authentication.md#first-time-setup-new-installations).
+See [Reverse proxy](reverse-proxy.md) and [Authentication](../configuration/authentication.md#first-time-setup-new-installations).
 
-To run OpenSecDash open on purpose instead — behind a VPN, an authentication proxy, or
-for a quick local trial on `http://localhost:8765` — set `OSD_AUTH_DISABLED=true` and
-restart. Every visitor who can reach the instance then has full access.
+To run OpenSecDash open on purpose instead — behind a VPN, an authentication proxy, or for a quick local trial on `http://localhost:8765` — set `OSD_AUTH_DISABLED=true` and restart. Every visitor who can reach the instance then has full access.
 
-Updating an existing installation does not change its sign-in state. An installation with
-internal sign-in enabled continues unchanged; one that was open stays reachable and shows
-a permanent prompt to decide between internal sign-in and the deliberate bypass.
+Updating an existing installation does not change its sign-in state. An installation with internal sign-in enabled continues unchanged; one that was open stays reachable and shows a permanent prompt to decide between internal sign-in and the deliberate bypass.
 
 ## Ports
 
@@ -258,16 +245,9 @@ For persistent data, both a named Docker volume and a host bind mount such as `.
 
 ### Volume upgrades and ownership
 
-The Compose hardening keeps the root filesystem read-only, provides a small temporary
-filesystem at `/tmp`, drops all capabilities except `CHOWN`, `SETUID`, and `SETGID`,
-and applies realistic starter limits for a homelab. The container still starts as root
-only for the ownership repair; the application process is unprivileged. Adjust CPU and
-memory limits for unusually large event volumes, but keep the other boundaries.
+The Compose hardening keeps the root filesystem read-only, provides a small temporary filesystem at `/tmp`, drops all capabilities except `CHOWN`, `SETUID`, and `SETGID`, and applies realistic starter limits for a homelab. The container still starts as root only for the ownership repair; the application process is unprivileged. Adjust CPU and memory limits for unusually large event volumes, but keep the other boundaries.
 
-Existing named volumes and writable Linux bind mounts upgrade without a manual step:
-the entry point recursively repairs `/data` ownership before migration and startup. If
-a NAS or bind-mount policy prevents that ownership change, stop the app and run this
-one-time repair against the same mount before retrying the upgrade:
+Existing named volumes and writable Linux bind mounts upgrade without a manual step: the entry point recursively repairs `/data` ownership before migration and startup. If a NAS or bind-mount policy prevents that ownership change, stop the app and run this one-time repair against the same mount before retrying the upgrade:
 
 ```bash
 docker run --rm --user root --entrypoint sh \
@@ -276,10 +256,7 @@ docker run --rm --user root --entrypoint sh \
   -c 'chown -R opensecdash:opensecdash /data'
 ```
 
-Replace the host path with the actual bind mount. For a named volume, replace the
-`-v` value with `opensecdash-data:/data`. Back up `/data` first; the command changes
-ownership, not database contents. Read-only plugin files should remain under `/logs`
-or `/assets`, not below `/data`.
+Replace the host path with the actual bind mount. For a named volume, replace the `-v` value with `opensecdash-data:/data`. Back up `/data` first; the command changes ownership, not database contents. Read-only plugin files should remain under `/logs` or `/assets`, not below `/data`.
 
 If those tools run on a different host/VM, you need to make their logs available to OpenSecDash first, for example with bind mounts, shared storage, or another log shipping approach.
 

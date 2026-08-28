@@ -23,20 +23,9 @@ The dashboard gives you a quick overview of current homelab security activity:
 - recent security context
 - small comparison badges based on yesterday's rollups when available
 
-Dashboard content comes from a widget container. Enabled plugins can contribute
-validated counter, table, feed, and trend widgets; the core renders those descriptors
-and plugins do not provide dashboard HTML. For example, CrowdSec contributes its
-active-ban counter and GeoBlock contributes today's geoblock counter, while cross-plugin
-lists such as top countries remain core-owned.
+Dashboard content comes from a widget container. Enabled plugins can contribute validated counter, table, feed, and trend widgets; the core renders those descriptors and plugins do not provide dashboard HTML. For example, CrowdSec contributes its active-ban counter and GeoBlock contributes today's geoblock counter, while cross-plugin lists such as top countries remain core-owned.
 
-To adapt the dashboard for a homelab, open **Customize dashboard**. Clear a widget's
-checkbox to hide it, use the up/down controls to change its order, and choose **Apply
-layout**. **Reset layout** removes the saved customization and restores the default
-ordering and visibility. A widget from a disabled plugin disappears after reload; if
-the plugin is enabled again later, its widget is added back visibly. Widget links open
-the corresponding filtered Events or Assets view. With internal authentication
-enabled, each user has an independent dashboard layout; without it, the layout remains
-global to the instance.
+To adapt the dashboard for a homelab, open **Customize dashboard**. Clear a widget's checkbox to hide it, use the up/down controls to change its order, and choose **Apply layout**. **Reset layout** removes the saved customization and restores the default ordering and visibility. A widget from a disabled plugin disappears after reload; if the plugin is enabled again later, its widget is added back visibly. Widget links open the corresponding filtered Events or Assets view. With internal authentication enabled, each user has an independent dashboard layout; without it, the layout remains global to the instance.
 
 The Events page supports **Live** and **Snapshot** modes. Live mode keeps the UI fresh. Snapshot mode freezes the current view so you can filter and inspect without the table moving under your mouse.
 
@@ -85,12 +74,7 @@ The Events and Access views support practical filters for homelab investigations
 
 Operator filters are structured URL parameters rather than a free-text query language. For example, `/events?country_in=RU,CN` is the structured equivalent of `country IN (RU,CN)` and investigates traffic from a country list; `/events?country_not=DE` excludes German traffic, and `/access?status_min=400&status_max=499` shows client-error responses. The Events filter form also exposes status ranges, ASN, and hostname; URL filters make the same investigation links shareable.
 
-Events and Access start with the last 24 hours for a new user or installation. Choose
-**Last hour**, **24 hours**, **7 days**, or **30 days** in the time-range picker; choose
-**All time** explicitly for the complete retained history. The selected range is
-retained when moving between Events and Access and is stored with saved views. For a
-custom range, use a shareable URL such as
-`/events?range=custom&from=2026-07-12T00:00:00Z&to=2026-07-13T00:00:00Z`.
+Events and Access start with the last 24 hours for a new user or installation. Choose **Last hour**, **24 hours**, **7 days**, or **30 days** in the time-range picker; choose **All time** explicitly for the complete retained history. The selected range is retained when moving between Events and Access and is stored with saved views. For a custom range, use a shareable URL such as `/events?range=custom&from=2026-07-12T00:00:00Z&to=2026-07-13T00:00:00Z`.
 
 The header has one global search box. An IP address or CIDR opens the IP Explorer, a matching asset name or hostname opens Asset Explorer, and other searches open matching Events. For example, searching `/wp-login.php` opens Events with that search term.
 
@@ -129,60 +113,27 @@ See [Actions and safety](../operations/actions.md) for the execution model and t
 
 ## Persistent manual ASN bans
 
-Persistent manual ASN bans are a characteristic OpenSecDash core workflow for repeated
-unwanted traffic from one autonomous system. In Events or Access, use **Columns**
-to show the optional **ASN** column, open an ASN popup, and confirm **Permanently ban
-ASN**. The column and popup also show the current ASN organization snapshot. Only an
-Operator or Admin can perform the action.
+Persistent manual ASN bans are a characteristic OpenSecDash core workflow for repeated unwanted traffic from one autonomous system. In Events or Access, use **Columns** to show the optional **ASN** column, open an ASN popup, and confirm **Permanently ban ASN**. The column and popup also show the current ASN organization snapshot. Only an Operator or Admin can perform the action.
 
-OpenSecDash stores the ASN as a permanent local policy. It does not create a permanent
-CrowdSec ASN decision and does not expand the ASN into prefixes. After a new public-IP
-event has been stored and successfully enriched by GeoIP, a matching policy creates an
-ordinary CrowdSec `scope=Ip` decision for `7d`. An expired decision is not renewed by a
-timer; a later, newly enriched event is required before that IP can be banned again.
+OpenSecDash stores the ASN as a permanent local policy. It does not create a permanent CrowdSec ASN decision and does not expand the ASN into prefixes. After a new public-IP event has been stored and successfully enriched by GeoIP, a matching policy creates an ordinary CrowdSec `scope=Ip` decision for `7d`. An expired decision is not renewed by a timer; a later, newly enriched event is required before that IP can be banned again.
 
 The workflow deliberately keeps ownership narrow:
 
-- A reclassification to a different, non-blocked ASN immediately releases only the
-  exact policy-owned decision. Independent CrowdSec decisions for the IP remain.
+- A reclassification to a different, non-blocked ASN immediately releases only the exact policy-owned decision. Independent CrowdSec decisions for the IP remain.
 - A failed release stays queued against the exact decision ID for retry.
-- Manually unbanning a policy-owned IP creates an exception for that ASN and IP only.
-  Removing the exception is confirmed and requires another matching observation before
-  a new ban can occur.
-- The CrowdSec page shows policies, active policy-owned decisions, exceptions, removal
-  errors, pending releases, and ASN-organization review warnings.
+- Manually unbanning a policy-owned IP creates an exception for that ASN and IP only. Removing the exception is confirmed and requires another matching observation before a new ban can occur.
+- The CrowdSec page shows policies, active policy-owned decisions, exceptions, removal errors, pending releases, and ASN-organization review warnings.
 
-Every successful automatic policy ban creates one high-confidence IP Explorer insight
-with the ASN, organization snapshot, and `7d` duration. It records that a ban **happened**;
-the CrowdSec panel remains the source for whether a decision is currently active. Ban
-counters and active-decision displays include these bans. Rollups, CrowdSec top
-scenarios, and the Dashboard group all ASN-specific scenarios under **Manual permanent
-ASN ban**, while Events and CrowdSec history retain the complete
-`opensecdash/manual-permanent-asn-ban/AS...` value for investigation and drill-down.
+Every successful automatic policy ban creates one high-confidence IP Explorer insight with the ASN, organization snapshot, and `7d` duration. It records that a ban **happened**; the CrowdSec panel remains the source for whether a decision is currently active. Ban counters and active-decision displays include these bans. Rollups, CrowdSec top scenarios, and the Dashboard group all ASN-specific scenarios under **Manual permanent ASN ban**, while Events and CrowdSec history retain the complete `opensecdash/manual-permanent-asn-ban/AS...` value for investigation and drill-down.
 
-ASN allocation and its organization name can change. OpenSecDash keeps ASN organization
-separate from the IP-specific ISP/company value and shows both number and organization in
-the ASN column. A substantially different non-empty organization must be observed three
-times across at least two IPs before its previous snapshot and detection time become a
-review warning. Case, whitespace, punctuation around a legal suffix, and common legal-form
-variants alone do not count. An open warning is not repeated. Acknowledging the warning
-confirms only that it was reviewed. It neither proves an ownership transfer nor pauses the
-policy or removes decisions. Removing the policy is a separate confirmed action.
+ASN allocation and its organization name can change. OpenSecDash keeps ASN organization separate from the IP-specific ISP/company value and shows both number and organization in the ASN column. A substantially different non-empty organization must be observed three times across at least two IPs before its previous snapshot and detection time become a review warning. Case, whitespace, punctuation around a legal suffix, and common legal-form variants alone do not count. An open warning is not repeated. Acknowledging the warning confirms only that it was reviewed. It neither proves an ownership transfer nor pauses the policy or removes decisions. Removing the policy is a separate confirmed action.
 
-GeoIP and CrowdSec must be usable and Action simulation must be off to activate a real
-policy. Activation, removal, exception removal, and organization-review acknowledgement are
-confirmed, permission-checked, and audited. Existing policies stay visible if GeoIP later
-becomes unavailable, but no new automatic classification is enforced while it is down.
+GeoIP and CrowdSec must be usable and Action simulation must be off to activate a real policy. Activation, removal, exception removal, and organization-review acknowledgement are confirmed, permission-checked, and audited. Existing policies stay visible if GeoIP later becomes unavailable, but no new automatic classification is enforced while it is down.
 
-::: warning The first access cannot be blocked by this workflow
-The event is stored before asynchronous GeoIP enrichment creates a CrowdSec decision,
-and a bouncer must then fetch and apply it. Blocking can therefore happen **no earlier
-than the second access**, and that is not a guarantee: enrichment, LAPI, and bouncer
-latency or errors can allow additional accesses.
+::: warning The first access cannot be blocked by this workflow The event is stored before asynchronous GeoIP enrichment creates a CrowdSec decision, and a bouncer must then fetch and apply it. Blocking can therefore happen **no earlier than the second access**, and that is not a guarantee: enrichment, LAPI, and bouncer latency or errors can allow additional accesses.
 :::
 
-See [CrowdSec](../plugins/crowdsec.md) for policy behavior and
-[GeoIP](../plugins/geoip.md#geoip-and-permanent-asn-bans) for classification limits.
+See [CrowdSec](../plugins/crowdsec.md) for policy behavior and [GeoIP](../plugins/geoip.md#geoip-and-permanent-asn-bans) for classification limits.
 
 ## Responsive UI
 
@@ -213,8 +164,7 @@ Each signed-in user can keep their own:
 - dashboard widget visibility and ordering
 - Events and Access saved views
 
-With internal sign-in disabled, these display preferences remain global and are configured
-under **Settings → Core**. See [Authentication](../configuration/authentication.md).
+With internal sign-in disabled, these display preferences remain global and are configured under **Settings → Core**. See [Authentication](../configuration/authentication.md).
 
 ## Instance identity and branding
 
@@ -270,10 +220,7 @@ This makes it easier to understand whether a missing event is a configuration is
 
 ## Notifications
 
-The Notifications page can turn matching events and insights into SMTP email
-alerts. It keeps delivery history, supports a test email, and uses cooldowns
-and digest aggregation to avoid alert floods. See [Notifications](../configuration/notifications.md)
-for setup and the built-in rules.
+The Notifications page can turn matching events and insights into SMTP email alerts. It keeps delivery history, supports a test email, and uses cooldowns and digest aggregation to avoid alert floods. See [Notifications](../configuration/notifications.md) for setup and the built-in rules.
 
 ## Trust-aware deployment
 

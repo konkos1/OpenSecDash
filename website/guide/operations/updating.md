@@ -11,12 +11,8 @@ docker compose up -d
 
 Database migrations run automatically by default when `AUTO_MIGRATE=true`.
 
-The current image starts as root only long enough to repair ownership on existing
-named or bind-mounted `/data` storage, then runs the app unprivileged. The hardened
-Compose example retains `CHOWN`, `SETUID`, and `SETGID` solely for this upgrade path.
-If a NAS forbids automatic ownership changes, use the documented one-time
-[volume ownership repair](../installation/docker.md#volume-upgrades-and-ownership) after backing
-up `/data`.
+The current image starts as root only long enough to repair ownership on existing named or bind-mounted `/data` storage, then runs the app unprivileged. The hardened Compose example retains `CHOWN`, `SETUID`, and `SETGID` solely for this upgrade path.
+If a NAS forbids automatic ownership changes, use the documented one-time [volume ownership repair](../installation/docker.md#volume-upgrades-and-ownership) after backing up `/data`.
 
 For bare-metal installs, pull the repository, update the virtual environment, and restart the systemd service.
 
@@ -30,74 +26,41 @@ sudo systemctl restart opensecdash
 
 ## Optional single sign-on (OIDC)
 
-The release that adds [single sign-on](../configuration/authentication.md#single-sign-on-oidc)
-migrates the database once: it adds a table for linked provider accounts, records for
-every session whether it was created with a password or with a provider, and allows
-local accounts without a password. Existing sessions are classified as password
-sessions, so nobody is signed out by the upgrade.
+The release that adds [single sign-on](../configuration/authentication.md#single-sign-on-oidc) migrates the database once: it adds a table for linked provider accounts, records for every session whether it was created with a password or with a provider, and allows local accounts without a password. Existing sessions are classified as password sessions, so nobody is signed out by the upgrade.
 
-No action is required by that release: single sign-on and automatic user creation are
-off, password sign-in stays on, and existing local users, roles, and password hashes are
-unchanged.
+No action is required by that release: single sign-on and automatic user creation are off, password sign-in stays on, and existing local users, roles, and password hashes are unchanged.
 
 ## Internal sign-in becomes the default for new installations
 
-The release that makes internal sign-in the default does not change your installation's
-sign-in state. The first start after the update classifies the existing database once:
+The release that makes internal sign-in the default does not change your installation's sign-in state. The first start after the update classifies the existing database once:
 
-- an installation with internal sign-in **enabled** keeps it enabled and is marked as
-  finished. No setup, no prompt, no change for your users;
-- an installation that was **open** stays open and fully usable — pages, APIs, plugins,
-  WebSockets, and any authentication proxy in front of it keep working. It is marked for
-  a one-time security decision;
-- no administrator is created, no session is revoked, and users, password hashes, roles,
-  hostname, and provider configuration stay untouched.
+- an installation with internal sign-in **enabled** keeps it enabled and is marked as finished. No setup, no prompt, no change for your users;
+- an installation that was **open** stays open and fully usable — pages, APIs, plugins, WebSockets, and any authentication proxy in front of it keep working. It is marked for a one-time security decision;
+- no administrator is created, no session is revoked, and users, password hashes, roles, hostname, and provider configuration stay untouched.
 
-An open installation then shows a permanent prompt on every page. It cannot be dismissed,
-because leaving OpenSecDash open is a decision:
+An open installation then shows a permanent prompt on every page. It cannot be dismissed, because leaving OpenSecDash open is a decision:
 
-1. **Set internal sign-in up.** The prompt links to a guided setup that asks for the
-   authentication hostname and, if no administrator exists yet, the first admin account.
-   It only completes through your reverse proxy over HTTPS on port 443 with
-   `OSD_TRUSTED_PROXIES` naming that proxy. Afterwards everyone signs in normally.
-2. **Stay open deliberately.** Set `OSD_AUTH_DISABLED=true` and restart. Every visitor
-   who can reach the instance then has full access, so protect it with a network boundary
-   or an authentication proxy. The stronger permanent warning replaces the prompt, and
-   removing the variable brings the prompt back unchanged.
+1. **Set internal sign-in up.** The prompt links to a guided setup that asks for the authentication hostname and, if no administrator exists yet, the first admin account. It only completes through your reverse proxy over HTTPS on port 443 with `OSD_TRUSTED_PROXIES` naming that proxy. Afterwards everyone signs in normally.
+2. **Stay open deliberately.** Set `OSD_AUTH_DISABLED=true` and restart. Every visitor who can reach the instance then has full access, so protect it with a network boundary or an authentication proxy. The stronger permanent warning replaces the prompt, and removing the variable brings the prompt back unchanged.
 
-Internal sign-in can no longer be switched off in Settings; `OSD_AUTH_DISABLED` is the
-only bypass. See
-[Authentication](../configuration/authentication.md#updated-installations-that-are-still-open).
+Internal sign-in can no longer be switched off in Settings; `OSD_AUTH_DISABLED` is the only bypass. See [Authentication](../configuration/authentication.md#updated-installations-that-are-still-open).
 
 ## IPLocate becomes the GeoIP provider default for new installations
 
-The release that adds the [IPLocate EU provider](../plugins/geoip.md) does not change
-the GeoIP configuration of an existing installation:
+The release that adds the [IPLocate EU provider](../plugins/geoip.md) does not change the GeoIP configuration of an existing installation:
 
-- a stored provider choice stays exactly as it is. An installation on `ip-api.com`
-  keeps `ip-api.com`, including an active one — no provider is migrated or switched
-  automatically;
-- only a missing provider row is seeded, and it receives `IPLocate` as its default.
-  In practice that is a new installation;
-- GeoIP itself stays disabled by default, so a new installation pre-selects IPLocate
-  without contacting it. Nothing is looked up until GeoIP is enabled;
-- an existing GeoIP setting keeps its value, so an upgrade starts no new external data
-  flow on its own.
+- a stored provider choice stays exactly as it is. An installation on `ip-api.com` keeps `ip-api.com`, including an active one — no provider is migrated or switched automatically;
+- only a missing provider row is seeded, and it receives `IPLocate` as its default. In practice that is a new installation;
+- GeoIP itself stays disabled by default, so a new installation pre-selects IPLocate without contacting it. Nothing is looked up until GeoIP is enabled;
+- an existing GeoIP setting keeps its value, so an upgrade starts no new external data flow on its own.
 
-If you switch to IPLocate deliberately, add an API key in **Settings → GeoIP** — the
-field appears once GeoIP is enabled and IPLocate is selected. Cached entries of the
-previous provider are not reused after the switch: each cache entry only counts as a
-hit for the provider that produced it, so the next lookup for an address refreshes it
-through the new provider.
+If you switch to IPLocate deliberately, add an API key in **Settings → GeoIP** — the field appears once GeoIP is enabled and IPLocate is selected. Cached entries of the previous provider are not reused after the switch: each cache entry only counts as a hit for the provider that produced it, so the next lookup for an address refreshes it through the new provider.
 
 ## Upgrading from v0.3.1 or earlier
 
 The releases after `v0.3.1` add database migrations for notifications, saved views, personal preferences, instance branding, and optional internal users. These migrations run automatically with the default `AUTO_MIGRATE=true` setting. Internal authentication remains disabled until an administrator explicitly enables it, so the upgrade does not create a surprise login requirement.
 
-Remote GeoIP is disabled for new installations. Upgrades keep an existing explicit
-GeoIP setting unchanged. If GeoIP remains enabled, Settings and Diagnostics warn about
-the data flow of the selected provider; review it and disable the plugin if it is not
-acceptable.
+Remote GeoIP is disabled for new installations. Upgrades keep an existing explicit GeoIP setting unchanged. If GeoIP remains enabled, Settings and Diagnostics warn about the data flow of the selected provider; review it and disable the plugin if it is not acceptable.
 
 The first start after upgrading an older installation also performs one legacy event-deduplication maintenance pass before the app becomes ready. The pass is implemented inside SQLite and keeps the oldest matching event. A stored maintenance marker makes subsequent starts skip the event-wide scan. If the maintenance pass fails, startup stops and readiness is not reported.
 

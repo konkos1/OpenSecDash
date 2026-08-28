@@ -11,9 +11,7 @@ The package includes:
 - datasource state
 - database counts, including the newer authentication, notification, saved-view, and preference tables
 - runtime mode for database migrations and trusted reverse proxies
-- aggregate authentication state, active role counts, administrator reachability, OIDC
-  check status, and active session counts by sign-in method without usernames, hashes,
-  or provider identifiers
+- aggregate authentication state, active role counts, administrator reachability, OIDC check status, and active session counts by sign-in method without usernames, hashes, or provider identifiers
 - notification configuration state, delivery counts, and recent redacted failures without message payloads
 - branding/PWA asset metadata without filenames or file contents
 - aggregate saved-view, preference, and dashboard-layout state without names or filter contents

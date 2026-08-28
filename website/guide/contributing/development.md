@@ -15,14 +15,9 @@ cd ..
 backend/.venv/bin/python scripts/generate_third_party_notices.py --check
 ```
 
-The exact Python patch version in `backend/.python-version` is shared by local
-development, CI, release validation, and the production image. `uv.lock` supplies the
-same application dependencies to development and production; development additionally
-installs the tools from the `dev` dependency group.
+The exact Python patch version in `backend/.python-version` is shared by local development, CI, release validation, and the production image. `uv.lock` supplies the same application dependencies to development and production; development additionally installs the tools from the `dev` dependency group.
 
-Use the exact Node.js 24 LTS patch version in the repository's `.node-version` for all
-backend asset and website npm commands. CI and release workflows read the same file, and
-both package manifests declare Node.js major 24 as the supported runtime.
+Use the exact Node.js 24 LTS patch version in the repository's `.node-version` for all backend asset and website npm commands. CI and release workflows read the same file, and both package manifests declare Node.js major 24 as the supported runtime.
 
 Run the app locally:
 
@@ -43,34 +38,14 @@ npm run licenses:check
 npm run docs:dev
 ```
 
-The documentation dev and preview servers bind to loopback. The build audit checks
-production dependencies separately and permits a high/critical development finding
-only when `audit-allowlist.json` names the advisory, explains its scope, and has a
-future expiry date. New or expired findings fail CI.
+The documentation dev and preview servers bind to loopback. The build audit checks production dependencies separately and permits a high/critical development finding only when `audit-allowlist.json` names the advisory, explains its scope, and has a future expiry date. New or expired findings fail CI.
 
-Release images are built twice without a dependency cache. CI compares their complete
-Python package lists, checks FastAPI/Uvicorn/WebSockets against `uv.lock`, audits the
-locked Python runtime and npm build dependencies, regenerates application and website
-notices, generates an SPDX SBOM, verifies Debian copyright evidence, and blocks
-publication on fixable high or critical image findings or incomplete license evidence.
-A temporary vulnerability
-exception must name each CVE/advisory, explain why it is not fixable, limit the affected
-scope, and include an expiry date; exceptions must be reviewed in the workflow rather
-than implemented by globally hiding scanner findings.
+Release images are built twice without a dependency cache. CI compares their complete Python package lists, checks FastAPI/Uvicorn/WebSockets against `uv.lock`, audits the locked Python runtime and npm build dependencies, regenerates application and website notices, generates an SPDX SBOM, verifies Debian copyright evidence, and blocks publication on fixable high or critical image findings or incomplete license evidence.
+A temporary vulnerability exception must name each CVE/advisory, explain why it is not fixable, limit the affected scope, and include an expiry date; exceptions must be reviewed in the workflow rather than implemented by globally hiding scanner findings.
 
-The workflow separates build validation, supply-chain checks, a draft release carrying
-the compliance evidence, image publication, and final release publication. It passes
-one short-lived release-candidate image artifact between those jobs so the scanned
-image is exactly the image that is published. SBOM generation retries the same pinned
-generator once; publication remains blocked without the SBOM, notices, container
-package report, and corresponding source archive.
+The workflow separates build validation, supply-chain checks, a draft release carrying the compliance evidence, image publication, and final release publication. It passes one short-lived release-candidate image artifact between those jobs so the scanned image is exactly the image that is published. SBOM generation retries the same pinned generator once; publication remains blocked without the SBOM, notices, container package report, and corresponding source archive.
 
-The build job also runs the complete backend/security suite, Pyright, Alembic, Tailwind,
-and the documentation build before exercising Fresh, Small, Large, and Upgrade profiles
-inside the release-candidate image. The profile JSON reports enforce the documented
-readiness and search thresholds. Build reports and supply-chain reports are retained
-separately. Local profile commands live in `backend/tests/performance/README.md`; they
-use temporary SQLite databases and must never be pointed at a development database.
+The build job also runs the complete backend/security suite, Pyright, Alembic, Tailwind, and the documentation build before exercising Fresh, Small, Large, and Upgrade profiles inside the release-candidate image. The profile JSON reports enforce the documented readiness and search thresholds. Build reports and supply-chain reports are retained separately. Local profile commands live in `backend/tests/performance/README.md`; they use temporary SQLite databases and must never be pointed at a development database.
 
 Before contributing, read the repository's `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, and CLA notes.
 

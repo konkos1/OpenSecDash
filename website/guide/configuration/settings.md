@@ -6,10 +6,7 @@ Saving a regular Settings block updates only that block instead of reloading the
 
 ## General settings
 
-When internal sign-in is disabled, display preferences are shared by the instance and
-configured in the Core section. When internal sign-in is enabled, language, default
-Events mode, theme, accent color, and automatic page refresh move to each user's account
-and no longer appear in Core.
+When internal sign-in is disabled, display preferences are shared by the instance and configured in the Core section. When internal sign-in is enabled, language, default Events mode, theme, accent color, and automatic page refresh move to each user's account and no longer appear in Core.
 
 | Setting | What it does |
 | --- | --- |
@@ -27,30 +24,16 @@ and no longer appear in Core.
 
 ## Instance branding
 
-Use **Add logo** to add a custom logo next to the OpenSecDash name. The
-OpenSecDash name and icon always remain visible; a custom logo does not replace
-them.
+Use **Add logo** to add a custom logo next to the OpenSecDash name. The OpenSecDash name and icon always remain visible; a custom logo does not replace them.
 
-You can also upload a custom favicon. Favicons support PNG, SVG, WEBP, and ICO
-up to 512 KB. They are used for the browser tab and bookmarks. The same upload
-is used for the installed PWA when it is an SVG or a square PNG/WEBP image of
-at least 512 x 512 pixels; smaller images remain browser favicons and the PWA
-uses the OpenSecDash fallback icon.
-ICO works in the browser tab only; use PNG, SVG, or WEBP when you also want the
-custom icon in the installed PWA. Logos support PNG, SVG, WEBP, and JPEG up to
-1 MB.
+You can also upload a custom favicon. Favicons support PNG, SVG, WEBP, and ICO up to 512 KB. They are used for the browser tab and bookmarks. The same upload is used for the installed PWA when it is an SVG or a square PNG/WEBP image of at least 512 x 512 pixels; smaller images remain browser favicons and the PWA uses the OpenSecDash fallback icon.
+ICO works in the browser tab only; use PNG, SVG, or WEBP when you also want the custom icon in the installed PWA. Logos support PNG, SVG, WEBP, and JPEG up to 1 MB.
 
-Use the **Remove** button next to a stored logo or favicon to return to the
-default OpenSecDash branding. Uploaded files are stored in the database, so they
-are included in backups of the `/data` volume.
+Use the **Remove** button next to a stored logo or favicon to return to the default OpenSecDash branding. Uploaded files are stored in the database, so they are included in backups of the `/data` volume.
 
 ## Notifications
 
-The **Notifications (Email)** section configures SMTP email alerts, including the
-master switch, the OpenSecDash base URL for email links, SMTP transport settings,
-sender, and recipient. The SMTP password is encrypted at rest like other sensitive
-settings. See [Notifications](./notifications.md) for setup, default rules, and
-delivery behavior.
+The **Notifications (Email)** section configures SMTP email alerts, including the master switch, the OpenSecDash base URL for email links, SMTP transport settings, sender, and recipient. The SMTP password is encrypted at rest like other sensitive settings. See [Notifications](./notifications.md) for setup, default rules, and delivery behavior.
 
 ## Storage is always UTC
 
@@ -141,23 +124,13 @@ Default Access columns:
 time, ip, host, method, status, path
 ```
 
-ASN is not in either default set. To start a permanent ASN policy from Events or Access,
-open **Columns**, enable **ASN** for that page, then select the ASN value. The
-choice is saved separately for Events and Access.
+ASN is not in either default set. To start a permanent ASN policy from Events or Access, open **Columns**, enable **ASN** for that page, then select the ASN value. The choice is saved separately for Events and Access.
 
 ## Events and Access search
 
-The Events and Access pages start with the last 24 hours selected. A previously selected
-range is retained, and a saved view keeps its own range. Choose **All time** explicitly
-when an investigation really needs the complete history; an empty or missing `range`
-does not silently turn a search into an all-time scan. The Events API uses the same
-24-hour default and accepts `range=all` for an explicit unbounded request.
+The Events and Access pages start with the last 24 hours selected. A previously selected range is retained, and a saved view keeps its own range. Choose **All time** explicitly when an investigation really needs the complete history; an empty or missing `range` does not silently turn a search into an all-time scan. The Events API uses the same 24-hour default and accepts `range=all` for an explicit unbounded request.
 
-The text search checks structured event fields such as event type, plugin/source,
-severity, IP, country, city, ASN, ASN organization, ISP, hostname, method, status code, path, and
-timestamps. **Include JSON and raw data** adds `data_json` and `raw_data` to that search
-for investigations that need original payload content. This option can be noticeably
-slower, so it is off by default and is preserved by saved views.
+The text search checks structured event fields such as event type, plugin/source, severity, IP, country, city, ASN, ASN organization, ISP, hostname, method, status code, path, and timestamps. **Include JSON and raw data** adds `data_json` and `raw_data` to that search for investigations that need original payload content. This option can be noticeably slower, so it is off by default and is preserved by saved views.
 
 Simple search:
 
@@ -203,13 +176,8 @@ Notes:
 - Parentheses can be used to make the intended logic explicit.
 - A plain search without `&&`, `||`, or parentheses is treated as one substring search.
 - The special value `-` can be used for country searches to find events without a country value.
-- A search is limited to 256 characters, 32 tokens, and four parenthesis levels. Empty
-  terms, incomplete operators, and unterminated quotes are rejected server-side.
-- Recognized IP, ASN, HTTP-status, and country terms use their structured columns and
-  indexes, including inside boolean expressions and when JSON/raw-data search is
-  enabled. Quotes group terms containing spaces; they do not switch structured terms
-  to substring matching. Structured URL filters remain the clearest option for
-  combined filters.
+- A search is limited to 256 characters, 32 tokens, and four parenthesis levels. Empty terms, incomplete operators, and unterminated quotes are rejected server-side.
+- Recognized IP, ASN, HTTP-status, and country terms use their structured columns and indexes, including inside boolean expressions and when JSON/raw-data search is enabled. Quotes group terms containing spaces; they do not switch structured terms to substring matching. Structured URL filters remain the clearest option for combined filters.
 
 ## Asset Explorer filters
 

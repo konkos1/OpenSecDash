@@ -27,20 +27,13 @@ docker compose logs opensecdash --tail=500
 
 ## A setup page appears instead of the dashboard
 
-A new installation starts with internal sign-in enabled and asks for the first
-administrator once. Until that is done, every page redirects to the setup, APIs answer
-`503`, and the event WebSocket is closed; `/health` and `/ready` keep working. This is
-expected — finish the setup, or run OpenSecDash open on purpose with
-`OSD_AUTH_DISABLED=true`.
+A new installation starts with internal sign-in enabled and asks for the first administrator once. Until that is done, every page redirects to the setup, APIs answer `503`, and the event WebSocket is closed; `/health` and `/ready` keep working. This is expected — finish the setup, or run OpenSecDash open on purpose with `OSD_AUTH_DISABLED=true`.
 
-An updated installation never shows this page. If it appears after an update, the
-database was replaced or is empty, not migrated.
+An updated installation never shows this page. If it appears after an update, the database was replaced or is empty, not migrated.
 
 ## The setup cannot be completed
 
-The form can be filled in from anywhere, but it is only accepted through the trusted
-HTTPS/443 proxy boundary. The **Connection requirements** section on the page shows which
-check fails. Usual causes:
+The form can be filled in from anywhere, but it is only accepted through the trusted HTTPS/443 proxy boundary. The **Connection requirements** section on the page shows which check fails. Usual causes:
 
 | What the page reports | Usual cause |
 | --- | --- |
@@ -58,33 +51,20 @@ the variable and restart, and the setup continues where it left off.
 
 ## A prompt asks to decide how the installation is protected
 
-An installation that was still open when it was updated keeps working exactly as before —
-pages, APIs, plugins, WebSockets, and any authentication proxy in front of it. The prompt
-cannot be dismissed because staying open is a decision. Either set internal sign-in up
-through the link in the prompt, or set `OSD_AUTH_DISABLED=true` and restart. See
-[Updated installations that are still open](../configuration/authentication.md#updated-installations-that-are-still-open).
+An installation that was still open when it was updated keeps working exactly as before — pages, APIs, plugins, WebSockets, and any authentication proxy in front of it. The prompt cannot be dismissed because staying open is a decision. Either set internal sign-in up through the link in the prompt, or set `OSD_AUTH_DISABLED=true` and restart. See [Updated installations that are still open](../configuration/authentication.md#updated-installations-that-are-still-open).
 
 ## Internal sign-in cannot be switched off in Settings
 
-That is intentional. `OSD_AUTH_DISABLED=true` plus a restart is the only way to bypass
-internal sign-in; see
-[Deliberately running without internal sign-in](../configuration/authentication.md#deliberately-running-without-internal-sign-in).
+That is intentional. `OSD_AUTH_DISABLED=true` plus a restart is the only way to bypass internal sign-in; see [Deliberately running without internal sign-in](../configuration/authentication.md#deliberately-running-without-internal-sign-in).
 Removing the variable restores the stored state, including a setup that is still open.
 
 ## Locked out of the web UI
 
-If internal sign-in is enabled and no administrator can sign in, use the
-`OSD_AUTH_DISABLED=true` recovery switch to temporarily open the UI, reset access, or
-repair a changed authentication hostname. Restrict network access while the switch is
-active: every client that can reach OpenSecDash has full access. Remove the variable and
-restart after the repair. See
-[Authentication](../configuration/authentication.md#locked-out-of-the-web-ui).
+If internal sign-in is enabled and no administrator can sign in, use the `OSD_AUTH_DISABLED=true` recovery switch to temporarily open the UI, reset access, or repair a changed authentication hostname. Restrict network access while the switch is active: every client that can reach OpenSecDash has full access. Remove the variable and restart after the repair. See [Authentication](../configuration/authentication.md#locked-out-of-the-web-ui).
 
 ## Single sign-on does not work
 
-Sign-in errors are intentionally generic in the browser. The container log carries the
-error class, and **Diagnostics → Single sign-on (OIDC)** shows the stored result of the
-last provider check without contacting the provider.
+Sign-in errors are intentionally generic in the browser. The container log carries the error class, and **Diagnostics → Single sign-on (OIDC)** shows the stored result of the last provider check without contacting the provider.
 
 | What you see | Usual cause |
 | --- | --- |
@@ -96,25 +76,14 @@ last provider check without contacting the provider.
 
 Check in this order:
 
-1. Does **Settings → Sign-in & users** report a successful last provider check? Use
-   **Check and save provider** to repeat it.
+1. Does **Settings → Sign-in & users** report a successful last provider check? Use **Check and save provider** to repeat it.
 2. Does the registered redirect URL match the value shown in Settings exactly?
-3. Can the container reach the provider and trust its certificate? Provider connections
-   use the container's trust store, so a private CA has to be trusted there — mount a
-   PEM bundle and set `SSL_CERT_FILE`, or add the CA to your own derived image.
-   OpenSecDash has no option to skip certificate verification.
-4. Is the discovery URL an HTTPS address without credentials, query, or fragment, and
-   does it live on the same host as the issuer it declares? Loopback and cloud metadata
-   addresses are rejected on purpose; private homelab addresses are allowed.
-5. Did the issuer change at the provider? A changed issuer needs a new provider check,
-   and existing links stay with the old issuer.
-6. Is the browser reaching OpenSecDash under the configured hostname over HTTPS on port
-   443? A different hostname or a missing forwarded header stops sign-in before any
-   request leaves the container.
+3. Can the container reach the provider and trust its certificate? Provider connections use the container's trust store, so a private CA has to be trusted there — mount a PEM bundle and set `SSL_CERT_FILE`, or add the CA to your own derived image. OpenSecDash has no option to skip certificate verification.
+4. Is the discovery URL an HTTPS address without credentials, query, or fragment, and does it live on the same host as the issuer it declares? Loopback and cloud metadata addresses are rejected on purpose; private homelab addresses are allowed.
+5. Did the issuer change at the provider? A changed issuer needs a new provider check, and existing links stay with the old issuer.
+6. Is the browser reaching OpenSecDash under the configured hostname over HTTPS on port 443? A different hostname or a missing forwarded header stops sign-in before any request leaves the container.
 
-If nobody can sign in because password sign-in is off, use the emergency switch
-described under
-[Provider outage or misconfiguration](../configuration/authentication.md#provider-outage-or-misconfiguration).
+If nobody can sign in because password sign-in is off, use the emergency switch described under [Provider outage or misconfiguration](../configuration/authentication.md#provider-outage-or-misconfiguration).
 
 ## First import of a large existing log
 
@@ -127,55 +96,31 @@ A banner near the top of every page shows while a plugin is still catching up on
 ### The ASN action is missing or unavailable
 
 Use **Columns** on Events or Access to show the optional **ASN** column first.
-The action also requires an Operator or Admin, a public source IP, a stored ASN from a
-completed GeoIP enrichment, enabled and healthy GeoIP, enabled CrowdSec with a healthy
-LAPI connection, and Action simulation turned off. The popup explains the first failing
-prerequisite; Diagnostics shows the GeoIP and `crowdsec · lapi` details.
+The action also requires an Operator or Admin, a public source IP, a stored ASN from a completed GeoIP enrichment, enabled and healthy GeoIP, enabled CrowdSec with a healthy LAPI connection, and Action simulation turned off. The popup explains the first failing prerequisite; Diagnostics shows the GeoIP and `crowdsec · lapi` details.
 
 ### A policy is active but an IP was not banned
 
-The first event may still await GeoIP enrichment, enrichment may have failed, or the IP
-may have an exception for this policy. OpenSecDash also does not create a second policy
-decision while any active CrowdSec ban decision for that IP is already known. Check LAPI
-reachability and allow for bouncer propagation latency. Expired policy decisions are not
-renewed by a timer; another matching enriched event is required.
+The first event may still await GeoIP enrichment, enrichment may have failed, or the IP may have an exception for this policy. OpenSecDash also does not create a second policy decision while any active CrowdSec ban decision for that IP is already known. Check LAPI reachability and allow for bouncer propagation latency. Expired policy decisions are not renewed by a timer; another matching enriched event is required.
 
 ### An IP is banned despite an exception
 
-An exception is scoped to one ASN policy and IP. Check the active decision's scenario and
-origin: a different blocked ASN or an independent CrowdSec decision can still ban the IP.
+An exception is scoped to one ASN policy and IP. Check the active decision's scenario and origin: a different blocked ASN or an independent CrowdSec decision can still ban the IP.
 
 ### An IP remains policy-banned after its ASN changed
 
-On the CrowdSec policy card, look for a pending release and its exact decision ID, then
-check `crowdsec · lapi` in Diagnostics. A failed release stays `release_pending` and is
-retried only for that stored ID. Do not use a broad IP unban: another decision for the
-same IP may be independent and must remain untouched. If the new ASN is also permanently
-blocked, the existing decision deliberately stays owned by the previous policy until it
-expires.
+On the CrowdSec policy card, look for a pending release and its exact decision ID, then check `crowdsec · lapi` in Diagnostics. A failed release stays `release_pending` and is retried only for that stored ID. Do not use a broad IP unban: another decision for the same IP may be independent and must remain untouched. If the new ASN is also permanently blocked, the existing decision deliberately stays owned by the previous policy until it expires.
 
 ### A policy remains in `removing`
 
 Policy removal stops new matches before deleting its active, exactly owned decisions.
-Inspect the displayed removal error and LAPI diagnostic, restore connectivity, then use
-the retry action. OpenSecDash leaves a partial removal visible instead of deleting
-unverified or foreign decisions.
+Inspect the displayed removal error and LAPI diagnostic, restore connectivity, then use the retry action. OpenSecDash leaves a partial removal visible instead of deleting unverified or foreign decisions.
 
 ### The ASN or ASN organization is unexpected
 
-Review the selected GeoIP provider, its latest real-lookup diagnostic, cache TTL, and any
-recent provider switch. Producer-supplied event fields win over remote enrichment, and
-external data can be stale, incomplete, or wrong. ASN organization is stored separately
-from the IP-specific ISP/company value and is not an authoritative registry identity.
+Review the selected GeoIP provider, its latest real-lookup diagnostic, cache TTL, and any recent provider switch. Producer-supplied event fields win over remote enrichment, and external data can be stale, incomplete, or wrong. ASN organization is stored separately from the IP-specific ISP/company value and is not an authoritative registry identity.
 
-If **ASN organization changed – review required** appears, compare the previous and
-current snapshots and detection time, the GeoIP source, and a possible rename or ASN
-transfer. OpenSecDash only raises it after three matching observations across at least
-two IPs and suppresses duplicates while it is open. The warning still does not prove
-ownership changed and does not pause or remove the policy. After review, either
-acknowledge only the warning or remove the ASN policy with the separate confirmed action.
-A newer confirmed organization change makes an older acknowledgement stale and requires
-another review.
+If **ASN organization changed – review required** appears, compare the previous and current snapshots and detection time, the GeoIP source, and a possible rename or ASN transfer. OpenSecDash only raises it after three matching observations across at least two IPs and suppresses duplicates while it is open. The warning still does not prove ownership changed and does not pause or remove the policy. After review, either acknowledge only the warning or remove the ASN policy with the separate confirmed action.
+A newer confirmed organization change makes an older acknowledgement stale and requires another review.
 
 ## Proxmox guest visibility
 

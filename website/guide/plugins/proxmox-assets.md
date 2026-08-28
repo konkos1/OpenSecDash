@@ -3,12 +3,8 @@
 The Proxmox Assets plugin imports Proxmox nodes, VMs, and LXCs into OpenSecDash. It can also create application assets from a hidden metadata block in Proxmox guest notes.
 
 ::: danger Protect Proxmox credentials and inventory
-Do not configure or use the Proxmox integration unless OpenSecDash requires either
-[internal sign-in](../configuration/authentication.md) or an external authentication
-provider and is accessed exclusively through an HTTPS
-[reverse proxy](../installation/reverse-proxy.md) with a browser-trusted certificate.
-Even a read-only Proxmox token exposes sensitive infrastructure inventory and must not
-be placed behind an unauthenticated or unencrypted dashboard.
+Do not configure or use the Proxmox integration unless OpenSecDash requires either [internal sign-in](../configuration/authentication.md) or an external authentication provider and is accessed exclusively through an HTTPS [reverse proxy](../installation/reverse-proxy.md) with a browser-trusted certificate.
+Even a read-only Proxmox token exposes sensitive infrastructure inventory and must not be placed behind an unauthenticated or unencrypted dashboard.
 :::
 
 ## Recommended Proxmox permissions
@@ -42,11 +38,7 @@ Do not give write/admin permissions. OpenSecDash does not need Guest Exec, SSH, 
 | Poll interval seconds | How often Proxmox assets are synchronized. Default: `300`. |
 
 Disable TLS verification only for trusted self-signed homelab certificates.
-OpenSecDash rejects API URLs with embedded credentials, query strings, fragments, or
-invalid schemes/ports. API-token requests never follow redirects and do not use proxy
-environment variables. TLS certificate and hostname verification is enabled by
-default; disabling it keeps existing self-signed setups working but produces a
-Diagnostics warning.
+OpenSecDash rejects API URLs with embedded credentials, query strings, fragments, or invalid schemes/ports. API-token requests never follow redirects and do not use proxy environment variables. TLS certificate and hostname verification is enabled by default; disabling it keeps existing self-signed setups working but produces a Diagnostics warning.
 
 ## Notes metadata
 
@@ -95,9 +87,7 @@ proxmox:pve.example.local:8006:guest:pve1:104:app:traefik
 In the Asset Explorer, Proxmox guests display VMIDs as `node:vmid` (for example `pve1:104`). This avoids collisions with existing JSON Assets systems that may already use plain VMIDs such as `104`.
 
 If an app name in the notes block changes, OpenSecDash treats it as a new app and marks the old Proxmox-imported app inactive.
-App names are normalized for their source IDs. If one sync contains names that
-normalize to the same ID, such as `My App` and `my app`, the first entry is
-imported and later duplicates are skipped with a warning.
+App names are normalized for their source IDs. If one sync contains names that normalize to the same ID, such as `My App` and `my app`, the first entry is imported and later duplicates are skipped with a warning.
 
 ## Source behavior
 
