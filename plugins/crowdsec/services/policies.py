@@ -25,6 +25,10 @@ ASN_MAX = 4_294_967_295
 POLICY_DURATION = "7d"
 POLICY_SCENARIO_GROUP = "opensecdash/manual-permanent-asn-ban"
 POLICY_SCENARIO_PREFIX = f"{POLICY_SCENARIO_GROUP}/"
+# Older unquoted CrowdSec log imports lost the first scenario segment. Keep
+# their derived rollups grouped without rewriting retained event evidence.
+LEGACY_POLICY_SCENARIO_PREFIX = "manual-permanent-asn-ban/"
+
 # One IP-specific GeoIP label must not open an ownership review. Requiring
 # repeated agreement across addresses keeps the warning useful without
 # treating its external data as authoritative.

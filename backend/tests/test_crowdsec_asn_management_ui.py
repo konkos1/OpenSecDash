@@ -6,6 +6,7 @@ from starlette.requests import Request
 import app.main  # noqa: F401 - registers plugin templates
 from app.api import pages
 from app.models.core import (
+    AggregationDaily,
     CrowdSecAsnBan,
     CrowdSecAsnBanEnforcement,
     CrowdSecAsnBanException,
@@ -257,6 +258,35 @@ def test_german_management_core_texts_are_localized(db_session):
     assert "Dauerhaft gesperrte ASNs" in html
     assert "Keine dauerhaften ASN-Sperren" in html
     assert "Spalten auswählen" in html
+
+
+def test_crowdsec_page_groups_legacy_shortened_asn_scenarios(db_session):
+    scenario_group = "opensecdash/manual-permanent-asn-ban"
+    db_session.add_all(
+        [
+            Setting(key="language", value="de"),
+            AggregationDaily(date="2026-08-28", metric="scenario", key=scenario_group, value=1),
+            AggregationDaily(
+                date="2026-08-28",
+                metric="scenario",
+                key="manual-permanent-asn-ban/AS14618",
+                value=2,
+            ),
+            AggregationDaily(
+                date="2026-08-28",
+                metric="scenario",
+                key=f"{scenario_group}/AS15169",
+                value=3,
+            ),
+        ]
+    )
+    db_session.commit()
+
+    html = _html(crowdsec_routes.crowdsec_page(_request("/crowdsec", hx=True), db=db_session))
+
+    assert html.count("Manueller dauerhafter ASN-Ban") == 1
+    assert "manual-permanent-asn-ban/AS14618" not in html
+    assert "manual-permanent-asn-ban/AS15169" not in html
 
 
 def test_policy_prerequisite_failures_are_visible(db_session):

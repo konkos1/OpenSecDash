@@ -112,7 +112,7 @@ def test_rollup_rows_combines_existing_asn_specific_scenario_keys(db_session):
         [
             AggregationDaily(date="2026-07-02", metric="scenario", key=scenario_group, value=1),
             AggregationDaily(date="2026-07-02", metric="scenario", key=f"{scenario_group}/AS14618", value=2),
-            AggregationDaily(date="2026-07-02", metric="scenario", key=f"{scenario_group}/AS15169", value=3),
+            AggregationDaily(date="2026-07-02", metric="scenario", key="manual-permanent-asn-ban/AS15169", value=3),
             AggregationMonthly(month="2026-07", metric="scenario", key=f"{scenario_group}/AS13335", value=4),
         ]
     )

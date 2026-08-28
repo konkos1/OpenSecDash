@@ -602,6 +602,10 @@ def test_rollup_label_hook_localizes_group_and_keeps_prefix_filter(policy_runtim
     ) == policies.POLICY_SCENARIO_GROUP
     assert normalize_rollup_key(
         "scenario",
+        "manual-permanent-asn-ban/AS14618",
+    ) == policies.POLICY_SCENARIO_GROUP
+    assert normalize_rollup_key(
+        "scenario",
         "opensecdash/manual-permanent-asn-ban/not-an-asn",
     ) == "opensecdash/manual-permanent-asn-ban/not-an-asn"
 
@@ -660,6 +664,20 @@ def test_asn_specific_scenario_without_group_uses_stable_rollup_key(policy_runti
     assert (event.data_json or {})["scenario"] == policies.policy_scenario("AS14618")
     rollup = db.query(AggregationDaily).filter_by(metric="scenario").one()
     assert rollup.key == policies.POLICY_SCENARIO_GROUP
+
+
+def test_unquoted_crowdsec_log_keeps_complete_asn_policy_scenario(policy_runtime):
+    _db, _fake = policy_runtime
+    plugin: Any = get_plugin_manager().plugins["crowdsec"]
+
+    parsed = plugin.parse_log_line(
+        'time="2026-08-28T10:00:00Z" level=info '
+        'msg="(machine/opensecdash) opensecdash/manual-permanent-asn-ban/AS14618 '
+        'by ip 3.5.140.1 : 7d ban on Ip 3.5.140.1"'
+    )
+
+    assert parsed is not None
+    assert parsed["data_json"]["scenario"] == policies.policy_scenario("AS14618")
 
 
 def test_ambiguous_policy_decision_is_not_claimed_or_reported_as_success(policy_runtime, monkeypatch):

@@ -203,7 +203,7 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
             return None
         ip_match = re.search(r"(?:on\s+(?:ip|range)|by\s+(?:ip|range))\s+([^\"\s(]+)", line, re.IGNORECASE)
         scenario_match = re.search(
-            r'scenario="([^"]+)"|\)\s+([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)\s+by\s+(?:ip|range)|\b([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)\s+by\s+(?:ip|range)',
+            r'scenario="([^"]+)"|\)\s+([A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+)\s+by\s+(?:ip|range)|\b([A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+)\s+by\s+(?:ip|range)',
             line,
             re.IGNORECASE,
         )
@@ -442,15 +442,24 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
         return None
 
     def rollup_group_key(self, metric: str, key: str) -> str | None:
-        from .services.policies import POLICY_SCENARIO_GROUP, POLICY_SCENARIO_PREFIX, normalize_asn
+        from .services.policies import (
+            LEGACY_POLICY_SCENARIO_PREFIX,
+            POLICY_SCENARIO_GROUP,
+            POLICY_SCENARIO_PREFIX,
+            normalize_asn,
+        )
 
-        if metric != "scenario" or not key.startswith(POLICY_SCENARIO_PREFIX):
+        if metric != "scenario":
             return None
-        try:
-            normalize_asn(key.removeprefix(POLICY_SCENARIO_PREFIX))
-        except ValueError:
-            return None
-        return POLICY_SCENARIO_GROUP
+        for prefix in (POLICY_SCENARIO_PREFIX, LEGACY_POLICY_SCENARIO_PREFIX):
+            if not key.startswith(prefix):
+                continue
+            try:
+                normalize_asn(key.removeprefix(prefix))
+            except ValueError:
+                return None
+            return POLICY_SCENARIO_GROUP
+        return None
 
     # --- Event dedupe rules (see app.services.events) ---
 
