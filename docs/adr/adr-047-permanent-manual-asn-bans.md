@@ -119,4 +119,6 @@ ASN-organization snapshots, and review acknowledgement. The direct ASN-policy In
 as historical evidence of a successful ban; current decision state remains sourced from
 the CrowdSec decision synchronization. CrowdSec's rollup grouping hook maps both new and
 previously stored ASN-specific scenario keys to the stable policy group without changing
-the complete scenario retained on Events or CrowdSec history records.
+the complete scenario retained on Events or CrowdSec history records. Compatibility
+grouping also recognizes the shortened `manual-permanent-asn-ban/AS...` keys produced by
+older unquoted CrowdSec log parsing, while new imports retain the canonical full prefix.
