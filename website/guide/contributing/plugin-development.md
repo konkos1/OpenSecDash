@@ -121,9 +121,7 @@ Declare the exact normalized values returned by `collect()` or action success ho
 event_types=["security.firewall_block", "security.firewall_unblock"]
 ```
 
-OpenSecDash uses this metadata together with the plugin's enabled state to determine
-whether dependent Insight notification rules are available. Do not declare wildcard
-values such as `security.*`; list each emitted type so dependencies stay explicit.
+OpenSecDash uses this metadata together with the plugin's enabled state to determine whether dependent Insight notification rules are available. Do not declare wildcard values such as `security.*`; list each emitted type so dependencies stay explicit.
 
 ## Settings
 
@@ -153,23 +151,11 @@ Supported setting types:
 
 If a plugin has an `enabled` setting, other settings are automatically greyed out until the plugin is enabled, unless you define an explicit `visible_if`. This keeps available configuration visible without making inactive options look editable.
 
-A setting can require more than one condition with
-`visible_if_all=(("enabled", "true"), ("provider", "example"))`. All conditions are
-combined with a logical AND — there is no OR — and `visible_if` keeps its existing
-single-condition meaning. Conditions reference settings of the same plugin, and the
-server enforces the same effective state as the browser: a posted value for a setting
-that is hidden in the resulting state is discarded, so a hand-crafted request cannot
-set or clear it.
+A setting can require more than one condition with `visible_if_all=(("enabled", "true"), ("provider", "example"))`. All conditions are combined with a logical AND — there is no OR — and `visible_if` keeps its existing single-condition meaning. Conditions reference settings of the same plugin, and the server enforces the same effective state as the browser: a posted value for a setting that is hidden in the resulting state is discarded, so a hand-crafted request cannot set or clear it.
 
-`password` settings are write-only. The stored value is never sent back to the
-browser — the page only shows whether one is stored — and it is redacted in logs and
-debug reports. Saving with an empty field keeps the stored secret, a non-empty field
-replaces it, and clearing it is a separate confirmed delete action. Your plugin still
-reads the real value through the plugin context.
+`password` settings are write-only. The stored value is never sent back to the browser — the page only shows whether one is stored — and it is redacted in logs and debug reports. Saving with an empty field keeps the stored secret, a non-empty field replaces it, and clearing it is a separate confirmed delete action. Your plugin still reads the real value through the plugin context.
 
-Select settings can use `option_info=[("value", "translation.key")]` to show
-value-specific information below the field. Keep option labels short for native
-mobile dropdowns and put longer transport, privacy, or behavior notes in this text.
+Select settings can use `option_info=[("value", "translation.key")]` to show value-specific information below the field. Keep option labels short for native mobile dropdowns and put longer transport, privacy, or behavior notes in this text.
 
 Settings are stored as:
 
@@ -206,12 +192,7 @@ Plugins inherit from one or more base classes in `app.plugins.base`.
 
 ### Dashboard widgets
 
-Plugins with dashboard content implement `dashboard_widgets()` and declare the
-`widget` capability in `PluginMetadata`. The hook returns `DashboardWidget` descriptors
-from `app.web.dashboard`; it does not return HTML, templates, or callables. The
-descriptor type is one of `counter`, `table`, `feed`, or `trend`, and links use internal
-paths so the core can validate them before rendering. Check the plugin's `enabled`
-setting in the hook and return an empty list when it is disabled.
+Plugins with dashboard content implement `dashboard_widgets()` and declare the `widget` capability in `PluginMetadata`. The hook returns `DashboardWidget` descriptors from `app.web.dashboard`; it does not return HTML, templates, or callables. The descriptor type is one of `counter`, `table`, `feed`, or `trend`, and links use internal paths so the core can validate them before rendering. Check the plugin's `enabled` setting in the hook and return an empty list when it is disabled.
 
 Package-layout plugins use `api_version="2"`, for example:
 
@@ -237,16 +218,11 @@ class Plugin(DatasourcePlugin):
         ]
 ```
 
-Use the existing `DashboardWidget` model for fields and row shapes; do not invent a
-plugin-specific schema. Add matching translation keys for `title_key` and keep all
-data structured so the core templates escape it safely.
+Use the existing `DashboardWidget` model for fields and row shapes; do not invent a plugin-specific schema. Add matching translation keys for `title_key` and keep all data structured so the core templates escape it safely.
 
 ### Insight rules
 
-Plugins can optionally return a declarative insight ruleset. The core imports it during
-database seeding, validates it with the same schema as bundled and remote rules, and
-stores it with the source `plugin:<plugin_id>`. Return data only: do not return Python
-code, callables, templates, or a remote URL.
+Plugins can optionally return a declarative insight ruleset. The core imports it during database seeding, validates it with the same schema as bundled and remote rules, and stores it with the source `plugin:<plugin_id>`. Return data only: do not return Python code, callables, templates, or a remote URL.
 
 ```python
 from typing import Any
@@ -271,8 +247,7 @@ class Plugin(DatasourcePlugin):
         }
 ```
 
-An invalid ruleset is reported as a plugin diagnostic warning and does not stop other
-plugins from seeding. Rules for plugins that are no longer loaded are deactivated.
+An invalid ruleset is reported as a plugin diagnostic warning and does not stop other plugins from seeding. Rules for plugins that are no longer loaded are deactivated.
 
 ### `DatasourcePlugin`
 
@@ -365,9 +340,7 @@ Return `None` when the action is not handled by your plugin.
 ### `EnrichmentPlugin`
 
 Use this for plugin-owned enrichment that processes pending records in bounded batches.
-The manager calls the hook only while the plugin is enabled and runs it in a worker
-thread, so a remote provider cannot block the application's event loop. Return the
-number of processed records; a full batch is retried quickly to drain a backlog.
+The manager calls the hook only while the plugin is enabled and runs it in a worker thread, so a remote provider cannot block the application's event loop. Return the number of processed records; a full batch is retried quickly to drain a backlog.
 
 ```python
 class Plugin(EnrichmentPlugin):

@@ -3,12 +3,8 @@
 The CrowdSec plugin imports CrowdSec ban history, synchronizes active decisions, and executes ban/unban actions through CrowdSec's Local API (LAPI).
 
 ::: danger Protect Ban and Unban
-Do not disable action simulation or use real Ban/Unban unless OpenSecDash requires
-either [internal sign-in](../configuration/authentication.md) or an external
-authentication provider and is accessed exclusively through an HTTPS
-[reverse proxy](../installation/reverse-proxy.md) with a browser-trusted certificate.
-An unauthenticated LAN dashboard allows every reachable client to operate CrowdSec with
-OpenSecDash's machine credentials.
+Do not disable action simulation or use real Ban/Unban unless OpenSecDash requires either [internal sign-in](../configuration/authentication.md) or an external authentication provider and is accessed exclusively through an HTTPS [reverse proxy](../installation/reverse-proxy.md) with a browser-trusted certificate.
+An unauthenticated LAN dashboard allows every reachable client to operate CrowdSec with OpenSecDash's machine credentials.
 :::
 
 ::: danger Breaking change for former `cscli` mode
@@ -84,24 +80,18 @@ See [Actions and safety](../operations/actions.md) for central target validation
 
 ## Permanent manual ASN bans
 
-OpenSecDash can keep a permanent local policy for an unwanted ASN and respond to newly
-observed matching IPs. This requires all of the following:
+OpenSecDash can keep a permanent local policy for an unwanted ASN and respond to newly observed matching IPs. This requires all of the following:
 
 - the CrowdSec plugin enabled, with an authenticated and reachable LAPI;
 - [GeoIP](./geoip.md#geoip-and-permanent-asn-bans) enabled and usable;
 - Action simulation disabled for real activation and enforcement;
 - an Operator or Admin for policy actions.
 
-In Events or Access, open **Columns** and enable the optional **ASN** column if it
-is hidden. The column shows the ASN number and its organization. Select the value to open
-its popup, review the ASN organization snapshot,
-and confirm **Permanently ban ASN**. Activation bans only the popup's current public IP;
-it does not scan older events for other IPs.
+In Events or Access, open **Columns** and enable the optional **ASN** column if it is hidden. The column shows the ASN number and its organization. Select the value to open its popup, review the ASN organization snapshot, and confirm **Permanently ban ASN**. Activation bans only the popup's current public IP; it does not scan older events for other IPs.
 
 ### What CrowdSec receives
 
-For each newly observed public IP that a successful GeoIP enrichment assigns to the
-policy ASN, OpenSecDash sends a normal global decision with:
+For each newly observed public IP that a successful GeoIP enrichment assigns to the policy ASN, OpenSecDash sends a normal global decision with:
 
 ```text
 scope=Ip
@@ -110,62 +100,33 @@ origin=opensecdash
 scenario=opensecdash/manual-permanent-asn-ban/AS...
 ```
 
-OpenSecDash explicitly does **not** use `scope=As`. It neither resolves the ASN to BGP
-prefixes nor depends on ASN-aware bouncers; standard bouncers only need their normal IP
-decision support. The local ASN policy is permanent, but each CrowdSec decision is not.
+OpenSecDash explicitly does **not** use `scope=As`. It neither resolves the ASN to BGP prefixes nor depends on ASN-aware bouncers; standard bouncers only need their normal IP decision support. The local ASN policy is permanent, but each CrowdSec decision is not.
 
-An existing active CrowdSec ban for the IP prevents a duplicate policy decision. When a
-policy decision expires, no timer renews it. Only a later newly stored and enriched event
-can create another seven-day decision. If that event maps the IP to a different ASN:
+An existing active CrowdSec ban for the IP prevents a duplicate policy decision. When a policy decision expires, no timer renews it. Only a later newly stored and enriched event can create another seven-day decision. If that event maps the IP to a different ASN:
 
 - a new non-blocked ASN releases only the exact old policy-owned decision ID;
 - an independent decision for the same IP remains untouched;
-- a failed release stays `release_pending` for an ID-specific retry during a later
-  CrowdSec tick;
-- if the new ASN is also blocked, the existing decision remains attributed to the old
-  policy until expiry; ownership is never transferred in place.
+- a failed release stays `release_pending` for an ID-specific retry during a later CrowdSec tick;
+- if the new ASN is also blocked, the existing decision remains attributed to the old policy until expiry; ownership is never transferred in place.
 
 ### Exceptions and removal
 
-Manually unbanning a policy-owned decision automatically creates a durable exception for
-that ASN/IP pair after the LAPI deletion succeeds. It is not a global allowlist, and
-there is no ambiguous one-time unban. A failed or simulated unban creates no exception;
-an independent CrowdSec unban follows the existing flow and creates none.
+Manually unbanning a policy-owned decision automatically creates a durable exception for that ASN/IP pair after the LAPI deletion succeeds. It is not a global allowlist, and there is no ambiguous one-time unban. A failed or simulated unban creates no exception; an independent CrowdSec unban follows the existing flow and creates none.
 
-Removing an exception is confirmed and re-enables future matching for that pair, but old
-events are not reprocessed. Removing an ASN policy is also confirmed and deletes only
-active decisions whose exact ID, scenario, origin, IP, and ownership record still match.
+Removing an exception is confirmed and re-enables future matching for that pair, but old events are not reprocessed. Removing an ASN policy is also confirmed and deletes only active decisions whose exact ID, scenario, origin, IP, and ownership record still match.
 A partial failure leaves the policy in `removing` with its error visible and retryable.
 
-The CrowdSec page manages the policies, latest ASN organization snapshots, active policy-owned
-decisions, exceptions, pending releases, and removal failures. Existing policies and
-exceptions remain visible if GeoIP or CrowdSec is disabled; new enforcement pauses.
+The CrowdSec page manages the policies, latest ASN organization snapshots, active policy-owned decisions, exceptions, pending releases, and removal failures. Existing policies and exceptions remain visible if GeoIP or CrowdSec is disabled; new enforcement pauses.
 
 ### Insights, counters, and scenario history
 
-Every successful automatic policy ban creates one high-confidence IP Explorer insight
-that records the ASN, organization snapshot, and `7d` duration. Its wording is historical:
-it says that the IP **was banned**, not that its decision is still active. Current state
-comes from the CrowdSec active-ban panel.
+Every successful automatic policy ban creates one high-confidence IP Explorer insight that records the ASN, organization snapshot, and `7d` duration. Its wording is historical: it says that the IP **was banned**, not that its decision is still active. Current state comes from the CrowdSec active-ban panel.
 
-Policy bans count in ban totals, IP Explorer counts, CrowdSec history, active decisions,
-rollups, and the Dashboard. The complete ASN-specific scenario stays visible in Events
-and CrowdSec history. Rollups, CrowdSec top scenarios, and the Dashboard combine all of
-them under the localized **Manual permanent ASN ban** group; its drill-down searches the
-complete scenarios and therefore finds each contributing ASN.
+Policy bans count in ban totals, IP Explorer counts, CrowdSec history, active decisions, rollups, and the Dashboard. The complete ASN-specific scenario stays visible in Events and CrowdSec history. Rollups, CrowdSec top scenarios, and the Dashboard combine all of them under the localized **Manual permanent ASN ban** group; its drill-down searches the complete scenarios and therefore finds each contributing ASN.
 
 ### ASN-organization review
 
-The ASN organization name is a mutable GeoIP display snapshot, not ASN identity. It is
-stored separately from the IP-specific ISP/company value. A substantially different
-non-empty name must appear in three matching observations from at least two IPs before
-OpenSecDash keeps the previous and current snapshots plus the detection time and shows
-**ASN organization changed – review required**. Unicode, case, whitespace, and common
-trailing legal-form variants are normalized conservatively; other text remains
-significant. Returning to the current name resets the candidate, and an already open
-warning is not emitted repeatedly. Acknowledging the warning confirms only that the
-latest snapshot was reviewed; it does not prove an ownership change, pause enforcement,
-or remove a policy or decision. Policy removal remains a separate confirmed action.
+The ASN organization name is a mutable GeoIP display snapshot, not ASN identity. It is stored separately from the IP-specific ISP/company value. A substantially different non-empty name must appear in three matching observations from at least two IPs before OpenSecDash keeps the previous and current snapshots plus the detection time and shows **ASN organization changed – review required**. Unicode, case, whitespace, and common trailing legal-form variants are normalized conservatively; other text remains significant. Returning to the current name resets the candidate, and an already open warning is not emitted repeatedly. Acknowledging the warning confirms only that the latest snapshot was reviewed; it does not prove an ownership change, pause enforcement, or remove a policy or decision. Policy removal remains a separate confirmed action.
 
 ::: warning The first access is always observed before enforcement
 The sequence is:
@@ -178,8 +139,7 @@ first access reaches the service
 → the CrowdSec bouncer fetches and applies it
 ```
 
-Blocking is therefore possible **no earlier than the second access**, and even that is
-not guaranteed. GeoIP, LAPI, and bouncer latency or errors can allow further accesses.
+Blocking is therefore possible **no earlier than the second access**, and even that is not guaranteed. GeoIP, LAPI, and bouncer latency or errors can allow further accesses.
 :::
 
 ## Connection diagnostics

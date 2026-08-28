@@ -34,6 +34,6 @@ OpenSecDash is not a Grafana replacement. Grafana is excellent for metrics, time
 
 ## Complete planned v1 workflow
 
-The current feature set covers the workflow planned for the first stable v1 release: collection, enrichment, investigation, correlation, notifications, and controlled response. Intentionally later work—such as additional notification channels, a background action queue, advanced Level 2 correlation chains, and full offline operation—is not required for that v1 scope.
+The current feature set covers the workflow planned for the first stable v1 release: collection, enrichment, investigation, correlation, notifications, and controlled response. Intentionally later work—such as additional notification channels, a background action queue, and advanced Level 2 correlation chains—is not required for that v1 scope.
 
 OpenSecDash remains deliberately focused on understandable homelab security rather than trying to become a general SIEM or automation platform.

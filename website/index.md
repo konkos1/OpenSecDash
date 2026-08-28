@@ -50,7 +50,7 @@ features:
     details: Track systems and apps, link hosts to security events, check GitHub releases, and publish update states to Home Assistant.
   - icon: 👥
     title: Optional sign-in and roles
-    details: Enable internal Viewer, Operator, and Admin accounts, personal preferences, saved views, and per-user dashboard layouts.
+    details: Enable internal Viewer, Operator, and Admin accounts, personal preferences, saved views, per-user dashboard layouts, and Sigle-Sign-On (SSO).
   - icon: 📱
     title: Responsive and installable
     details: Use every workflow on phones, tablets, and desktops, or install OpenSecDash as a PWA behind HTTPS.
@@ -66,13 +66,7 @@ Datasources → Enrichment → Events → Insights → Dashboard / Explorer → 
 
 It is not a Grafana replacement. Instead of asking you to build a general-purpose observability stack, OpenSecDash focuses on security-oriented homelab workflows: IP-centric investigations, structured event filters, access-log correlation, deterministic insights, asset inventory, update signals, plugin health, notifications, and controlled CrowdSec actions.
 
-One characteristic OpenSecDash workflow is the persistent ASN response: an Operator
-marks an ASN from Events or Access, and future public IPs that GeoIP assigns to that ASN
-receive ordinary seven-day CrowdSec IP decisions. Individual false classifications can
-be kept as ASN-specific IP exceptions. The first access must already have reached the
-service before OpenSecDash can classify it, so blocking can happen **no earlier than the
-second access**; asynchronous enrichment, LAPI latency, errors, and bouncer updates can
-allow further accesses too.
+One characteristic OpenSecDash workflow is the persistent ASN response: an Operator marks an ASN from Events or Access, and future public IPs that GeoIP assigns to that ASN receive ordinary seven-day CrowdSec IP decisions. Individual false classifications can be kept as ASN-specific IP exceptions. The first access must already have reached the service before OpenSecDash can classify it, so blocking can happen **no earlier than the second access**; asynchronous enrichment, LAPI latency, errors, and bouncer updates can allow further accesses too.
 
 ![OpenSecDash dashboard](/assets/screenshots/dashboard.png)
 

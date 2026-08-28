@@ -13,6 +13,20 @@ services:
       - "8765:8000"
     volumes:
       - opensecdash-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    pids_limit: 256
+    mem_limit: 1g
+    cpus: 2.0
     logging:
       driver: json-file
       options:
@@ -32,7 +46,7 @@ docker compose up -d
 Open the app:
 
 ```text
-https://dash.example.com
+https://opensecdash.example.com
 ```
 
 The container listens on port `8000` internally. The example compose file maps it to host port `8765` to avoid common homelab port-conflicts.
@@ -41,29 +55,17 @@ This is the minimal setup. For plugin log mounts, host requirements, database si
 
 ## First start
 
-A new installation starts with internal sign-in enabled, so the first visit shows a
-one-time setup page instead of the dashboard. There you create the first Admin account.
+A new installation starts with internal sign-in enabled, so the first visit shows a one-time setup page instead of the dashboard. There you create the first Admin account.
 
-Finishing that setup requires a reverse proxy: the request has to arrive over HTTPS on
-external port 443, from a proxy named explicitly in `OSD_TRUSTED_PROXIES`, under the
-hostname you enter. Set the proxy up before the first visit; see
-[Reverse proxy](../installation/reverse-proxy.md) and
-[Authentication](../configuration/authentication.md#first-time-setup-new-installations).
+Finishing that setup requires a reverse proxy: the request has to arrive over HTTPS on external port 443, from a proxy named explicitly in `OSD_TRUSTED_PROXIES`, under the hostname you enter. Set the proxy up before the first visit; see [Reverse proxy](../installation/reverse-proxy.md) and [Authentication](../configuration/authentication.md#first-time-setup-new-installations).
 
-Afterwards OpenSecDash redirects you to the login page and you sign in with the account
-you just created — the setup itself does not sign you in.
+Afterwards OpenSecDash redirects you to the login page and you sign in with the account you just created — the setup itself does not sign you in.
 
 ::: tip Just trying it out on `http://localhost:8765`?
-Without a reverse proxy the setup cannot be completed. To run OpenSecDash open on
-purpose — for a local trial, or because a VPN or an authentication proxy already protects
-it — add `OSD_AUTH_DISABLED=true` to the environment and restart. Every visitor who can
-reach the instance then has full access; see
-[Deliberately running without internal sign-in](../configuration/authentication.md#deliberately-running-without-internal-sign-in).
+Without a reverse proxy the setup cannot be completed. To run OpenSecDash open on purpose — for a local trial, or because a VPN or an authentication proxy already protects it — add `OSD_AUTH_DISABLED=true` to the environment and restart. Every visitor who can reach the instance then has full access; see [Deliberately running without internal sign-in](../configuration/authentication.md#deliberately-running-without-internal-sign-in).
 :::
 
-Updating an existing installation changes nothing about its sign-in state: it stays
-enabled where it was enabled, and stays open where it was open — with a permanent prompt
-to decide.
+Updating an existing installation changes nothing about its sign-in state: it stays enabled where it was enabled, and stays open where it was open — with a permanent prompt to decide.
 
 ## First steps
 
@@ -78,7 +80,4 @@ to decide.
 
 ## Security note
 
-Do not expose OpenSecDash directly to the public internet. Put it behind a VPN or a
-trusted authentication reverse proxy. Internal sign-in protects a new installation from
-the first visit; an updated installation keeps whatever it had. See the
-[authentication guide](../configuration/authentication.md) for both cases.
+Do not expose OpenSecDash directly to the public internet. Put it behind a VPN or a trusted authentication reverse proxy. Internal sign-in protects a new installation from the first visit; an updated installation keeps whatever it had. See the [authentication guide](../configuration/authentication.md) for both cases.

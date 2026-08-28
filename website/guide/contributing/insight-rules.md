@@ -14,10 +14,7 @@ The bundled fallback copy lives in:
 backend/app/insights/rules/default-rules.json
 ```
 
-The bundled ruleset may gain `group_by: "path"` rules before the next app release. Do
-not add those rules to the public remote ruleset until that app release is available:
-older apps would reject the entire remote ruleset. After release, keep both files in
-sync.
+The bundled ruleset may gain `group_by: "path"` rules before the next app release. Do not add those rules to the public remote ruleset until that app release is available: older apps would reject the entire remote ruleset. After release, keep both files in sync.
 
 The public ruleset also has a release-pinned SHA-256 manifest:
 
@@ -25,10 +22,7 @@ The public ruleset also has a release-pinned SHA-256 manifest:
 website/public/rules/insights-rules-v1.sha256.json
 ```
 
-After every public ruleset change, update the manifest digest with
-`shasum -a 256 website/public/rules/insights-rules.json`, set a reviewed future
-expiry date, and test both files together. OpenSecDash rejects a missing, expired, or
-mismatching manifest before importing any remote rules.
+After every public ruleset change, update the manifest digest with `shasum -a 256 website/public/rules/insights-rules.json`, set a reviewed future expiry date, and test both files together. OpenSecDash rejects a missing, expired, or mismatching manifest before importing any remote rules.
 
 ## Top-level structure
 
@@ -84,8 +78,7 @@ Example:
 | `threshold` | no | Minimum number of matching events in the window before an insight is created. Defaults to `1`. Max supported value is `100`. |
 | `min_distinct_ips` | no | Minimum number of different IPs among matching events. Defaults to `1`. Supported range is `1` to `1000`. |
 
-Rule IDs are limited to 100 characters and titles to 255 characters. These limits
-match the stored Insight and notification metadata and are validated before import.
+Rule IDs are limited to 100 characters and titles to 255 characters. These limits match the stored Insight and notification metadata and are validated before import.
 
 ## Matching behavior
 
@@ -113,9 +106,7 @@ If a remote/public rule has the same `id` as a bundled fallback rule, the remote
 
 This means rule IDs should be stable. Do not rename a rule ID unless you intentionally want OpenSecDash to treat it as a different rule.
 
-When a rule fires, the engine applies a cooldown for its `window_minutes` and
-correlation key. This prevents a request wave from producing a new insight for every
-additional matching event.
+When a rule fires, the engine applies a cooldown for its `window_minutes` and correlation key. This prevents a request wave from producing a new insight for every additional matching event.
 
 ## Choosing good rule IDs
 
