@@ -7,6 +7,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from app.api import pages
 from app.models.assets import Asset
+from app.models.events import Event
 from app.models.settings import Setting
 from app.models.systems import System
 from app.web.dashboard import DashboardWidget
@@ -206,6 +207,31 @@ def test_dashboard_renders_table_feed_trend_and_empty_states():
     assert "min-height: 3px" in html
     assert "bg-sky-400" in html
     assert "dashboard.security_events_trend_help" in html
+
+
+def test_dashboard_feed_shows_structured_target_for_event_without_ip(db_session):
+    widgets = pages.core_dashboard_widgets(
+        db_session,
+        latest_security_events=[
+            Event(
+                event_time=datetime(2026, 8, 29, 11, 27, 53),
+                event_type="security.asn_ban.enabled",
+                plugin="crowdsec",
+                data_json={"target": "AS15169", "asn": "AS15169"},
+            ),
+            Event(
+                event_time=datetime(2026, 8, 29, 11, 28, 53),
+                event_type="security.asn_ban.provider_changed",
+                plugin="crowdsec",
+                data_json={"asn": "AS64500"},
+            ),
+        ],
+    )
+
+    html = render_dashboard(event_plugins_enabled=True, dashboard_widgets=widgets)
+
+    assert "security.asn_ban.enabled · AS15169" in html
+    assert "security.asn_ban.provider_changed · AS64500" in html
 
 
 def test_dashboard_distinguishes_disabled_data_plugins_from_hidden_widgets():

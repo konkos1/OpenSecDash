@@ -94,6 +94,8 @@ def validate_widget(widget: DashboardWidget) -> bool:
                 return False
             if not isinstance(row.get("type"), str) or not isinstance(row.get("ip"), str):
                 return False
+            if "subject" in row and not isinstance(row.get("subject"), str):
+                return False
             if not required_href(row.get("href")):
                 return False
             if "country" in row and not isinstance(row.get("country"), str):

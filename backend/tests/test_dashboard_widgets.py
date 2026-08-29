@@ -56,7 +56,7 @@ def test_validate_widget_validates_table_feed_and_trend_rows():
     assert validate_widget(
         make_widget(
             type="feed",
-            rows=({"time": datetime.now(UTC), "type": "security.ban", "ip": "8.8.8.8", "href": "/ip/8.8.8.8"},),
+            rows=({"time": datetime.now(UTC), "type": "security.ban", "ip": "8.8.8.8", "subject": "8.8.8.8", "href": "/ip/8.8.8.8"},),
         )
     )
     assert validate_widget(
@@ -73,6 +73,7 @@ def test_validate_widget_validates_table_feed_and_trend_rows():
     assert not validate_widget(make_widget(type="table", rows=({"label": "DE", "value": "4"},)))
     assert not validate_widget(make_widget(type="table", rows=({"label": "DE", "value": 4},)))
     assert not validate_widget(make_widget(type="feed", rows=({"type": "security.ban", "ip": "8.8.8.8", "href": "/ip/8.8.8.8"},)))
+    assert not validate_widget(make_widget(type="feed", rows=({"time": datetime.now(UTC), "type": "security.ban", "ip": "", "subject": 15169, "href": "/events"},)))
     assert not validate_widget(make_widget(type="trend", rows=({"bucket": "2026-07-11", "value": -1},)))
     assert not validate_widget(make_widget(id="plugin.map", type="map", rows=({"country": "DE", "count": 3, "x": 52.0, "y": 26.0, "radius": 6.0},)))
 
