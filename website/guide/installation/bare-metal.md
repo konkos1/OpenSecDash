@@ -2,7 +2,7 @@
 
 Bare-metal installation is supported if you prefer running OpenSecDash directly on a Linux host. Docker is still recommended unless you explicitly want to manage Python, systemd, file paths, and permissions yourself.
 
-Install the exact Python version from `backend/.python-version` (currently 3.14.7) and the officially pinned `uv` 0.12.5 release before starting. This matches the validated Docker production runtime.
+Install the exact Python version from `backend/.python-version` (currently 3.14.7) and the officially pinned `uv` 0.12.7 release before starting. This matches the validated Docker production runtime.
 
 ## Host requirements
 
