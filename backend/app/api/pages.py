@@ -392,6 +392,17 @@ def dashboard_delta(current: int, previous: int | None) -> dict[str, str]:
     return _dashboard_delta(current, previous)
 
 
+def _dashboard_event_subject(event: Event) -> str:
+    if event.ip:
+        return event.ip
+    data = event.data_json or {}
+    for key in ("target", "asn"):
+        value = data.get(key)
+        if isinstance(value, str) and value:
+            return value
+    return event.hostname or "-"
+
+
 def core_dashboard_widgets(
     db: Session,
     *,
@@ -529,6 +540,7 @@ def core_dashboard_widgets(
                         "time": event.event_time,
                         "type": event.event_type,
                         "ip": event.ip or "",
+                        "subject": _dashboard_event_subject(event),
                         "country": event.country or "",
                         "href": f"/events?{urlencode({'ip': event.ip, 'event_type': event.event_type}) if event.ip else urlencode({'event_type': event.event_type})}",
                     }

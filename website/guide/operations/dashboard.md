@@ -14,7 +14,7 @@ Depending on enabled plugins and available data, the default layout can include:
 - top Insights and recent security events
 - a 30-day security-event trend
 
-Cards link to the matching Events, Access, Assets, or Rollups view when a meaningful drill-down exists.
+Cards link to the matching Events, Access, Assets, or Rollups view when a meaningful drill-down exists. Recent security events show the affected IP address, ASN, or other structured target when available.
 
 CrowdSec's active-ban counter includes IP decisions created by permanent ASN policies.
 Successful policy bans also contribute to ban totals, top Insights, recent security events, trends, and scenario widgets without adding a second generic-action count. The complete scenario remains on each event, while all `opensecdash/manual-permanent-asn-ban/AS...` values are combined in top-scenario displays under the localized **Manual permanent ASN ban** label. Selecting that group drills into the matching full event scenarios rather than hiding their ASN-specific detail.
