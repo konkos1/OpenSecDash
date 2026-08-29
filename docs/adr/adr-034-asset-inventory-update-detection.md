@@ -1,7 +1,7 @@
 # ADR-034: Asset Inventory & Update Detection
 
 > **Implementation status (2026-07-09):** Implemented.
-> JSON Assets, Proxmox Assets, GitHub release checks, release path derivation, caching/rate-limit-conscious checks, and source-independent update detection exist.
+> JSON Assets, Proxmox Assets, GitHub release checks, release path derivation, caching/rate-limit-conscious checks, source-independent update detection, and opt-in notifications for newly available versions exist.
 
 
 
@@ -161,6 +161,8 @@ Check GitHub Release
 Compare version
 ↓
 Store update status
+↓
+Queue an enabled asset-update notification for a newly available version
 ```
 
 

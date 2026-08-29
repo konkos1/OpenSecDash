@@ -36,6 +36,7 @@ def test_seed_default_notification_rules_is_idempotent_and_preserves_user_change
     assert [rule.rule_id for rule in rules] == [
         "core.asn_provider_changed",
         "core.asset_offline",
+        "core.asset_update_available",
         "core.crowdsec_ban",
         "core.plugin_error",
         "insight.asn_policy_security_ban",
@@ -46,8 +47,8 @@ def test_seed_default_notification_rules_is_idempotent_and_preserves_user_change
         "insight.security_ban_observed",
     ]
     assert rules[0].cooldown_minutes == 60
-    assert rules[2].match_types == ["security.ban", "security.ban.asn_policy"]
-    assert rules[4].source == "insight"
+    assert rules[3].match_types == ["security.ban", "security.ban.asn_policy"]
+    assert rules[5].source == "insight"
     assert all(rule.enabled is False for rule in rules)
 
     crowdsec_rule = next(rule for rule in rules if rule.rule_id == "core.crowdsec_ban")
@@ -57,7 +58,7 @@ def test_seed_default_notification_rules_is_idempotent_and_preserves_user_change
     seed_default_notification_rules(db_session)
     db_session.commit()
 
-    assert db_session.query(NotificationRule).count() == 10
+    assert db_session.query(NotificationRule).count() == 11
     crowdsec_rule = db_session.query(NotificationRule).filter_by(rule_id="core.crowdsec_ban").one()
     assert crowdsec_rule.enabled is False
     assert crowdsec_rule.match_types == ["security.ban", "security.ban.asn_policy"]

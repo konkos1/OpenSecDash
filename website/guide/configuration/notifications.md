@@ -1,9 +1,9 @@
 # Notifications
 
-OpenSecDash can send an email when an event or insight matches a notification rule:
+OpenSecDash can send an email when an event, insight, or newly available asset update matches a notification rule:
 
 ```text
-Event or insight → rule → email
+Event, insight, or asset update → rule → email
 ```
 
 The **Notifications** page shows pending, sent, and failed deliveries, the recent history, and the available rules. Every known Insight type has its own switch. Email is the only notification channel in V1.
@@ -43,10 +43,13 @@ enabling the global notification setting and configuring SMTP does not activate 
 | --- | --- | --- |
 | CrowdSec ban | `security.ban` or successful permanent ASN-policy ban | 1 minute |
 | ASN organization changed | a confirmed organization change for a permanent ASN policy | 60 minutes |
+| Asset update available | a newly detected available version for an asset | 1 minute |
 | Asset offline | a system becomes stale | 60 minutes |
 | Plugin error | a plugin diagnostic changes to error | 60 minutes |
 
 ASN-policy ban emails include the IP, ASN, current ASN organization, decision duration, and CrowdSec scenario. ASN-organization change emails include the ASN, previous and current organization snapshots, and the time the change was confirmed. These names are GeoIP snapshots for operator review; they do not prove that the ASN changed ownership.
+
+Asset-update emails include the asset and system identity, installed and available versions, asset and system types, source, host URL, check time, and a direct link to the GitHub release notes when those values are available. A repeated check of the same available version does not create another notification; a later release does.
 
 When upgrading from the earlier shared **Scanner detected** rule, currently known high-severity Insights inherit its enabled state and the wildcard rule is retired to prevent duplicate email.
 

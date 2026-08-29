@@ -131,6 +131,49 @@ def test_dispatch_localizes_asn_provider_change_details(db_session, monkeypatch)
     assert "Erkannt: 2026-08-26T12:34:56" in body
 
 
+def test_dispatch_asset_update_includes_all_details_and_release_notes_link(db_session, monkeypatch):
+    channel = FakeChannel()
+    monkeypatch.setattr(notifications, "get_channel", lambda _: channel)
+    db_session.add(
+        _pending(
+            "core.asset_update_available",
+            source="asset",
+            type="asset.update_available",
+            asset_id=12,
+            asset_name="Traefik",
+            asset_type="application",
+            system_id=7,
+            system_name="edge-01",
+            system_type="lxc",
+            vmid="100",
+            source_plugin="json_assets",
+            installed_version="v3.0.0",
+            latest_version="v3.1.0",
+            host_url="https://proxy.example.test",
+            checked_at="2026-08-29T12:34:56",
+            release_notes_url="https://github.com/traefik/traefik/releases/tag/v3.1.0",
+        )
+    )
+    db_session.commit()
+
+    assert dispatch_pending_notifications(db_session) == 1
+    subject, body, html_body = channel.messages[0]
+    assert subject == "[OpenSecDash] · Asset update available"
+    assert "Asset: Traefik" in body
+    assert "System: edge-01" in body
+    assert "VMID: 100" in body
+    assert "Asset type: application" in body
+    assert "System type: lxc" in body
+    assert "Source: json_assets" in body
+    assert "Installed version: v3.0.0" in body
+    assert "Available version: v3.1.0" in body
+    assert "Host URL: https://proxy.example.test" in body
+    assert "Checked: 2026-08-29T12:34:56" in body
+    assert "Release notes for Traefik: https://github.com/traefik/traefik/releases/tag/v3.1.0" in body
+    assert "Open assets: http://dashboard.example/assets/system/7" in body
+    assert 'href="https://github.com/traefik/traefik/releases/tag/v3.1.0"' in (html_body or "")
+
+
 def test_dispatch_omits_links_without_base_url(db_session, monkeypatch):
     channel = FakeChannel()
     monkeypatch.setattr(notifications, "get_channel", lambda _: channel)

@@ -228,4 +228,37 @@ def test_refresh_asset_update_uses_github_release_and_token(monkeypatch, db_sess
     assert calls == [("example/opensecdash", "secret-token")]
     assert asset.latest_version == "v1.1.0"
     assert asset.update_available is True
+
+
+def test_refresh_asset_update_notifies_once_per_new_available_version(monkeypatch, db_session):
+    asset = Asset(
+        system_id=1,
+        name="OpenSecDash",
+        version="v1.0.0",
+        release_url="https://github.com/example/opensecdash/releases/latest",
+    )
+    db_session.add(asset)
+    db_session.commit()
+    releases = iter(("v1.1.0", "v1.1.0", "v1.2.0"))
+    notifications = []
+
+    monkeypatch.setattr(
+        "app.services.asset_updates.get_latest_github_release",
+        lambda *, repo, github_token: next(releases),
+    )
+    monkeypatch.setattr(
+        "app.services.asset_updates.handle_asset_update",
+        lambda db, notified_asset, *, release_notes_url: notifications.append(
+            (notified_asset.latest_version, release_notes_url)
+        ),
+    )
+
+    refresh_asset_update(db_session, asset)
+    refresh_asset_update(db_session, asset)
+    refresh_asset_update(db_session, asset)
+
+    assert notifications == [
+        ("v1.1.0", "https://github.com/example/opensecdash/releases/tag/v1.1.0"),
+        ("v1.2.0", "https://github.com/example/opensecdash/releases/tag/v1.2.0"),
+    ]
     assert asset.last_checked is not None
