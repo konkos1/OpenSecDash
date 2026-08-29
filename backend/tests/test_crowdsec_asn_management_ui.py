@@ -1,5 +1,8 @@
+import re
 from datetime import datetime
+from html import unescape
 from types import SimpleNamespace
+from urllib.parse import parse_qs, urlsplit
 
 from starlette.requests import Request
 
@@ -23,7 +26,7 @@ traefik_routes = import_plugin_module("traefik_log", "routes")
 crowdsec_locales = import_plugin_module("crowdsec", "locales")
 
 
-def _request(path: str, *, hx: bool = False, role: str | None = None) -> Request:
+def _request(path: str, *, query: str = "", hx: bool = False, role: str | None = None) -> Request:
     headers = [(b"hx-request", b"true")] if hx else []
     request = Request(
         {
@@ -31,7 +34,7 @@ def _request(path: str, *, hx: bool = False, role: str | None = None) -> Request
             "method": "GET",
             "path": path,
             "headers": headers,
-            "query_string": b"",
+            "query_string": query.encode(),
             "scheme": "http",
             "server": ("testserver", 80),
         }
@@ -43,6 +46,13 @@ def _request(path: str, *, hx: bool = False, role: str | None = None) -> Request
 
 def _html(response) -> str:
     return bytes(response.body).decode()
+
+
+def _asn_enable_return_target(response_html: str) -> str:
+    match = re.search(r'data-enable-url="([^"]+)"', response_html)
+    assert match is not None
+    enable_url = unescape(match.group(1))
+    return parse_qs(urlsplit(enable_url).query)["next"][0]
 
 
 def _enable_popup_prerequisites(db) -> None:
@@ -95,6 +105,53 @@ def test_events_and_access_render_escaped_asn_popup_without_changing_columns(db_
         assert "Select columns" in html
     assert db_session.query(Setting).filter_by(key="ui.events.visible_columns").one().value == "time,asn,isp"
     assert db_session.query(Setting).filter_by(key="ui.access.visible_columns").one().value == "time,asn,isp"
+
+
+def test_events_and_access_asn_ban_preserve_current_filters(db_session):
+    _enable_popup_prerequisites(db_session)
+    db_session.add_all(
+        [
+            Setting(key="ui.events.visible_columns", value="time,asn"),
+            Setting(key="ui.access.visible_columns", value="time,asn"),
+        ]
+    )
+    db_session.add(
+        Event(
+            event_time=datetime(2026, 8, 26, 12),
+            event_type="access.allowed",
+            plugin="traefik_log",
+            ip="8.8.8.8",
+            country="DE",
+            asn="AS15169",
+            asn_organization="Example Provider",
+            geoip_checked=True,
+        )
+    )
+    db_session.commit()
+
+    events_query = "range=all&asn=AS15169&country=DE"
+    access_query = "range=all&asn=AS15169&country_in=DE"
+    events_html = _html(
+        pages.events_page(
+            _request("/events", query=events_query),
+            range="all",
+            asn="AS15169",
+            country="DE",
+            db=db_session,
+        )
+    )
+    access_html = _html(
+        traefik_routes.access_page(
+            _request("/access", query=access_query),
+            range="all",
+            asn="AS15169",
+            country_in="DE",
+            db=db_session,
+        )
+    )
+
+    assert _asn_enable_return_target(events_html) == f"/events?{events_query}"
+    assert _asn_enable_return_target(access_html) == f"/access?{access_query}"
 
 
 def test_viewer_popup_has_no_mutation_and_policy_states_are_server_declared(db_session):
