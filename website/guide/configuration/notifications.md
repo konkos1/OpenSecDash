@@ -47,9 +47,13 @@ enabling the global notification setting and configuring SMTP does not activate 
 | Asset offline | a system becomes stale | 60 minutes |
 | Plugin error | a plugin diagnostic changes to error | 60 minutes |
 
-ASN-policy ban emails include the IP, ASN, current ASN organization, decision duration, and CrowdSec scenario. ASN-organization change emails include the ASN, previous and current organization snapshots, and the time the change was confirmed. These names are GeoIP snapshots for operator review; they do not prove that the ASN changed ownership.
+ASN-policy ban emails include the IP, ASN, current ASN organization, decision duration, CrowdSec scenario, and occurrence time. ASN-organization change emails include the ASN, previous and current organization snapshots, and the time the change was confirmed. These names are GeoIP snapshots for operator review; they do not prove that the ASN changed ownership.
 
-Asset-update emails include the asset and system identity, installed and available versions, asset and system types, source, host URL, check time, and a direct link to the GitHub release notes when those values are available. A repeated check of the same available version does not create another notification; a later release does.
+Asset-update emails include the asset and system identity, installed and available versions, asset and system types, source, host URL, check time, and a direct link to the GitHub release notes when those values are available. Offline-system emails include the system identity, type, source, last-seen time, and occurrence time. A repeated check of the same available version does not create another notification; a later release does.
+
+Plugin-error emails include the affected plugin, occurrence time, and redacted diagnostic error in the message. Insight emails include the specific title, description, confidence, occurrence time, IP, and related asset and system identities when available. All displayed payload times use the configured time zone, or UTC while automatic browser time-zone detection is selected.
+
+Subjects intentionally remain stable per notification rule and do not contain event-specific details. This allows receiving mail clients to group messages from the same rule. The Notifications history shows the same structured details as the message body alongside the stable subject.
 
 When upgrading from the earlier shared **Scanner detected** rule, currently known high-severity Insights inherit its enabled state and the wildcard rule is retired to prevent duplicate email.
 

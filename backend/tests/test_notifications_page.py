@@ -39,6 +39,21 @@ def _client(db):
 
 
 def test_notifications_page_shows_rules_history_and_configuration_hint(notifications_db):
+    notifications_db.add(
+        Notification(
+            rule_id="core.plugin_error",
+            channel="email",
+            status="sent",
+            subject="[OpenSecDash] · Plugin error",
+            payload={
+                "type": "system.plugin_error",
+                "plugin": "mqtt-hass",
+                "occurred_at": "2026-08-29T12:34:56",
+                "message": "Connection refused",
+            },
+        )
+    )
+    notifications_db.commit()
     client = _client(notifications_db)
     try:
         response = client.get("/notifications")
@@ -50,6 +65,10 @@ def test_notifications_page_shows_rules_history_and_configuration_hint(notificat
     assert "CrowdSec ban" in response.text
     assert "Send test" in response.text
     assert "SMTP unavailable" in response.text
+    assert "[OpenSecDash] · Plugin error" in response.text
+    assert "Plugin: MQTT to Home Assistant (mqtt-hass)" in response.text
+    assert "Occurred: 2026-08-29 12:34:56 (UTC)" in response.text
+    assert "Error: Connection refused" in response.text
     assert "Notifications are disabled or SMTP is not configured." in response.text
     assert 'href="/notifications"' in response.text
     assert 'action="/notifications/test" data-submit-busy' in response.text
