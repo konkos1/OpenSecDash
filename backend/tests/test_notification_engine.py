@@ -289,7 +289,20 @@ def test_pending_insight_is_flushed_before_notification_matching(db_session):
     db_session.query(NotificationRule).filter_by(rule_id=rule_id).one().enabled = True
     db_session.commit()
     invalidate_rules_cache()
-    insight = Insight(type="security_ban_observed", level="high", title="Security ban observed")
+    system = System(vmid="insight-100", hostname="auth.example", system_type="lxc", source_plugin="json_assets")
+    db_session.add(system)
+    db_session.flush()
+    asset = Asset(system_id=system.id, name="Authentik", type="application", source_plugin="json_assets")
+    db_session.add(asset)
+    db_session.flush()
+    insight = Insight(
+        type="security_ban_observed",
+        level="high",
+        title="Security ban observed",
+        description="A security ban was observed.",
+        confidence=0.9,
+        asset_id=asset.id,
+    )
     db_session.add(insight)
 
     handle_insight(db_session, insight)
@@ -300,6 +313,12 @@ def test_pending_insight_is_flushed_before_notification_matching(db_session):
     assert len(notifications) == 1
     assert notifications[0].payload is not None
     assert notifications[0].payload["insight_id"] == insight.id
+    assert notifications[0].payload["title"] == "Security ban observed"
+    assert notifications[0].payload["description"] == "A security ban was observed."
+    assert notifications[0].payload["confidence"] == 0.9
+    assert notifications[0].payload["occurred_at"] == insight.timestamp.isoformat()
+    assert notifications[0].payload["asset_name"] == "Authentik"
+    assert notifications[0].payload["system_name"] == "auth.example"
 
 
 def test_duplicate_event_does_not_queue_a_second_notification(db_session):
@@ -341,12 +360,18 @@ def test_plugin_error_event_is_only_created_on_transition_to_error(db_session):
 
     manager._update_diagnostic(db_session, "test_plugin", "healthy", None)
     db_session.flush()
-    manager._update_diagnostic(db_session, "test_plugin", "error", "first failure")
+    manager._update_diagnostic(db_session, "test_plugin", "error", "first failure; token=notification-secret")
     manager._update_diagnostic(db_session, "test_plugin", "error", "second failure")
 
     events = db_session.query(Event).filter(Event.event_type == "system.plugin_error").all()
     assert len(events) == 1
-    assert events[0].data_json == {"plugin": "test_plugin", "message": "first failure"}
+    assert events[0].data_json == {"plugin": "test_plugin", "message": "first failure; token=notification-secret"}
+    notifications = _notifications(db_session, "core.plugin_error")
+    assert len(notifications) == 1
+    assert notifications[0].payload is not None
+    assert notifications[0].payload["plugin"] == "test_plugin"
+    assert notifications[0].payload["message"] == "first failure; token=<redacted>"
+    assert notifications[0].payload["occurred_at"] == events[0].event_time.isoformat()
 
 
 def test_pending_notifications_are_capped_for_single_count_rules(db_session):

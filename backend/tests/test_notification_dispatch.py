@@ -128,7 +128,35 @@ def test_dispatch_localizes_asn_provider_change_details(db_session, monkeypatch)
     assert "ASN: AS64502" in body
     assert "Vorherige ASN-Organisation: Altes Netz AG" in body
     assert "ASN-Organisation: Neues Netz GmbH" in body
-    assert "Erkannt: 2026-08-26T12:34:56" in body
+    assert "Erkannt: 2026-08-26 12:34:56 (UTC)" in body
+
+
+def test_dispatch_plugin_error_includes_plugin_time_and_redacted_error(db_session, monkeypatch):
+    channel = FakeChannel()
+    monkeypatch.setattr(notifications, "get_channel", lambda _: channel)
+    save_setting(db_session, "language", "de")
+    save_setting(db_session, "timezone", "Europe/Berlin")
+    db_session.add(
+        _pending(
+            "core.plugin_error",
+            source="event",
+            type="system.plugin_error",
+            plugin="mqtt-hass",
+            occurred_at="2026-08-29T12:34:56",
+            message="Verbindung fehlgeschlagen: token=<redacted>",
+            severity="error",
+        )
+    )
+    db_session.commit()
+
+    assert dispatch_pending_notifications(db_session) == 1
+    subject, body, html_body = channel.messages[0]
+    assert subject == "[OpenSecDash] · Plugin error"
+    assert "Plugin: MQTT to Home Assistant (mqtt-hass)" in body
+    assert "Zeitpunkt: 2026-08-29 14:34:56 (Europe/Berlin)" in body
+    assert "Fehler: Verbindung fehlgeschlagen: token=<redacted>" in body
+    assert "MQTT to Home Assistant (mqtt-hass)" in (html_body or "")
+    assert "2026-08-29 14:34:56 (Europe/Berlin)" in (html_body or "")
 
 
 def test_dispatch_asset_update_includes_all_details_and_release_notes_link(db_session, monkeypatch):
@@ -164,16 +192,88 @@ def test_dispatch_asset_update_includes_all_details_and_release_notes_link(db_se
     assert "VMID: 100" in body
     assert "Asset type: application" in body
     assert "System type: lxc" in body
-    assert "Source: json_assets" in body
+    assert "Source: JSON Assets (json_assets)" in body
     assert "Installed version: v3.0.0" in body
     assert "Available version: v3.1.0" in body
     assert "Host URL: https://proxy.example.test" in body
-    assert "Checked: 2026-08-29T12:34:56" in body
+    assert "Checked: 2026-08-29 12:34:56 (UTC)" in body
     assert "Release notes for Traefik: https://github.com/traefik/traefik/releases/tag/v3.1.0" in body
     assert "Open assets: http://dashboard.example/assets/system/7" in body
     assert 'href="https://github.com/traefik/traefik/releases/tag/v3.1.0"' in (html_body or "")
     assert 'href="http://dashboard.example/assets/system/7"' in (html_body or "")
     assert (html_body or "").count("background:#2563eb") == 2
+
+
+def test_dispatch_offline_system_includes_identity_and_times(db_session, monkeypatch):
+    channel = FakeChannel()
+    monkeypatch.setattr(notifications, "get_channel", lambda _: channel)
+    last_seen = utc_now().replace(tzinfo=None) - timedelta(days=2)
+    system = System(
+        vmid="offline-101",
+        hostname="offline.example",
+        system_type="lxc",
+        source_plugin="proxmox_assets",
+        last_seen=last_seen,
+    )
+    db_session.add(system)
+    db_session.commit()
+
+    assert dispatch_pending_notifications(db_session) == 0
+    offline_events = db_session.query(Event).filter_by(event_type="system.asset_offline").all()
+    offline_notifications = db_session.query(Notification).filter_by(rule_id="core.asset_offline").all()
+    assert len(offline_events) == 1
+    assert len(offline_notifications) == 1
+    assert offline_notifications[0].status == "pending"
+    assert dispatch_pending_notifications(db_session) == 1
+    subject, body, html_body = channel.messages[0]
+    expected_last_seen = notifications.format_datetime_for_timezone(last_seen, "auto")
+    assert subject == "[OpenSecDash] · Asset offline"
+    assert "System: offline.example" in body
+    assert "VMID: offline-101" in body
+    assert "System type: lxc" in body
+    assert "Source: Proxmox Assets (proxmox_assets)" in body
+    assert f"Last seen: {expected_last_seen} (UTC)" in body
+    assert "Occurred:" in body
+    assert "offline.example" in (html_body or "")
+
+
+def test_dispatch_insight_includes_available_context_with_stable_subject(db_session, monkeypatch):
+    channel = FakeChannel()
+    monkeypatch.setattr(notifications, "get_channel", lambda _: channel)
+    rule = NotificationRule(
+        rule_id="test.insight_details",
+        name="Suspicious activity",
+        source="insight",
+        match_types=["test.suspicious"],
+        enabled=True,
+    )
+    pending = _pending(
+        "test.insight_details",
+        source="insight",
+        type="test.suspicious",
+        title="Repeated login failures",
+        description="Multiple failed logins were correlated.",
+        confidence=0.86,
+        occurred_at="2026-08-29T12:34:56",
+        asset_name="Authentik",
+        system_name="auth.example",
+        ip="198.51.100.20",
+        level="high",
+    )
+    db_session.add_all([rule, pending])
+    db_session.commit()
+
+    assert dispatch_pending_notifications(db_session) == 1
+    subject, body, html_body = channel.messages[0]
+    assert subject == "[OpenSecDash] · Suspicious activity"
+    assert "Insight: Repeated login failures" in body
+    assert "Description: Multiple failed logins were correlated." in body
+    assert "Confidence: 86%" in body
+    assert "Occurred: 2026-08-29 12:34:56 (UTC)" in body
+    assert "Asset: Authentik" in body
+    assert "System: auth.example" in body
+    assert "IP: 198.51.100.20" in body
+    assert "Repeated login failures" in (html_body or "")
 
 
 def test_dispatch_omits_links_without_base_url(db_session, monkeypatch):
@@ -195,6 +295,7 @@ def test_dispatch_aggregates_pending_notifications_and_respects_cooldown(db_sess
 
     dispatch_pending_notifications(db_session)
     assert len(channel.messages) == 1
+    assert channel.messages[0][0] == "[OpenSecDash] · CrowdSec ban"
     assert "6 × CrowdSec ban" in channel.messages[0][1]
     assert "… and 1 more" in channel.messages[0][1]
     db_session.add(_pending("core.crowdsec_ban", source="event", type="security.ban", ip="198.51.100.99"))

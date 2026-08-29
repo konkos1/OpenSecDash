@@ -6,9 +6,11 @@ from datetime import datetime, timedelta
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
-from app.core.template_context import get_setting_value
-from app.core.time import utc_now
+from app.core import plugin_registry
 from app.core.i18n import translate
+from app.core.logging import redact_sensitive
+from app.core.template_context import get_setting_value
+from app.core.time import format_datetime_for_timezone, resolve_timezone, utc_now
 from app.models.assets import Asset
 from app.models.core import Insight, Notification, NotificationRule
 from app.models.events import Event
@@ -38,6 +40,45 @@ EVENT_NOTIFICATION_DETAIL_KEYS = (
     "provider_name_changed_at",
     "duration",
     "scenario",
+    "plugin",
+    "message",
+    "last_seen",
+    "vmid",
+    "system_type",
+    "source_plugin",
+)
+NOTIFICATION_DATETIME_DETAIL_KEYS = frozenset(
+    {"occurred_at", "checked_at", "last_seen", "provider_name_changed_at"}
+)
+NOTIFICATION_DETAIL_FIELDS = (
+    ("plugin", "notification.email.plugin"),
+    ("asset_name", "notification.email.asset"),
+    ("system_name", "notification.email.system"),
+    ("vmid", "notification.email.vmid"),
+    ("asset_type", "notification.email.asset_type"),
+    ("system_type", "notification.email.system_type"),
+    ("source_plugin", "notification.email.asset_source"),
+    ("title", "notification.email.insight"),
+    ("description", "notification.email.description"),
+    ("occurred_at", "notification.email.occurred_at"),
+    ("last_seen", "notification.email.last_seen"),
+    ("checked_at", "notification.email.checked_at"),
+    ("installed_version", "notification.email.installed_version"),
+    ("latest_version", "notification.email.latest_version"),
+    ("host_url", "notification.email.host_url"),
+    ("ip", "notification.email.ip"),
+    ("country", "notification.email.country"),
+    ("path", "notification.email.path"),
+    ("asn", "notification.email.asn"),
+    ("previous_provider_name", "notification.email.previous_asn_organization"),
+    ("provider_name", "notification.email.asn_organization"),
+    ("provider_name_changed_at", "notification.email.detected_at"),
+    ("duration", "notification.email.duration"),
+    ("scenario", "notification.email.scenario"),
+    ("severity", "notification.email.severity"),
+    ("level", "notification.email.level"),
+    ("confidence", "notification.email.confidence"),
+    ("message", "notification.email.error"),
 )
 
 
@@ -312,6 +353,37 @@ def _as_naive_utc(value: datetime) -> datetime:
     return value.replace(tzinfo=None)
 
 
+def notification_detail_rows(
+    payload: dict[str, object],
+    language: str,
+    timezone_name: str,
+) -> list[tuple[str, str]]:
+    """Return localized, human-readable notification payload details."""
+    rows = []
+    for key, label in NOTIFICATION_DETAIL_FIELDS:
+        value = payload.get(key)
+        if value is None or value == "":
+            continue
+        value_text = str(value)
+        if key in {"plugin", "source_plugin"}:
+            plugin_name = plugin_registry.plugin_name(value_text)
+            value_text = f"{plugin_name} ({value_text})" if plugin_name != value_text else value_text
+        elif key in NOTIFICATION_DATETIME_DETAIL_KEYS:
+            try:
+                timestamp = datetime.fromisoformat(value_text.replace("Z", "+00:00"))
+                display_timezone = resolve_timezone(timezone_name).key
+                value_text = f"{format_datetime_for_timezone(timestamp, timezone_name)} ({display_timezone})"
+            except ValueError:
+                pass
+        elif key == "confidence":
+            try:
+                value_text = f"{float(str(value)) * 100:.0f}%"
+            except (TypeError, ValueError):
+                pass
+        rows.append((translate(label, language), value_text))
+    return rows
+
+
 def _enqueue(db: Session, rule: NotificationRuleSnapshot, payload: dict[str, object]) -> None:
     now = utc_now().replace(tzinfo=None)
     window_start = now - timedelta(minutes=rule.window_minutes)
@@ -381,7 +453,7 @@ def handle_event(db: Session, event: Event) -> None:
             for key in EVENT_NOTIFICATION_DETAIL_KEYS:
                 value = event_data.get(key)
                 if value is not None and value != "":
-                    details[key] = value
+                    details[key] = redact_sensitive(value) if key == "message" else value
             _enqueue_event(
                 db,
                 rule,
@@ -394,6 +466,8 @@ def handle_event(db: Session, event: Event) -> None:
                     "country": event.country,
                     "path": event.path,
                     "asset_id": event.asset_id,
+                    "system_name": event.hostname or event_data.get("system"),
+                    "occurred_at": event.event_time.isoformat(),
                     **details,
                 },
             )
@@ -420,6 +494,8 @@ def handle_insight(db: Session, insight: Insight, occurred_at: datetime | None =
                 continue
             if rule.asset_id is not None and insight.asset_id != rule.asset_id:
                 continue
+            asset = db.query(Asset).filter(Asset.id == insight.asset_id).first() if insight.asset_id is not None else None
+            system = asset.system if asset is not None else None
             _enqueue(
                 db,
                 rule,
@@ -430,7 +506,12 @@ def handle_insight(db: Session, insight: Insight, occurred_at: datetime | None =
                     "level": insight.level,
                     "ip": insight.ip,
                     "title": insight.title,
+                    "description": redact_sensitive(insight.description),
+                    "confidence": insight.confidence,
                     "asset_id": insight.asset_id,
+                    "asset_name": asset.name if asset is not None else None,
+                    "system_name": system.hostname if system is not None else None,
+                    "occurred_at": notification_time.isoformat(),
                 },
             )
     except Exception:
@@ -485,42 +566,24 @@ def render_notification(db: Session, rule: NotificationRule, pending: list[Notif
     name = localized_insight_title(definition, language) if definition is not None else rule.name
     domain = get_setting_value(db, "domain", "").strip()
     instance_label = f" {domain}" if domain else ""
-    subject = f"{text('notification.email.subject_prefix')}{instance_label} · {name}"
     base_url = get_setting_value(db, "notifications.base_url", "").rstrip("/")
+    timezone_name = get_setting_value(db, "timezone", "auto")
     details: list[tuple[str, str]] = []
     items: list[str] = []
     more_text: str | None = None
     links: list[tuple[str, str]] = []
-    fields = (
-        ("asset_name", "notification.email.asset"),
-        ("system_name", "notification.email.system"),
-        ("vmid", "notification.email.vmid"),
-        ("asset_type", "notification.email.asset_type"),
-        ("system_type", "notification.email.system_type"),
-        ("source_plugin", "notification.email.asset_source"),
-        ("installed_version", "notification.email.installed_version"),
-        ("latest_version", "notification.email.latest_version"),
-        ("host_url", "notification.email.host_url"),
-        ("checked_at", "notification.email.checked_at"),
-        ("ip", "notification.email.ip"),
-        ("country", "notification.email.country"),
-        ("path", "notification.email.path"),
-        ("asn", "notification.email.asn"),
-        ("previous_provider_name", "notification.email.previous_asn_organization"),
-        ("provider_name", "notification.email.asn_organization"),
-        ("provider_name_changed_at", "notification.email.detected_at"),
-        ("duration", "notification.email.duration"),
-        ("scenario", "notification.email.scenario"),
-        ("severity", "notification.email.severity"),
-        ("level", "notification.email.level"),
-    )
+    subject = f"{text('notification.email.subject_prefix')}{instance_label} · {name}"
+
     if len(pending) > 1:
         heading = text("notification.email.digest_title").format(count=len(pending), name=name, minutes=rule.window_minutes)
         lines = [heading, ""]
         displayed = pending if rule.source == "asset" else pending[:5]
         for item in displayed:
             payload = item.payload or {}
-            parts = [f"{text(label)}: {payload[key]}" for key, label in fields if payload.get(key)]
+            parts = [
+                f"{label}: {value}"
+                for label, value in notification_detail_rows(payload, language, timezone_name)
+            ]
             if parts:
                 summary = " · ".join(parts)
                 lines.append(summary)
@@ -532,12 +595,8 @@ def render_notification(db: Session, rule: NotificationRule, pending: list[Notif
         payload = pending[0].payload or {}
         heading = name
         lines = [name]
-        for key, label in fields:
-            if payload.get(key):
-                label_text = text(label)
-                value_text = str(payload[key])
-                details.append((label_text, value_text))
-                lines.append(f"{label_text}: {value_text}")
+        details = notification_detail_rows(payload, language, timezone_name)
+        lines.extend(f"{label}: {value}" for label, value in details)
     payload = pending[0].payload or {}
     if rule.source == "asset":
         for item in pending:
@@ -604,6 +663,9 @@ def _detect_offline_systems(db: Session) -> None:
             System.id,
             System.hostname,
             System.last_seen,
+            System.vmid,
+            System.system_type,
+            System.source_plugin,
             asset_id.label("asset_id"),
         )
         .filter(
@@ -625,7 +687,7 @@ def _detect_offline_systems(db: Session) -> None:
         )
         .all()
     )
-    for system_id, hostname, last_seen, first_asset_id in candidates:
+    for system_id, hostname, last_seen, vmid, system_type, source_plugin, first_asset_id in candidates:
         if not _claim_offline_system(db, system_id, last_seen):
             continue
         from app.services.events import store_event
@@ -639,7 +701,13 @@ def _detect_offline_systems(db: Session) -> None:
             severity="warning",
             asset_id=first_asset_id,
             hostname=hostname,
-            data_json={"system": hostname, "last_seen": last_seen.isoformat()},
+            data_json={
+                "system": hostname,
+                "last_seen": last_seen.isoformat(),
+                "vmid": vmid,
+                "system_type": system_type,
+                "source_plugin": source_plugin,
+            },
         )
 
 

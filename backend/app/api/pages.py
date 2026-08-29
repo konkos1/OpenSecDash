@@ -52,6 +52,7 @@ from app.services.notification_channels import get_channel
 from app.services.notifications import (
     editable_notification_rule_ids,
     invalidate_rules_cache,
+    notification_detail_rows,
     notification_rule_views,
 )
 from app.services.rollups import DAILY_ROLLUP_WINDOW_DAYS, combine_rollup_values
@@ -2021,8 +2022,17 @@ def notifications_page(request: Request, test: str | None = None, db: Session = 
     }
     stored_rules = db.query(NotificationRule).order_by(NotificationRule.name).all()
     rule_names = {rule.rule_id: rule.name for rule in stored_rules}
-    rules = notification_rule_views(db, get_setting_value(db, "language", "en"))
+    language = get_setting_value(db, "language", "en")
+    timezone_name = get_setting_value(db, "timezone", "auto")
+    rules = notification_rule_views(db, language)
     history = db.query(Notification).order_by(Notification.created_at.desc()).limit(50).all()
+    history_details = {
+        item.id: " · ".join(
+            f"{label}: {value}"
+            for label, value in notification_detail_rows(item.payload or {}, language, timezone_name)
+        )
+        for item in history
+    }
     channel = get_channel("email")
     configured = get_setting_value(db, "notifications.enabled", "false") == "true" and channel is not None and channel.is_configured(db)
     return render(
@@ -2032,6 +2042,7 @@ def notifications_page(request: Request, test: str | None = None, db: Session = 
         counts=counts,
         rules=rules,
         history=history,
+        history_details=history_details,
         rule_names=rule_names,
         configured=configured,
         test_result=test if test in {"ok", "failed"} else None,

@@ -53,7 +53,7 @@
     <section class="card overflow-x-auto responsive-table">
         <h3 class="font-semibold mb-3">{{ t("notifications.history") }}</h3>
         <table class="w-full text-sm table-middle">
-            <thead><tr><th>{{ t("common.time") }}</th><th>{{ t("notifications.rule") }}</th><th>{{ t("notifications.channel") }}</th><th>{{ t("common.status") }}</th><th>{{ t("notifications.subject_error") }}</th></tr></thead>
+            <thead><tr><th>{{ t("common.time") }}</th><th>{{ t("notifications.rule") }}</th><th>{{ t("notifications.channel") }}</th><th>{{ t("common.status") }}</th><th>{{ t("notifications.subject_error") }}</th><th>{{ t("notifications.details") }}</th></tr></thead>
             <tbody>
                 {% for item in history %}
                     <tr>
@@ -62,9 +62,10 @@
                         <td>{{ item.channel }}</td>
                         <td><b class="status-badge status-{{ item.status }}">{{ t("notifications.status." ~ item.status) }}</b></td>
                         <td>{{ (item.error[:200] if item.status == 'failed' and item.error else item.subject or '') }}</td>
+                        <td>{{ history_details.get(item.id) or t("common.none") }}</td>
                     </tr>
                 {% else %}
-                    <tr><td colspan="5" class="muted">{{ t("notifications.no_history") }}</td></tr>
+                    <tr><td colspan="6" class="muted">{{ t("notifications.no_history") }}</td></tr>
                 {% endfor %}
             </tbody>
         </table>
