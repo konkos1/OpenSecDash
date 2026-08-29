@@ -7,7 +7,7 @@ requires-python = ">=3.13"
 dependencies = [
     "alembic>=1.19.1",
     "authlib>=1.7.2",
-    "cryptography>=50.0.0",
+    "cryptography>=50.0.1",
     "fastapi>=0.141.1",
     # Keep greenlet on a patch release with a locked sdist for release evidence.
     "greenlet>=3.5.5,<3.5.6",
