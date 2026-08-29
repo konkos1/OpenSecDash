@@ -10,6 +10,8 @@ from app.models.assets import Asset
 
 from app.services.github_releases import get_latest_github_release
 from app.services.github_releases import github_repo_from_url
+from app.services.github_releases import github_release_notes_url
+from app.services.notifications import handle_asset_update
 
 ReleaseCache: TypeAlias = dict[str, tuple[bool, str | None, str | None]]
 
@@ -65,6 +67,8 @@ def refresh_asset_update(db: Session, asset: Asset, release_cache: ReleaseCache 
     correct when a user simply changes the installed version to match an already
     known latest release, and it also makes this helper easy to unit test later.
     """
+    previous_latest_version = asset.latest_version
+    previous_update_available = asset.update_available
     if asset.latest_version:
         _apply_update_state(asset, asset.latest_version)
 
@@ -81,7 +85,19 @@ def refresh_asset_update(db: Session, asset: Asset, release_cache: ReleaseCache 
     if not latest_version:
         return {"checked": 1, "updated": 0, "failed": 0}
 
-    return {"checked": 1, "updated": 1 if _apply_update_state(asset, latest_version) else 0, "failed": 0}
+    updated = _apply_update_state(asset, latest_version)
+    new_update = asset.update_available and (
+        not previous_update_available
+        or previous_latest_version is None
+        or previous_latest_version.strip().lower() != latest_version.strip().lower()
+    )
+    if new_update:
+        handle_asset_update(
+            db,
+            asset,
+            release_notes_url=github_release_notes_url(repo, latest_version),
+        )
+    return {"checked": 1, "updated": 1 if updated else 0, "failed": 0}
 
 
 def refresh_asset_updates(db: Session) -> dict[str, Any]:

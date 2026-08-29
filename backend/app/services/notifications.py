@@ -95,6 +95,17 @@ DEFAULT_NOTIFICATION_RULES = (
         "enabled": False,
     },
     {
+        "rule_id": "core.asset_update_available",
+        "name": "Asset update available",
+        "source": "asset",
+        "match_types": ["asset.update_available"],
+        "min_severity": "info",
+        "min_count": 1,
+        "window_minutes": 10,
+        "cooldown_minutes": 1,
+        "enabled": False,
+    },
+    {
         "rule_id": "core.asset_offline",
         "name": "Asset offline",
         "source": "event",
@@ -426,6 +437,45 @@ def handle_insight(db: Session, insight: Insight, occurred_at: datetime | None =
         logger.exception("Notification engine failed while handling insight id=%s", insight.id)
 
 
+def handle_asset_update(db: Session, asset: Asset, *, release_notes_url: str) -> None:
+    """Queue a notification when a newly detected asset update matches a rule."""
+    try:
+        if asset.id is None:
+            db.flush([asset])
+        rules, notifications_enabled = _active_rules(db)
+        if not notifications_enabled:
+            return
+        system = asset.system
+        for rule in rules:
+            if rule.source != "asset" or not _type_matches(rule.match_types, "asset.update_available"):
+                continue
+            if rule.asset_id is not None and asset.id != rule.asset_id:
+                continue
+            _enqueue(
+                db,
+                rule,
+                {
+                    "source": "asset",
+                    "type": "asset.update_available",
+                    "asset_id": asset.id,
+                    "asset_name": asset.name,
+                    "asset_type": asset.type,
+                    "system_id": asset.system_id,
+                    "system_name": system.hostname if system is not None else None,
+                    "system_type": system.system_type if system is not None else None,
+                    "vmid": system.vmid if system is not None else None,
+                    "source_plugin": asset.source_plugin,
+                    "installed_version": asset.version,
+                    "latest_version": asset.latest_version,
+                    "host_url": asset.host_url,
+                    "checked_at": asset.last_checked.isoformat() if asset.last_checked is not None else None,
+                    "release_notes_url": release_notes_url,
+                },
+            )
+    except Exception:
+        logger.exception("Notification engine failed while handling asset update id=%s", asset.id)
+
+
 def render_notification(db: Session, rule: NotificationRule, pending: list[Notification]) -> tuple[str, str, str]:
     """Render one multipart notification or digest in the configured language."""
     language = get_setting_value(db, "language", "en")
@@ -442,6 +492,16 @@ def render_notification(db: Session, rule: NotificationRule, pending: list[Notif
     more_text: str | None = None
     links: list[tuple[str, str]] = []
     fields = (
+        ("asset_name", "notification.email.asset"),
+        ("system_name", "notification.email.system"),
+        ("vmid", "notification.email.vmid"),
+        ("asset_type", "notification.email.asset_type"),
+        ("system_type", "notification.email.system_type"),
+        ("source_plugin", "notification.email.asset_source"),
+        ("installed_version", "notification.email.installed_version"),
+        ("latest_version", "notification.email.latest_version"),
+        ("host_url", "notification.email.host_url"),
+        ("checked_at", "notification.email.checked_at"),
         ("ip", "notification.email.ip"),
         ("country", "notification.email.country"),
         ("path", "notification.email.path"),
@@ -457,14 +517,15 @@ def render_notification(db: Session, rule: NotificationRule, pending: list[Notif
     if len(pending) > 1:
         heading = text("notification.email.digest_title").format(count=len(pending), name=name, minutes=rule.window_minutes)
         lines = [heading, ""]
-        for item in pending[:5]:
+        displayed = pending if rule.source == "asset" else pending[:5]
+        for item in displayed:
             payload = item.payload or {}
             parts = [f"{text(label)}: {payload[key]}" for key, label in fields if payload.get(key)]
             if parts:
                 summary = " · ".join(parts)
                 lines.append(summary)
                 items.append(summary)
-        if len(pending) > 5:
+        if rule.source != "asset" and len(pending) > 5:
             more_text = text("notification.email.and_more").format(count=len(pending) - 5)
             lines.extend(["", more_text])
     else:
@@ -477,8 +538,27 @@ def render_notification(db: Session, rule: NotificationRule, pending: list[Notif
                 value_text = str(payload[key])
                 details.append((label_text, value_text))
                 lines.append(f"{label_text}: {value_text}")
-    if base_url:
-        payload = pending[0].payload or {}
+    payload = pending[0].payload or {}
+    if rule.source == "asset":
+        for item in pending:
+            item_payload = item.payload or {}
+            release_notes_url = str(item_payload.get("release_notes_url") or "")
+            if not release_notes_url:
+                continue
+            asset_name = str(item_payload.get("asset_name") or name)
+            link = (
+                text("notification.email.release_notes_for").format(asset=asset_name),
+                release_notes_url,
+            )
+            if link not in links:
+                links.append(link)
+                lines.extend(["", f"{link[0]}: {link[1]}"])
+        if base_url:
+            asset_path = f"/assets/system/{payload['system_id']}" if payload.get("system_id") else "/assets"
+            asset_link = (text("notification.email.open_assets"), f"{base_url}{asset_path}")
+            links.append(asset_link)
+            lines.extend(["", f"{asset_link[0]}: {asset_link[1]}"])
+    elif base_url:
         event_type = str(payload.get("type") or "")
         if event_type == "system.plugin_error":
             link_path, link_label = "/diagnostics", "notification.email.open_diagnostics"

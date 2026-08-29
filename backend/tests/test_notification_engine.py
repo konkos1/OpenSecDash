@@ -3,11 +3,13 @@ from datetime import timedelta
 import pytest
 
 from app.core.time import utc_now
+from app.models.assets import Asset
 from app.models.core import Insight, Notification, NotificationRule
 from app.models.events import Event
+from app.models.systems import System
 from app.plugins.manager import get_plugin_manager
 from app.services.events import store_event
-from app.services.notifications import handle_event, handle_insight, insight_notification_rule_id, invalidate_rules_cache, seed_default_notification_rules
+from app.services.notifications import handle_asset_update, handle_event, handle_insight, insight_notification_rule_id, invalidate_rules_cache, seed_default_notification_rules
 from app.services.settings import save_setting
 
 
@@ -244,6 +246,41 @@ def test_enabled_insight_notification_rule_matches_only_its_exact_type(db_sessio
     assert len(notifications) == 1
     assert notifications[0].payload is not None
     assert notifications[0].payload["insight_id"] == matching.id
+
+
+def test_asset_update_queues_notification_with_asset_and_system_details(db_session):
+    system = System(vmid="100", hostname="edge-01", system_type="lxc", source_plugin="json_assets")
+    db_session.add(system)
+    db_session.flush()
+    asset = Asset(
+        system_id=system.id,
+        name="Traefik",
+        type="application",
+        source_plugin="json_assets",
+        version="v3.0.0",
+        latest_version="v3.1.0",
+        host_url="https://proxy.example.test",
+        update_available=True,
+        last_checked=utc_now().replace(tzinfo=None),
+    )
+    db_session.add(asset)
+    db_session.flush()
+
+    handle_asset_update(
+        db_session,
+        asset,
+        release_notes_url="https://github.com/traefik/traefik/releases/tag/v3.1.0",
+    )
+
+    notifications = _notifications(db_session, "core.asset_update_available")
+    assert len(notifications) == 1
+    assert notifications[0].payload is not None
+    assert notifications[0].payload["asset_name"] == "Traefik"
+    assert notifications[0].payload["system_name"] == "edge-01"
+    assert notifications[0].payload["vmid"] == "100"
+    assert notifications[0].payload["installed_version"] == "v3.0.0"
+    assert notifications[0].payload["latest_version"] == "v3.1.0"
+    assert notifications[0].payload["release_notes_url"].endswith("/releases/tag/v3.1.0")
 
 
 def test_pending_insight_is_flushed_before_notification_matching(db_session):

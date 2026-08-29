@@ -22,6 +22,12 @@
 > multiple workers do not produce duplicate offline events. Failed sends are
 > not retried automatically in V1.
 >
+> Newly detected asset versions enter the engine directly as the
+> `asset.update_available` notification source. The built-in rule is opt-in and
+> emits only when an asset first becomes outdated or a different latest version
+> is detected. Its payload contains the available asset and system metadata and
+> an exact GitHub release-notes link.
+>
 > Each known Insight type has its own persisted notification rule. Declarative
 > rule imports update display metadata without replacing the user's enabled,
 > window, or cooldown choices. Built-in and declarative Insights describe their
@@ -30,13 +36,13 @@
 > produce every required input. Plugin disablement preserves the user's choice;
 > it only makes the checkbox and matcher temporarily unavailable.
 >
-> All newly seeded event, system, ASN, and Insight notification rules are disabled.
+> All newly seeded event, system, ASN, asset-update, and Insight notification rules are disabled.
 > Delivery is opt-in per rule in addition to the global notification setting. Rule
 > synchronization and upgrades preserve an existing enabled or disabled choice.
 
 ## Goal
 
-OpenSecDash should be able to actively report events, actions, and insights.
+OpenSecDash should be able to actively report events, actions, insights, and asset updates.
 
 
 ---
@@ -78,6 +84,7 @@ Channel
 Event
 Insight
 Action
+Asset update
 
 ↓
 
@@ -133,6 +140,15 @@ Example:
 Example:
 
 `Plugin error`
+
+
+---
+
+## Asset updates
+
+Example:
+
+`asset.update_available`
 
 
 ---
@@ -216,7 +232,7 @@ can point to an optional PEM CA certificate file available to the backend.
 
 Rules:
 
-`CrowdSec Ban`\n\n`Scanner detected`\n\n`Asset offline`\n\n`Plugin error`
+`CrowdSec Ban`\n\n`Scanner detected`\n\n`Asset update available`\n\n`Asset offline`\n\n`Plugin error`
 
 
 ---
@@ -390,6 +406,8 @@ This creates:
 Event
 ↓
 Insight
+↓
+Asset update
 ↓
 Notification Rule
 ↓

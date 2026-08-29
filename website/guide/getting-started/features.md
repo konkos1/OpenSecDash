@@ -220,7 +220,7 @@ This makes it easier to understand whether a missing event is a configuration is
 
 ## Notifications
 
-The Notifications page can turn matching events and insights into SMTP email alerts. It keeps delivery history, supports a test email, and uses cooldowns and digest aggregation to avoid alert floods. See [Notifications](../configuration/notifications.md) for setup and the built-in rules.
+The Notifications page can turn matching events, insights, and newly available asset versions into SMTP email alerts. It keeps delivery history, supports a test email, and uses cooldowns and digest aggregation to avoid alert floods. See [Notifications](../configuration/notifications.md) for setup and the built-in rules.
 
 ## Trust-aware deployment
 

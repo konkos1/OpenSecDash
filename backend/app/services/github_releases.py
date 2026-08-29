@@ -1,4 +1,5 @@
 import re
+from urllib.parse import quote
 
 import requests
 
@@ -20,6 +21,11 @@ def github_repo_from_url(url: str | None) -> str | None:
         return None
 
     return f"{match.group(1)}/{match.group(2)}"
+
+
+def github_release_notes_url(repo: str, version: str) -> str:
+    """Build the public release-notes URL for one GitHub release tag."""
+    return f"https://github.com/{repo}/releases/tag/{quote(version, safe='')}"
 
 
 def get_latest_github_release(
