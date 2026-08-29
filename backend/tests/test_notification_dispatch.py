@@ -172,6 +172,8 @@ def test_dispatch_asset_update_includes_all_details_and_release_notes_link(db_se
     assert "Release notes for Traefik: https://github.com/traefik/traefik/releases/tag/v3.1.0" in body
     assert "Open assets: http://dashboard.example/assets/system/7" in body
     assert 'href="https://github.com/traefik/traefik/releases/tag/v3.1.0"' in (html_body or "")
+    assert 'href="http://dashboard.example/assets/system/7"' in (html_body or "")
+    assert (html_body or "").count("background:#2563eb") == 2
 
 
 def test_dispatch_omits_links_without_base_url(db_session, monkeypatch):

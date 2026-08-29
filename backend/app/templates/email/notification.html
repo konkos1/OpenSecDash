@@ -34,11 +34,10 @@
           {% endif %}
           {% if more_text %}<p style="color:#94a3b8;font-size:14px;margin:0 0 20px">{{ more_text }}</p>{% endif %}
           {% if links %}
-            <p style="margin:4px 0 0">
-              <a href="{{ links[0][1] }}" style="background:#2563eb;border-radius:10px;color:#ffffff;display:inline-block;font-size:15px;font-weight:700;padding:11px 16px;text-decoration:none">{{ links[0][0] }}</a>
-            </p>
-            {% for label, url in links[1:] %}
-              <p style="font-size:14px;margin:14px 0 0"><a href="{{ url }}" style="color:#60a5fa;text-decoration:underline">{{ label }}</a></p>
+            {% for label, url in links %}
+              <p style="margin:{{ '4px' if loop.first else '12px' }} 0 0">
+                <a href="{{ url }}" style="background:#2563eb;border-radius:10px;color:#ffffff;display:inline-block;font-size:15px;font-weight:700;padding:11px 16px;text-decoration:none">{{ label }}</a>
+              </p>
             {% endfor %}
           {% endif %}
         </td>
