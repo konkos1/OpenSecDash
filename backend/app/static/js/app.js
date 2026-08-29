@@ -322,6 +322,56 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
+    const returnScrollRestoreKey = "opensecdash:return-scroll-restore";
+    let returnScrollRestore = null;
+    try {
+        returnScrollRestore = sessionStorage.getItem(returnScrollRestoreKey);
+        sessionStorage.removeItem(returnScrollRestoreKey);
+    } catch {
+        // Scroll restoration is an enhancement; blocked session storage must
+        // not prevent the form action or the following redirect.
+    }
+    if (returnScrollRestore !== null) {
+        try {
+            const restore = JSON.parse(returnScrollRestore);
+            const currentUrl = `${window.location.pathname}${window.location.search}`;
+            const scrollX = Number(restore.scrollX);
+            const scrollY = Number(restore.scrollY);
+            const scrollLefts = Array.isArray(restore.scrollLefts) ? restore.scrollLefts : [];
+            if (restore.url === currentUrl && Number.isFinite(scrollX) && Number.isFinite(scrollY)) {
+                setTimeout(() => {
+                    document.querySelectorAll(".overflow-x-auto").forEach((element, index) => {
+                        const scrollLeft = Number(scrollLefts[index]);
+                        if (Number.isFinite(scrollLeft)) {
+                            element.scrollLeft = scrollLeft;
+                        }
+                    });
+                    window.scrollTo(scrollX, scrollY);
+                }, 500);
+            }
+        } catch {
+            // Ignore stale or malformed browser-local restore values.
+        }
+    }
+
+    document.addEventListener("submit", event => {
+        const form = event.target.closest("form[data-restore-scroll]");
+        if (!form || event.defaultPrevented) {
+            return;
+        }
+        const restore = JSON.stringify({
+            url: `${window.location.pathname}${window.location.search}`,
+            scrollX: window.scrollX,
+            scrollY: window.scrollY,
+            scrollLefts: Array.from(document.querySelectorAll(".overflow-x-auto")).map(element => element.scrollLeft),
+        });
+        try {
+            sessionStorage.setItem(returnScrollRestoreKey, restore);
+        } catch {
+            // The form action remains usable when session storage is blocked.
+        }
+    });
+
     const settingsRestoreKey = "opensecdash:settings-restore";
     const settingsRestoreCookie = "opensecdash_settings_restore";
     let settingsRestore = null;
@@ -737,6 +787,7 @@ function showAsnOverlay(trigger) {
         form.method = "post";
         form.action = trigger.dataset.enableUrl;
         form.dataset.confirm = trigger.dataset.enableConfirm || "";
+        form.setAttribute("data-restore-scroll", "true");
         form.setAttribute("data-submit-busy", "true");
 
         const eventId = document.createElement("input");
