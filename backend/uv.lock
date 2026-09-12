@@ -70,6 +70,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "greenlet" },
     { name = "httpx" },
+    { name = "httpx2" },
     { name = "itsdangerous" },
     { name = "jinja2" },
     { name = "paho-mqtt" },
@@ -83,7 +84,6 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "httpx2" },
     { name = "pip-audit" },
     { name = "pyright" },
     { name = "pytest" },
@@ -97,6 +97,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.141.1" },
     { name = "greenlet", specifier = ">=3.5.5,<3.5.6" },
     { name = "httpx", specifier = ">=0.28.1" },
+    { name = "httpx2", specifier = ">=2.12.0" },
     { name = "itsdangerous", specifier = ">=2.2.0" },
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "paho-mqtt", specifier = ">=2.1.0" },
@@ -110,7 +111,6 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "httpx2", specifier = ">=2.12.0" },
     { name = "pip-audit", specifier = "==2.10.1" },
     { name = "pyright", specifier = ">=1.1.411" },
     { name = "pytest", specifier = ">=9.0.2" },
