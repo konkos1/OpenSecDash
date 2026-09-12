@@ -61,6 +61,12 @@
 > its limited scope, and carry a future expiry date. A separate release step validates
 > those properties so an expired or malformed exception blocks publication even when
 > the scanner no longer reports the finding.
+> Update (2026-09-12): fixable vulnerabilities in runtime Debian packages are patched
+> from a timestamp-pinned Debian snapshot using exact binary package versions. The
+> snapshot source configuration and version pins are committed with the Dockerfile so
+> cold-cache builds remain reproducible; broad upgrades from mutable package indexes
+> are not used. Package/license evidence and the Trivy release gate continue to inspect
+> the resulting final image.
 
 
 
