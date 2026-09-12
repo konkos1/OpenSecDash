@@ -160,11 +160,11 @@
       "license": "BSD-3-Clause",
       "name": "Authlib",
       "source": "https://github.com/authlib/authlib",
-      "source_archive": "https://files.pythonhosted.org/packages/36/98/7d93f30d029643c0275dbc0bd6d5a6f670661ee6c9a94d93af7ab4887600/authlib-1.7.2.tar.gz",
-      "source_archive_sha256": "2cea25fefcd4e7173bdf1372c0afc265c8034b23a8cd5dcb6a9164b826c64231",
-      "source_archive_size": 176511,
+      "source_archive": "https://files.pythonhosted.org/packages/f1/51/bc1729d3cfdc214b4935f4e886e4dd443c3065fd8e1e66423fe84b490f81/authlib-1.8.0.tar.gz",
+      "source_archive_sha256": "f3ecd5f1da737262fb53bf1a4d95c4ea1ad9dd509316587a255c99ab1838a4f0",
+      "source_archive_size": 177759,
       "source_required": false,
-      "version": "1.7.2"
+      "version": "1.8.0"
     },
     {
       "distributed_files": [],
@@ -362,6 +362,26 @@
         {
           "kind": "license",
           "name": "LICENSE.md",
+          "text": "Copyright © 2026 to present Pydantic Services Inc. and individual contributors.\nCopyright © 2020, [Encode OSS Ltd](https://www.encode.io/).\nAll rights reserved.\n\nRedistribution and use in source and binary forms, with or without\nmodification, are permitted provided that the following conditions are met:\n\n* Redistributions of source code must retain the above copyright notice, this\n  list of conditions and the following disclaimer.\n\n* Redistributions in binary form must reproduce the above copyright notice,\n  this list of conditions and the following disclaimer in the documentation\n  and/or other materials provided with the distribution.\n\n* Neither the name of the copyright holder nor the names of its\n  contributors may be used to endorse or promote products derived from\n  this software without specific prior written permission.\n\nTHIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS \"AS IS\"\nAND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE\nIMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE\nDISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE\nFOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL\nDAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR\nSERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER\nCAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,\nOR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE\nOF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."
+        }
+      ],
+      "ecosystem": "Python",
+      "homepage": "https://github.com/pydantic/httpx2/blob/main/src/httpcore2",
+      "license": "BSD-3-Clause",
+      "name": "httpcore2",
+      "source": "https://github.com/pydantic/httpx2/blob/main/src/httpcore2",
+      "source_archive": "https://files.pythonhosted.org/packages/be/ad/f4f0e57345f1870f3e8cb624e058d7eca6e5a27d33bcc3311d9b618734cd/httpcore2-2.12.0.tar.gz",
+      "source_archive_sha256": "9293522bba0aa7c4c8e9e3f040c16575bd8868e155a77fa30c7a9085a5eae648",
+      "source_archive_size": 67548,
+      "source_required": false,
+      "version": "2.12.0"
+    },
+    {
+      "distributed_files": [],
+      "documents": [
+        {
+          "kind": "license",
+          "name": "LICENSE.md",
           "text": "Copyright © 2019, [Encode OSS Ltd](https://www.encode.io/).\nAll rights reserved.\n\nRedistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:\n\n* Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.\n\n* Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.\n\n* Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.\n\nTHIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."
         }
       ],
@@ -375,6 +395,26 @@
       "source_archive_size": 141406,
       "source_required": false,
       "version": "0.28.1"
+    },
+    {
+      "distributed_files": [],
+      "documents": [
+        {
+          "kind": "license",
+          "name": "LICENSE.md",
+          "text": "Copyright © 2026 to present Pydantic Services Inc. and individual contributors.\nCopyright © 2019, [Encode OSS Ltd](https://www.encode.io/).\nAll rights reserved.\n\nRedistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:\n\n* Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.\n\n* Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.\n\n* Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.\n\nTHIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."
+        }
+      ],
+      "ecosystem": "Python",
+      "homepage": "https://github.com/pydantic/httpx2",
+      "license": "BSD-3-Clause",
+      "name": "httpx2",
+      "source": "https://github.com/pydantic/httpx2",
+      "source_archive": "https://files.pythonhosted.org/packages/7f/f8/579a8b51e42e38ee32647df9f08aa25643ae788e275cc625b199829c4671/httpx2-2.12.0.tar.gz",
+      "source_archive_sha256": "7631fe9887a8a2275f4a2540e053aa670fcc50742864a9ae7c66e609fdcf12cf",
+      "source_archive_size": 100040,
+      "source_required": false,
+      "version": "2.12.0"
     },
     {
       "distributed_files": [],
@@ -705,6 +745,26 @@
       "source_archive_size": 2716969,
       "source_required": false,
       "version": "1.6.0"
+    },
+    {
+      "distributed_files": [],
+      "documents": [
+        {
+          "kind": "license",
+          "name": "LICENSE",
+          "text": "The MIT License (MIT)\n\nCopyright (c) 2022 Seth Michael Larson\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in\nall copies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN\nTHE SOFTWARE."
+        }
+      ],
+      "ecosystem": "Python",
+      "homepage": "https://github.com/sethmlarson/truststore",
+      "license": "MIT",
+      "name": "truststore",
+      "source": "https://github.com/sethmlarson/truststore",
+      "source_archive": "https://files.pythonhosted.org/packages/53/a3/1585216310e344e8102c22482f6060c7a6ea0322b63e026372e6dcefcfd6/truststore-0.10.4.tar.gz",
+      "source_archive_sha256": "9d91bd436463ad5e4ee4aba766628dd6cd7010cf3e2461756b3303710eebc301",
+      "source_archive_size": 26169,
+      "source_required": false,
+      "version": "0.10.4"
     },
     {
       "distributed_files": [],
