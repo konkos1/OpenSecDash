@@ -9,6 +9,7 @@ from pathlib import Path
 
 import certifi
 import httpx
+import httpx2
 import pytest
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
@@ -640,7 +641,7 @@ def test_provider_connections_verify_against_that_trust_store(monkeypatch):
     discovery: dict[str, object] = {}
     connection: dict[str, object] = {}
     real_client = httpx.AsyncClient
-    real_transport = httpx.AsyncHTTPTransport
+    real_transport = httpx2.AsyncHTTPTransport
 
     def client_spy(*args, **kwargs):
         discovery.update(kwargs)
@@ -651,7 +652,7 @@ def test_provider_connections_verify_against_that_trust_store(monkeypatch):
         return real_transport(*args, **kwargs)
 
     monkeypatch.setattr(httpx, "AsyncClient", client_spy)
-    monkeypatch.setattr(httpx, "AsyncHTTPTransport", transport_spy)
+    monkeypatch.setattr(httpx2, "AsyncHTTPTransport", transport_spy)
     _fetch(DISCOVERY_URL, lambda request: _json_response(_metadata()))
     oidc.build_oauth_client(_config(), _metadata())
 
@@ -666,11 +667,13 @@ def test_provider_connections_verify_against_that_trust_store(monkeypatch):
 # --- response size limits --------------------------------------------------
 
 
-def _limited_request(response: httpx.Response) -> httpx.Response:
-    transport = oidc._SizeLimitedTransport(httpx.MockTransport(lambda request: response), oidc.MAX_PROVIDER_RESPONSE_BYTES)
+def _limited_request(response: httpx2.Response) -> httpx2.Response:
+    transport = oidc._SizeLimitedTransport(
+        httpx2.MockTransport(lambda request: response), oidc.MAX_PROVIDER_RESPONSE_BYTES
+    )
 
     async def send():
-        async with httpx.AsyncClient(transport=transport) as client:
+        async with httpx2.AsyncClient(transport=transport) as client:
             return await client.get(f"{ISSUER}/jwks")
 
     return asyncio.run(send())
@@ -686,13 +689,13 @@ def test_authlib_requests_carry_the_response_size_limit():
 
 
 def test_an_oversized_provider_response_is_stopped():
-    oversized = httpx.Response(200, content=b"x" * (oidc.MAX_PROVIDER_RESPONSE_BYTES + 1))
+    oversized = httpx2.Response(200, content=b"x" * (oidc.MAX_PROVIDER_RESPONSE_BYTES + 1))
 
     assert _error_code(_limited_request, oversized) == "response_too_large"
 
 
 def test_an_oversized_announcement_is_stopped_before_the_body():
-    lying_header = httpx.Response(
+    lying_header = httpx2.Response(
         200,
         content=b"{}",
         headers={"content-length": str(oidc.MAX_PROVIDER_RESPONSE_BYTES + 1)},
@@ -702,7 +705,7 @@ def test_an_oversized_announcement_is_stopped_before_the_body():
 
 
 def test_a_normal_provider_response_passes_the_limit():
-    allowed = _limited_request(_json_response({"keys": []}))
+    allowed = _limited_request(httpx2.Response(200, json={"keys": []}))
 
     assert allowed.json() == {"keys": []}
 
