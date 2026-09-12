@@ -1,0 +1,14 @@
+# Runtime security updates use an immutable snapshot so cold-cache builds stay reproducible.
+Types: deb
+URIs: https://snapshot.debian.org/archive/debian/20260912T150000Z
+Suites: trixie trixie-updates
+Components: main
+Signed-By: /usr/share/keyrings/debian-archive-keyring.pgp
+Check-Valid-Until: no
+
+Types: deb
+URIs: https://snapshot.debian.org/archive/debian-security/20260912T150000Z
+Suites: trixie-security
+Components: main
+Signed-By: /usr/share/keyrings/debian-archive-keyring.pgp
+Check-Valid-Until: no
