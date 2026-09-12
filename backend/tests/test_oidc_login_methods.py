@@ -2,7 +2,6 @@ import time
 from pathlib import Path
 from urllib.parse import parse_qsl, urlsplit
 
-import httpx
 import httpx2
 import pytest
 from fastapi.testclient import TestClient
@@ -77,8 +76,8 @@ class FakeProvider:
         self.claim_overrides: dict[str, object] = {}
 
     @property
-    def transport(self) -> httpx.MockTransport:
-        return httpx.MockTransport(self._handle)
+    def transport(self) -> httpx2.MockTransport:
+        return httpx2.MockTransport(self._handle)
 
     def claims(self) -> dict[str, object]:
         now = int(time.time())
@@ -95,9 +94,9 @@ class FakeProvider:
         payload.update(self.claim_overrides)
         return payload
 
-    def _handle(self, request: httpx.Request) -> httpx.Response:
+    def _handle(self, request: httpx2.Request) -> httpx2.Response:
         if request.url.path == "/token":
-            return httpx.Response(
+            return httpx2.Response(
                 200,
                 json={
                     "access_token": "provider-access-token-value",
@@ -107,8 +106,8 @@ class FakeProvider:
                 },
             )
         if request.url.path == "/jwks":
-            return httpx.Response(200, json=self.published_keys.as_dict(private=False))
-        return httpx.Response(404, json={})
+            return httpx2.Response(200, json=self.published_keys.as_dict(private=False))
+        return httpx2.Response(404, json={})
 
 
 @pytest.fixture()
@@ -858,9 +857,9 @@ def _break_provider(provider: FakeProvider, monkeypatch, failure: str) -> None:
 
     broken_path = "/jwks" if failure == "jwks" else "/token"
 
-    def failing_handler(request: httpx.Request) -> httpx.Response:
+    def failing_handler(request: httpx2.Request) -> httpx2.Response:
         if request.url.path == broken_path:
-            return httpx.Response(500, json={})
+            return httpx2.Response(500, json={})
         return FakeProvider._handle(provider, request)
 
     monkeypatch.setattr(provider, "_handle", failing_handler)

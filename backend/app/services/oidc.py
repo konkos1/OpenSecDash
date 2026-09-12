@@ -13,6 +13,7 @@ from typing import Any, cast
 from urllib.parse import urljoin, urlsplit
 
 import httpx
+import httpx2
 from authlib.integrations.starlette_client import OAuth, StarletteOAuth2App
 from sqlalchemy.orm import Session
 
@@ -275,7 +276,7 @@ def _ssl_context() -> ssl.SSLContext:
     return ssl.create_default_context()
 
 
-class _LimitedStream(httpx.AsyncByteStream):
+class _LimitedStream(httpx2.AsyncByteStream):
     """Yield a provider response only as long as it stays below the limit."""
 
     def __init__(self, stream: Any, max_bytes: int) -> None:
@@ -296,7 +297,7 @@ class _LimitedStream(httpx.AsyncByteStream):
             await close()
 
 
-class _SizeLimitedTransport(httpx.AsyncBaseTransport):
+class _SizeLimitedTransport(httpx2.AsyncBaseTransport):
     """Cap every response Authlib reads on its own.
 
     Authlib loads the token, JWKS and userinfo answers completely into memory,
@@ -305,17 +306,17 @@ class _SizeLimitedTransport(httpx.AsyncBaseTransport):
     stopped before a huge answer is buffered.
     """
 
-    def __init__(self, inner: httpx.AsyncBaseTransport, max_bytes: int) -> None:
+    def __init__(self, inner: httpx2.AsyncBaseTransport, max_bytes: int) -> None:
         self.inner = inner
         self.max_bytes = max_bytes
 
-    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+    async def handle_async_request(self, request: httpx2.Request) -> httpx2.Response:
         response = await self.inner.handle_async_request(request)
         declared = response.headers.get("content-length")
         if declared is not None and declared.isdigit() and int(declared) > self.max_bytes:
             await response.aclose()
             raise OidcConfigurationError("response_too_large")
-        return httpx.Response(
+        return httpx2.Response(
             status_code=response.status_code,
             headers=response.headers,
             stream=_LimitedStream(response.stream, self.max_bytes),
@@ -327,14 +328,23 @@ class _SizeLimitedTransport(httpx.AsyncBaseTransport):
         await self.inner.aclose()
 
 
-def _provider_transport(transport: httpx.AsyncBaseTransport | None = None) -> httpx.AsyncBaseTransport:
+def _provider_transport(transport: httpx2.AsyncBaseTransport | None = None) -> httpx2.AsyncBaseTransport:
     """Return the size-limited transport used for all requests Authlib makes."""
-    inner = transport if transport is not None else httpx.AsyncHTTPTransport(verify=_ssl_context(), trust_env=False)
+    inner = transport if transport is not None else httpx2.AsyncHTTPTransport(verify=_ssl_context(), trust_env=False)
     return _SizeLimitedTransport(inner, MAX_PROVIDER_RESPONSE_BYTES)
 
 
 def _timeout() -> httpx.Timeout:
     return httpx.Timeout(
+        connect=CONNECT_TIMEOUT_SECONDS,
+        read=READ_TIMEOUT_SECONDS,
+        write=READ_TIMEOUT_SECONDS,
+        pool=CONNECT_TIMEOUT_SECONDS,
+    )
+
+
+def _authlib_timeout() -> httpx2.Timeout:
+    return httpx2.Timeout(
         connect=CONNECT_TIMEOUT_SECONDS,
         read=READ_TIMEOUT_SECONDS,
         write=READ_TIMEOUT_SECONDS,
@@ -559,7 +569,7 @@ def build_oauth_client(
     config: OidcConfig,
     metadata: dict[str, Any],
     *,
-    transport: httpx.AsyncBaseTransport | None = None,
+    transport: httpx2.AsyncBaseTransport | None = None,
 ) -> StarletteOAuth2App:
     """Build an Authlib client from already validated metadata.
 
@@ -570,7 +580,7 @@ def build_oauth_client(
     client_kwargs: dict[str, Any] = {
         "scope": OIDC_SCOPE,
         "code_challenge_method": "S256",
-        "timeout": _timeout(),
+        "timeout": _authlib_timeout(),
         "follow_redirects": False,
         "trust_env": False,
         # The transport carries both the size limit and, for real connections,

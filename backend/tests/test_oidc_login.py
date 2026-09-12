@@ -7,7 +7,6 @@ import zipfile
 from pathlib import Path
 from urllib.parse import parse_qsl, quote, urlsplit
 
-import httpx
 import httpx2
 import pytest
 from fastapi.testclient import TestClient
@@ -87,8 +86,8 @@ class FakeProvider:
         self.id_token = ""
 
     @property
-    def transport(self) -> httpx.MockTransport:
-        return httpx.MockTransport(self._handle)
+    def transport(self) -> httpx2.MockTransport:
+        return httpx2.MockTransport(self._handle)
 
     def claims(self) -> dict[str, object]:
         now = int(time.time())
@@ -113,11 +112,11 @@ class FakeProvider:
             return jwt.encode({"alg": "HS256"}, claims, OctKey.import_key(CLIENT_SECRET))
         return jwt.encode({"alg": self.algorithm, "kid": self.signing_key.kid}, claims, self.signing_key)
 
-    def _handle(self, request: httpx.Request) -> httpx.Response:
+    def _handle(self, request: httpx2.Request) -> httpx2.Response:
         if request.url.path == "/token":
             self.token_requests.append(dict(parse_qsl(request.content.decode())))
             self.id_token = self._build_id_token()
-            return httpx.Response(
+            return httpx2.Response(
                 200,
                 json={
                     "access_token": ACCESS_TOKEN,
@@ -127,8 +126,8 @@ class FakeProvider:
                 },
             )
         if request.url.path == "/jwks":
-            return httpx.Response(200, json=self.published_keys.as_dict(private=False))
-        return httpx.Response(404, json={})
+            return httpx2.Response(200, json=self.published_keys.as_dict(private=False))
+        return httpx2.Response(404, json={})
 
 
 @pytest.fixture()
@@ -497,11 +496,11 @@ def test_a_rotated_signing_key_is_accepted_once_the_provider_publishes_it(oidc_a
     assert ACCESS_TOKEN not in "\n".join(setting.value for setting in db.query(Setting).all())
 
 
-def _break_endpoint(provider: FakeProvider, monkeypatch, path: str, response: httpx.Response) -> None:
+def _break_endpoint(provider: FakeProvider, monkeypatch, path: str, response: httpx2.Response) -> None:
     """Let one provider endpoint answer with something broken."""
     answer = provider._handle
 
-    def broken(request: httpx.Request) -> httpx.Response:
+    def broken(request: httpx2.Request) -> httpx2.Response:
         return response if request.url.path == path else answer(request)
 
     monkeypatch.setattr(provider, "_handle", broken)
@@ -510,7 +509,7 @@ def _break_endpoint(provider: FakeProvider, monkeypatch, path: str, response: ht
 @pytest.mark.parametrize("path", ["/token", "/jwks"])
 def test_an_oversized_provider_answer_never_reaches_the_process(oidc_app, provider, monkeypatch, path):
     db, client = oidc_app
-    oversized = httpx.Response(
+    oversized = httpx2.Response(
         200,
         content=b"x" * (oidc.MAX_PROVIDER_RESPONSE_BYTES + 1),
         headers={"content-type": "application/json"},
@@ -536,7 +535,7 @@ def test_an_oversized_provider_answer_never_reaches_the_process(oidc_app, provid
 )
 def test_valid_json_with_the_wrong_shape_is_a_failed_sign_in(oidc_app, provider, monkeypatch, path, payload):
     db, client = oidc_app
-    _break_endpoint(provider, monkeypatch, path, httpx.Response(200, json=payload))
+    _break_endpoint(provider, monkeypatch, path, httpx2.Response(200, json=payload))
 
     response = _login(client, provider)
 
