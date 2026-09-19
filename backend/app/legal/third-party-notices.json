@@ -80,11 +80,11 @@
       "license": "MIT",
       "name": "alembic",
       "source": "https://github.com/sqlalchemy/alembic/",
-      "source_archive": "https://files.pythonhosted.org/packages/16/2b/e4153978368de59918115c9e01d3ebf58a558a7285efa7e960c383c4b59a/alembic-1.19.1.tar.gz",
-      "source_archive_sha256": "e0fca0518118c78acc493e31bcb5402f190057aaf6df8b5b95ce94c4789cf648",
-      "source_archive_size": 2070816,
+      "source_archive": "https://files.pythonhosted.org/packages/34/10/181eecdd552217d0342492bd6f3b8a96e973083379aace3d3402830ddc03/alembic-1.19.2.tar.gz",
+      "source_archive_sha256": "297950a8a91f6770eb82bfbce9bea55c728b90a5386c6e81430191a319d138b0",
+      "source_archive_size": 2082643,
       "source_required": false,
-      "version": "1.19.1"
+      "version": "1.19.2"
     },
     {
       "distributed_files": [],
