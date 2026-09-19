@@ -11,7 +11,7 @@ are licensed under GNU AGPL-3.0 as described in `LICENSE`.
 
 | Package | Version | License | Exact source archive |
 | --- | --- | --- | --- |
-| alembic | 1.19.1 | MIT | [source](https://files.pythonhosted.org/packages/16/2b/e4153978368de59918115c9e01d3ebf58a558a7285efa7e960c383c4b59a/alembic-1.19.1.tar.gz) |
+| alembic | 1.19.2 | MIT | [source](https://files.pythonhosted.org/packages/34/10/181eecdd552217d0342492bd6f3b8a96e973083379aace3d3402830ddc03/alembic-1.19.2.tar.gz) |
 | annotated-doc | 0.0.5 | MIT | [source](https://files.pythonhosted.org/packages/5a/8e/38aa427ed5402449e226975b649c5dc73ccadfefeb95e6aecb8f8ea4b6b6/annotated_doc-0.0.5.tar.gz) |
 | annotated-types | 0.8.0 | MIT | [source](https://files.pythonhosted.org/packages/5f/56/a8120250d128bed162cd73c76d45f6ef9991f3e068f62a8ee060afa3104a/annotated_types-0.8.0.tar.gz) |
 | anyio | 4.14.2 | MIT | [source](https://files.pythonhosted.org/packages/61/cc/a381afa6efea9f496eff839d4a6a1aed3bfafc7b3ab4b0d1b243a12573dd/anyio-4.14.2.tar.gz) |
@@ -156,7 +156,7 @@ Project: https://tailwindcss.com
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 
-### alembic 1.19.1
+### alembic 1.19.2
 
 License: `MIT`
 
