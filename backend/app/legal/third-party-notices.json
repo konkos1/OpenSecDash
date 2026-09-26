@@ -80,11 +80,11 @@
       "license": "MIT",
       "name": "alembic",
       "source": "https://github.com/sqlalchemy/alembic/",
-      "source_archive": "https://files.pythonhosted.org/packages/34/10/181eecdd552217d0342492bd6f3b8a96e973083379aace3d3402830ddc03/alembic-1.19.2.tar.gz",
-      "source_archive_sha256": "297950a8a91f6770eb82bfbce9bea55c728b90a5386c6e81430191a319d138b0",
-      "source_archive_size": 2082643,
+      "source_archive": "https://files.pythonhosted.org/packages/ed/aa/02910bdb8e2f1444f6654d5b296cd827d126f82209050ee7b1000f92ac4b/alembic-1.20.0.tar.gz",
+      "source_archive_sha256": "db505480647bc60386c5369402f4a57a506b7539c9e9ef5e270d45cbbe4939bf",
+      "source_archive_size": 2093272,
       "source_required": false,
-      "version": "1.19.2"
+      "version": "1.20.0"
     },
     {
       "distributed_files": [],
@@ -310,11 +310,11 @@
       "license": "MIT AND PSF-2.0",
       "name": "greenlet",
       "source": "https://github.com/python-greenlet/greenlet",
-      "source_archive": "https://files.pythonhosted.org/packages/0b/d8/7cc97c142388aef03f622e001c572c4f84e9252a439549d483f555771970/greenlet-3.5.5.tar.gz",
-      "source_archive_sha256": "adb4bae02e91a8e863e48b177e4014bdcac8a6b5e047ea1df687a61534b85e6c",
-      "source_archive_size": 207585,
+      "source_archive": "https://files.pythonhosted.org/packages/3e/6e/0091f175ccd02b02bc8811bbcbcc6ac2e980be116e3b2f7a736ca322bf84/greenlet-3.5.6.tar.gz",
+      "source_archive_sha256": "8e67c43bdfc88d5fee6db0d3e40175b362fc95fb85f0412d233b9b203c53a575",
+      "source_archive_size": 207653,
       "source_required": false,
-      "version": "3.5.5"
+      "version": "3.5.6"
     },
     {
       "distributed_files": [],
@@ -370,11 +370,11 @@
       "license": "BSD-3-Clause",
       "name": "httpcore2",
       "source": "https://github.com/pydantic/httpx2/blob/main/src/httpcore2",
-      "source_archive": "https://files.pythonhosted.org/packages/be/ad/f4f0e57345f1870f3e8cb624e058d7eca6e5a27d33bcc3311d9b618734cd/httpcore2-2.12.0.tar.gz",
-      "source_archive_sha256": "9293522bba0aa7c4c8e9e3f040c16575bd8868e155a77fa30c7a9085a5eae648",
-      "source_archive_size": 67548,
+      "source_archive": "https://files.pythonhosted.org/packages/15/8c/e925b1c92018abb3a1863ce1549d76d2381e334d21d65d4ac8f65dabd78a/httpcore2-2.13.0.tar.gz",
+      "source_archive_sha256": "2adc8be4fb285fbcd6d894298db3b52c177e74b6674eda3a76bd36be3292a3db",
+      "source_archive_size": 67740,
       "source_required": false,
-      "version": "2.12.0"
+      "version": "2.13.0"
     },
     {
       "distributed_files": [],
@@ -410,11 +410,11 @@
       "license": "BSD-3-Clause",
       "name": "httpx2",
       "source": "https://github.com/pydantic/httpx2",
-      "source_archive": "https://files.pythonhosted.org/packages/7f/f8/579a8b51e42e38ee32647df9f08aa25643ae788e275cc625b199829c4671/httpx2-2.12.0.tar.gz",
-      "source_archive_sha256": "7631fe9887a8a2275f4a2540e053aa670fcc50742864a9ae7c66e609fdcf12cf",
-      "source_archive_size": 100040,
+      "source_archive": "https://files.pythonhosted.org/packages/b9/a0/e9deef4654132857b5a5dbe4eddd0ac59c2814500e11f2f5044cd81103ee/httpx2-2.13.0.tar.gz",
+      "source_archive_sha256": "81bd07dc67a3701729ef1f777a3c00c915d4539604fdb5afd327f8682f6b7b44",
+      "source_archive_size": 100290,
       "source_required": false,
-      "version": "2.12.0"
+      "version": "2.13.0"
     },
     {
       "distributed_files": [],
@@ -720,11 +720,11 @@
       "license": "MIT",
       "name": "SQLAlchemy",
       "source": "https://www.sqlalchemy.org",
-      "source_archive": "https://files.pythonhosted.org/packages/3b/21/77b4c147963073040dc3c3a5cb7a8c3001a1893c0209432cb77f9df836aa/sqlalchemy-2.0.52.tar.gz",
-      "source_archive_sha256": "5e2d46356ac2ccb7d268ab6c2319ac6a2b42f1b8d5fd8bd3d46855cd82abee97",
-      "source_archive_size": 9945637,
+      "source_archive": "https://files.pythonhosted.org/packages/29/9c/271aa905cf2964f841371a97f3e63ab692bf51b4423d0491e67bc7f64037/sqlalchemy-2.0.54.tar.gz",
+      "source_archive_sha256": "baa8521e8ee9f24e75dfc7aaabc08020e551ef0d48d7c3e3536f5cddf277586b",
+      "source_archive_size": 9969559,
       "source_required": false,
-      "version": "2.0.52"
+      "version": "2.0.54"
     },
     {
       "distributed_files": [],
@@ -840,11 +840,11 @@
       "license": "BSD-3-Clause",
       "name": "uvicorn",
       "source": "https://github.com/Kludex/uvicorn",
-      "source_archive": "https://files.pythonhosted.org/packages/f2/0f/3f86e61397dd33bf2ccf28188c40db6a740658aeebbbf6e7dbc101a1f487/uvicorn-0.52.4.tar.gz",
-      "source_archive_sha256": "73acfee47a0b133c5de13d219492d62d8a31e935f4fe6e41a232451a15379f86",
-      "source_archive_size": 100627,
+      "source_archive": "https://files.pythonhosted.org/packages/5d/ad/04bbb797c84fc1f26cb171f7394716f4865ffb8d8c5e1eef42565c2dfa6b/uvicorn-0.53.0.tar.gz",
+      "source_archive_sha256": "a9356f0cb89b3b8621529c5d5eebd69bfe154f4c3f68b4cf2de47e45fa855c2e",
+      "source_archive_size": 110881,
       "source_required": false,
-      "version": "0.52.4"
+      "version": "0.53.0"
     },
     {
       "distributed_files": [],
