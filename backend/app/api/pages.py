@@ -1413,6 +1413,8 @@ def asset_page(system_id: int, request: Request, show_inactive: bool = False, as
         # lets SQL do the actual filtering regardless of table size.
         hostnames_by_host: dict[str, list[str]] = {}
         for (hostname,) in db.query(Event.hostname).filter(Event.hostname.isnot(None)).distinct().all():
+            if hostname is None:
+                continue
             normalized_event_host = normalize_asset_host(hostname)
             if normalized_event_host in host_apps:
                 hostnames_by_host.setdefault(normalized_event_host, []).append(hostname)

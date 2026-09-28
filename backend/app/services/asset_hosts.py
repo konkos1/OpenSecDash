@@ -87,7 +87,7 @@ def matching_event_hostnames(db: Session, normalized_host: str | None) -> list[s
     return [
         hostname
         for (hostname,) in db.query(Event.hostname).filter(Event.hostname.isnot(None)).distinct().all()
-        if normalize_asset_host(hostname) == normalized_host
+        if hostname is not None and normalize_asset_host(hostname) == normalized_host
     ]
 
 
