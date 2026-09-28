@@ -370,11 +370,11 @@
       "license": "BSD-3-Clause",
       "name": "httpcore2",
       "source": "https://github.com/pydantic/httpx2/blob/main/src/httpcore2",
-      "source_archive": "https://files.pythonhosted.org/packages/15/8c/e925b1c92018abb3a1863ce1549d76d2381e334d21d65d4ac8f65dabd78a/httpcore2-2.13.0.tar.gz",
-      "source_archive_sha256": "2adc8be4fb285fbcd6d894298db3b52c177e74b6674eda3a76bd36be3292a3db",
-      "source_archive_size": 67740,
+      "source_archive": "https://files.pythonhosted.org/packages/cb/f3/1db7aa2bc2524062192bb0e0323969492d1883152a232fe36eea65f4e35c/httpcore2-2.13.1.tar.gz",
+      "source_archive_sha256": "e0aa977abe17e69a3b820a24542a6fa88702676d83880b8d194dcd18408e5103",
+      "source_archive_size": 68071,
       "source_required": false,
-      "version": "2.13.0"
+      "version": "2.13.1"
     },
     {
       "distributed_files": [],
@@ -410,11 +410,11 @@
       "license": "BSD-3-Clause",
       "name": "httpx2",
       "source": "https://github.com/pydantic/httpx2",
-      "source_archive": "https://files.pythonhosted.org/packages/b9/a0/e9deef4654132857b5a5dbe4eddd0ac59c2814500e11f2f5044cd81103ee/httpx2-2.13.0.tar.gz",
-      "source_archive_sha256": "81bd07dc67a3701729ef1f777a3c00c915d4539604fdb5afd327f8682f6b7b44",
-      "source_archive_size": 100290,
+      "source_archive": "https://files.pythonhosted.org/packages/d5/44/474bef2a0e9d90f1715d32cb98b0738695ca17ba324095fb2497ed7fbd59/httpx2-2.13.1.tar.gz",
+      "source_archive_sha256": "e48744a19e3af5ee48313d0ce5fe941d5422fae5705ea922a4aabf94d7800dfa",
+      "source_archive_size": 100405,
       "source_required": false,
-      "version": "2.13.0"
+      "version": "2.13.1"
     },
     {
       "distributed_files": [],
@@ -720,11 +720,11 @@
       "license": "MIT",
       "name": "SQLAlchemy",
       "source": "https://www.sqlalchemy.org",
-      "source_archive": "https://files.pythonhosted.org/packages/29/9c/271aa905cf2964f841371a97f3e63ab692bf51b4423d0491e67bc7f64037/sqlalchemy-2.0.54.tar.gz",
-      "source_archive_sha256": "baa8521e8ee9f24e75dfc7aaabc08020e551ef0d48d7c3e3536f5cddf277586b",
-      "source_archive_size": 9969559,
+      "source_archive": "https://files.pythonhosted.org/packages/a8/cb/7c68da82239ffae9378eca076afe14c310e17a4f01e3d315112f266e26c7/sqlalchemy-2.1.1.tar.gz",
+      "source_archive_sha256": "fcf3cbb33bb23bad75d2150157c21804618745731e9931ab27e61879a9f6123b",
+      "source_archive_size": 10503203,
       "source_required": false,
-      "version": "2.0.54"
+      "version": "2.1.1"
     },
     {
       "distributed_files": [],
@@ -840,11 +840,11 @@
       "license": "BSD-3-Clause",
       "name": "uvicorn",
       "source": "https://github.com/Kludex/uvicorn",
-      "source_archive": "https://files.pythonhosted.org/packages/5d/ad/04bbb797c84fc1f26cb171f7394716f4865ffb8d8c5e1eef42565c2dfa6b/uvicorn-0.53.0.tar.gz",
-      "source_archive_sha256": "a9356f0cb89b3b8621529c5d5eebd69bfe154f4c3f68b4cf2de47e45fa855c2e",
-      "source_archive_size": 110881,
+      "source_archive": "https://files.pythonhosted.org/packages/da/34/30e9280707135d2cfc589dfff3cb796bd07a3aeb1a3e415ba09dd89d7bb4/uvicorn-0.54.0.tar.gz",
+      "source_archive_sha256": "a2e33cbfaa0306f8e6b0c13e0cb89d7d7a2da3e62b90c66e18c33d9807b28620",
+      "source_archive_size": 112283,
       "source_required": false,
-      "version": "0.53.0"
+      "version": "0.54.0"
     },
     {
       "distributed_files": [],

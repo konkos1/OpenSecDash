@@ -4,6 +4,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     JSON,
@@ -58,7 +59,7 @@ class Insight(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     timestamp: Mapped[datetime] = mapped_column(DateTime, default=utc_now, index=True)
     type: Mapped[str] = mapped_column(String(100), index=True)
-    confidence: Mapped[float] = mapped_column(default=0.0)
+    confidence: Mapped[float] = mapped_column(Float, default=0.0)
     level: Mapped[str] = mapped_column(String(20), default="medium")
     title: Mapped[str] = mapped_column(String(255))
     description: Mapped[str] = mapped_column(Text, default="")
@@ -79,7 +80,7 @@ class InsightRule(Base):
     title: Mapped[str] = mapped_column(String(255))
     description: Mapped[str] = mapped_column(Text, default="")
     level: Mapped[str] = mapped_column(String(20), default="medium")
-    confidence: Mapped[float] = mapped_column(default=0.7)
+    confidence: Mapped[float] = mapped_column(Float, default=0.7)
     event_types: Mapped[list] = mapped_column(JSON, default=list)
     path_contains_any: Mapped[list] = mapped_column(JSON, default=list)
     group_by: Mapped[str] = mapped_column(String(50), default="ip")

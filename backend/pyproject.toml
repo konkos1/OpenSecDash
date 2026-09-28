@@ -19,7 +19,7 @@ dependencies = [
     "pydantic-settings>=2.15.0",
     "python-multipart>=0.0.32",
     "requests>=2.34.2",
-    "sqlalchemy>=2.1.0",
+    "sqlalchemy>=2.1.1",
     "uvicorn>=0.54.0",
     "websockets>=17.1",
 ]
