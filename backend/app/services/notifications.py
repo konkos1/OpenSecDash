@@ -688,6 +688,8 @@ def _detect_offline_systems(db: Session) -> None:
         .all()
     )
     for system_id, hostname, last_seen, vmid, system_type, source_plugin, first_asset_id in candidates:
+        if last_seen is None:
+            continue
         if not _claim_offline_system(db, system_id, last_seen):
             continue
         from app.services.events import store_event
