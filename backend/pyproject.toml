@@ -7,8 +7,8 @@ requires-python = ">=3.13"
 dependencies = [
     "alembic>=1.20.0",
     "authlib>=1.8.0",
-    "cryptography>=50.0.1",
-    "fastapi>=0.141.1",
+    "cryptography>=50.0.2",
+    "fastapi>=0.142.2",
     # Keep greenlet on a patch release with a locked sdist for release evidence.
     "greenlet>=3.5.6,<3.5.7",
     "httpx>=0.28.1",
@@ -19,7 +19,7 @@ dependencies = [
     "pydantic-settings>=2.15.0",
     "python-multipart>=0.0.32",
     "requests>=2.34.2",
-    "sqlalchemy>=2.1.1",
+    "sqlalchemy>=2.1.2",
     "uvicorn>=0.54.0",
     "websockets>=17.1",
 ]
