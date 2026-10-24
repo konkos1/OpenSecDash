@@ -1,20 +1,17 @@
 {
   "schema_version": 1,
-  "ruleset_version": "2026-07-11",
+  "ruleset_version": "2026-10-24",
   "rules": [
     {
       "id": "web.scanner_wave",
       "title": "Scanner wave detected",
-      "description": "Requests targeting common WordPress paths were observed.",
+      "description": "Requests targeting WordPress login or XML-RPC endpoints were observed.",
       "level": "high",
       "confidence": 0.85,
       "event_types": ["access.denied", "access.error"],
       "path_contains_any": [
         "/wp-login.php",
-        "/wp-admin",
-        "/xmlrpc.php",
-        "/wp-content/",
-        "/wp-includes/"
+        "/xmlrpc.php"
       ],
       "group_by": "path",
       "window_minutes": 5,
@@ -24,20 +21,17 @@
     {
       "id": "web.wordpress_scan",
       "title": "Possible WordPress scan",
-      "description": "Requests targeting common WordPress paths were observed.",
+      "description": "Repeated requests targeting WordPress login or XML-RPC endpoints were observed.",
       "level": "medium",
       "confidence": 0.7,
       "event_types": ["access.denied", "access.error"],
       "path_contains_any": [
         "/wp-login.php",
-        "/wp-admin",
-        "/xmlrpc.php",
-        "/wp-content/",
-        "/wp-includes/"
+        "/xmlrpc.php"
       ],
       "group_by": "ip",
       "window_minutes": 5,
-      "threshold": 1
+      "threshold": 3
     },
     {
       "id": "web.phpmyadmin_probe",
@@ -60,17 +54,14 @@
     {
       "id": "web.env_file_probe",
       "title": "Possible environment file probe",
-      "description": "Requests targeting exposed environment/configuration files were observed.",
+      "description": "Requests targeting environment files were observed.",
       "level": "high",
       "confidence": 0.82,
       "event_types": ["access.denied", "access.error"],
       "path_contains_any": [
         "/.env",
         "/.env.local",
-        "/.env.production",
-        "/config.php",
-        "/config.json",
-        "/settings.php"
+        "/.env.production"
       ],
       "group_by": "ip",
       "window_minutes": 5,
@@ -100,15 +91,141 @@
       "confidence": 0.65,
       "event_types": ["access.denied", "access.error"],
       "path_contains_any": [
-        "/admin",
-        "/administrator",
-        "/login",
         "/manager/html",
         "/boaform/admin/formLogin"
       ],
       "group_by": "ip",
       "window_minutes": 10,
       "threshold": 3
+    },
+    {
+      "id": "web.phpunit_probe",
+      "title": "Possible PHPUnit probe",
+      "description": "Requests targeting the PHPUnit eval-stdin.php script were observed.",
+      "level": "high",
+      "confidence": 0.82,
+      "event_types": ["access.denied", "access.error"],
+      "path_contains_any": [
+        "/eval-stdin.php"
+      ],
+      "group_by": "ip",
+      "window_minutes": 5,
+      "threshold": 1
+    },
+    {
+      "id": "web.phpinfo_probe",
+      "title": "Possible PHP diagnostic page probe",
+      "description": "Requests targeting a PHP diagnostic page were observed.",
+      "level": "medium",
+      "confidence": 0.7,
+      "event_types": ["access.denied", "access.error"],
+      "path_contains_any": [
+        "/phpinfo.php"
+      ],
+      "group_by": "ip",
+      "window_minutes": 5,
+      "threshold": 1
+    },
+    {
+      "id": "web.credentials_file_probe",
+      "title": "Possible credentials file probe",
+      "description": "Requests targeting files that may contain credentials or password hashes were observed.",
+      "level": "high",
+      "confidence": 0.82,
+      "event_types": ["access.denied", "access.error"],
+      "path_contains_any": [
+        "/.aws/credentials",
+        "/.docker/config.json",
+        "/.npmrc",
+        "/.pypirc",
+        "/.htpasswd",
+        "/.netrc",
+        "/.kube/config"
+      ],
+      "group_by": "ip",
+      "window_minutes": 5,
+      "threshold": 1
+    },
+    {
+      "id": "web.system_file_probe",
+      "title": "Possible system file probe",
+      "description": "Requests targeting operating system account or password-hash files were observed.",
+      "level": "high",
+      "confidence": 0.82,
+      "event_types": ["access.denied", "access.error"],
+      "path_contains_any": [
+        "/etc/passwd",
+        "/etc/shadow"
+      ],
+      "group_by": "ip",
+      "window_minutes": 5,
+      "threshold": 1
+    },
+    {
+      "id": "web.config_backup_probe",
+      "title": "Possible configuration backup probe",
+      "description": "Requests targeting backup copies of PHP configuration files were observed.",
+      "level": "high",
+      "confidence": 0.82,
+      "event_types": ["access.denied", "access.error"],
+      "path_contains_any": [
+        "/wp-config.php.bak",
+        "/wp-config.php.old",
+        "/wp-config.php~",
+        "/config.php.bak",
+        "/config.php.old",
+        "/config.php~"
+      ],
+      "group_by": "ip",
+      "window_minutes": 5,
+      "threshold": 1
+    },
+    {
+      "id": "web.spring_actuator_probe",
+      "title": "Possible Spring Boot diagnostic endpoint probe",
+      "description": "Requests targeting potentially sensitive Spring Boot Actuator endpoints were observed.",
+      "level": "medium",
+      "confidence": 0.75,
+      "event_types": ["access.denied", "access.error"],
+      "path_contains_any": [
+        "/actuator/env",
+        "/actuator/heapdump",
+        "/actuator/configprops",
+        "/actuator/logfile",
+        "/actuator/threaddump"
+      ],
+      "group_by": "ip",
+      "window_minutes": 5,
+      "threshold": 1
+    },
+    {
+      "id": "web.ssh_file_probe",
+      "title": "Possible SSH file probe",
+      "description": "Requests targeting SSH key or configuration files were observed.",
+      "level": "high",
+      "confidence": 0.82,
+      "event_types": ["access.denied", "access.error"],
+      "path_contains_any": [
+        "/.ssh/"
+      ],
+      "group_by": "ip",
+      "window_minutes": 5,
+      "threshold": 1
+    },
+    {
+      "id": "web.vcs_metadata_probe",
+      "title": "Possible version control metadata probe",
+      "description": "Requests targeting Subversion or Mercurial metadata were observed.",
+      "level": "high",
+      "confidence": 0.82,
+      "event_types": ["access.denied", "access.error"],
+      "path_contains_any": [
+        "/.svn/",
+        "/.hg/"
+      ],
+      "group_by": "ip",
+      "window_minutes": 5,
+      "threshold": 1
     }
   ]
 }
