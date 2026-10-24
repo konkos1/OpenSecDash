@@ -180,11 +180,11 @@
       "license": "MPL-2.0",
       "name": "certifi",
       "source": "https://github.com/certifi/python-certifi",
-      "source_archive": "https://files.pythonhosted.org/packages/a3/c2/24167ea9858356b47a87a50d39908bfdb72ceeefe0041586e704e5376b3a/certifi-2026.7.22.tar.gz",
-      "source_archive_sha256": "741e2c3b351ddf169a738da9f2c048608ff7f2c5cc02f1ebc6b118bb090d5d55",
-      "source_archive_size": 138112,
+      "source_archive": "https://files.pythonhosted.org/packages/a6/bd/1436c50cc46699de0230fbaacc1d1de7bfec413176099949e9d5112e88f2/certifi-2026.10.19.tar.gz",
+      "source_archive_sha256": "035c1e85572b141bf1c3a3eff0e33a8eb74917522f2559075ff8d2fea780a1ae",
+      "source_archive_size": 137598,
       "source_required": true,
-      "version": "2026.7.22"
+      "version": "2026.10.19"
     },
     {
       "distributed_files": [],
@@ -820,11 +820,11 @@
       "license": "MIT",
       "name": "urllib3",
       "source": "",
-      "source_archive": "https://files.pythonhosted.org/packages/53/0c/06f8b233b8fd13b9e5ee11424ef85419ba0d8ba0b3138bf360be2ff56953/urllib3-2.7.0.tar.gz",
-      "source_archive_sha256": "231e0ec3b63ceb14667c67be60f2f2c40a518cb38b03af60abc813da26505f4c",
-      "source_archive_size": 433602,
+      "source_archive": "https://files.pythonhosted.org/packages/e3/05/b17359e1cefb4f909b5e40b1b90a496d987258916dbbf88e842c729f510e/urllib3-2.8.0.tar.gz",
+      "source_archive_sha256": "63bf2ead4c879426ebf22ef2a781eeb4aa3b4ae798a0435506f8687fd5bb9b63",
+      "source_archive_size": 458972,
       "source_required": false,
-      "version": "2.7.0"
+      "version": "2.8.0"
     },
     {
       "distributed_files": [],

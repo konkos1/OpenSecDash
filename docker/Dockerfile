@@ -1,6 +1,6 @@
 FROM ghcr.io/astral-sh/uv:0.12.19@sha256:04d046b13e60d6bcec73cbc5e1cad25d680dea90c8573340950a0ac2d1aef424 AS uv
 
-FROM python:3.14.7-slim-trixie@sha256:cad9a2c871761c413caa6fdd6441c783451e740a48aaeba60ae62a8b53525ef6 AS builder
+FROM python:3.14.7-slim-trixie@sha256:51dafde81dbdb6ebde285137a295cf18a47ca95234fe388a343719cb97305b3d AS builder
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy
@@ -14,7 +14,7 @@ COPY backend/pyproject.toml backend/uv.lock backend/.python-version ./
 RUN test "$(python -c 'import platform; print(platform.python_version())')" = "$(cat .python-version)" \
     && uv sync --python /usr/local/bin/python --frozen --no-dev --no-editable --no-install-project
 
-FROM python:3.14.7-slim-trixie@sha256:cad9a2c871761c413caa6fdd6441c783451e740a48aaeba60ae62a8b53525ef6 AS runtime
+FROM python:3.14.7-slim-trixie@sha256:51dafde81dbdb6ebde285137a295cf18a47ca95234fe388a343719cb97305b3d AS runtime
 
 ARG OPENSECDASH_VERSION=dev
 
@@ -34,8 +34,11 @@ WORKDIR /app
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-install-recommends \
         gzip=1.13-1+deb13u1 \
-        libpcre2-8-0=10.46-1~deb13u2 \
+        libpcre2-8-0=10.46-1~deb13u3 \
         libsqlite3-0=3.46.1-7+deb13u2 \
+        libssl3t64=3.5.7-1~deb13u3 \
+        openssl=3.5.7-1~deb13u3 \
+        openssl-provider-legacy=3.5.7-1~deb13u3 \
         perl-base=5.40.1-6+deb13u1 \
     && rm -rf /var/lib/apt/lists/* \
     && python -m pip uninstall --yes --root-user-action=ignore pip \
