@@ -15,41 +15,42 @@ are licensed under GNU AGPL-3.0 as described in `LICENSE`.
 | annotated-doc | 0.0.5 | MIT | [source](https://files.pythonhosted.org/packages/5a/8e/38aa427ed5402449e226975b649c5dc73ccadfefeb95e6aecb8f8ea4b6b6/annotated_doc-0.0.5.tar.gz) |
 | annotated-types | 0.8.0 | MIT | [source](https://files.pythonhosted.org/packages/5f/56/a8120250d128bed162cd73c76d45f6ef9991f3e068f62a8ee060afa3104a/annotated_types-0.8.0.tar.gz) |
 | anyio | 4.14.2 | MIT | [source](https://files.pythonhosted.org/packages/61/cc/a381afa6efea9f496eff839d4a6a1aed3bfafc7b3ab4b0d1b243a12573dd/anyio-4.14.2.tar.gz) |
-| Authlib | 1.8.0 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/f1/51/bc1729d3cfdc214b4935f4e886e4dd443c3065fd8e1e66423fe84b490f81/authlib-1.8.0.tar.gz) |
+| Authlib | 1.9.1 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/c9/dc/087c08741a98d234c9b98beef8a28d3c309f814d14b6156422c5815bf6d6/authlib-1.9.1.tar.gz) |
 | certifi | 2026.10.19 | MPL-2.0 | [source](https://files.pythonhosted.org/packages/a6/bd/1436c50cc46699de0230fbaacc1d1de7bfec413176099949e9d5112e88f2/certifi-2026.10.19.tar.gz) |
 | cffi | 2.1.1 | MIT-0 | [source](https://files.pythonhosted.org/packages/9e/ef/008a1939e372c06329a3fce4279c02f328488f3526744906eeec3da7ad5f/cffi-2.1.1.tar.gz) |
 | charset-normalizer | 3.4.9 | MIT | [source](https://files.pythonhosted.org/packages/bd/2a/23f34ec9d04624958e137efdc394888716353190e75f25dd22c7a2c7a8aa/charset_normalizer-3.4.9.tar.gz) |
 | click | 8.4.2 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/76/d4/81420972a676e8ffea40450d8c8c92943e7218a78fe9b64359836cc9876b/click-8.4.2.tar.gz) |
-| cryptography | 50.0.1 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/bb/ad/5d6702db60b1e40b41ef513b6967ff5848f307d50f8449baf1634f5908f1/cryptography-50.0.1.tar.gz) |
-| fastapi | 0.141.1 | MIT | [source](https://files.pythonhosted.org/packages/8a/02/91e3416a8fdd715abb903a952a6bec7cdd8d14eed55d415fc8595524c319/fastapi-0.141.1.tar.gz) |
+| cryptography | 50.0.2 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/9d/af/182eb91b0df3fe75c4d9f26fe70684569566745f6ba7e5c9c73a862c5252/cryptography-50.0.2.tar.gz) |
+| fastapi | 0.156.8 | MIT | [source](https://files.pythonhosted.org/packages/6c/93/6e785df7ec0bdbfef9d7bf1044bc7bfabd6d22641d147e8326a1f2ba210b/fastapi-0.156.8.tar.gz) |
 | greenlet | 3.5.6 | MIT AND PSF-2.0 | [source](https://files.pythonhosted.org/packages/3e/6e/0091f175ccd02b02bc8811bbcbcc6ac2e980be116e3b2f7a736ca322bf84/greenlet-3.5.6.tar.gz) |
 | h11 | 0.16.0 | MIT | [source](https://files.pythonhosted.org/packages/01/ee/02a2c011bdab74c6fb3c75474d40b3052059d95df7e73351460c8588d963/h11-0.16.0.tar.gz) |
 | httpcore | 1.0.9 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/06/94/82699a10bca87a5556c9c59b5963f2d039dbd239f25bc2a63907a05a14cb/httpcore-1.0.9.tar.gz) |
-| httpcore2 | 2.13.1 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/cb/f3/1db7aa2bc2524062192bb0e0323969492d1883152a232fe36eea65f4e35c/httpcore2-2.13.1.tar.gz) |
+| httpcore2 | 2.16.0 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/c0/61/afa9d6b7452f9eca73f73d45324eb0bb52f098fd5e6049bf6b8263be9b4e/httpcore2-2.16.0.tar.gz) |
 | httpx | 0.28.1 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/b1/df/48c586a5fe32a0f01324ee087459e112ebb7224f646c0b5023f5e79e9956/httpx-0.28.1.tar.gz) |
-| httpx2 | 2.13.1 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/d5/44/474bef2a0e9d90f1715d32cb98b0738695ca17ba324095fb2497ed7fbd59/httpx2-2.13.1.tar.gz) |
+| httpx2 | 2.16.0 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/43/73/5ca2cedf5e4e50423d1c258877865a6b62793633b561c58499f8aeb33b7e/httpx2-2.16.0.tar.gz) |
 | idna | 3.18 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/cd/63/9496c57188a2ee585e0f1db071d75089a11e98aa86eb99d9d7618fc1edce/idna-3.18.tar.gz) |
 | itsdangerous | 2.2.0 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/9c/cb/8ac0172223afbccb63986cc25049b154ecfb5e85932587206f42317be31d/itsdangerous-2.2.0.tar.gz) |
 | Jinja2 | 3.1.6 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/df/bf/f7da0350254c0ed7c72f3e33cef02e048281fec7ecec5f032d4aac52226b/jinja2-3.1.6.tar.gz) |
 | joserfc | 1.7.4 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/c7/e0/27a6a081ae25420eda6768ceae05d7022a7f2447f420588843f2a44e4298/joserfc-1.7.4.tar.gz) |
 | Mako | 1.4.1 | MIT | [source](https://files.pythonhosted.org/packages/2a/12/b5fa2353e2754cd67fb9f83793fa48ff42c213a5da7e719869d2301f6ab8/mako-1.4.1.tar.gz) |
 | MarkupSafe | 3.0.3 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/7e/99/7690b6d4034fffd95959cbe0c02de8deb3098cc577c67bb6a24fe5d7caa7/markupsafe-3.0.3.tar.gz) |
+| opentelemetry-api | 1.45.1 | Apache-2.0 | [source](https://files.pythonhosted.org/packages/2e/02/6e0ae9cc61bd3169d401077b507b3ebc344745171e1051ab430be012dcd9/opentelemetry_api-1.45.1.tar.gz) |
 | paho-mqtt | 2.1.0 | EDL-1.0 | [source](https://files.pythonhosted.org/packages/39/15/0a6214e76d4d32e7f663b109cf71fb22561c2be0f701d67f93950cd40542/paho_mqtt-2.1.0.tar.gz) |
 | pycparser | 3.0 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/1b/7d/92392ff7815c21062bea51aa7b87d45576f649f16458d78b7cf94b9ab2e6/pycparser-3.0.tar.gz) |
 | pydantic | 2.13.4 | MIT | [source](https://files.pythonhosted.org/packages/18/a5/b60d21ac674192f8ab0ba4e9fd860690f9b4a6e51ca5df118733b487d8d6/pydantic-2.13.4.tar.gz) |
-| pydantic-settings | 2.15.0 | MIT | [source](https://files.pythonhosted.org/packages/68/ca/31c57507b13119d7d3cfa1576dad2911a4861e3be07b579395f4e9d393f9/pydantic_settings-2.15.0.tar.gz) |
+| pydantic-settings | 2.16.1 | MIT | [source](https://files.pythonhosted.org/packages/05/ca/7817b4bf0c4b15c6a6ab8cdf4cb96c268335a8ca2f525de93b6ebe4c7d28/pydantic_settings-2.16.1.tar.gz) |
 | pydantic_core | 2.46.4 | MIT | [source](https://files.pythonhosted.org/packages/9d/56/921726b776ace8d8f5db44c4ef961006580d91dc52b803c489fafd1aa249/pydantic_core-2.46.4.tar.gz) |
 | python-dotenv | 1.2.2 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/82/ed/0301aeeac3e5353ef3d94b6ec08bbcabd04a72018415dcb29e588514bba8/python_dotenv-1.2.2.tar.gz) |
 | python-multipart | 0.0.32 | Apache-2.0 | [source](https://files.pythonhosted.org/packages/5b/42/55c32bb9b12693c092ad250a0e82edb5b31ddeda6eb772de5f308b3804ad/python_multipart-0.0.32.tar.gz) |
 | requests | 2.34.2 | Apache-2.0 | [source](https://files.pythonhosted.org/packages/ac/c3/e2a2b89f2d3e2179abd6d00ebd70bff6273f37fb3e0cc209f48b39d00cbf/requests-2.34.2.tar.gz) |
-| SQLAlchemy | 2.1.1 | MIT | [source](https://files.pythonhosted.org/packages/a8/cb/7c68da82239ffae9378eca076afe14c310e17a4f01e3d315112f266e26c7/sqlalchemy-2.1.1.tar.gz) |
+| SQLAlchemy | 2.1.5 | MIT | [source](https://files.pythonhosted.org/packages/08/bb/28e3106ee586e5b2f5ecf211eec1348055f0f926314b13fe23b9cffa9039/sqlalchemy-2.1.5.tar.gz) |
 | starlette | 1.6.0 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/b5/b4/205b0d5241d934e8add0c38aa924c4f9fb7330834ff11e5444db964ec3f9/starlette-1.6.0.tar.gz) |
 | truststore | 0.10.4 | MIT | [source](https://files.pythonhosted.org/packages/53/a3/1585216310e344e8102c22482f6060c7a6ea0322b63e026372e6dcefcfd6/truststore-0.10.4.tar.gz) |
 | typing-inspection | 0.4.3 | MIT | [source](https://files.pythonhosted.org/packages/6d/bc/4eae18cd40c65798a16267572ba346c11f599d44b01603dbd843342042bc/typing_inspection-0.4.3.tar.gz) |
 | typing_extensions | 4.16.0 | PSF-2.0 | [source](https://files.pythonhosted.org/packages/f6/cc/6253133b5bb138fc3306cebfbda2c520f545d36b5be2c7255cc528bb45d6/typing_extensions-4.16.0.tar.gz) |
 | urllib3 | 2.8.0 | MIT | [source](https://files.pythonhosted.org/packages/e3/05/b17359e1cefb4f909b5e40b1b90a496d987258916dbbf88e842c729f510e/urllib3-2.8.0.tar.gz) |
 | uvicorn | 0.54.0 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/da/34/30e9280707135d2cfc589dfff3cb796bd07a3aeb1a3e415ba09dd89d7bb4/uvicorn-0.54.0.tar.gz) |
-| websockets | 17.1 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/18/72/fba934cb3dff7a85d811820efffcd141ddd52b5a2a01637f64551373ff4d/websockets-17.1.tar.gz) |
+| websockets | 17.3 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/30/4b/4692be6d5bf739ed049b3813901c42091f8c054df89d5c089343823dea0d/websockets-17.3.tar.gz) |
 
 ## Browser components shipped with the application
 
@@ -271,7 +272,7 @@ License: `MIT`
     IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
     CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-### Authlib 1.8.0
+### Authlib 1.9.1
 
 License: `BSD-3-Clause`
 
@@ -434,7 +435,7 @@ Project: https://github.com/pallets/click/
     NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
     SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-### cryptography 50.0.1
+### cryptography 50.0.2
 
 License: `BSD-3-Clause`
 
@@ -474,7 +475,7 @@ License: `BSD-3-Clause`
     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
     SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-### fastapi 0.141.1
+### fastapi 0.156.8
 
 License: `MIT`
 
@@ -660,7 +661,7 @@ Project: https://github.com/encode/httpcore
     OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-### httpcore2 2.13.1
+### httpcore2 2.16.0
 
 License: `BSD-3-Clause`
 
@@ -718,7 +719,7 @@ Project: https://github.com/encode/httpx
 
     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-### httpx2 2.13.1
+### httpx2 2.16.0
 
 License: `BSD-3-Clause`
 
@@ -956,6 +957,216 @@ Project: https://github.com/pallets/markupsafe/
     NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
     SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+### opentelemetry-api 1.45.1
+
+License: `Apache-2.0`
+
+Project: https://github.com/open-telemetry/opentelemetry-python
+
+#### LICENSE
+
+    Apache License
+                               Version 2.0, January 2004
+                            http://www.apache.org/licenses/
+
+       TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+
+       1. Definitions.
+
+          "License" shall mean the terms and conditions for use, reproduction,
+          and distribution as defined by Sections 1 through 9 of this document.
+
+          "Licensor" shall mean the copyright owner or entity authorized by
+          the copyright owner that is granting the License.
+
+          "Legal Entity" shall mean the union of the acting entity and all
+          other entities that control, are controlled by, or are under common
+          control with that entity. For the purposes of this definition,
+          "control" means (i) the power, direct or indirect, to cause the
+          direction or management of such entity, whether by contract or
+          otherwise, or (ii) ownership of fifty percent (50%) or more of the
+          outstanding shares, or (iii) beneficial ownership of such entity.
+
+          "You" (or "Your") shall mean an individual or Legal Entity
+          exercising permissions granted by this License.
+
+          "Source" form shall mean the preferred form for making modifications,
+          including but not limited to software source code, documentation
+          source, and configuration files.
+
+          "Object" form shall mean any form resulting from mechanical
+          transformation or translation of a Source form, including but
+          not limited to compiled object code, generated documentation,
+          and conversions to other media types.
+
+          "Work" shall mean the work of authorship, whether in Source or
+          Object form, made available under the License, as indicated by a
+          copyright notice that is included in or attached to the work
+          (an example is provided in the Appendix below).
+
+          "Derivative Works" shall mean any work, whether in Source or Object
+          form, that is based on (or derived from) the Work and for which the
+          editorial revisions, annotations, elaborations, or other modifications
+          represent, as a whole, an original work of authorship. For the purposes
+          of this License, Derivative Works shall not include works that remain
+          separable from, or merely link (or bind by name) to the interfaces of,
+          the Work and Derivative Works thereof.
+
+          "Contribution" shall mean any work of authorship, including
+          the original version of the Work and any modifications or additions
+          to that Work or Derivative Works thereof, that is intentionally
+          submitted to Licensor for inclusion in the Work by the copyright owner
+          or by an individual or Legal Entity authorized to submit on behalf of
+          the copyright owner. For the purposes of this definition, "submitted"
+          means any form of electronic, verbal, or written communication sent
+          to the Licensor or its representatives, including but not limited to
+          communication on electronic mailing lists, source code control systems,
+          and issue tracking systems that are managed by, or on behalf of, the
+          Licensor for the purpose of discussing and improving the Work, but
+          excluding communication that is conspicuously marked or otherwise
+          designated in writing by the copyright owner as "Not a Contribution."
+
+          "Contributor" shall mean Licensor and any individual or Legal Entity
+          on behalf of whom a Contribution has been received by Licensor and
+          subsequently incorporated within the Work.
+
+       2. Grant of Copyright License. Subject to the terms and conditions of
+          this License, each Contributor hereby grants to You a perpetual,
+          worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+          copyright license to reproduce, prepare Derivative Works of,
+          publicly display, publicly perform, sublicense, and distribute the
+          Work and such Derivative Works in Source or Object form.
+
+       3. Grant of Patent License. Subject to the terms and conditions of
+          this License, each Contributor hereby grants to You a perpetual,
+          worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+          (except as stated in this section) patent license to make, have made,
+          use, offer to sell, sell, import, and otherwise transfer the Work,
+          where such license applies only to those patent claims licensable
+          by such Contributor that are necessarily infringed by their
+          Contribution(s) alone or by combination of their Contribution(s)
+          with the Work to which such Contribution(s) was submitted. If You
+          institute patent litigation against any entity (including a
+          cross-claim or counterclaim in a lawsuit) alleging that the Work
+          or a Contribution incorporated within the Work constitutes direct
+          or contributory patent infringement, then any patent licenses
+          granted to You under this License for that Work shall terminate
+          as of the date such litigation is filed.
+
+       4. Redistribution. You may reproduce and distribute copies of the
+          Work or Derivative Works thereof in any medium, with or without
+          modifications, and in Source or Object form, provided that You
+          meet the following conditions:
+
+          (a) You must give any other recipients of the Work or
+              Derivative Works a copy of this License; and
+
+          (b) You must cause any modified files to carry prominent notices
+              stating that You changed the files; and
+
+          (c) You must retain, in the Source form of any Derivative Works
+              that You distribute, all copyright, patent, trademark, and
+              attribution notices from the Source form of the Work,
+              excluding those notices that do not pertain to any part of
+              the Derivative Works; and
+
+          (d) If the Work includes a "NOTICE" text file as part of its
+              distribution, then any Derivative Works that You distribute must
+              include a readable copy of the attribution notices contained
+              within such NOTICE file, excluding those notices that do not
+              pertain to any part of the Derivative Works, in at least one
+              of the following places: within a NOTICE text file distributed
+              as part of the Derivative Works; within the Source form or
+              documentation, if provided along with the Derivative Works; or,
+              within a display generated by the Derivative Works, if and
+              wherever such third-party notices normally appear. The contents
+              of the NOTICE file are for informational purposes only and
+              do not modify the License. You may add Your own attribution
+              notices within Derivative Works that You distribute, alongside
+              or as an addendum to the NOTICE text from the Work, provided
+              that such additional attribution notices cannot be construed
+              as modifying the License.
+
+          You may add Your own copyright statement to Your modifications and
+          may provide additional or different license terms and conditions
+          for use, reproduction, or distribution of Your modifications, or
+          for any such Derivative Works as a whole, provided Your use,
+          reproduction, and distribution of the Work otherwise complies with
+          the conditions stated in this License.
+
+       5. Submission of Contributions. Unless You explicitly state otherwise,
+          any Contribution intentionally submitted for inclusion in the Work
+          by You to the Licensor shall be under the terms and conditions of
+          this License, without any additional terms or conditions.
+          Notwithstanding the above, nothing herein shall supersede or modify
+          the terms of any separate license agreement you may have executed
+          with Licensor regarding such Contributions.
+
+       6. Trademarks. This License does not grant permission to use the trade
+          names, trademarks, service marks, or product names of the Licensor,
+          except as required for reasonable and customary use in describing the
+          origin of the Work and reproducing the content of the NOTICE file.
+
+       7. Disclaimer of Warranty. Unless required by applicable law or
+          agreed to in writing, Licensor provides the Work (and each
+          Contributor provides its Contributions) on an "AS IS" BASIS,
+          WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+          implied, including, without limitation, any warranties or conditions
+          of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+          PARTICULAR PURPOSE. You are solely responsible for determining the
+          appropriateness of using or redistributing the Work and assume any
+          risks associated with Your exercise of permissions under this License.
+
+       8. Limitation of Liability. In no event and under no legal theory,
+          whether in tort (including negligence), contract, or otherwise,
+          unless required by applicable law (such as deliberate and grossly
+          negligent acts) or agreed to in writing, shall any Contributor be
+          liable to You for damages, including any direct, indirect, special,
+          incidental, or consequential damages of any character arising as a
+          result of this License or out of the use or inability to use the
+          Work (including but not limited to damages for loss of goodwill,
+          work stoppage, computer failure or malfunction, or any and all
+          other commercial damages or losses), even if such Contributor
+          has been advised of the possibility of such damages.
+
+       9. Accepting Warranty or Additional Liability. While redistributing
+          the Work or Derivative Works thereof, You may choose to offer,
+          and charge a fee for, acceptance of support, warranty, indemnity,
+          or other liability obligations and/or rights consistent with this
+          License. However, in accepting such obligations, You may act only
+          on Your own behalf and on Your sole responsibility, not on behalf
+          of any other Contributor, and only if You agree to indemnify,
+          defend, and hold each Contributor harmless for any liability
+          incurred by, or claims asserted against, such Contributor by reason
+          of your accepting any such warranty or additional liability.
+
+       END OF TERMS AND CONDITIONS
+
+       APPENDIX: How to apply the Apache License to your work.
+
+          To apply the Apache License to your work, attach the following
+          boilerplate notice, with the fields enclosed by brackets "[]"
+          replaced with your own identifying information. (Don't include
+          the brackets!)  The text should be enclosed in the appropriate
+          comment syntax for the file format. We also recommend that a
+          file or class name and description of purpose be included on the
+          same "printed page" as the copyright notice for easier
+          identification within third-party archives.
+
+       Copyright [yyyy] [name of copyright owner]
+
+       Licensed under the Apache License, Version 2.0 (the "License");
+       you may not use this file except in compliance with the License.
+       You may obtain a copy of the License at
+
+           http://www.apache.org/licenses/LICENSE-2.0
+
+       Unless required by applicable law or agreed to in writing, software
+       distributed under the License is distributed on an "AS IS" BASIS,
+       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+       See the License for the specific language governing permissions and
+       limitations under the License.
+
 ### paho-mqtt 2.1.0
 
 License: `EDL-1.0`
@@ -1066,7 +1277,7 @@ Project: https://github.com/pydantic/pydantic
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 
-### pydantic-settings 2.15.0
+### pydantic-settings 2.16.1
 
 License: `MIT`
 
@@ -1560,7 +1771,7 @@ Project: https://github.com/psf/requests
     Requests
     Copyright 2019 Kenneth Reitz
 
-### SQLAlchemy 2.1.1
+### SQLAlchemy 2.1.5
 
 License: `MIT`
 
@@ -2036,7 +2247,7 @@ Project: https://github.com/Kludex/uvicorn
     OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-### websockets 17.1
+### websockets 17.3
 
 License: `BSD-3-Clause`
 
