@@ -40,6 +40,8 @@ npm run docs:dev
 
 The documentation dev and preview servers bind to loopback. The build audit checks production dependencies separately and permits a high/critical development finding only when `audit-allowlist.json` names the advisory, explains its scope, and has a future expiry date. New or expired findings fail CI.
 
+The website pins Vite 6.4.4 through an npm override because VitePress 1.6.4 otherwise installs Vite 5, which no longer receives the required development-server security fixes. Keep the override until VitePress supports a patched version directly. Validate changes with `npm run audit:ci`, `npm run docs:build`, and local dev and preview smoke checks. The former Vite audit exception is no longer needed.
+
 Release images are built twice without a dependency cache. CI compares their complete Python package lists, checks FastAPI/Uvicorn/WebSockets against `uv.lock`, audits the locked Python runtime and npm build dependencies, regenerates application and website notices, generates an SPDX SBOM, verifies Debian copyright evidence, and blocks publication on fixable high or critical image findings or incomplete license evidence. Targeted Debian runtime security updates use the timestamp-pinned sources in `docker/debian-snapshot.sources` and exact package versions in `docker/Dockerfile`; update both together rather than running a broad upgrade against mutable package indexes.
 A temporary vulnerability exception must name each CVE/advisory, explain why it is not fixable, limit the affected scope, and include an expiry date; exceptions must be reviewed in the workflow rather than implemented by globally hiding scanner findings.
 
