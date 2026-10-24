@@ -26,11 +26,11 @@ def test_generated_notices_cover_runtime_browser_and_first_party_assets():
     assert components[("cffi", "2.1.1")]["license"] == "MIT-0"
     assert components[("greenlet", "3.5.6")]["license"] == "MIT AND PSF-2.0"
     assert components[("paho-mqtt", "2.1.0")]["license"] == "EDL-1.0"
-    assert components[("certifi", "2026.7.22")]["source_required"] is True
-    assert components[("certifi", "2026.7.22")]["source_archive_sha256"] == (
-        "741e2c3b351ddf169a738da9f2c048608ff7f2c5cc02f1ebc6b118bb090d5d55"
+    assert components[("certifi", "2026.10.19")]["source_required"] is True
+    assert components[("certifi", "2026.10.19")]["source_archive_sha256"] == (
+        "035c1e85572b141bf1c3a3eff0e33a8eb74917522f2559075ff8d2fea780a1ae"
     )
-    assert components[("certifi", "2026.7.22")]["source_archive_size"] == 138112
+    assert components[("certifi", "2026.10.19")]["source_archive_size"] == 137598
     assert all(component["documents"] for component in notices["components"])
     assert all(
         line == line.rstrip()
