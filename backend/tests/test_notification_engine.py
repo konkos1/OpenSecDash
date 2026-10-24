@@ -283,7 +283,8 @@ def test_asset_update_queues_notification_with_asset_and_system_details(db_sessi
     assert notifications[0].payload["release_notes_url"].endswith("/releases/tag/v3.1.0")
 
 
-def test_pending_insight_is_flushed_before_notification_matching(db_session):
+@pytest.mark.filterwarnings("error:The `objects` parameter of `Session.flush` is deprecated:sqlalchemy.exc.SADeprecationWarning")
+def test_pending_insight_notification_flushes_session_without_committing(db_session):
     save_setting(db_session, "plugin.crowdsec.enabled", "true")
     rule_id = insight_notification_rule_id("security_ban_observed")
     db_session.query(NotificationRule).filter_by(rule_id=rule_id).one().enabled = True
@@ -295,6 +296,11 @@ def test_pending_insight_is_flushed_before_notification_matching(db_session):
     asset = Asset(system_id=system.id, name="Authentik", type="application", source_plugin="json_assets")
     db_session.add(asset)
     db_session.flush()
+    db_session.commit()
+    system_id = system.id
+    system.hostname = "auth-updated.example"
+    event = Event(source="test", plugin="test", event_type="system.plugin_error", severity="error")
+    db_session.add(event)
     insight = Insight(
         type="security_ban_observed",
         level="high",
@@ -307,6 +313,8 @@ def test_pending_insight_is_flushed_before_notification_matching(db_session):
 
     handle_insight(db_session, insight)
 
+    assert event.id is not None
+    assert db_session.query(System).filter_by(id=system_id, hostname="auth-updated.example").count() == 1
     notifications = _notifications(db_session, rule_id)
     assert insight.id is not None
     assert insight.timestamp is not None
@@ -318,7 +326,46 @@ def test_pending_insight_is_flushed_before_notification_matching(db_session):
     assert notifications[0].payload["confidence"] == 0.9
     assert notifications[0].payload["occurred_at"] == insight.timestamp.isoformat()
     assert notifications[0].payload["asset_name"] == "Authentik"
-    assert notifications[0].payload["system_name"] == "auth.example"
+    assert notifications[0].payload["system_name"] == "auth-updated.example"
+
+    db_session.rollback()
+
+    assert db_session.query(Insight).count() == 0
+    assert db_session.query(Event).count() == 0
+    assert db_session.query(Notification).count() == 0
+    assert db_session.query(System).filter_by(id=system_id, hostname="auth.example").count() == 1
+
+
+@pytest.mark.filterwarnings("error:The `objects` parameter of `Session.flush` is deprecated:sqlalchemy.exc.SADeprecationWarning")
+def test_pending_asset_notification_flushes_related_system_without_committing(db_session):
+    system = System(vmid="pending-100", hostname="edge.example", system_type="lxc", source_plugin="json_assets")
+    asset = Asset(
+        system=system,
+        name="Traefik",
+        type="application",
+        source_plugin="json_assets",
+        version="v3.0.0",
+        latest_version="v3.1.0",
+        update_available=True,
+    )
+    db_session.add(asset)
+
+    handle_asset_update(db_session, asset, release_notes_url="https://github.com/traefik/traefik/releases/tag/v3.1.0")
+
+    assert system.id is not None
+    assert asset.id is not None
+    assert asset.system_id == system.id
+    notifications = _notifications(db_session, "core.asset_update_available")
+    assert len(notifications) == 1
+    assert notifications[0].payload is not None
+    assert notifications[0].payload["asset_id"] == asset.id
+    assert notifications[0].payload["system_name"] == "edge.example"
+
+    db_session.rollback()
+
+    assert db_session.query(System).count() == 0
+    assert db_session.query(Asset).count() == 0
+    assert db_session.query(Notification).count() == 0
 
 
 def test_duplicate_event_does_not_queue_a_second_notification(db_session):

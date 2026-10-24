@@ -479,7 +479,7 @@ def handle_insight(db: Session, insight: Insight, occurred_at: datetime | None =
     """Queue matching notification records without interrupting insight creation."""
     try:
         if insight.id is None or insight.timestamp is None:
-            db.flush([insight])
+            db.flush()
         rules, notifications_enabled = _active_rules(db)
         if not notifications_enabled:
             return
@@ -522,7 +522,7 @@ def handle_asset_update(db: Session, asset: Asset, *, release_notes_url: str) ->
     """Queue a notification when a newly detected asset update matches a rule."""
     try:
         if asset.id is None:
-            db.flush([asset])
+            db.flush()
         rules, notifications_enabled = _active_rules(db)
         if not notifications_enabled:
             return
