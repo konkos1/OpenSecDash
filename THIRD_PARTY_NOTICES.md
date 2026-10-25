@@ -32,7 +32,7 @@ are licensed under GNU AGPL-3.0 as described in `LICENSE`.
 | itsdangerous | 2.2.0 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/9c/cb/8ac0172223afbccb63986cc25049b154ecfb5e85932587206f42317be31d/itsdangerous-2.2.0.tar.gz) |
 | Jinja2 | 3.1.6 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/df/bf/f7da0350254c0ed7c72f3e33cef02e048281fec7ecec5f032d4aac52226b/jinja2-3.1.6.tar.gz) |
 | joserfc | 1.7.4 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/c7/e0/27a6a081ae25420eda6768ceae05d7022a7f2447f420588843f2a44e4298/joserfc-1.7.4.tar.gz) |
-| Mako | 1.4.1 | MIT | [source](https://files.pythonhosted.org/packages/2a/12/b5fa2353e2754cd67fb9f83793fa48ff42c213a5da7e719869d2301f6ab8/mako-1.4.1.tar.gz) |
+| Mako | 1.4.2 | MIT | [source](https://files.pythonhosted.org/packages/05/7f/0b891a82379ffd96d2d8cc6d435fb1055cdaed52829287f81d2a43fd71cb/mako-1.4.2.tar.gz) |
 | MarkupSafe | 3.0.3 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/7e/99/7690b6d4034fffd95959cbe0c02de8deb3098cc577c67bb6a24fe5d7caa7/markupsafe-3.0.3.tar.gz) |
 | opentelemetry-api | 1.45.1 | Apache-2.0 | [source](https://files.pythonhosted.org/packages/2e/02/6e0ae9cc61bd3169d401077b507b3ebc344745171e1051ab430be012dcd9/opentelemetry_api-1.45.1.tar.gz) |
 | paho-mqtt | 2.1.0 | EDL-1.0 | [source](https://files.pythonhosted.org/packages/39/15/0a6214e76d4d32e7f663b109cf71fb22561c2be0f701d67f93950cd40542/paho_mqtt-2.1.0.tar.gz) |
@@ -892,7 +892,7 @@ Project: https://github.com/authlib/joserfc
     OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-### Mako 1.4.1
+### Mako 1.4.2
 
 License: `MIT`
 
