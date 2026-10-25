@@ -54,7 +54,6 @@ Example:
   "event_types": ["access.denied", "access.error"],
   "path_contains_any": [
     "/wp-login.php",
-    "/wp-admin",
     "/xmlrpc.php"
   ],
   "group_by": "path",

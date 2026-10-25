@@ -46,10 +46,21 @@ with SHA-256, and then applies the existing schema and rule-count/field limits. 
 network, expiry, hash, or validation failure preserves the last valid database rules
 and the bundled fallback.
 
-The SHA-256 manifest is an interim control through 2026-10-31. Because both files are
+The SHA-256 manifest is an interim control through 2027-04-30. Because both files are
 served from the same website, it does not independently protect against a compromise
 of that website or its TLS delivery. Replacing it with an offline-key signature, or
 renewing the exception with a documented scope and expiry, requires an explicit review.
 
 Rules remain declarative JSON. Remote code, templates, dynamic imports, configurable
 rule URLs, and executable content are not accepted.
+
+
+### Exception renewal (2026-10-24)
+
+The project owner explicitly approved extending the existing SHA-256 manifest exception
+by six months, from 2026-10-31 through 2027-04-30. The scope remains the fixed public
+heuristic ruleset and its fixed HTTPS manifest; schema validation, size limits, expiry
+checks, and last-known-good fallback still apply. This renewal accepts the existing
+same-origin compromise risk described above and does not provide independent publisher
+authentication. An offline-key signature or another explicitly reviewed renewal is
+required before the new expiry.

@@ -87,16 +87,17 @@ def _remote_response(url):
 
 
 def test_default_declarative_rules_create_web_insight(db_session):
-    store_event(
-        db_session,
-        source="test",
-        plugin="traefik_log",
-        event_type="access.error",
-        severity="warning",
-        ip="8.8.8.8",
-        path="/wp-login.php",
-        status_code=404,
-    )
+    for _ in range(3):
+        store_event(
+            db_session,
+            source="test",
+            plugin="traefik_log",
+            event_type="access.error",
+            severity="warning",
+            ip="8.8.8.8",
+            path="/wp-login.php",
+            status_code=404,
+        )
     db_session.commit()
 
     insight = db_session.query(Insight).filter_by(type="web.wordpress_scan").one()
@@ -116,12 +117,12 @@ def test_refresh_insight_rules_uses_hardcoded_source_url(monkeypatch, db_session
 
     result = refresh_insight_rules(db_session, force=True)
 
-    assert result == {"status": "updated", "source": "remote", "version": "2026-07-02", "count": 7}
+    assert result == {"status": "updated", "source": "remote", "version": "2026-07-02", "count": 15}
     diagnostic = _ruleset_diagnostic(db_session)
     assert "source=bundled+remote" in diagnostic.last_error
-    assert "bundled_version=2026-07-11" in diagnostic.last_error
+    assert "bundled_version=2026-10-24" in diagnostic.last_error
     assert "remote_version=2026-07-02" in diagnostic.last_error
-    assert "bundled=6" in diagnostic.last_error
+    assert "bundled=14" in diagnostic.last_error
     assert "remote=1" in diagnostic.last_error
     assert calls[0][0] == RULE_MANIFEST_URL
     assert calls[1][0] == RULE_SOURCE_URL
@@ -190,9 +191,9 @@ def test_refresh_insight_rules_reports_source_versions_from_cache(monkeypatch, d
     diagnostic = _ruleset_diagnostic(db_session)
     assert "loaded from database" in diagnostic.last_error
     assert "source=bundled+remote" in diagnostic.last_error
-    assert "bundled_version=2026-07-11" in diagnostic.last_error
+    assert "bundled_version=2026-10-24" in diagnostic.last_error
     assert "remote_version=2026-07-02" in diagnostic.last_error
-    assert "bundled=6" in diagnostic.last_error
+    assert "bundled=14" in diagnostic.last_error
     assert "remote=1" in diagnostic.last_error
 
 
