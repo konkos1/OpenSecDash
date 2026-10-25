@@ -510,11 +510,11 @@
       "license": "MIT",
       "name": "Mako",
       "source": "https://www.makotemplates.org/",
-      "source_archive": "https://files.pythonhosted.org/packages/2a/12/b5fa2353e2754cd67fb9f83793fa48ff42c213a5da7e719869d2301f6ab8/mako-1.4.1.tar.gz",
-      "source_archive_sha256": "d7904710b662996425a21627710c4777c45053146942cf8a7aebf757c92b8c27",
-      "source_archive_size": 410165,
+      "source_archive": "https://files.pythonhosted.org/packages/05/7f/0b891a82379ffd96d2d8cc6d435fb1055cdaed52829287f81d2a43fd71cb/mako-1.4.2.tar.gz",
+      "source_archive_sha256": "7227a060ee3af55a493af61d73d6beef13044b81dba9586736c13945f09464ce",
+      "source_archive_size": 412231,
       "source_required": false,
-      "version": "1.4.1"
+      "version": "1.4.2"
     },
     {
       "distributed_files": [],
