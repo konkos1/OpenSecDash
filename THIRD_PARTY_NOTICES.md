@@ -11,7 +11,7 @@ are licensed under GNU AGPL-3.0 as described in `LICENSE`.
 
 | Package | Version | License | Exact source archive |
 | --- | --- | --- | --- |
-| alembic | 1.20.0 | MIT | [source](https://files.pythonhosted.org/packages/ed/aa/02910bdb8e2f1444f6654d5b296cd827d126f82209050ee7b1000f92ac4b/alembic-1.20.0.tar.gz) |
+| alembic | 1.20.1 | MIT | [source](https://files.pythonhosted.org/packages/93/1c/00909e0fbebad2121d916fdcab044cae988146680e9ee4387ba25fef8747/alembic-1.20.1.tar.gz) |
 | annotated-doc | 0.0.5 | MIT | [source](https://files.pythonhosted.org/packages/5a/8e/38aa427ed5402449e226975b649c5dc73ccadfefeb95e6aecb8f8ea4b6b6/annotated_doc-0.0.5.tar.gz) |
 | annotated-types | 0.8.0 | MIT | [source](https://files.pythonhosted.org/packages/5f/56/a8120250d128bed162cd73c76d45f6ef9991f3e068f62a8ee060afa3104a/annotated_types-0.8.0.tar.gz) |
 | anyio | 4.14.2 | MIT | [source](https://files.pythonhosted.org/packages/61/cc/a381afa6efea9f496eff839d4a6a1aed3bfafc7b3ab4b0d1b243a12573dd/anyio-4.14.2.tar.gz) |
@@ -21,7 +21,7 @@ are licensed under GNU AGPL-3.0 as described in `LICENSE`.
 | charset-normalizer | 3.4.9 | MIT | [source](https://files.pythonhosted.org/packages/bd/2a/23f34ec9d04624958e137efdc394888716353190e75f25dd22c7a2c7a8aa/charset_normalizer-3.4.9.tar.gz) |
 | click | 8.4.2 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/76/d4/81420972a676e8ffea40450d8c8c92943e7218a78fe9b64359836cc9876b/click-8.4.2.tar.gz) |
 | cryptography | 50.0.2 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/9d/af/182eb91b0df3fe75c4d9f26fe70684569566745f6ba7e5c9c73a862c5252/cryptography-50.0.2.tar.gz) |
-| fastapi | 0.156.8 | MIT | [source](https://files.pythonhosted.org/packages/6c/93/6e785df7ec0bdbfef9d7bf1044bc7bfabd6d22641d147e8326a1f2ba210b/fastapi-0.156.8.tar.gz) |
+| fastapi | 0.161.1 | MIT | [source](https://files.pythonhosted.org/packages/ed/3d/2cc1a0dbc2dac6e157b4ef12bac063e1016cb7c6d7395f76665e439cf1aa/fastapi-0.161.1.tar.gz) |
 | greenlet | 3.5.6 | MIT AND PSF-2.0 | [source](https://files.pythonhosted.org/packages/3e/6e/0091f175ccd02b02bc8811bbcbcc6ac2e980be116e3b2f7a736ca322bf84/greenlet-3.5.6.tar.gz) |
 | h11 | 0.16.0 | MIT | [source](https://files.pythonhosted.org/packages/01/ee/02a2c011bdab74c6fb3c75474d40b3052059d95df7e73351460c8588d963/h11-0.16.0.tar.gz) |
 | httpcore | 1.0.9 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/06/94/82699a10bca87a5556c9c59b5963f2d039dbd239f25bc2a63907a05a14cb/httpcore-1.0.9.tar.gz) |
@@ -43,7 +43,7 @@ are licensed under GNU AGPL-3.0 as described in `LICENSE`.
 | python-dotenv | 1.2.2 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/82/ed/0301aeeac3e5353ef3d94b6ec08bbcabd04a72018415dcb29e588514bba8/python_dotenv-1.2.2.tar.gz) |
 | python-multipart | 0.0.32 | Apache-2.0 | [source](https://files.pythonhosted.org/packages/5b/42/55c32bb9b12693c092ad250a0e82edb5b31ddeda6eb772de5f308b3804ad/python_multipart-0.0.32.tar.gz) |
 | requests | 2.34.2 | Apache-2.0 | [source](https://files.pythonhosted.org/packages/ac/c3/e2a2b89f2d3e2179abd6d00ebd70bff6273f37fb3e0cc209f48b39d00cbf/requests-2.34.2.tar.gz) |
-| SQLAlchemy | 2.1.5 | MIT | [source](https://files.pythonhosted.org/packages/08/bb/28e3106ee586e5b2f5ecf211eec1348055f0f926314b13fe23b9cffa9039/sqlalchemy-2.1.5.tar.gz) |
+| SQLAlchemy | 2.1.6 | MIT | [source](https://files.pythonhosted.org/packages/36/dc/9addbf490110b5727380059ee542ad8353bdcee45a37ba6a5e0976966ae0/sqlalchemy-2.1.6.tar.gz) |
 | starlette | 1.6.0 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/b5/b4/205b0d5241d934e8add0c38aa924c4f9fb7330834ff11e5444db964ec3f9/starlette-1.6.0.tar.gz) |
 | truststore | 0.10.4 | MIT | [source](https://files.pythonhosted.org/packages/53/a3/1585216310e344e8102c22482f6060c7a6ea0322b63e026372e6dcefcfd6/truststore-0.10.4.tar.gz) |
 | typing-inspection | 0.4.3 | MIT | [source](https://files.pythonhosted.org/packages/6d/bc/4eae18cd40c65798a16267572ba346c11f599d44b01603dbd843342042bc/typing_inspection-0.4.3.tar.gz) |
@@ -157,7 +157,7 @@ Project: https://tailwindcss.com
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 
-### alembic 1.20.0
+### alembic 1.20.1
 
 License: `MIT`
 
@@ -475,7 +475,7 @@ License: `BSD-3-Clause`
     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
     SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-### fastapi 0.156.8
+### fastapi 0.161.1
 
 License: `MIT`
 
@@ -1771,7 +1771,7 @@ Project: https://github.com/psf/requests
     Requests
     Copyright 2019 Kenneth Reitz
 
-### SQLAlchemy 2.1.5
+### SQLAlchemy 2.1.6
 
 License: `MIT`
 
