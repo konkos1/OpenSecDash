@@ -80,11 +80,11 @@
       "license": "MIT",
       "name": "alembic",
       "source": "https://github.com/sqlalchemy/alembic/",
-      "source_archive": "https://files.pythonhosted.org/packages/ed/aa/02910bdb8e2f1444f6654d5b296cd827d126f82209050ee7b1000f92ac4b/alembic-1.20.0.tar.gz",
-      "source_archive_sha256": "db505480647bc60386c5369402f4a57a506b7539c9e9ef5e270d45cbbe4939bf",
-      "source_archive_size": 2093272,
+      "source_archive": "https://files.pythonhosted.org/packages/93/1c/00909e0fbebad2121d916fdcab044cae988146680e9ee4387ba25fef8747/alembic-1.20.1.tar.gz",
+      "source_archive_sha256": "83490def1f723413db5096591f7609ac52544805be93849170088ed04f5a2e0b",
+      "source_archive_size": 2103576,
       "source_required": false,
-      "version": "1.20.0"
+      "version": "1.20.1"
     },
     {
       "distributed_files": [],
@@ -285,11 +285,11 @@
       "license": "MIT",
       "name": "fastapi",
       "source": "https://github.com/fastapi/fastapi",
-      "source_archive": "https://files.pythonhosted.org/packages/6c/93/6e785df7ec0bdbfef9d7bf1044bc7bfabd6d22641d147e8326a1f2ba210b/fastapi-0.156.8.tar.gz",
-      "source_archive_sha256": "cee65bba7890cd85264b3b06c7fdf88e84ca3510d00d4018cdbc2ce629e1ff22",
-      "source_archive_size": 504768,
+      "source_archive": "https://files.pythonhosted.org/packages/ed/3d/2cc1a0dbc2dac6e157b4ef12bac063e1016cb7c6d7395f76665e439cf1aa/fastapi-0.161.1.tar.gz",
+      "source_archive_sha256": "4076b88434452e20289379068e976c4a04c65ffc8e6be31510106e150a422f0f",
+      "source_archive_size": 527406,
       "source_required": false,
-      "version": "0.156.8"
+      "version": "0.161.1"
     },
     {
       "distributed_files": [],
@@ -740,11 +740,11 @@
       "license": "MIT",
       "name": "SQLAlchemy",
       "source": "https://www.sqlalchemy.org",
-      "source_archive": "https://files.pythonhosted.org/packages/08/bb/28e3106ee586e5b2f5ecf211eec1348055f0f926314b13fe23b9cffa9039/sqlalchemy-2.1.5.tar.gz",
-      "source_archive_sha256": "0df76cf1ca680ad745bd378a6299a058611a8a784eeaeb4ed78ad4a0b7ce2003",
-      "source_archive_size": 10569593,
+      "source_archive": "https://files.pythonhosted.org/packages/36/dc/9addbf490110b5727380059ee542ad8353bdcee45a37ba6a5e0976966ae0/sqlalchemy-2.1.6.tar.gz",
+      "source_archive_sha256": "499eae5c9051efe96cb9a73ec2fbde8ffa4186f102b9094ebab8fcc9d3b99f52",
+      "source_archive_size": 10589700,
       "source_required": false,
-      "version": "2.1.5"
+      "version": "2.1.6"
     },
     {
       "distributed_files": [],
