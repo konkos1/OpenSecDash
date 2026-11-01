@@ -91,6 +91,11 @@ def run_trend_tick(db: Session, *, now: datetime | None = None) -> dict[str, Any
         retention = int(get_setting_value(db, "retention_days", "30"))
     except ValueError:
         retention = 1
+    state = _cycle(db, today)
+    end = _utc(state["current_end"])
+    middle, start = end - timedelta(days=7), end - timedelta(days=14)
+    # Cleanup uses the current time, even when resuming an older daily cycle.
+    retained = retention <= 0 or start >= now - timedelta(days=retention)
     for metric, event_type, _, _, _ in METRICS:
         plugins = sorted(pid for pid in plugin_registry.ids_producing_event_type(event_type)
             if get_setting_value(db, f"plugin.{pid}.enabled", "false") == "true")
@@ -106,12 +111,12 @@ def run_trend_tick(db: Session, *, now: datetime | None = None) -> dict[str, Any
         sources[metric] = {"sources": signature, "observed_since": utc_iso(observed)}
         failed = db.query(Diagnostic.id).filter(Diagnostic.plugin.in_(plugins), Diagnostic.status.in_(("error", "warning"))).first() is not None
         failed = failed or any(row.status in ("error", "warning") for row in datasources)
-        ready[metric] = bool(plugins) and (retention <= 0 or retention >= 14) and not failed and observed <= today - timedelta(days=14)
+        ready[metric] = bool(plugins) and retained and not failed and observed <= today - timedelta(days=14)
         causes = []
         if not plugins:
             causes.append("no enabled source")
-        if retention > 0 and retention < 14:
-            causes.append("raw retention below 14 days")
+        if not retained:
+            causes.append("retention cutoff overlaps comparison window")
         if observed > today - timedelta(days=14):
             causes.append("14 complete observation days not reached")
         if failed:
@@ -120,9 +125,6 @@ def run_trend_tick(db: Session, *, now: datetime | None = None) -> dict[str, Any
         if causes:
             reasons.append(f"{metric}: insufficient data coverage ({', '.join(causes)})")
     _write(db, SOURCES_KEY, sources)
-    state = _cycle(db, today)
-    end = _utc(state["current_end"])
-    middle, start = end - timedelta(days=7), end - timedelta(days=14)
     processed = errors = 0
     if not state["completed"]:
         for metric, event_type, insight_type, dimension, title in METRICS:

@@ -7,6 +7,7 @@ from app.models.assets import Asset
 from app.models.core import Diagnostic, Insight
 from app.models.events import Event
 from app.models.settings import Setting
+from app.services.events import cleanup_events_by_retention
 from app.services.insight_trends import run_trend_tick
 
 NOW = datetime(2026, 10, 24, 12)
@@ -82,6 +83,49 @@ def test_inadequate_observation_skips(trend_db, reason):
     run_trend_tick(trend_db, now=NOW)
     assert trend_db.query(Insight).count() == 0
     assert "insufficient" in trend_db.query(Diagnostic).filter_by(component="trends").one().last_error
+
+
+@pytest.mark.parametrize("retention,now,expected", [
+    (14, END, True), (14, END + timedelta(microseconds=1), False),
+    (14, NOW, False), (15, NOW, True), (0, NOW, True), (-1, NOW, True),
+])
+def test_retention_must_cover_exact_comparison_start(trend_db, retention, now, expected):
+    trend_db.add(Setting(key="retention_days", value=str(retention)))
+    counts(trend_db)
+    run_trend_tick(trend_db, now=now)
+    assert bool(trend_db.query(Insight).count()) is expected
+    if not expected:
+        diagnostic = trend_db.query(Diagnostic).filter_by(component="trends").one()
+        assert "retention cutoff overlaps comparison window" in diagnostic.last_error
+
+
+@pytest.mark.parametrize("retention", [14, 15])
+def test_cleanup_cannot_create_false_doubling_when_cycle_resumes(trend_db, monkeypatch, retention):
+    from app.services import insight_trends
+
+    monkeypatch.setattr(insight_trends, "MAX_GROUPS", 1)
+    trend_db.add(Setting(key="retention_days", value=str(retention)))
+    trend_db.add(Asset(id=2, system_id=1, name="Another service"))
+    for asset_id in (1, 2):
+        counts(trend_db, previous=100, current=100, asset_id=asset_id)
+        # Half of the oldest day's events survive a cleanup at noon.
+        for event in trend_db.query(Event).filter_by(asset_id=asset_id).order_by(Event.id).limit(50):
+            event.event_time += timedelta(hours=18)
+    trend_db.commit()
+    result = run_trend_tick(trend_db, now=END)
+    assert result["processed"] == 1 and result["completed"] is False
+    assert trend_db.query(Insight).count() == 0
+
+    resumed_at = NOW + timedelta(days=retention - 14)
+    assert cleanup_events_by_retention(trend_db, retention, reference_time=resumed_at) == 100
+    trend_db.commit()
+    assert trend_db.query(Event).filter(Event.asset_id == 2, Event.event_time < END - timedelta(days=7)).count() == 50
+    trend_db.expire_all()
+    result = run_trend_tick(trend_db, now=resumed_at)
+    assert result["processed"] == 0 and result["completed"] is True
+    assert trend_db.query(Insight).count() == 0
+    diagnostic = trend_db.query(Diagnostic).filter_by(component="trends").one()
+    assert "retention cutoff overlaps comparison window" in diagnostic.last_error
 
 
 def test_observation_survives_restart_and_needs_full_days(trend_db):

@@ -97,7 +97,11 @@ all three conditions: at least 50 previous events, at least twice that count now
 and at least 50 additional events. Thus 50 → 100 qualifies; 1 → 20, 0 → 100 and
 100 → 149 do not. This is a fixed comparison, not a learned anomaly detector.
 
-Raw retention must be at least 14 days or unlimited. On first activation, the engine
+Raw retention must cover both complete comparison windows or be unlimited. The engine
+checks their start against the current time minus the retention duration on every
+tick, including when resuming an older cycle. Exactly 14 days suffice only when
+evaluation runs at the midnight cutoff; use at least 15 days for evaluations later
+that day. A delayed cycle may require longer retention. On first activation, the engine
 starts a persisted observation period separately for Access and GeoBlock. Changes to
 relevant enabled plugin/source IDs restart that metric's wait for 14 full UTC days;
 restarts preserve it. Currently failing sources skip evaluation. Diagnostics reports

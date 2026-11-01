@@ -598,7 +598,10 @@ and an absolute increase of at least 50. Country rollups are not an input.
 
 The source signature and observation start are persisted separately for each metric.
 Changed enabled plugin/source IDs restart the 14-full-day observation period. Raw
-retention must be at least 14 days or unlimited; current source errors skip evaluation.
+retention must cover the concrete comparison window or be unlimited. Its start must
+be at or after the current time minus the retention duration, including when an
+older daily cycle resumes. Exactly 14 days therefore suffice only at its midnight
+cutoff; current source errors skip evaluation.
 These checks do not establish continuous historical coverage. Findings explicitly
 report observed counts; import gaps and logging changes can explain increases.
 
