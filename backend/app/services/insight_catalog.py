@@ -53,17 +53,17 @@ BUILTIN_INSIGHT_DEFINITIONS = (
     ),
     InsightDefinition(
         type="blocked_request",
-        title="Blocked request detected",
+        title="Access failure near GeoBlock",
         level="high",
-        event_type_requirements=(("security.geoblock",), ("access.error",)),
+        event_type_requirements=(("security.geoblock",), ("access.error", "access.denied")),
     ),
     InsightDefinition(
         type="ban_after_access",
-        title="CrowdSec ban after access errors",
+        title="Security ban after access failures",
         level="high",
         event_type_requirements=(
             ("security.ban", "security.ban.manual"),
-            ("access.error",),
+            ("access.error", "access.denied"),
         ),
     ),
 )

@@ -165,9 +165,9 @@ def test_pair_uses_sorted_ids_and_latest_event_time(db_session):
     start = datetime(2020, 1, 1)
     access = _probe(db_session, start + timedelta(seconds=20))
     ban = store_event(db_session, source="test", plugin="test", event_type="security.ban",
-                      ip="192.0.2.1", event_time=start)
+                      ip="192.0.2.1", event_time=start + timedelta(seconds=30))
     row = db_session.query(Insight).filter_by(type="ban_after_access").one()
-    assert row.occurred_at == access.event_time
+    assert row.occurred_at == ban.event_time
     assert row.related_event_ids == [access.id, ban.id]
     assert row.dedupe_key == f"ban_after_access:pair:{access.id}:{ban.id}"
     assert row.evidence["kind"] == "correlation"

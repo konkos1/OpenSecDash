@@ -7,6 +7,28 @@ The Insights engine is a core OpenSecDash feature. It creates insights from two 
 
 The heuristic rules are declarative JSON data. They are not executable code.
 
+## Simple event relationships
+
+`blocked_request` reports **Access failure near GeoBlock**: an `access.error` or
+`access.denied` event and a GeoBlock event from the same IP, at most 60 seconds apart
+in either event-time direction. `ban_after_access` reports **Security ban after access
+failures**: an access failure precedes or coincides with an observed security ban
+(`security.ban` or `security.ban.manual`) by at most 60 seconds. ASN-policy bans remain
+separate direct facts. Both relationships work regardless of import order.
+
+Known conflicting asset IDs or normalized hostnames exclude a pair. Host matching
+uses the central host normalization and asset assignment; it does not infer plugin
+aliases. Matching known asset or host context gives heuristic confidence `0.8`.
+When only IP and time match, confidence is `0.6` and the description states the missing
+context. Descriptions retain the actual HTTP status (or state that it is unknown),
+time gap and shared context. Neither relationship proves causality, scanning,
+successful exploitation or a currently active ban.
+
+For each incoming event and relationship type, only the closest valid partner is
+selected; ties use the smaller event ID. Reprocessing the same pair creates no
+additional finding or notification. This does not enumerate all possible pairs.
+Direct ban and GeoBlock facts retain their own source-event identity and confidence.
+
 ## Remote rule updates
 
 The Insights engine ships with a local fallback ruleset, imports active rules into the local database, and also checks for updated heuristic rules from:

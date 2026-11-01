@@ -33,8 +33,8 @@
             <div class="row">
                 <span>{{ t("insight.title." ~ insight.type) if t("insight.title." ~ insight.type) != "insight.title." ~ insight.type else insight.title }}
                     <br>
-                    {% if insight.type == "asn_policy_security_ban" %}
-                        <small class="muted">{{ t("insight.description.asn_policy_security_ban") }}</small><br>
+                    {% if insight.type == "asn_policy_security_ban" or (insight.type in ("blocked_request", "ban_after_access") and insight.evidence and insight.evidence.kind == "correlation") %}
+                        <small class="muted">{{ t("insight.description." ~ insight.type) }}</small><br>
                         <small class="muted">{{ insight.description }}</small>
                     {% else %}
                         <small class="muted">{{ t("insight.description." ~ insight.type) if t("insight.description." ~ insight.type) != "insight.description." ~ insight.type else insight.description }}</small>
