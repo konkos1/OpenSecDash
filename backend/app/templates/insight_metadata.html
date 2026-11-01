@@ -1,0 +1,8 @@
+{% set badge, certainty = insight|insight_certainty %}
+<small class="muted">
+    {{ t("events.severity") }}: {{ insight.level }} · {{ t("insight.certainty") }}: {{ badge }} {{ t("insight.certainty." ~ certainty) }}<br>
+    {{ t("insight.occurred") }}: {{ (insight.occurred_at or insight.timestamp)|datetime }}{% if not insight.occurred_at %} · {{ t("insight.legacy_time") }}{% endif %}<br>
+    {% if insight.evidence %}{{ t("insight.evidence.kind") }}: {{ t("insight.kind." ~ insight.evidence.kind) }} · {% endif %}
+    {% if not insight.evidence %}{{ t("insight.no_evidence") }} · {% endif %}
+    <a href="/insights/{{ insight.id }}">{{ t("insight.details") }}</a>
+</small>

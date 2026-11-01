@@ -50,6 +50,7 @@ ROUTE_PERMISSIONS = (
         ("GET", "/search"),
         ("GET", "/rollups"),
         ("GET", "/events"),
+        ("GET", "/insights/{insight_id}"),
         ("GET", "/ip/{ip:path}"),
         ("GET", "/assets"),
         ("GET", "/assets/system/{system_id}"),

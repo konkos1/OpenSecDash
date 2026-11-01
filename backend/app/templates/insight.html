@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}{{ t("app.name") }} · {{ insight.title }}{% endblock %}
+{% block content %}
+<div class="card mb-5">
+    <h2 class="text-2xl font-semibold mb-3">{{ insight.title }}</h2>
+    <p>{{ insight.description }}</p>
+    {% include "insight_metadata.html" %}
+    <p class="info-text mt-3">{{ t("insight.certainty_help") }}</p>
+    <p>{{ t("insight.confidence") }}: {{ insight.confidence }}</p>
+    <p>{{ t("insight.evidence.rule_source") }}: {{ (insight.evidence or {}).get("rule_source", "-") }} · {{ t("insight.evidence.ruleset_version") }}: {{ (insight.evidence or {}).get("ruleset_version", "-") }}</p>
+    <p>{{ t("insight.created") }}: {{ insight.timestamp|datetime }}</p>
+    {% if insight.ip %}<p>{{ t("common.ip") }}: <a href="/ip/{{ insight.ip|url_path_quote }}">{{ insight.ip }}</a></p>{% endif %}
+    {% if insight.evidence and insight.evidence.distinct_asset_count|default(0) > 1 and not insight.asset_id %}
+        <p class="info-text">{{ t("insight.multi_asset") }}</p>
+    {% endif %}
+    {% if insight.evidence %}
+        <h3 class="font-semibold mt-3">{{ t("insight.evidence") }}</h3>
+        <dl>
+        {% for key, value in insight.evidence.items() if key != "comparison" %}
+            <dt>{{ t("insight.evidence." ~ key) }}</dt>
+            <dd>{% if key in ("window_start", "window_end") %}{{ value|datetime }}{% elif key == "sample_truncated" %}{{ t("common.yes") if value else t("common.no") }}{% elif key == "kind" %}{{ t("insight.kind." ~ value) }}{% else %}{{ value }}{% endif %}</dd>
+        {% endfor %}
+        </dl>
+        {% include "insight_trend.html" %}
+    {% endif %}
+</div>
+<div class="card overflow-x-auto">
+    <h3 class="font-semibold mb-3">{{ t("insight.examples") }}</h3>
+    <p>{{ t("insight.examples_shown") }}: {{ example_events|length }} / {{ sample_count }}</p>
+    <p class="info-text mb-3">{{ t("insight.sample_notice") }}</p>
+    {% if sample_count > example_events|length %}<p class="info-text">{{ t("insight.missing_examples") }}</p>{% endif %}
+    {% if example_events %}
+        <a href="/events?insight_id={{ insight.id }}&amp;range=all">{{ t("insight.examples") }}</a>
+        <table class="w-full text-sm"><thead><tr><th>{{ t("common.time") }}</th><th>{{ t("common.type") }}</th><th>{{ t("common.ip") }}</th><th>{{ t("asset.apps") }}</th></tr></thead>
+        <tbody>{% for event in example_events %}<tr>
+            <td>{{ event.event_time|datetime }}</td><td>{{ event.event_type }}</td>
+            <td>{% if event.ip %}<a href="/ip/{{ event.ip|url_path_quote }}">{{ event.ip }}</a>{% else %}-{% endif %}</td>
+            <td>{% if event_asset_links.get(event.id) %}<a href="{{ event_asset_links[event.id] }}">{{ event.hostname or event.asset_id }}</a>{% else %}-{% endif %}</td>
+        </tr>{% endfor %}</tbody></table>
+    {% endif %}
+</div>
+{% endblock %}

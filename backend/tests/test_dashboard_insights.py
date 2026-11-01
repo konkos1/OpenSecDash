@@ -45,6 +45,7 @@ def test_dashboard_top_insights_groups_limits_and_filters_to_today(db_session, m
         "label": "Top",
         "insight_type": "today.top",
         "value": 2,
+        "detail_href": "/insights/2",
         "href": "/events?insight_type=today.top&today=true",
     }
     assert "old.insight" not in {insight["insight_type"] for insight in top_insights}
@@ -94,3 +95,15 @@ def test_dashboard_top_insights_widget_respects_saved_layout_visibility(db_sessi
 
     assert "core.top_insights" not in {widget.id for widget in captured["dashboard_widgets"]}
     assert {widget.id: widget for widget in captured["dashboard_layout_widgets"]}["core.top_insights"].visible is False
+
+
+def test_dashboard_uses_event_time_instead_of_import_time(db_session, monkeypatch):
+    start = datetime(2026, 10, 25)
+    db_session.add(Insight(type='imported.old', title='Yesterday', timestamp=start + timedelta(hours=12), occurred_at=start - timedelta(seconds=1)))
+    db_session.commit()
+    captured = {}
+    monkeypatch.setattr(pages, 'today_start', lambda db: start)
+    monkeypatch.setattr(pages, 'dashboard_widget_plugin_state', lambda db: (['traefik_log'], {'json_assets': False, 'proxmox_assets': False, 'crowdsec': False, 'geoblock_log': False, 'traefik_log': True}, []))
+    monkeypatch.setattr(pages, 'render', lambda request, db, template, **context: captured.update(context) or context)
+    pages.dashboard_page(cast(Request, SimpleNamespace(headers={'HX-Request': 'true'})), db_session)
+    assert not {w.id: w for w in captured['dashboard_widgets']}['core.top_insights'].rows

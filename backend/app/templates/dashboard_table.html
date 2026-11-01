@@ -1,5 +1,6 @@
 <div class="card overflow-x-auto responsive-table">
   <h3 class="font-semibold mb-3">{{ t(widget.title_key) }}{% if widget.help_key %} <button type="button" class="help" data-tooltip="{{ t(widget.help_key) }}">?</button>{% endif %}</h3>
+  {% if widget.id == "core.top_insights" %}<p class="info-text text-sm mb-3">{{ t("insight.time_basis") }}</p>{% endif %}
   <table class="w-full text-sm table-middle">
     <tbody>
       {% for row in widget.rows %}
@@ -8,6 +9,7 @@
           <td colspan="2">
             {% set label = t("insight.title." ~ row.insight_type) if widget.id == "core.top_insights" and t("insight.title." ~ row.insight_type) != "insight.title." ~ row.insight_type else row.label %}
             {% if row.href %}<a href="{{ row.href }}">{{ row.value }}x {{ label }}</a>{% else %}{{ row.value }}x {{ label }}{% endif %}
+            <br><a href="{{ row.detail_href }}">{{ t("insight.details") }}</a>
           </td>
           {% else %}
           <td>

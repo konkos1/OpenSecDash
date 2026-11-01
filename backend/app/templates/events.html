@@ -57,6 +57,7 @@
 
   <form class="card grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 mb-5" method="get">
     {% if filters.hour %}<input type="hidden" name="hour" value="{{ filters.hour }}">{% endif %}
+    {% if filters.insight_id %}<input type="hidden" name="insight_id" value="{{ filters.insight_id }}">{% endif %}
     {% if filters.insight_type %}<input type="hidden" name="insight_type" value="{{ filters.insight_type }}">{% endif %}
     <input type="hidden" name="snapshot_before" value="{{ filters.snapshot_before or '' }}" data-snapshot-before>
     <div class="field-help sm:col-span-2 lg:col-span-2" style="position:relative">
@@ -117,9 +118,13 @@
     <button class="btn sm:col-span-1 lg:col-start-6" type="submit">{{ t("common.filter") }}</button>
   </form>
 
+  {% if filters.insight_type or filters.insight_id %}
+    <p class="info-text mb-3">{{ t("insight.sample_notice") }}{% if filters.insight_type %} {{ t("insight.type_sample_notice") }}{% endif %}</p>
+  {% endif %}
   {% for insight in trend_insights %}
     <div class="card mb-5">
-      <strong>{{ t("insight.title." ~ insight.type) }}</strong>
+      <strong>{{ insight.title }}</strong>
+      {% include "insight_metadata.html" %}
       {% include "insight_trend.html" %}
     </div>
   {% endfor %}

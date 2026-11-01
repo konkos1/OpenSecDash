@@ -243,3 +243,25 @@ yyyy-mm-dd
 - `2`, `2.1`, ... are breaking schema changes and require a newer OpenSecDash app version before the ruleset is accepted.
 
 If OpenSecDash sees an unsupported schema major version, it ignores that remote ruleset and keeps using database-imported or bundled rules.
+
+## Investigating findings
+
+IP and Asset Explorer findings link to an evidence detail page. Severity describes
+impact; certainty describes evidence strength independently. Direct evidence with
+confidence of at least 0.8 is labelled certain, other known evidence at that threshold
+probable, and remaining or legacy evidence possible. These are fixed heuristics,
+not calibrated probabilities. An observed ban does not establish a currently active ban.
+
+Details retain the rule source/version when known, exact counts and evaluation windows,
+event time and creation time. At most 20 stored example event IDs link to Events and
+their existing IP/Asset views. Total matches and available examples are separate:
+retention may remove some or all examples without invalidating the stored summary.
+Type drill-downs use samples from at most 200 findings and show details for at most 20;
+additional time filters can further narrow the displayed examples.
+
+Top Insights and finding order use event time, with a labelled creation-time fallback
+for legacy records. Asset Explorer's **Most frequent finding** uses the displayed assets
+(or focused app) over the last 24 hours. This is not a proven cause. Multi-asset chains
+remain accessible through Top Insights, details and examples; a chain's IP is the banned
+participant, and its empty asset association represents multiple assets. The examples
+do not promise complete coverage of participating IPs/assets or an asset's history.

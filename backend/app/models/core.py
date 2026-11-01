@@ -11,7 +11,9 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    column,
     false,
+    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -55,6 +57,7 @@ class Datasource(Base):
 class Insight(Base):
     __tablename__ = "insights"
     __table_args__ = (
+        Index("ix_insights_display_time", func.coalesce(column("occurred_at"), column("timestamp"))),
         Index("ix_insights_type_ip_timestamp", "type", "ip", "timestamp"),
         Index("ix_insights_type_correlation_occurred", "type", "correlation_key", "occurred_at"),
         UniqueConstraint("dedupe_key", name="uq_insights_dedupe_key"),
