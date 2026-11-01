@@ -360,3 +360,18 @@ release-pending state. `last_event_id` and `action_id` are nullable correlations
 than foreign keys because Event or Action retention must not remove ownership evidence.
 The table is not a second active-decision inventory; `crowdsec_decisions` remains the
 synchronized CrowdSec state.
+
+
+## Insight event time and evidence (2026-11-01)
+
+`insights.timestamp` remains creation time. Additive nullable columns are
+`occurred_at` (DateTime), `correlation_key` (String(160)), `dedupe_key` (String(255),
+unique), and `evidence` (JSON). NULL means unknown for legacy rows. Multiple NULL
+dedupe keys remain allowed. Migration preserves existing IDs/texts and does not
+scan events or backfill guessed values.
+
+Indexes cover `occurred_at` and `(type, correlation_key, occurred_at)` for bounded
+historical cooldowns. The existing `(type, ip, timestamp)` index remains.
+`related_event_ids` contains a sorted sample of at most 20 IDs, with no foreign-key
+cascade from raw events. The closed version-1 evidence contract and its 8 KiB UTF-8
+limit are described in ADR-030; summary counts remain available after event retention.

@@ -102,7 +102,11 @@ Rules can use either grouping mode:
 
 `min_distinct_ips` sets how many different IPs must match. It defaults to `1` and accepts values from `1` to `1000`. For example, the bundled scanner-wave rule requires 20 requests to common WordPress paths from at least 5 IPs in 5 minutes.
 
-After a rule creates an insight, OpenSecDash applies a cooldown for that rule and correlation key for the rule window. Repeated matching events during that window do not create duplicate insights. Raw events remain unchanged.
+After a rule creates an insight, OpenSecDash applies a cooldown for that rule and correlation key for the rule window. This uses event time in the closed interval from the window start to the evaluated event time. Importing a newer wave first does not suppress a separate older wave. IP rules use a canonical IP key; path groups remain global across matching path patterns and assets. Raw events remain unchanged.
+
+New insights store event time separately from creation time and retain a small evidence summary. Rule findings include rule identity/source/version when known, the evaluated time window, exact counts, and at most 20 example event IDs. The summary remains after raw-event retention; example events may no longer be available. Existing insights keep their text and have unknown event time/evidence rather than reconstructed data.
+
+Direct ban and deny findings deduplicate by source event, so separate actual events remain separate facts. GeoIP country enrichment can update a GeoBlock description without creating another finding or email. Insight emails use event time; events older than 15 minutes do not notify.
 
 ## Diagnostics and debug reports
 

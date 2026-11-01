@@ -434,3 +434,22 @@ def test_pending_notifications_are_capped_for_single_count_rules(db_session):
         )
 
     assert len(_notifications(db_session, "core.crowdsec_ban")) == 25
+
+
+def test_insight_event_time_suppresses_backlog_and_preserves_fresh_notification(db_session):
+    save_setting(db_session, "plugin.crowdsec.enabled", "true")
+    rule_id = insight_notification_rule_id("security_ban_observed")
+    db_session.query(NotificationRule).filter_by(rule_id=rule_id).one().enabled = True
+    db_session.commit()
+    invalidate_rules_cache()
+    now = utc_now().replace(tzinfo=None)
+    old = store_event(db_session, source="test", plugin="test", event_type="security.ban",
+                      ip="192.0.2.1", event_time=now - timedelta(minutes=16))
+    assert _notifications(db_session, rule_id) == []
+    fresh = store_event(db_session, source="test", plugin="test", event_type="security.ban",
+                        ip="192.0.2.2", event_time=now)
+    rows = _notifications(db_session, rule_id)
+    assert len(rows) == 1
+    assert rows[0].payload is not None
+    assert rows[0].payload["occurred_at"] == fresh.event_time.isoformat()
+    assert db_session.query(Insight).filter_by(related_event_ids=[old.id]).one().occurred_at == old.event_time

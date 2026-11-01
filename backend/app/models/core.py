@@ -54,7 +54,11 @@ class Datasource(Base):
 
 class Insight(Base):
     __tablename__ = "insights"
-    __table_args__ = (Index("ix_insights_type_ip_timestamp", "type", "ip", "timestamp"),)
+    __table_args__ = (
+        Index("ix_insights_type_ip_timestamp", "type", "ip", "timestamp"),
+        Index("ix_insights_type_correlation_occurred", "type", "correlation_key", "occurred_at"),
+        UniqueConstraint("dedupe_key", name="uq_insights_dedupe_key"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     timestamp: Mapped[datetime] = mapped_column(DateTime, default=utc_now, index=True)
@@ -63,6 +67,10 @@ class Insight(Base):
     level: Mapped[str] = mapped_column(String(20), default="medium")
     title: Mapped[str] = mapped_column(String(255))
     description: Mapped[str] = mapped_column(Text, default="")
+    occurred_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
+    correlation_key: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    dedupe_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    evidence: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     related_event_ids: Mapped[list | None] = mapped_column(JSON, nullable=True)
     ip: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     asset_id: Mapped[int | None] = mapped_column(nullable=True, index=True)

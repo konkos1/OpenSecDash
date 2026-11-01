@@ -18,7 +18,8 @@ from app.models.core import Diagnostic, Insight, InsightRule as InsightRuleModel
 from app.models.events import Event
 from app.models.settings import Setting
 from app.services.insight_catalog import BUILTIN_INSIGHT_DEFINITIONS
-from app.services.notifications import handle_insight, sync_insight_notification_rules
+from app.services.notifications import sync_insight_notification_rules
+from app.services.insights import MAX_SAMPLE_IDS, ip_correlation_key, record_insight, utc_iso
 
 logger = logging.getLogger(__name__)
 
@@ -459,13 +460,15 @@ def refresh_insight_rules(db: Session, *, force: bool = False) -> dict[str, Any]
         return {"status": "failed", "source": "database", "version": last_known_version or str(bundled["version"]), "count": active_count, "error": str(exc)}
 
 
-def _insight_in_cooldown(db: Session, insight_type: str, *, ip: str | None, window_start: datetime) -> bool:
-    cooldown = db.query(Insight).filter(Insight.type == insight_type, Insight.timestamp >= window_start)
-    if ip is None:
-        cooldown = cooldown.filter(Insight.ip.is_(None))
-    else:
-        cooldown = cooldown.filter(Insight.ip == ip)
-    return cooldown.first() is not None
+def _insight_in_cooldown(
+    db: Session, insight_type: str, *, correlation_key: str, window_start: datetime, window_end: datetime,
+) -> bool:
+    return db.query(Insight).filter(
+        Insight.type == insight_type,
+        Insight.correlation_key == correlation_key,
+        Insight.occurred_at >= window_start,
+        Insight.occurred_at <= window_end,
+    ).first() is not None
 
 
 def _insight_exists(db: Session, insight_type: str, event_ids: list[int]) -> bool:
@@ -483,7 +486,9 @@ def apply_declarative_insight_rules(db: Session, event: Event) -> None:
             continue
         window_start = event.event_time - timedelta(minutes=rule.window_minutes)
         insight_ip = event.ip if rule.group_by == "ip" else None
-        if _insight_in_cooldown(db, rule.id, ip=insight_ip, window_start=window_start):
+        correlation_key = ip_correlation_key(event.ip) if rule.group_by == "ip" else "rule"
+        if _insight_in_cooldown(db, rule.id, correlation_key=correlation_key,
+                                window_start=window_start, window_end=event.event_time):
             continue
         path_matches = or_(
             *(func.lower(Event.path).contains(pattern.lower(), autoescape=True) for pattern in rule.path_contains_any)
@@ -497,29 +502,40 @@ def apply_declarative_insight_rules(db: Session, event: Event) -> None:
         )
         if rule.group_by == "ip":
             matching_query = matching_query.filter(Event.ip == event.ip)
-        matching_events = matching_query.all()
-        matching_ids = [candidate_id for candidate_id, _candidate_ip, _asset_id in matching_events]
-        distinct_ips = {candidate_ip for _candidate_id, candidate_ip, _asset_id in matching_events if candidate_ip}
-        if len(matching_ids) < rule.threshold:
+        event_count, distinct_ip_count, distinct_asset_count = matching_query.with_entities(
+            func.count(Event.id), func.count(func.distinct(func.nullif(Event.ip, ""))),
+            func.count(func.distinct(Event.asset_id)),
+        ).one()
+        if event_count < rule.threshold or distinct_ip_count < rule.min_distinct_ips:
             continue
-        if len(distinct_ips) < rule.min_distinct_ips:
-            continue
-        related_ids = sorted(set(matching_ids))[-20:]
+        matching_events = matching_query.order_by(Event.id.desc()).limit(MAX_SAMPLE_IDS).all()
+        related_ids = sorted(candidate_id for candidate_id, _ip, _asset_id in matching_events)
         if _insight_exists(db, rule.id, related_ids):
             continue
-        asset_ids = {asset_id for _candidate_id, _candidate_ip, asset_id in matching_events}
-        insight = Insight(
+        asset_id = matching_query.with_entities(func.min(Event.asset_id)).scalar() if distinct_asset_count == 1 else None
+        # Preserve schema-1's global pattern grouping, including mixed asset/NULL inputs.
+        has_unassigned = matching_query.filter(Event.asset_id.is_(None)).first() is not None
+        record_insight(db,
             type=rule.id,
             confidence=rule.confidence,
             level=rule.level,
             title=rule.title,
-            description=f"{rule.description} Matched {len(matching_ids)} event(s) from {len(distinct_ips)} IP(s) within {rule.window_minutes} minutes.",
+            description=f"{rule.description} Matched {event_count} event(s) from {distinct_ip_count} IP(s) within {rule.window_minutes} minutes.",
             related_event_ids=related_ids,
             ip=insight_ip,
-            asset_id=event.asset_id if rule.group_by == "ip" else asset_ids.pop() if len(asset_ids) == 1 else None,
+            asset_id=event.asset_id if rule.group_by == "ip" else asset_id if not has_unassigned else None,
+            occurred_at=event.event_time,
+            correlation_key=correlation_key,
+            dedupe_key=f"{rule.id}:window:{correlation_key}:{utc_iso(event.event_time)}",
+            evidence={
+                "version": 1, "kind": "heuristic", "rule_id": rule.id, "rule_source": rule.source,
+                **({"ruleset_version": rule.ruleset_version} if rule.ruleset_version else {}),
+                "window_start": utc_iso(window_start), "window_end": utc_iso(event.event_time),
+                "event_count": event_count, "distinct_ip_count": distinct_ip_count,
+                "distinct_asset_count": distinct_asset_count, "sample_count": len(related_ids),
+                "sample_truncated": event_count > len(related_ids),
+            },
         )
-        db.add(insight)
-        handle_insight(db, insight, event.event_time)
 
 
 def debug_summary(db: Session) -> list[str]:

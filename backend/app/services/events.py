@@ -24,7 +24,8 @@ from app.models.assets import Asset
 from app.models.events import Event
 from app.services.asset_hosts import find_asset_by_host
 from app.services.insight_rules import apply_declarative_insight_rules
-from app.services.notifications import handle_event, handle_insight
+from app.services.notifications import handle_event
+from app.services.insights import ip_correlation_key, record_insight, utc_iso
 from app.services.rollups import DAILY_ROLLUP_WINDOW_DAYS, normalize_rollup_key
 
 
@@ -433,31 +434,22 @@ def cleanup_events_by_retention(db: Session, retention_days: int, reference_time
     return int(deleted or 0)
 
 
-def _insight_exists(
-    db: Session,
-    insight_type: str,
-    event_ids: list[int],
-    *,
-    ip: str | None = None,
-    window_start: datetime | None = None,
-) -> bool:
-    if window_start is not None:
-        cooldown = db.query(Insight).filter(Insight.type == insight_type, Insight.timestamp >= window_start)
-        if ip is None:
-            cooldown = cooldown.filter(Insight.ip.is_(None))
-        else:
-            cooldown = cooldown.filter(Insight.ip == ip)
-        if cooldown.first() is not None:
-            return True
-    return (
-        db.query(Insight)
-        .filter(Insight.type == insight_type, Insight.related_event_ids == event_ids)
-        .first()
-        is not None
-    )
+def _insight_exists(db: Session, insight_type: str, event_ids: list[int]) -> bool:
+    return db.query(Insight).filter(
+        Insight.type == insight_type, Insight.related_event_ids == sorted(event_ids),
+    ).first() is not None
 
 
 def create_rule_based_insights(db: Session, event: Event) -> None:
+    """Keep derived-data failures from invalidating a valid source event."""
+    try:
+        with db.begin_nested():
+            _create_rule_based_insights(db, event)
+    except Exception:
+        logger.exception("Insight generation failed for event id=%s", event.id)
+
+
+def _create_rule_based_insights(db: Session, event: Event) -> None:
     if not event.ip:
         return
 
@@ -472,25 +464,28 @@ def create_rule_based_insights(db: Session, event: Event) -> None:
             if existing.description != description:
                 existing.description = description
         else:
-            insight = Insight(
+            record_insight(db,
                 type="geoblock_denied_request",
                 confidence=0.85,
                 level="high",
                 title="Request denied by GeoBlock",
                 description=description,
                 related_event_ids=ids,
+                occurred_at=event.event_time,
+                correlation_key=ip_correlation_key(event.ip),
+                dedupe_key=f"geoblock_denied_request:event:{event.id}",
+                evidence={"version": 1, "kind": "direct", "event_count": 1,
+                          "sample_count": 1, "sample_truncated": False},
                 ip=event.ip,
                 asset_id=event.asset_id,
             )
-            db.add(insight)
-            handle_insight(db, insight, event.event_time)
 
     if event.event_type in {"security.ban", "security.ban.manual"}:
         insight_type = "manual_security_ban" if event.event_type == "security.ban.manual" else "security_ban_observed"
         if not _insight_exists(db, insight_type, ids):
             scenario = (event.data_json or {}).get("scenario") or "unknown scenario"
             duration = (event.data_json or {}).get("duration") or "unknown duration"
-            insight = Insight(
+            record_insight(db,
                 type=insight_type,
                 confidence=0.9 if event.event_type == "security.ban.manual" else 0.85,
                 level="high",
@@ -501,11 +496,14 @@ def create_rule_based_insights(db: Session, event: Event) -> None:
                     else f"{event.ip} was banned for {duration} due to {scenario}."
                 ),
                 related_event_ids=ids,
+                occurred_at=event.event_time,
+                correlation_key=ip_correlation_key(event.ip),
+                dedupe_key=f"{insight_type}:event:{event.id}",
+                evidence={"version": 1, "kind": "direct", "event_count": 1,
+                          "sample_count": 1, "sample_truncated": False},
                 ip=event.ip,
                 asset_id=event.asset_id,
             )
-            db.add(insight)
-            handle_insight(db, insight, event.event_time)
 
     if event.event_type == "security.ban.asn_policy":
         insight_type = "asn_policy_security_ban"
@@ -514,18 +512,21 @@ def create_rule_based_insights(db: Session, event: Event) -> None:
             asn = str(data.get("asn") or "unknown ASN")
             provider_name = str(data.get("provider_name") or "unknown provider")
             duration = str(data.get("duration") or "7d")
-            insight = Insight(
+            record_insight(db,
                 type=insight_type,
                 confidence=0.95,
                 level="high",
                 title="Banned by permanent ASN ban",
                 description=f"{asn} · {provider_name} · {duration}",
                 related_event_ids=ids,
+                occurred_at=event.event_time,
+                correlation_key=ip_correlation_key(event.ip),
+                dedupe_key=f"{insight_type}:event:{event.id}",
+                evidence={"version": 1, "kind": "direct", "event_count": 1,
+                          "sample_count": 1, "sample_truncated": False},
                 ip=event.ip,
                 asset_id=event.asset_id,
             )
-            db.add(insight)
-            handle_insight(db, insight, event.event_time)
 
     window_start = event.event_time - timedelta(seconds=60)
     window_end = event.event_time + timedelta(seconds=60)
@@ -546,20 +547,24 @@ def create_rule_based_insights(db: Session, event: Event) -> None:
         if access:
             insight_type = "blocked_request" if event.event_type == "security.geoblock" else "ban_after_access"
             title = "404 likely caused by geoblock" if event.event_type == "security.geoblock" else "CrowdSec ban followed access errors"
-            ids = [access.id, event.id]
+            ids = sorted([access.id, event.id])
             if not _insight_exists(db, insight_type, ids):
-                insight = Insight(
+                record_insight(db,
                     type=insight_type,
                     confidence=0.9 if event.event_type == "security.geoblock" else 0.95,
                     level="high",
                     title=title,
                     description=f"Events from {event.ip} occurred within the v1 correlation window.",
                     related_event_ids=ids,
+                    occurred_at=max(event.event_time, access.event_time),
+                    correlation_key=ip_correlation_key(event.ip),
+                    dedupe_key=f"{insight_type}:pair:{ids[0]}:{ids[1]}",
+                    evidence={"version": 1, "kind": "correlation", "event_count": 2,
+                                  "sample_count": 2, "sample_truncated": False,
+                                  "window_start": utc_iso(window_start), "window_end": utc_iso(window_end)},
                     ip=event.ip,
                     asset_id=event.asset_id or access.asset_id,
                 )
-                db.add(insight)
-                handle_insight(db, insight, event.event_time)
 
     apply_declarative_insight_rules(db, event)
 

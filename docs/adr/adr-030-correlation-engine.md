@@ -537,3 +537,41 @@ currently active ban. Raw events remain unchanged and findings must explain thei
 This decision does not authorize Torblock, LLM features, additional plugins in general,
 or other previously excluded V1 features. Rules remain validated declarative data under
 the existing security and plugin boundaries.
+
+
+## Event time and retained evidence (2026-11-01)
+
+All built-in and declarative findings use the shared `record_insight()` storage helper.
+`timestamp` remains creation time; nullable `occurred_at` is the event time. Direct
+facts use their source event time and `<type>:event:<id>` identity. Relationships
+use the later event time and `<type>:pair:<smaller-id>:<larger-id>`, with sorted IDs.
+Declarative findings use the end of the evaluated event-time window.
+
+IP rule keys use `ip:<canonical-ip>`; schema-1 path groups use the global key `rule`.
+Cooldowns query only the same type/key in the closed interval `[t-window, t]`.
+Future findings cannot suppress an older separate wave. Direct facts have no time
+cooldown. Legacy findings without event time deduplicate only identical event IDs;
+their creation time is never substituted into historical cooldowns. Unique dedupe
+keys handle competing inserts within a savepoint. Insight generation also has an
+outer savepoint so a failed rule cannot invalidate ingestion of a valid event.
+GeoIP may update a GeoBlock description without a second finding or notification.
+Notifications use event time and retain the 15-minute backlog protection.
+
+Evidence version 1 is a closed JSON summary, at most 8 KiB in UTF-8. Required fields
+are `version` (integer 1) and `kind` (`direct`, `correlation`, `heuristic`, `trend`).
+The storage helper requires `sample_count` to match the sorted, unique sample of
+at most 20 positive event IDs. Producers also supply `sample_truncated` (boolean).
+Optional fields are:
+
+- `rule_id`, `rule_source`, `ruleset_version`: nonempty strings identifying the rule snapshot.
+- `window_start`, `window_end`: explicit UTC ISO timestamps.
+- `event_count`, `distinct_ip_count`, `distinct_asset_count`, `distinct_country_count`,
+  `sample_count`, `followup_seconds`, `followup_gap_seconds`: nonnegative integers.
+
+Unknown fields and invalid types are rejected. `comparison` is reserved for a later
+trend extension and is not currently accepted. Missing optional information is omitted,
+not inferred. Raw rows, full IP/URL lists, secrets and arbitrary payloads are not
+snapshot fields. Declarative evaluation uses SQL counts and a bounded deterministic
+ID sample. Evidence survives raw-event retention without copying raw data. Existing
+findings retain their IDs and texts with NULL event time/evidence; no backfill or
+startup sweep attempts to reconstruct deleted data.
