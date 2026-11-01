@@ -360,3 +360,35 @@ release-pending state. `last_event_id` and `action_id` are nullable correlations
 than foreign keys because Event or Action retention must not remove ownership evidence.
 The table is not a second active-decision inventory; `crowdsec_decisions` remains the
 synchronized CrowdSec state.
+
+
+## Insight event time and evidence (2026-11-01)
+
+`insights.timestamp` remains creation time. Additive nullable columns are
+`occurred_at` (DateTime), `correlation_key` (String(160)), `dedupe_key` (String(255),
+unique), and `evidence` (JSON). NULL means unknown for legacy rows. Multiple NULL
+dedupe keys remain allowed. Migration preserves existing IDs/texts and does not
+scan events or backfill guessed values.
+
+Indexes cover `occurred_at` and `(type, correlation_key, occurred_at)` for bounded
+historical cooldowns. The existing `(type, ip, timestamp)` index remains.
+`related_event_ids` contains a sorted, unique sample of at most 20 IDs, with no foreign-key
+cascade from raw events. The closed version-1 evidence contract and its 8 KiB UTF-8
+limit are described in ADR-030; summary counts remain available after event retention.
+
+
+## Declarative matching and display indexes (2026-11-01)
+
+`insight_rules.kind` stores `web_probe` (including migrated legacy rules) or
+`scan_ban_chain`; nullable JSON `match_options` stores validated schema-2 data.
+`insights` also has `level`, `ip` and nullable `asset_id`; multi-asset chains have
+no single asset. The expression index `ix_insights_display_time` covers
+`coalesce(occurred_at, timestamp)` for display and JSON pagination. Internal settings
+persist bounded chain/trend cycles, metric source observation starts and MQTT
+activation/cursor state. They are not freely editable rule configuration. Upgrades
+preserve legacy IDs/text, user notification choices and disabled export defaults.
+
+Level 2 anchor selection uses `(event_type, created_at)` to select candidate IDs
+inside the fixed creation-time window before ordering and limiting by event ID.
+This keeps retained bans outside the window out of the scan while preserving the
+existing persisted ID cursor, including for recently imported historical events.

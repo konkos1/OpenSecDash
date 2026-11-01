@@ -27,6 +27,10 @@ class InsightAvailability:
 
 
 BUILTIN_INSIGHT_DEFINITIONS = (
+    InsightDefinition(type="asset.access_errors_increased", title="Observed access errors increased",
+        level="medium", event_type_requirements=(("access.error",),)),
+    InsightDefinition(type="geo.geoblocks_increased", title="Observed GeoBlocks increased",
+        level="medium", event_type_requirements=(("security.geoblock",),)),
     InsightDefinition(
         type="geoblock_denied_request",
         title="Request denied by GeoBlock",
@@ -53,17 +57,17 @@ BUILTIN_INSIGHT_DEFINITIONS = (
     ),
     InsightDefinition(
         type="blocked_request",
-        title="Blocked request detected",
+        title="Access failure near GeoBlock",
         level="high",
-        event_type_requirements=(("security.geoblock",), ("access.error",)),
+        event_type_requirements=(("security.geoblock",), ("access.error", "access.denied")),
     ),
     InsightDefinition(
         type="ban_after_access",
-        title="CrowdSec ban after access errors",
+        title="Security ban after access failures",
         level="high",
         event_type_requirements=(
             ("security.ban", "security.ban.manual"),
-            ("access.error",),
+            ("access.error", "access.denied"),
         ),
     ),
 )
@@ -84,7 +88,8 @@ def insight_definitions(db: Session) -> dict[str, InsightDefinition]:
             type=row.rule_id,
             title=row.title,
             level=row.level,
-            event_type_requirements=(tuple(str(value) for value in (row.event_types or [])),),
+            event_type_requirements=(tuple(str(value) for value in (row.event_types or [])),)
+            + ((("security.ban",),) if row.kind == "scan_ban_chain" else ()),
             owner_plugin_id=owner_plugin_id,
         )
     return definitions

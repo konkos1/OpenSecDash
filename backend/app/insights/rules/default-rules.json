@@ -1,6 +1,6 @@
 {
-  "schema_version": 1,
-  "ruleset_version": "2026-10-24",
+  "schema_version": 2,
+  "ruleset_version": "2026-11-01",
   "rules": [
     {
       "id": "web.scanner_wave",
@@ -226,6 +226,31 @@
       "group_by": "ip",
       "window_minutes": 5,
       "threshold": 1
+    },
+    {
+      "id": "web.distributed_scan_then_ban",
+      "title": "Distributed probing followed by an observed ban",
+      "description": "WordPress endpoint failures across assets and observed countries preceded a ban of a participating IP. This does not prove a shared campaign or the cause of the ban.",
+      "kind": "scan_ban_chain",
+      "level": "high",
+      "confidence": 0.8,
+      "event_types": [
+        "access.error",
+        "access.denied"
+      ],
+      "path_contains_any": [
+        "/wp-login.php",
+        "/xmlrpc.php"
+      ],
+      "group_by": "path",
+      "window_minutes": 5,
+      "threshold": 20,
+      "min_distinct_ips": 2,
+      "match_options": {
+        "min_distinct_assets": 2,
+        "min_distinct_countries": 2,
+        "followup_seconds": 60
+      }
     }
   ]
 }

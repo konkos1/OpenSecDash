@@ -29,18 +29,17 @@
         <h3 class="font-semibold mb-1">{{ t("ip.insights") }} <button type="button" class="help" data-tooltip="{{ t('ip.insights_help') }}">?</button></h3>
         <p class="info-text text-sm mb-3">{{ t("table.limit.ip_insights") }}</p>
         {% for insight in insights %}
-            {% set badge, certainty = insight.level|insight_level_badge %}
             <div class="row">
                 <span>{{ t("insight.title." ~ insight.type) if t("insight.title." ~ insight.type) != "insight.title." ~ insight.type else insight.title }}
                     <br>
-                    {% if insight.type == "asn_policy_security_ban" %}
-                        <small class="muted">{{ t("insight.description.asn_policy_security_ban") }}</small><br>
+                    {% if insight.type == "asn_policy_security_ban" or (insight.type in ("blocked_request", "ban_after_access") and insight.evidence and insight.evidence.kind == "correlation") %}
+                        <small class="muted">{{ t("insight.description." ~ insight.type) }}</small><br>
                         <small class="muted">{{ insight.description }}</small>
                     {% else %}
                         <small class="muted">{{ t("insight.description." ~ insight.type) if t("insight.description." ~ insight.type) != "insight.description." ~ insight.type else insight.description }}</small>
                     {% endif %}
                 </span>
-                <b>{{ badge }} {{ t("insight.certainty." ~ certainty) }}</b>
+                {% include "insight_metadata.html" %}
             </div>
         {% else %}
             <p class="muted">{{ t("ip.no_insights") }}</p>

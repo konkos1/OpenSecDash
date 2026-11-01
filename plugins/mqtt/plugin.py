@@ -8,11 +8,22 @@ import socket
 import ssl
 from typing import Any, Protocol, cast
 
+from sqlalchemy import func
+
+from app.core.logging import redact_sensitive
+from app.core.template_context import get_setting_value
 from app.models.assets import Asset
+from app.models.core import Insight
+from app.services.insight_export import serialize_insight
+from app.services.settings import save_setting
 from app.plugins.base import ExportPlugin, PeriodicPlugin, PluginContext, PluginMetadata, PluginSetting
 
 
 logger = logging.getLogger(__name__)
+
+# One bounded batch per existing worker tick; auto mode runs every 60 seconds.
+INSIGHT_BATCH_SIZE = 100
+_STATE_PREFIX = "plugin.mqtt-hass."
 
 
 class _PublishModule(Protocol):
@@ -44,6 +55,7 @@ class Plugin(ExportPlugin, PeriodicPlugin):
     )
     settings = [
         PluginSetting("enabled", "mqtt.settings.enabled", "mqtt.settings.enabled.help", "boolean", "false", [("false", "common.no"), ("true", "common.yes")]),
+        PluginSetting("publish_insights", "mqtt.settings.publish_insights", "mqtt.settings.publish_insights.help", "boolean", "false", [("false", "common.no"), ("true", "common.yes")], visible_if=("enabled", "true")),
         PluginSetting("host", "mqtt.settings.host", "mqtt.settings.host.help", "text", "", visible_if=("enabled", "true")),
         PluginSetting("port", "mqtt.settings.port", "mqtt.settings.port.help", "number", "1883", visible_if=("enabled", "true")),
         PluginSetting("username", "mqtt.settings.username", "mqtt.settings.username.help", "text", "", visible_if=("enabled", "true")),
@@ -58,6 +70,8 @@ class Plugin(ExportPlugin, PeriodicPlugin):
         "en": {
             "mqtt.settings.enabled": "MQTT enabled",
             "mqtt.settings.enabled.help": "Publishes assets and updates to Home Assistant's MQTT when enabled.",
+            "mqtt.settings.publish_insights": "Publish new Insights",
+            "mqtt.settings.publish_insights.help": "Sends minimal Insight metadata (ID, type, fixed title, severity, confidence, certainty, times and evidence counts/windows) to the configured broker for automations. Off by default; no history replay, no retained messages. Delivery may repeat; deduplicate by Insight ID. Interval 0 disables this export.",
             "mqtt.settings.host": "MQTT host",
             "mqtt.settings.host.help": "Hostname or IP of the MQTT broker.",
             "mqtt.settings.port": "MQTT port",
@@ -83,6 +97,8 @@ class Plugin(ExportPlugin, PeriodicPlugin):
         "de": {
             "mqtt.settings.enabled": "MQTT aktiviert",
             "mqtt.settings.enabled.help": "Publiziert Assets und Updates per MQTT an Home Assistant, wenn aktiviert.",
+            "mqtt.settings.publish_insights": "Neue Insights veröffentlichen",
+            "mqtt.settings.publish_insights.help": "Sendet minimale Insight-Metadaten (ID, Typ, fester Titel, Schweregrad, Confidence, Sicherheit, Zeiten und Evidenzzahlen/-fenster) für Automationen an den konfigurierten Broker. Standardmäßig aus; kein historischer Replay, keine Retain-Nachrichten. Zustellung kann sich wiederholen; anhand der Insight-ID deduplizieren. Intervall 0 deaktiviert diesen Export.",
             "mqtt.settings.host": "MQTT Host",
             "mqtt.settings.host.help": "Hostname oder IP des MQTT-Brokers.",
             "mqtt.settings.port": "MQTT Port",
@@ -137,11 +153,61 @@ class Plugin(ExportPlugin, PeriodicPlugin):
         except Exception as exc:
             return {"status": "error", "message": f"MQTT broker not reachable: {exc}"}
 
+    def _insights_active(self, context: PluginContext) -> bool:
+        return (context.get("enabled", "false").lower() == "true"
+            and context.get("publish_insights", "false").lower() == "true"
+            and self.publish_interval(context) != 0)
+
+    def on_settings_changed(self, context: PluginContext) -> None:
+        """Persist both toggle directions without connecting to the broker."""
+        self._sync_insight_activation(context)
+
+    def _sync_insight_activation(self, context: PluginContext) -> bool:
+        active = self._insights_active(context)
+        previous = get_setting_value(context.db, _STATE_PREFIX + "insights_was_active", "false")
+        if previous not in {"true", "false"}:
+            raise ValueError("Invalid MQTT Insight activation state")
+        if active and previous == "false":
+            highest = context.db.query(func.max(Insight.id)).scalar() or 0
+            save_setting(context.db, _STATE_PREFIX + "insights_cursor", str(highest))
+        if active != (previous == "true"):
+            save_setting(context.db, _STATE_PREFIX + "insights_was_active", str(active).lower())
+            context.db.flush()
+        return active
+
+    def _publish_insights(self, context: PluginContext) -> None:
+        if not self._sync_insight_activation(context):
+            return
+        raw_cursor = get_setting_value(context.db, _STATE_PREFIX + "insights_cursor", "")
+        if not raw_cursor.isascii() or not raw_cursor.isdigit() or len(raw_cursor) > 19 or int(raw_cursor) > 2**63 - 1:
+            raise ValueError("Invalid MQTT Insight cursor")
+        rows = (context.db.query(Insight).filter(Insight.id > int(raw_cursor))
+            .order_by(Insight.id).limit(INSIGHT_BATCH_SIZE).all())
+        if not rows:
+            return
+        prefix = context.get("topic_prefix", "opensecdash").strip("/")
+        if len(prefix) > 200 or re.fullmatch(r"[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*", prefix) is None:
+            raise ValueError("Invalid MQTT Insight topic prefix")
+        messages = []
+        for row in rows:
+            payload = serialize_insight(row)
+            messages.append((f"{prefix}/insights/{payload['type']}", payload, False))
+        try:
+            self.publish_many(context, messages, qos=1)
+        except Exception as exc:
+            self._last_publish_error = redact_sensitive(str(exc))
+            raise
+        self._last_publish_error = None
+        save_setting(context.db, _STATE_PREFIX + "insights_cursor", str(rows[-1].id))
+        # Commit only after the whole broker batch succeeds. A crash before
+        # this commit can repeat a batch; receivers deduplicate on Insight ID.
+        context.db.commit()
+
     async def tick(self, context: PluginContext) -> None:
-        # ``publish_interval`` has three modes:
-        #   auto: publish only when JSON Assets calls this export plugin
-        #   0:    manual button only
-        #   N:    periodic publish every N seconds via the plugin manager loop
+        # This coroutine already runs in the manager's worker. Keep broker I/O
+        # and this session on that worker, outside event ingestion transactions.
+        if self._insights_active(context):
+            self._publish_insights(context)
         interval = self.publish_interval(context)
         if interval <= 0:
             return
@@ -244,7 +310,7 @@ class Plugin(ExportPlugin, PeriodicPlugin):
     def publish(self, context, topic: str, payload: dict[str, Any] | str, retain: bool = True) -> None:
         self.publish_many(context, [(topic, payload, retain)])
 
-    def publish_many(self, context, messages: list[tuple[str, dict[str, Any] | str, bool]]) -> None:
+    def publish_many(self, context, messages: list[tuple[str, dict[str, Any] | str, bool]], *, qos: int = 0) -> None:
         host = context.get("host")
         if not host:
             raise ValueError("MQTT host is required")
@@ -260,6 +326,7 @@ class Plugin(ExportPlugin, PeriodicPlugin):
                 "topic": topic,
                 "payload": json.dumps(payload, ensure_ascii=False) if isinstance(payload, dict) else payload,
                 "retain": retain,
+                "qos": qos,
             }
             for topic, payload, retain in messages
         ]

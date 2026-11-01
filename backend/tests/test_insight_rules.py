@@ -117,12 +117,12 @@ def test_refresh_insight_rules_uses_hardcoded_source_url(monkeypatch, db_session
 
     result = refresh_insight_rules(db_session, force=True)
 
-    assert result == {"status": "updated", "source": "remote", "version": "2026-07-02", "count": 15}
+    assert result == {"status": "updated", "source": "remote", "version": "2026-07-02", "count": 16}
     diagnostic = _ruleset_diagnostic(db_session)
     assert "source=bundled+remote" in diagnostic.last_error
-    assert "bundled_version=2026-10-24" in diagnostic.last_error
+    assert "bundled_version=2026-11-01" in diagnostic.last_error
     assert "remote_version=2026-07-02" in diagnostic.last_error
-    assert "bundled=14" in diagnostic.last_error
+    assert "bundled=15" in diagnostic.last_error
     assert "remote=1" in diagnostic.last_error
     assert calls[0][0] == RULE_MANIFEST_URL
     assert calls[1][0] == RULE_SOURCE_URL
@@ -191,9 +191,9 @@ def test_refresh_insight_rules_reports_source_versions_from_cache(monkeypatch, d
     diagnostic = _ruleset_diagnostic(db_session)
     assert "loaded from database" in diagnostic.last_error
     assert "source=bundled+remote" in diagnostic.last_error
-    assert "bundled_version=2026-10-24" in diagnostic.last_error
+    assert "bundled_version=2026-11-01" in diagnostic.last_error
     assert "remote_version=2026-07-02" in diagnostic.last_error
-    assert "bundled=14" in diagnostic.last_error
+    assert "bundled=15" in diagnostic.last_error
     assert "remote=1" in diagnostic.last_error
 
 
@@ -293,7 +293,7 @@ def test_schema_version_rejects_breaking_major_updates():
     with pytest.raises(ValueError, match="Unsupported insight rules schema_version"):
         parse_rules(
             {
-                "schema_version": 2,
+                "schema_version": 3,
                 "ruleset_version": "2026-07-02",
                 "rules": [
                     {
@@ -330,3 +330,206 @@ def test_ruleset_rejects_metadata_that_does_not_fit_storage(rule_id, title, mess
                 ],
             }
         )
+
+
+def _ruleset(*rules):
+    return {"schema_version": 1, "ruleset_version": "test", "rules": list(rules)}
+
+
+def _rule(rule_id="web.wordpress_scan", **changes):
+    return {"id": rule_id, "title": "Remote override", "event_types": ["access.error"],
+            "path_contains_any": ["/override"], **changes}
+
+
+@pytest.mark.parametrize("field,value", [
+    ("id", " "), ("id", 12), ("title", " "), ("title", False),
+    ("description", 12), ("description", "x" * 2001),
+    ("level", "unknown"), ("level", []), ("confidence", 2.0),
+    ("confidence", -0.1), ("confidence", float("nan")),
+    ("confidence", float("inf")), ("confidence", True), ("confidence", "0.7"),
+    ("threshold", True), ("threshold", "2"), ("threshold", 1.5),
+    ("window_minutes", False), ("window_minutes", "5"),
+    ("path_contains_any", [""]), ("path_contains_any", ["  "]),
+    ("event_types", [""]), ("event_types", [" "]), ("event_types", [False]),
+    ("event_types", ["x" * 51]), ("event_types", ["access.error"] * 51),
+    ("group_by", []),
+])
+def test_import_rejects_invalid_second_rule_without_partial_changes(db_session, field, value):
+    from app.models.core import InsightRule
+    from app.services.insight_rules import import_ruleset
+
+    with pytest.raises(ValueError):
+        import_ruleset(db_session, _ruleset(_rule("test.first"), _rule(**{field: value})), source="remote")
+    assert db_session.query(InsightRule).count() == 0
+
+
+@pytest.mark.parametrize("version", [True, None, [], {}, "1.bad"])
+def test_ruleset_rejects_invalid_schema_types(version):
+    with pytest.raises(ValueError):
+        parse_rules({**_ruleset(), "schema_version": version})
+
+
+@pytest.mark.parametrize("version", [12, None, "x" * 21])
+def test_ruleset_rejects_invalid_version_metadata(version):
+    with pytest.raises(ValueError):
+        parse_rules({**_ruleset(), "ruleset_version": version})
+
+
+def test_ruleset_rejects_duplicate_ids():
+    with pytest.raises(ValueError):
+        parse_rules(_ruleset(_rule(), _rule()))
+
+
+@pytest.mark.parametrize("confidence", [0, 0.0, 1, 1.0])
+def test_confidence_boundaries_and_extra_metadata_remain_supported(confidence):
+    rule = parse_rules(_ruleset(_rule(confidence=confidence, documentation={"note": "metadata"})))[0]
+    assert rule.confidence == confidence
+
+
+@pytest.mark.parametrize("mode", ["failure", "cache", "startup", "304"])
+def test_remote_override_survives_bundled_loading(monkeypatch, db_session, mode):
+    from app.core.time import utc_now
+    from app.models.core import InsightRule
+    from app.services.insight_rules import import_bundled_rules, import_ruleset
+
+    import_bundled_rules(db_session)
+    import_ruleset(db_session, _ruleset(_rule()), source="remote")
+    for key, value in {"fetched_at": utc_now().replace(tzinfo=None).isoformat(),
+                       "version": "test", "sha256": hashlib.sha256(_Response().content).hexdigest(),
+                       "etag": "test-etag"}.items():
+        db_session.add(Setting(key=f"insight_rules.{key}", value=value))
+    db_session.commit()
+
+    class NotModified(_Response):
+        status_code = 304
+
+    def fake_get(url, **kwargs):
+        if mode == "304":
+            return _ManifestResponse() if url == RULE_MANIFEST_URL else NotModified()
+        raise ConnectionError("offline")
+
+    monkeypatch.setattr("app.services.insight_rules.requests.get", fake_get)
+    if mode == "startup":
+        import_bundled_rules(db_session)
+    else:
+        result = refresh_insight_rules(db_session, force=mode != "cache")
+        assert result["status"] == {"failure": "failed", "cache": "skipped", "304": "unchanged"}[mode]
+    row = db_session.query(InsightRule).filter_by(rule_id="web.wordpress_scan").one()
+    assert (row.source, row.title, row.path_contains_any) == ("remote", "Remote override", ["/override"])
+
+
+@pytest.mark.parametrize("replacement", [[], [_rule("test.new")]])
+def test_remote_replacement_restores_bundle_and_preserves_other_sources(db_session, replacement):
+    from app.models.core import InsightRule, NotificationRule
+    from app.services.insight_rules import import_bundled_rules, import_ruleset
+    from app.services.notifications import insight_notification_rule_id
+
+    import_bundled_rules(db_session)
+    import_ruleset(db_session, _ruleset(_rule(), _rule("test.remote_only")), source="remote")
+    import_ruleset(db_session, _ruleset(_rule("test.plugin")), source="plugin:test")
+    notification = db_session.query(NotificationRule).filter_by(
+        rule_id=insight_notification_rule_id("web.wordpress_scan")).one()
+    notification.enabled = True
+    notification.cooldown_minutes = 37
+    notification.window_minutes = 19
+    import_ruleset(db_session, _ruleset(*replacement), source="remote")
+    row = db_session.query(InsightRule).filter_by(rule_id="web.wordpress_scan").one()
+    assert row.source == "bundled" and row.title == "Possible WordPress scan" and row.is_active
+    assert not db_session.query(InsightRule).filter_by(rule_id="test.remote_only").one().is_active
+    assert db_session.query(InsightRule).filter_by(rule_id="test.plugin").one().is_active
+    assert db_session.query(InsightRule).filter_by(rule_id="web.git_probe").one().is_active
+    assert (notification.enabled, notification.cooldown_minutes, notification.window_minutes) == (True, 37, 19)
+
+
+def test_failed_application_rolls_back_rules_and_catalog_but_keeps_outer_transaction(monkeypatch, db_session):
+    from app.models.core import InsightRule, NotificationRule
+    from app.services import insight_rules
+
+    insight_rules.import_bundled_rules(db_session)
+    cached = insight_rules.active_rules(db_session)
+    original_count = db_session.query(NotificationRule).count()
+    db_session.add(Setting(key="test.outer", value="preserved"))
+    original_sync = insight_rules.sync_insight_notification_rules
+
+    def failing_sync(db):
+        original_sync(db)
+        db.flush()
+        raise ValueError("injected application failure")
+
+    monkeypatch.setattr(insight_rules, "sync_insight_notification_rules", failing_sync)
+    with pytest.raises(ValueError, match="injected"):
+        insight_rules.import_ruleset(db_session, _ruleset(_rule(), _rule("test.partial")), source="remote")
+    assert db_session.query(InsightRule).filter_by(rule_id="test.partial").first() is None
+    assert db_session.query(InsightRule).filter_by(rule_id="web.wordpress_scan").one().source == "bundled"
+    assert db_session.query(NotificationRule).count() == original_count
+    assert insight_rules.active_rules(db_session) == cached
+    db_session.commit()
+    assert db_session.query(Setting).filter_by(key="test.outer").one().value == "preserved"
+
+
+def test_invalid_remote_replacement_preserves_rules_and_refresh_metadata(monkeypatch, db_session):
+    from app.models.core import InsightRule
+    from app.services.insight_rules import import_bundled_rules, import_ruleset
+
+    import_bundled_rules(db_session)
+    import_ruleset(db_session, _ruleset(_rule()), source="remote")
+    metadata = {"fetched_at": "2026-01-01T00:00:00", "version": "test", "etag": "old", "sha256": "a" * 64,
+                "source": RULE_SOURCE_URL}
+    for key, value in metadata.items():
+        db_session.add(Setting(key=f"insight_rules.{key}", value=value))
+    db_session.commit()
+    payload = json.dumps(_ruleset(_rule(title="Changed"), _rule("test.invalid", confidence=2))).encode()
+
+    class InvalidReplacement(_Response):
+        @property
+        def content(self):
+            return payload
+
+    class MatchingManifest(_ManifestResponse):
+        @property
+        def content(self):
+            data = json.loads(super().content)
+            data["sha256"] = hashlib.sha256(payload).hexdigest()
+            return json.dumps(data).encode()
+
+    monkeypatch.setattr("app.services.insight_rules.requests.get", lambda url, **kwargs:
+                        MatchingManifest() if url == RULE_MANIFEST_URL else InvalidReplacement())
+    assert refresh_insight_rules(db_session, force=True)["status"] == "failed"
+    row = db_session.query(InsightRule).filter_by(rule_id="web.wordpress_scan").one()
+    assert row.source == "remote" and row.title == "Remote override"
+    assert db_session.query(InsightRule).filter_by(rule_id="test.invalid").first() is None
+    for key, value in metadata.items():
+        assert db_session.query(Setting).filter_by(key=f"insight_rules.{key}").one().value == value
+
+
+@pytest.mark.parametrize("failure", ["hash", "expired", "changed_304"])
+def test_remote_verification_failures_keep_override_and_refresh_metadata(db_session, monkeypatch, failure):
+    from app.models.core import InsightRule
+    from app.services.insight_rules import import_ruleset
+
+    import_ruleset(db_session, _ruleset(_rule()), source="remote")
+    saved = {"sha256": "a" * 64, "etag": "old", "fetched_at": "2026-01-01T00:00:00"}
+    for key, value in saved.items():
+        db_session.add(Setting(key=f"insight_rules.{key}", value=value))
+    db_session.commit()
+
+    class Manifest(_ManifestResponse):
+        @property
+        def content(self):
+            data = json.loads(super().content)
+            if failure == "expired":
+                data["expires"] = "2000-01-01"
+            if failure == "hash":
+                data["sha256"] = "b" * 64
+            return json.dumps(data).encode()
+
+    class Response(_Response):
+        status_code = 304 if failure == "changed_304" else 200
+
+    monkeypatch.setattr("app.services.insight_rules.requests.get", lambda url, **kwargs:
+        Manifest() if url == RULE_MANIFEST_URL else Response())
+    assert refresh_insight_rules(db_session, force=True)["status"] == "failed"
+    rule = db_session.query(InsightRule).filter_by(rule_id="web.wordpress_scan").one()
+    assert (rule.source, rule.title, rule.path_contains_any) == ("remote", "Remote override", ["/override"])
+    for key, value in saved.items():
+        assert db_session.query(Setting).filter_by(key=f"insight_rules.{key}").one().value == value

@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.core.secrets import decrypt_setting_value, encrypt_setting_value
 from app.database.dependencies import get_db
 from app.models.settings import Setting
+from app.plugins.manager import get_plugin_manager
 
 router = APIRouter(
     prefix="/api/settings",
@@ -57,6 +58,9 @@ def set_setting(
     else:
         setting.value = encrypt_setting_value(key, value)
 
+    if key.startswith("plugin."):
+        plugin_id = key.removeprefix("plugin.").split(".", 1)[0]
+        get_plugin_manager().on_settings_changed(db, plugin_id)
     db.commit()
 
     return {

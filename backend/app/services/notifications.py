@@ -484,7 +484,7 @@ def handle_insight(db: Session, insight: Insight, occurred_at: datetime | None =
         if not notifications_enabled:
             return
         now = utc_now().replace(tzinfo=None)
-        notification_time = occurred_at or insight.timestamp
+        notification_time = occurred_at or insight.occurred_at or insight.timestamp
         if notification_time is None or _as_naive_utc(notification_time) < now - BACKLOG_PROTECTION_WINDOW:
             return
         for rule in rules:

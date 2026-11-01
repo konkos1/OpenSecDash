@@ -7,6 +7,7 @@ from markupsafe import Markup, escape
 
 from app.core.time import datetime_iso_utc, format_datetime_for_timezone
 from app.models.events import Event
+from app.services.insight_export import insight_certainty
 from app.services.events import is_local_ip_value
 
 # Jinja filters and template globals shared by core pages and plugin pages.
@@ -49,9 +50,11 @@ def format_country_or_local(context, value: str | None, ip: str | None = None) -
 
 
 @pass_context
-def format_datetime(context, value: datetime | None) -> Markup | str:
+def format_datetime(context, value: datetime | str | None) -> Markup | str:
     if value is None:
         return "-"
+    if isinstance(value, str):
+        value = datetime.fromisoformat(value)
     timezone = str(context.get("timezone", "auto"))
     text = format_datetime_for_timezone(value, timezone)
     iso_utc = datetime_iso_utc(value)
@@ -76,14 +79,6 @@ def http_status_label(value: int | None) -> str:
         return f"{status.value} {status.phrase}"
     except ValueError:
         return str(value)
-
-
-def insight_level_badge(level: str) -> tuple[str, str]:
-    if level in {"high", "critical"}:
-        return "✓", "certain"
-    if level == "medium":
-        return "≈", "probable"
-    return "?", "possible"
 
 
 def event_url(event: Event) -> str:
@@ -137,7 +132,7 @@ def register_filters(env: Environment) -> None:
     env.filters["url_path_quote"] = url_path_quote
     env.filters["event_url"] = event_url
     env.filters["http_status_label"] = http_status_label
-    env.filters["insight_level_badge"] = insight_level_badge
+    env.filters["insight_certainty"] = insight_certainty
     # Was injected into every render() context; a global keeps templates
     # working without render() needing to import from pages.
     env.globals["event_data_value"] = event_data_value

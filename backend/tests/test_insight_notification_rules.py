@@ -84,7 +84,7 @@ def test_insight_requires_enabled_plugins_that_produce_all_input_event_types(db_
 
     unavailable = insight_availability(db_session, definition)
     assert unavailable.available is False
-    assert unavailable.missing_event_type_groups == (("access.error",),)
+    assert unavailable.missing_event_type_groups == (("access.error", "access.denied"),)
 
     save_setting(db_session, "plugin.traefik_log.enabled", "true")
     assert insight_availability(db_session, definition).available is True
@@ -159,3 +159,45 @@ def test_removed_insight_definition_becomes_unavailable_without_losing_choice(db
     assert db_session.query(InsightRule).filter_by(rule_id="test.removed").one().is_active is False
     assert view.available is False
     assert notification_rule.enabled is True
+
+
+def test_denied_only_producer_enables_relationships_without_resetting_user_choice(db_session):
+    manager = get_plugin_manager()
+    plugin_registry.register_plugins([
+        plugin_registry.RegisteredPlugin(id="test", name="Test", capabilities=("datasource",),
+                                        event_types=("access.denied", "security.geoblock", "security.ban")),
+    ])
+    try:
+        save_setting(db_session, "plugin.test.enabled", "true")
+        seed_default_notification_rules(db_session)
+        for insight_type in ("blocked_request", "ban_after_access"):
+            definition = insight_definitions(db_session)[insight_type]
+            assert insight_availability(db_session, definition).available is True
+            rule = db_session.query(NotificationRule).filter_by(rule_id=insight_notification_rule_id(insight_type)).one()
+            assert rule.enabled is False
+            rule.enabled = True
+            rule.cooldown_minutes = 37
+        db_session.flush()
+        seed_default_notification_rules(db_session)
+        for insight_type in ("blocked_request", "ban_after_access"):
+            rule = db_session.query(NotificationRule).filter_by(rule_id=insight_notification_rule_id(insight_type)).one()
+            assert rule.enabled is True and rule.cooldown_minutes == 37
+    finally:
+        manager.discover()
+
+
+def test_rapid_plugin_toggles_keep_notification_choice_and_catalog_in_sync(db_session):
+    import_bundled_rules(db_session)
+    rule_id = insight_notification_rule_id("web.wordpress_scan")
+    rule = db_session.query(NotificationRule).filter_by(rule_id=rule_id).one()
+    rule.enabled = True
+    db_session.commit()
+    for enabled in (True, False, True, False, True):
+        save_setting(db_session, "plugin.traefik_log.enabled", "true" if enabled else "false")
+        db_session.commit()
+        invalidate_rules_cache()
+        view = next(item for item in notification_rule_views(db_session, "en") if item.rule.rule_id == rule_id)
+        assert view.available is enabled
+        assert insight_availability(db_session, insight_definitions(db_session)["web.wordpress_scan"]).available is enabled
+        assert view.rule.enabled is True
+    assert db_session.query(Notification).count() == 0

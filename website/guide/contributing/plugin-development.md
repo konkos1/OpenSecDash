@@ -123,6 +123,16 @@ event_types=["security.firewall_block", "security.firewall_unblock"]
 
 OpenSecDash uses this metadata together with the plugin's enabled state to determine whether dependent Insight notification rules are available. Do not declare wildcard values such as `security.*`; list each emitted type so dependencies stay explicit.
 
+## Settings transitions
+
+Override synchronous `on_settings_changed(context)` to maintain local plugin state
+when settings are saved, including when the master switch is turned off. The
+settings form, secret deletion and plugin setting API dispatch this hook after
+flushing updated settings and before committing. State changes in `context.db`
+commit atomically with the settings; an exception aborts the settings transaction.
+Do not commit or perform external I/O in this hook. Use the existing periodic
+worker for broker/network work; do not move its session into another thread.
+
 ## Settings
 
 Plugins declare settings with `PluginSetting`. OpenSecDash renders them automatically on the Settings page.
@@ -247,7 +257,9 @@ class Plugin(DatasourcePlugin):
         }
 ```
 
-An invalid ruleset is reported as a plugin diagnostic warning and does not stop other plugins from seeding. Rules for plugins that are no longer loaded are deactivated.
+An invalid ruleset is reported as a plugin diagnostic warning and does not stop other plugins from seeding. Rules for plugins that are no longer loaded are deactivated. The whole import is atomic: plugin rules cannot replace built-in, bundled, remote or another plugin's IDs. Remote rules may override bundled IDs; failed refreshes preserve those overrides. Existing notification choices remain unchanged.
+
+Plugins may also return schema 2 through this same hook. See [Insight rules](./insight-rules#schema-2-precise-probe-matching) for exact/prefix paths, status and method filters, and the validated scan/ban chain contract. Put `kind` on the rule and new options inside `match_options`; unknown options reject the entire import. Chain rules are evaluated by a separate background worker with bounded batches and a 15-minute creation-time recheck window; synchronous event ingestion skips them. Their catalog availability requires an enabled Access producer, an enabled `security.ban` producer, and the enabled owner plugin. Disabling a required plugin preserves the user's notification choice, and reseeding does not reset that choice. Importing schema 1 over a schema-2 rule clears its extra conditions. The app bundles a schema-2 chain; the public remote ruleset stays on schema 1 until a compatible release is verified available.
 
 ### `DatasourcePlugin`
 

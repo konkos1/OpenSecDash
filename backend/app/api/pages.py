@@ -16,7 +16,7 @@ from urllib.parse import parse_qsl, quote, unquote, urlencode
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse, RedirectResponse, Response
 from sqlalchemy import func, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Query as ORMQuery, Session
 
 from app.core import plugin_registry
 from app.core.logging import configure_logging_from_db, redact_sensitive, redacted_setting_value
@@ -40,6 +40,8 @@ from app.services.dashboard_metrics import (
     dashboard_yesterday_rollup_key as _dashboard_yesterday_rollup_key,
     dashboard_yesterday_summary as _dashboard_yesterday_summary,
 )
+from app.services.insight_export import insight_display_time, insight_sample_ids
+from app.services.insights import utc_iso
 from app.services.insight_rules import debug_summary as insight_rules_debug_summary
 from app.services.instance_branding import get_instance_file
 from app.services.legal_notices import (
@@ -521,6 +523,7 @@ def core_dashboard_widgets(
                         "label": str(insight["title"]),
                         "insight_type": str(insight["type"]),
                         "value": int(insight["count"]),
+                        "detail_href": f"/insights/{insight['example_id']}",
                         "href": f"/events?{urlencode({'insight_type': str(insight['type']), 'today': 'true'})}",
                     }
                     for insight in top_insights
@@ -814,12 +817,9 @@ def dashboard_page(request: Request, db: Session = Depends(get_db)):
         access_hours = top_hours_for_plugins(["traefik_log"] if enabled_plugins["traefik_log"] else [], "access.*", "hour_access")
         if country_data_plugins:
             top_insights = [
-                {"type": str(insight_type), "count": int(count), "title": str(title)}
-                for insight_type, count, title in (
-                    db.query(Insight.type, func.count(Insight.id), func.max(Insight.title))
-                    .filter(Insight.timestamp >= since)
-                    .group_by(Insight.type)
-                    .order_by(func.count(Insight.id).desc())
+                {"type": str(insight_type), "count": int(count), "title": str(title), "example_id": int(example_id)}
+                for insight_type, count, title, example_id in (
+                    insight_counts_query(db, since)
                     .limit(5)
                     .all()
                 )
@@ -949,11 +949,39 @@ def rollups_page(request: Request, db: Session = Depends(get_db)):
     )
 
 
+def insight_counts_query(db: Session, since: datetime, asset_ids: list[int] | None = None) -> ORMQuery:
+    """Aggregate the indexed time window without scanning the type index."""
+    rows = db.query(Insight.id, Insight.type, Insight.title).filter(insight_display_time() >= since)
+    if asset_ids is not None:
+        rows = rows.filter(Insight.asset_id.in_(asset_ids))
+    # SQLite otherwise flattens the subquery and prefers a full type-index scan
+    # for GROUP BY. LIMIT -1 fences the time-index scan without truncating counts.
+    window = rows.order_by(insight_display_time().desc()).limit(-1).subquery()
+    return (db.query(window.c.type, func.count(), func.max(window.c.title).label("title"), func.max(window.c.id).label("example_id"))
+        .group_by(window.c.type).order_by(func.count().desc()))
+
+
+@router.get("/insights/{insight_id}")
+def insight_page(request: Request, insight_id: int, db: Session = Depends(get_db)):
+    require_events_feature_enabled(db)
+    insight = db.get(Insight, insight_id)
+    if insight is None:
+        raise HTTPException(status_code=404, detail="Insight not found")
+    ids = insight_sample_ids(insight)
+    examples = db.query(Event).filter(Event.id.in_(ids)).order_by(Event.event_time, Event.id).limit(20).all()
+    return render(request, db, "insight.html", insight=insight, example_events=examples,
+        sample_count=len(ids), event_asset_links=asset_links_for_events(db, examples),
+        export_url="/api/insights/export?" + urlencode({"type": insight.type,
+            "start": utc_iso(insight.occurred_at or insight.timestamp),
+            "end": utc_iso((insight.occurred_at or insight.timestamp) + timedelta(microseconds=1))}))
+
+
 @router.get("/events")
 def events_page(
     request: Request,
     event_type: str | None = None,
     insight_type: str | None = None,
+    insight_id: Annotated[int | None, Query(gt=0)] = None,
     ip: str | None = None,
     country: str | None = None,
     country_in: str | None = None,
@@ -1013,22 +1041,30 @@ def events_page(
     custom_to = parse_snapshot_before(to) if range_value == "custom" else None
     event_time_from = max([value for value in [hour_start, today_start(db) if today_enabled else None, range_start] if value is not None], default=None)
     event_time_to = min([value for value in [hour_end, snapshot_cutoff, custom_to] if value is not None], default=None)
+    trend_insights: list[Insight] = []
     insight_type_value = clean_filter_value(insight_type)
     if insight_type_value and len(insight_type_value) <= 100:
         insight_rows = db.query(Insight.related_event_ids).filter(Insight.type == insight_type_value)
         if event_time_from is not None:
-            insight_rows = insight_rows.filter(Insight.timestamp >= event_time_from)
+            insight_rows = insight_rows.filter(insight_display_time() >= event_time_from)
         if event_time_to is not None:
-            insight_rows = insight_rows.filter(Insight.timestamp < event_time_to)
+            insight_rows = insight_rows.filter(insight_display_time() < event_time_to)
+        trend_insights = insight_rows.with_entities(Insight).order_by(insight_display_time().desc(), Insight.id.desc()).limit(20).all()
         related_event_ids = {
             int(event_id)
-            for (event_ids,) in insight_rows.order_by(Insight.timestamp.desc()).limit(200).all()
-            for event_id in (event_ids or [])
+            for (event_ids,) in insight_rows.order_by(insight_display_time().desc()).limit(200).all()
+            for event_id in (event_ids or [])[:20]
             if isinstance(event_id, int) or str(event_id).isdigit()
         }
     else:
         insight_type_value = None
         related_event_ids = None
+    if insight_id is not None:
+        selected_insight = db.get(Insight, insight_id)
+        if selected_insight is None:
+            raise HTTPException(status_code=404, detail="Insight not found")
+        related_event_ids = set(insight_sample_ids(selected_insight))
+        trend_insights = [selected_insight]
     filters = {
         "event_type": clean_filter_value(event_type),
         "event_ids": related_event_ids,
@@ -1056,6 +1092,7 @@ def events_page(
     form_values = {
         "event_type": event_type or "",
         "insight_type": insight_type_value or "",
+        "insight_id": insight_id or "",
         "ip": ip or "",
         "country": country or "",
         "country_in": country_in or "",
@@ -1089,6 +1126,7 @@ def events_page(
         request,
         db,
         "events.html",
+        trend_insights=trend_insights,
         events=events,
         filters=form_values,
         event_asset_links=event_asset_links,
@@ -1202,12 +1240,12 @@ def _events_for_ip_target(db: Session, ip: str, limit: int) -> list[Event]:
 def _insights_for_ip_target(db: Session, ip: str, limit: int) -> list[Insight]:
     network = _ip_network_target(ip)
     if network is None:
-        return db.query(Insight).filter(Insight.ip == _clean_ip_target(ip)).order_by(Insight.timestamp.desc()).limit(limit).all()
+        return db.query(Insight).filter(Insight.ip == _clean_ip_target(ip)).order_by(insight_display_time().desc()).limit(limit).all()
     insights: list[Insight] = []
     candidates = (
         db.query(Insight)
         .filter(Insight.ip.isnot(None), Insight.ip != "")
-        .order_by(Insight.timestamp.desc())
+        .order_by(insight_display_time().desc())
         .yield_per(500)
         .execution_options(stream_results=True)
     )
@@ -1407,6 +1445,8 @@ def asset_page(system_id: int, request: Request, show_inactive: bool = False, as
     events: list[Event] = []
     insights: list[Insight] = []
     top_asset_insight = None
+    finding_since = utc_now() - timedelta(hours=24)
+    finding_asset_ids = [focused_asset.id] if focused_asset else app_ids
     if is_data_request:
         # Match on DISTINCT hostnames (one per vhost) instead of scanning every
         # event row: normalization needs Python, but the resulting hostname list
@@ -1427,7 +1467,7 @@ def asset_page(system_id: int, request: Request, show_inactive: bool = False, as
             raw_host_insights = (
                 db.query(Insight)
                 .filter(Insight.asset_id.in_(host_app_ids))
-                .order_by(Insight.timestamp.desc())
+                .order_by(insight_display_time().desc())
                 .limit(100)
                 .all()
             )
@@ -1461,8 +1501,8 @@ def asset_page(system_id: int, request: Request, show_inactive: bool = False, as
             )
         raw_insights = (
             db.query(Insight)
-            .filter(Insight.asset_id.in_(app_ids))
-            .order_by(Insight.timestamp.desc())
+            .filter(Insight.asset_id.in_(finding_asset_ids))
+            .order_by(insight_display_time().desc())
             .limit(100)
             .all()
             if app_ids
@@ -1471,10 +1511,7 @@ def asset_page(system_id: int, request: Request, show_inactive: bool = False, as
         insights = dedupe_insights_for_display(raw_insights, 50, include_ip=True)
         if app_ids:
             top_asset_insight = (
-                db.query(Insight.type, func.count(Insight.id), func.max(Insight.title))
-                .filter(Insight.asset_id.in_(app_ids))
-                .group_by(Insight.type)
-                .order_by(func.count(Insight.id).desc())
+                insight_counts_query(db, finding_since, finding_asset_ids)
                 .first()
             )
     mqtt_plugin_enabled = (
@@ -1491,6 +1528,7 @@ def asset_page(system_id: int, request: Request, show_inactive: bool = False, as
         host_event_sections=host_event_sections,
         insights=insights,
         top_asset_insight=top_asset_insight,
+        finding_since=finding_since,
         focused_asset=focused_asset,
         show_inactive=show_inactive,
         mqtt_plugin_enabled=mqtt_plugin_enabled,
@@ -2284,6 +2322,7 @@ async def save_plugin_settings(plugin_id: str, request: Request, db: Session = D
             if plugin_setting_types[key] == "password" and not text_value:
                 continue
             save_setting(db, key, text_value)
+        get_plugin_manager().on_settings_changed(db, plugin_id)
         db.commit()
         get_plugin_manager().refresh_health_diagnostics(db)
         invalidate_rules_cache()
@@ -2297,6 +2336,7 @@ async def delete_plugin_secret(plugin_id: str, short_key: str, db: Session = Dep
     def _delete() -> None:
         if not get_plugin_manager().clear_plugin_secret(db, plugin_id, short_key):
             return
+        get_plugin_manager().on_settings_changed(db, plugin_id)
         db.commit()
         get_plugin_manager().refresh_health_diagnostics(db)
 

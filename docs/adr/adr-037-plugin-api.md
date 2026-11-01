@@ -321,3 +321,14 @@ develop without immediately breaking old plugins.
 
 
 ---
+
+## Settings transition hook (2026-11-01)
+
+Plugin API v2 additionally provides synchronous `on_settings_changed(context)`.
+The manager dispatches it for settings-form saves, secret deletion and individual
+plugin setting API writes, including while the plugin is being disabled. Updated
+settings are flushed before dispatch, and the hook's local state changes commit
+atomically with the settings. A hook failure aborts that settings transaction.
+The default hook does nothing. Hooks must not perform broker/network I/O or commit;
+external work belongs in background ticks. MQTT uses this hook to persist Insight
+export activation transitions without replaying historical findings.

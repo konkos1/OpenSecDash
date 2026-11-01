@@ -122,6 +122,8 @@ The CrowdSec page manages the policies, latest ASN organization snapshots, activ
 
 Every successful automatic policy ban creates one high-confidence IP Explorer insight that records the ASN, organization snapshot, and `7d` duration. Its wording is historical: it says that the IP **was banned**, not that its decision is still active. Current state comes from the CrowdSec active-ban panel.
 
+CrowdSec log imports recognize ASN-policy scenarios as `security.ban.asn_policy`, including the older scenario prefix. These bans remain direct policy facts and do not serve as automatic ban endpoints for scan/ban correlations.
+
 Policy bans count in ban totals, IP Explorer counts, CrowdSec history, active decisions, rollups, and the Dashboard. The complete ASN-specific scenario stays visible in Events and CrowdSec history. Rollups, CrowdSec top scenarios, and the Dashboard combine all of them under the localized **Manual permanent ASN ban** group; its drill-down searches the complete scenarios and therefore finds each contributing ASN.
 
 ### ASN-organization review

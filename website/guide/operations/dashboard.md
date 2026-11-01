@@ -51,3 +51,13 @@ The dashboard frame and widget placeholders render before expensive widget queri
 The Dashboard intentionally focuses on current activity. Small delta badges compare supported counters with yesterday's stored rollup.
 
 Use the [Rollup Explorer](./dashboard-rollups.md) for a specific historical day or month. Retention can remove old raw events without removing their compact daily and monthly summaries.
+
+
+## Investigate Top Insights
+
+Top Insights uses event time, with a labelled creation-time fallback for older
+findings. Open a finding to inspect its counts, rule source, windows and example
+events. Examples are a bounded sample and may have expired through retention.
+Severity and certainty are separate: a high-severity heuristic is still uncertain.
+Multi-asset scan/ban relationships and observed count comparisons follow the
+[Insights engine limits](./insight-rules.md); neither proves a cause or campaign.

@@ -199,6 +199,8 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
         return events
 
     def parse_log_line(self, line: str) -> dict[str, Any] | None:
+        from .services.policies import policy_asn_from_scenario
+
         if not re.search(r"\bban\b", line, re.IGNORECASE):
             return None
         ip_match = re.search(r"(?:on\s+(?:ip|range)|by\s+(?:ip|range))\s+([^\"\s(]+)", line, re.IGNORECASE)
@@ -216,17 +218,19 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
         duration = None
         if duration_match:
             duration = f"{duration_match.group(1)}{duration_match.group(2).lower()}"
+        policy_asn = policy_asn_from_scenario(scenario) if scenario else None
         return {
             "event_time": normalize_event_time(time_match.group(1) if time_match else None),
             "source": "CrowdSec Log",
             "source_id": "crowdsec-log",
             "plugin": self.metadata.id,
             "plugin_id": self.metadata.id,
-            "event_type": "security.ban",
+            "event_type": "security.ban.asn_policy" if policy_asn else "security.ban",
             "severity": "warning",
             "ip": ip_match.group(1) if ip_match else None,
             "country": country_match.group(1).upper() if country_match else None,
-            "data_json": {"scenario": scenario, "duration": duration, "message": line.strip()},
+            "data_json": {"scenario": scenario, "duration": duration, "message": line.strip(),
+                          **({"asn": policy_asn} if policy_asn else {})},
             "raw_data": line.strip(),
         }
 
@@ -443,21 +447,13 @@ class Plugin(DatasourcePlugin, PeriodicPlugin, ActionPlugin):
 
     def rollup_group_key(self, metric: str, key: str) -> str | None:
         from .services.policies import (
-            LEGACY_POLICY_SCENARIO_PREFIX,
             POLICY_SCENARIO_GROUP,
-            POLICY_SCENARIO_PREFIX,
-            normalize_asn,
+            policy_asn_from_scenario,
         )
 
         if metric != "scenario":
             return None
-        for prefix in (POLICY_SCENARIO_PREFIX, LEGACY_POLICY_SCENARIO_PREFIX):
-            if not key.startswith(prefix):
-                continue
-            try:
-                normalize_asn(key.removeprefix(prefix))
-            except ValueError:
-                return None
+        if policy_asn_from_scenario(key) is not None:
             return POLICY_SCENARIO_GROUP
         return None
 

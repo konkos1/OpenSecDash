@@ -53,22 +53,31 @@ def find_action_duplicate_by_id(db: Session, values: dict[str, Any]) -> Event | 
 
 
 def find_recent_ban_duplicate(db: Session, values: dict[str, Any]) -> Event | None:
-    # Only applies to incoming log-tailed re-imports ("security.ban"), never
-    # to a freshly created "security.ban.manual" event: manual bans already
+    # Only applies to incoming log-tailed re-imports, never
+    # to a freshly created action event: manual bans already
     # carry their own unique action id and must never be time-window-merged
     # into an earlier, unrelated manual ban just because they land close
     # together (e.g. ban -> unban -> re-ban within the fallback window).
-    if values.get("plugin") != "crowdsec" or values.get("event_type") != "security.ban":
+    if values.get("plugin") != "crowdsec":
+        return None
+    if values.get("event_type") != "security.ban" and not (
+        values.get("event_type") == "security.ban.asn_policy" and values.get("raw_data")
+    ):
         return None
     ip = values.get("ip")
     event_time = values.get("event_time")
     if not ip or event_time is None:
         return None
+    event_types = (
+        ("security.ban.asn_policy",)
+        if values.get("event_type") == "security.ban.asn_policy"
+        else CROWDSEC_BAN_EVENT_TYPES
+    )
     return (
         db.query(Event)
         .filter(
             Event.plugin == "crowdsec",
-            Event.event_type.in_(CROWDSEC_BAN_EVENT_TYPES),
+            Event.event_type.in_(event_types),
             Event.ip == ip,
             Event.event_time >= event_time - CROWDSEC_BAN_DEDUPE_WINDOW,
             Event.event_time <= event_time + CROWDSEC_BAN_DEDUPE_WINDOW,

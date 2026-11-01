@@ -11,7 +11,7 @@ from app.database.dependencies import get_db
 from app.main import app
 from app.models.saved_views import SavedView
 from app.models.settings import Setting
-from app.models.users import User
+from app.models.users import User, UserPreference
 from app.services.auth import create_user
 from app.web import auth as auth_web
 from app.web.permissions import route_permission_inventory, required_role
@@ -241,3 +241,50 @@ def test_dashboard_layouts_are_isolated_per_authenticated_user(role_clients, mon
     assert load_dashboard_layout(db, viewer.id) == [{"id": "first", "visible": True}, {"id": "second", "visible": False}]
     assert load_dashboard_layout(db, operator.id) == [{"id": "second", "visible": True}, {"id": "first", "visible": False}]
     assert dashboard_layout_setting_key(viewer.id) != dashboard_layout_setting_key(operator.id)
+
+
+@pytest.mark.parametrize('language', ['en', 'de'])
+def test_viewer_investigates_evidence_with_escaping_and_retention(role_clients, language):
+    from app.models.core import Insight
+    from app.models.events import Event
+
+    db, clients = role_clients
+    db.query(UserPreference).update({'language': language})
+    event = Event(plugin='traefik_log', event_type='access.denied', ip='192.0.2.1')
+    db.add(event)
+    db.flush()
+    insight = Insight(type='web.test', title='<script>foreign title</script>', description='<img src=x onerror=alert(1)>',
+        level='high', confidence=.4, related_event_ids=[event.id, 9999],
+        evidence={'version': 1, 'kind': 'heuristic', 'event_count': 100, 'sample_count': 2, 'sample_truncated': True})
+    legacy = Insight(type='old', title='Legacy', related_event_ids=[])
+    db.add_all([insight, legacy])
+    db.commit()
+    response = clients['viewer'].get(f'/insights/{insight.id}')
+    assert response.status_code == 200
+    assert '&lt;script&gt;foreign title&lt;/script&gt;' in response.text
+    assert '<img src=x' not in response.text
+    assert ('Möglich' if language == 'de' else 'Possible') in response.text
+    assert ('Beispiel-Events nicht mehr verfügbar' if language == 'de' else 'Example events no longer available') in response.text
+    assert '100' in response.text and '1 / 2' in response.text
+    assert '/ip/192.0.2.1' in response.text
+    assert f'/events?insight_id={insight.id}&amp;range=all' in response.text
+    legacy_response = clients['viewer'].get(f'/insights/{legacy.id}')
+    assert ('Keine strukturierte Evidenz gespeichert' if language == 'de' else 'No structured evidence stored') in legacy_response.text
+    assert clients['viewer'].get('/insights/99999').status_code == 404
+    assert clients['viewer'].get('/events?insight_id=-1').status_code == 400
+    assert clients['viewer'].get('/events?insight_id=invalid').status_code == 400
+    assert TestClient(app, base_url='https://testserver').get(f'/insights/{insight.id}', follow_redirects=False).status_code == 303
+    db.query(Setting).filter(Setting.key == 'plugin.traefik_log.enabled').update({'value': 'false'})
+    db.commit()
+    assert clients['viewer'].get(f'/insights/{insight.id}').status_code == 404
+
+
+def test_insight_export_is_viewer_read_only_and_requires_sign_in(role_clients):
+    _db, clients = role_clients
+    for client in clients.values():
+        assert client.get('/api/insights/export').status_code == 200
+    anonymous = TestClient(app, base_url='https://testserver')
+    try:
+        assert anonymous.get('/api/insights/export', follow_redirects=False).status_code == 401
+    finally:
+        anonymous.close()

@@ -22,13 +22,19 @@ from app.core.time import utc_now
 from app.models.core import AggregationDaily, AggregationMonthly, Insight
 from app.models.assets import Asset
 from app.models.events import Event
-from app.services.asset_hosts import find_asset_by_host
+from app.services.asset_hosts import find_asset_by_host, normalize_asset_host
 from app.services.insight_rules import apply_declarative_insight_rules
-from app.services.notifications import handle_event, handle_insight
+from app.services.notifications import handle_event
+from app.services.insights import ip_correlation_key, record_insight, utc_iso
 from app.services.rollups import DAILY_ROLLUP_WINDOW_DAYS, normalize_rollup_key
 
 
 logger = logging.getLogger(__name__)
+
+# Level-1 relationships use a closed one-minute event-time window.
+RELATIONSHIP_WINDOW_SECONDS = 60
+_ACCESS_FAILURE_TYPES = ("access.error", "access.denied")
+_BAN_TYPES = ("security.ban", "security.ban.manual")
 
 # The default 24-hour window keeps the candidate set small, but these limits
 # also protect explicit all-time searches from pathological expressions.
@@ -433,31 +439,92 @@ def cleanup_events_by_retention(db: Session, retention_days: int, reference_time
     return int(deleted or 0)
 
 
-def _insight_exists(
-    db: Session,
-    insight_type: str,
-    event_ids: list[int],
-    *,
-    ip: str | None = None,
-    window_start: datetime | None = None,
-) -> bool:
-    if window_start is not None:
-        cooldown = db.query(Insight).filter(Insight.type == insight_type, Insight.timestamp >= window_start)
-        if ip is None:
-            cooldown = cooldown.filter(Insight.ip.is_(None))
-        else:
-            cooldown = cooldown.filter(Insight.ip == ip)
-        if cooldown.first() is not None:
-            return True
-    return (
-        db.query(Insight)
-        .filter(Insight.type == insight_type, Insight.related_event_ids == event_ids)
-        .first()
-        is not None
-    )
+def _insight_exists(db: Session, insight_type: str, event_ids: list[int]) -> bool:
+    return db.query(Insight).filter(
+        Insight.type == insight_type, Insight.related_event_ids == sorted(event_ids),
+    ).first() is not None
+
+
+def _relationship_context(left: Event, right: Event) -> str | None:
+    left_host = normalize_asset_host(left.hostname)
+    right_host = normalize_asset_host(right.hostname)
+    if left.asset_id is not None and right.asset_id is not None and left.asset_id != right.asset_id:
+        return None
+    if left_host and right_host and left_host != right_host:
+        return None
+    context = []
+    if left.asset_id is not None and left.asset_id == right.asset_id:
+        context.append(f"asset {left.asset_id}")
+    if left_host and left_host == right_host:
+        context.append(f"host {left_host}")
+    return ", ".join(context)
+
+
+def _create_relationship_insights(db: Session, event: Event) -> None:
+    if not event.ip:
+        return
+    is_access = event.event_type in _ACCESS_FAILURE_TYPES
+    for insight_type, security_types, title in (
+        ("blocked_request", ("security.geoblock",), "Access failure near GeoBlock"),
+        ("ban_after_access", _BAN_TYPES, "Security ban after access failures"),
+    ):
+        if not is_access and event.event_type not in security_types:
+            continue
+        start = event.event_time - timedelta(seconds=RELATIONSHIP_WINDOW_SECONDS)
+        end = event.event_time + timedelta(seconds=RELATIONSHIP_WINDOW_SECONDS)
+        if insight_type == "ban_after_access":
+            if is_access:
+                start = event.event_time
+            else:
+                end = event.event_time
+        candidates = db.query(Event).filter(
+            Event.id != event.id, Event.ip == event.ip,
+            Event.event_type.in_(security_types if is_access else _ACCESS_FAILURE_TYPES),
+            Event.event_time >= start, Event.event_time <= end,
+        )
+        # Nearest valid row on either side suffices. Stream past conflicting
+        # contexts without materializing a potentially large raw-event window.
+        nearest: list[Event] = []
+        for query in (
+            candidates.filter(Event.event_time <= event.event_time).order_by(Event.event_time.desc(), Event.id),
+            candidates.filter(Event.event_time > event.event_time).order_by(Event.event_time, Event.id),
+        ):
+            for candidate in query.yield_per(50):
+                if _relationship_context(event, candidate) is not None:
+                    nearest.append(candidate)
+                    break
+        if not nearest:
+            continue
+        partner = min(nearest, key=lambda item: (abs((item.event_time - event.event_time).total_seconds()), item.id))
+        context = _relationship_context(event, partner)
+        access = event if is_access else partner
+        gap = abs((partner.event_time - event.event_time).total_seconds())
+        status = str(access.status_code) if access.status_code is not None else "unknown"
+        shared = f"shared {context}" if context else "asset/host context missing; only IP and time match"
+        ids = sorted([event.id, partner.id])
+        record_insight(db,
+            type=insight_type, title=title, level="high", confidence=0.8 if context else 0.6,
+            description=f"HTTP {status}; {gap:g} seconds apart; same IP {event.ip}; {shared}. Temporal proximity does not prove causality.",
+            related_event_ids=ids, occurred_at=max(event.event_time, partner.event_time),
+            correlation_key=ip_correlation_key(event.ip),
+            dedupe_key=f"{insight_type}:pair:{ids[0]}:{ids[1]}",
+            evidence={"version": 1, "kind": "correlation", "event_count": 2,
+                      "sample_count": 2, "sample_truncated": False,
+                      "window_start": utc_iso(start), "window_end": utc_iso(end)},
+            ip=event.ip, asset_id=event.asset_id or partner.asset_id,
+        )
 
 
 def create_rule_based_insights(db: Session, event: Event) -> None:
+    """Keep derived-data failures from invalidating a valid source event."""
+    try:
+        with db.begin_nested():
+            _create_rule_based_insights(db, event)
+    except Exception:
+        logger.exception("Insight generation failed for event id=%s", event.id)
+
+
+def _create_rule_based_insights(db: Session, event: Event) -> None:
     if not event.ip:
         return
 
@@ -472,25 +539,28 @@ def create_rule_based_insights(db: Session, event: Event) -> None:
             if existing.description != description:
                 existing.description = description
         else:
-            insight = Insight(
+            record_insight(db,
                 type="geoblock_denied_request",
                 confidence=0.85,
                 level="high",
                 title="Request denied by GeoBlock",
                 description=description,
                 related_event_ids=ids,
+                occurred_at=event.event_time,
+                correlation_key=ip_correlation_key(event.ip),
+                dedupe_key=f"geoblock_denied_request:event:{event.id}",
+                evidence={"version": 1, "kind": "direct", "event_count": 1,
+                          "sample_count": 1, "sample_truncated": False},
                 ip=event.ip,
                 asset_id=event.asset_id,
             )
-            db.add(insight)
-            handle_insight(db, insight, event.event_time)
 
     if event.event_type in {"security.ban", "security.ban.manual"}:
         insight_type = "manual_security_ban" if event.event_type == "security.ban.manual" else "security_ban_observed"
         if not _insight_exists(db, insight_type, ids):
             scenario = (event.data_json or {}).get("scenario") or "unknown scenario"
             duration = (event.data_json or {}).get("duration") or "unknown duration"
-            insight = Insight(
+            record_insight(db,
                 type=insight_type,
                 confidence=0.9 if event.event_type == "security.ban.manual" else 0.85,
                 level="high",
@@ -501,11 +571,14 @@ def create_rule_based_insights(db: Session, event: Event) -> None:
                     else f"{event.ip} was banned for {duration} due to {scenario}."
                 ),
                 related_event_ids=ids,
+                occurred_at=event.event_time,
+                correlation_key=ip_correlation_key(event.ip),
+                dedupe_key=f"{insight_type}:event:{event.id}",
+                evidence={"version": 1, "kind": "direct", "event_count": 1,
+                          "sample_count": 1, "sample_truncated": False},
                 ip=event.ip,
                 asset_id=event.asset_id,
             )
-            db.add(insight)
-            handle_insight(db, insight, event.event_time)
 
     if event.event_type == "security.ban.asn_policy":
         insight_type = "asn_policy_security_ban"
@@ -514,52 +587,23 @@ def create_rule_based_insights(db: Session, event: Event) -> None:
             asn = str(data.get("asn") or "unknown ASN")
             provider_name = str(data.get("provider_name") or "unknown provider")
             duration = str(data.get("duration") or "7d")
-            insight = Insight(
+            record_insight(db,
                 type=insight_type,
                 confidence=0.95,
                 level="high",
                 title="Banned by permanent ASN ban",
                 description=f"{asn} · {provider_name} · {duration}",
                 related_event_ids=ids,
+                occurred_at=event.event_time,
+                correlation_key=ip_correlation_key(event.ip),
+                dedupe_key=f"{insight_type}:event:{event.id}",
+                evidence={"version": 1, "kind": "direct", "event_count": 1,
+                          "sample_count": 1, "sample_truncated": False},
                 ip=event.ip,
                 asset_id=event.asset_id,
             )
-            db.add(insight)
-            handle_insight(db, insight, event.event_time)
 
-    window_start = event.event_time - timedelta(seconds=60)
-    window_end = event.event_time + timedelta(seconds=60)
-
-    if event.event_type in {"security.geoblock", "security.ban", "security.ban.manual"}:
-        access = (
-            db.query(Event)
-            .filter(
-                Event.id != event.id,
-                Event.ip == event.ip,
-                Event.event_type == "access.error",
-                Event.event_time >= window_start,
-                Event.event_time <= window_end,
-            )
-            .order_by(Event.event_time.desc())
-            .first()
-        )
-        if access:
-            insight_type = "blocked_request" if event.event_type == "security.geoblock" else "ban_after_access"
-            title = "404 likely caused by geoblock" if event.event_type == "security.geoblock" else "CrowdSec ban followed access errors"
-            ids = [access.id, event.id]
-            if not _insight_exists(db, insight_type, ids):
-                insight = Insight(
-                    type=insight_type,
-                    confidence=0.9 if event.event_type == "security.geoblock" else 0.95,
-                    level="high",
-                    title=title,
-                    description=f"Events from {event.ip} occurred within the v1 correlation window.",
-                    related_event_ids=ids,
-                    ip=event.ip,
-                    asset_id=event.asset_id or access.asset_id,
-                )
-                db.add(insight)
-                handle_insight(db, insight, event.event_time)
+    _create_relationship_insights(db, event)
 
     apply_declarative_insight_rules(db, event)
 

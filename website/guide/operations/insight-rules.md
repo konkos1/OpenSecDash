@@ -1,11 +1,129 @@
 # Insights engine
 
-The Insights engine is a core OpenSecDash feature. It creates insights from two kinds of logic:
+The Insights engine is a core OpenSecDash feature. It creates insights from these kinds of logic:
 
 - direct facts from datasources, such as CrowdSec bans or GeoBlock denies
 - heuristic web-probe rules, such as WordPress or phpMyAdmin scan patterns
+- Level 2 relationships from validated scan/ban chain rules when supplied by an active ruleset
 
 The heuristic rules are declarative JSON data. They are not executable code.
+
+## Simple event relationships
+
+`blocked_request` reports **Access failure near GeoBlock**: an `access.error` or
+`access.denied` event and a GeoBlock event from the same IP, at most 60 seconds apart
+in either event-time direction. `ban_after_access` reports **Security ban after access
+failures**: an access failure precedes or coincides with an observed security ban
+(`security.ban` or `security.ban.manual`) by at most 60 seconds. ASN-policy bans remain
+separate direct facts. Both relationships work regardless of import order.
+
+Known conflicting asset IDs or normalized hostnames exclude a pair. Host matching
+uses the central host normalization and asset assignment; it does not infer plugin
+aliases. Matching known asset or host context gives heuristic confidence `0.8`.
+When only IP and time match, confidence is `0.6` and the description states the missing
+context. Descriptions retain the actual HTTP status (or state that it is unknown),
+time gap and shared context. Neither relationship proves causality, scanning,
+successful exploitation or a currently active ban.
+
+For each incoming event and relationship type, only the closest valid partner is
+selected; ties use the smaller event ID. Reprocessing the same pair creates no
+additional finding or notification. This does not enumerate all possible pairs.
+Direct ban and GeoBlock facts retain their own source-event identity and confidence.
+
+## Level 2 scan/ban relationships
+
+A `scan_ban_chain` rule groups matching failed or denied requests by its path-pattern
+family across multiple IPs, known assets and observed countries. Its anchor is an
+observed automatic `security.ban` for a participating IP. Manual bans, simulations
+and ASN-policy bans are excluded. This evaluator observes bans; it does not issue them.
+
+For each anchor, OpenSecDash selects that IP's latest matching request at or before
+the ban, within the configured follow-up interval (ties use the larger event ID).
+It counts matching probes from all IPs in the closed window ending at that request.
+Event, distinct-IP, known-asset and known-country thresholds must all hold. Missing,
+empty or unknown asset/country values add no distinct asset or country. GeoIP is
+changeable descriptive enrichment, not an identity or campaign attribution.
+
+The finding records the ban's event time and IP, without assigning a single asset.
+Its retained evidence includes exact counts, the probe window, rule source/version
+when known, the follow-up limit and observed gap. Examples contain the ban and up to
+19 newest probes, ordered by event time then ID. Confidence is at most `0.8`.
+Temporal proximity proves neither the cause of a ban nor a shared campaign,
+successful exploitation or a currently active ban.
+
+A separate worker runs about every 60 seconds, processing at most 100 ban anchors per
+tick using an ID cursor and a fixed creation-time cutoff. It evaluates at most 20
+available chain rules per tick in rule-ID order. Each group of up to 20 rules checks
+the entire fixed ban window before the worker starts the next group. This includes
+all available rules across bundled, remote and plugin sources, even when their total
+exceeds 20. All required input producers and any owner plugin must be enabled.
+Persisted ban and rule cursors and the running group's assigned rule IDs resume
+unfinished cycles after restart. Removed or unavailable rules are skipped; replacement
+rules start their own group from the first ban in the window. Newly added or re-enabled
+rules omitted from a running group at or before its final rule ID wait until the next
+cycle. On upgrade, older unfinished groups without persisted rule IDs restart from
+their first ban in the original window.
+Individual rule/anchor failures are isolated and counted in diagnostics.
+
+The first cycle checks bans **created in the previous 15 minutes**, including newly
+imported historical bans. Each completed cycle persists its cutoff; the next window
+runs from **15 minutes before that cutoff** to the current time. New arrivals therefore
+remain eligible even when a backlog takes longer than 15 minutes to process. Late
+requests and GeoIP enrichment can produce a finding during the overlap. Unfinished
+cycles retain their original window across ticks and restarts.
+Data arriving after a ban leaves that overlap is not automatically correlated against
+the full history. There is no startup sweep of old bans or reconstruction of deleted
+raw events.
+
+Each rule/ban pair creates at most one finding and eligible opt-in notification.
+An additional rule-wide event-time cooldown suppresses other bans in the same window;
+those suppressed bans are not included as evidence. Later GeoIP changes do not rewrite
+a successful finding or send another email. Historical bans still observe the usual
+15-minute event-time notification protection.
+
+The conservative WordPress example uses 20 failures/denies, at least 2 IPs, 2 known
+assets and 2 observed countries within 5 minutes, followed by a ban within 60 seconds.
+Its stable type is `web.distributed_scan_then_ban`. The bundled schema-2 fallback includes this rule. The public ruleset remains schema 1
+until a compatible app release is verified available. Validated plugin chain rules
+can also use the evaluator.
+
+## Observed count trends
+
+Two fixed local findings compare **observed** `access.error` counts per known asset
+(`asset.access_errors_increased`) and `security.geoblock` counts per known country
+(`geo.geoblocks_increased`). Other country events and general country rollups are not
+GeoBlock counts. Missing asset or country assignments do not form an unknown series.
+
+The engine compares the last seven completed UTC days with the seven before them.
+For example, an evaluation on October 24 compares `[October 17, October 24)` against
+`[October 10, October 17)`. The current incomplete day is excluded. A finding requires
+all three conditions: at least 50 previous events, at least twice that count now,
+and at least 50 additional events. Thus 50 → 100 qualifies; 1 → 20, 0 → 100 and
+100 → 149 do not. This is a fixed comparison, not a learned anomaly detector.
+
+Raw retention must cover both complete comparison windows or be unlimited. The engine
+checks their start against the current time minus the retention duration on every
+tick, including when resuming an older cycle. Exactly 14 days suffice only when
+evaluation runs at the midnight cutoff; use at least 15 days for evaluations later
+that day. A delayed cycle may require longer retention. On first activation, the engine
+starts a persisted observation period separately for Access and GeoBlock. Changes to
+relevant enabled plugin/source IDs restart that metric's wait for 14 full UTC days;
+restarts preserve it. Currently failing sources skip evaluation. Diagnostics reports
+insufficient data coverage and worker progress. Retention is never extended.
+
+Even after waiting, OpenSecDash cannot prove continuous historical log coverage.
+Import gaps or changed logging may explain the increase. A trend does not establish
+an attack or trigger a ban. Findings retain exact windows, counts, difference,
+factor, dimension and `coverage="observed_only"`, with at most 20 newest example IDs.
+This summary survives deletion of raw events. Asset insights and the filtered Events
+view show exact half-open intervals in the configured UI timezone. The filtered view
+shows at most 20 trend summaries. Dashboard today continues to use the UI's local day.
+
+An hourly worker evaluates at most 100 groups per tick and resumes a persisted daily
+cutoff across ticks and restarts. Each dimension creates at most one finding per
+cutoff date; late imports never silently rewrite stored comparisons. New notification
+rules are disabled, require the matching Access/GeoBlock producer, and preserve the
+usual 15-minute event-time protection against delayed email bursts.
 
 ## Remote rule updates
 
@@ -28,7 +146,9 @@ OpenSecDash refreshes the rules:
 
 If the remote fetch fails, OpenSecDash continues using the rules already imported into the local database or the bundled fallback ruleset.
 
-Rules are deduplicated by `rule_id`. A remote rule with the same `rule_id` replaces the bundled version, while bundled-only rules remain active.
+Rules are deduplicated by `rule_id`. A remote rule with the same `rule_id` replaces the bundled version, while bundled-only rules remain active. That remote override survives startup seeding, cache hits, HTTP 304, and failed refreshes. A successfully validated replacement restores the bundled fallback for removed remote IDs; remote-only IDs are deactivated. An empty remote ruleset removes all remote overrides in the same way. Plugin rules remain separate and cannot take over IDs owned by built-in rules or another source.
+
+Every import validates the entire ruleset before writing and applies it atomically. Invalid field types, duplicate IDs, empty path patterns, invalid levels, and non-finite or out-of-range confidence values reject the whole import. Confidence `0` and `1` are both valid. Failed imports preserve active rule contents and the last successful remote fetch metadata. Existing notification choices and cooldowns are preserved.
 
 ## Privacy
 
@@ -100,7 +220,11 @@ Rules can use either grouping mode:
 
 `min_distinct_ips` sets how many different IPs must match. It defaults to `1` and accepts values from `1` to `1000`. For example, the bundled scanner-wave rule requires 20 requests to common WordPress paths from at least 5 IPs in 5 minutes.
 
-After a rule creates an insight, OpenSecDash applies a cooldown for that rule and correlation key for the rule window. Repeated matching events during that window do not create duplicate insights. Raw events remain unchanged.
+After a rule creates an insight, OpenSecDash applies a cooldown for that rule and correlation key for the rule window. This uses event time in the closed interval from the window start to the evaluated event time. Importing a newer wave first does not suppress a separate older wave. IP rules use a canonical IP key; path groups remain global across matching path patterns and assets. Raw events remain unchanged.
+
+New insights store event time separately from creation time and retain a small evidence summary. Rule findings include rule identity/source/version when known, the evaluated time window, exact counts, and at most 20 example event IDs. The summary remains after raw-event retention; example events may no longer be available. Existing insights keep their text and have unknown event time/evidence rather than reconstructed data.
+
+Direct ban and deny findings deduplicate by source event, so separate actual events remain separate facts. GeoIP country enrichment can update a GeoBlock description without creating another finding or email. Insight emails use event time; events older than 15 minutes do not notify.
 
 ## Diagnostics and debug reports
 
@@ -134,3 +258,82 @@ yyyy-mm-dd
 - `2`, `2.1`, ... are breaking schema changes and require a newer OpenSecDash app version before the ruleset is accepted.
 
 If OpenSecDash sees an unsupported schema major version, it ignores that remote ruleset and keeps using database-imported or bundled rules.
+
+## Investigating findings
+
+IP and Asset Explorer findings link to an evidence detail page. Severity describes
+impact; certainty describes evidence strength independently. Direct evidence with
+confidence of at least 0.8 is labelled certain, other known evidence at that threshold
+probable, and remaining or legacy evidence possible. These are fixed heuristics,
+not calibrated probabilities. An observed ban does not establish a currently active ban.
+
+Details retain the rule source/version when known, exact counts and evaluation windows,
+event time and creation time. At most 20 stored example event IDs link to Events and
+their existing IP/Asset views. Total matches and available examples are separate:
+retention may remove some or all examples without invalidating the stored summary.
+Type drill-downs use samples from at most 200 findings and show details for at most 20;
+additional time filters can further narrow the displayed examples.
+
+Top Insights and finding order use event time, with a labelled creation-time fallback
+for legacy records. Asset Explorer's **Most frequent finding** uses the displayed assets
+(or focused app) over the last 24 hours. This is not a proven cause. Multi-asset chains
+remain accessible through Top Insights, details and examples; a chain's IP is the banned
+participant, and its empty asset association represents multiple assets. The examples
+do not promise complete coverage of participating IPs/assets or an asset's history.
+
+## Exporting Insights
+
+The detail page offers **Download JSON**, which downloads findings of the same type
+at that precise event time (creation time for legacy findings). It is a local
+download and does not upload data. The endpoint requires the same viewer access
+and enabled events feature as Insight details.
+
+`GET /api/insights/export` returns `items`, `next_cursor` and `period` with UTC `start`
+and `end`. Optional parameters are `type` (a known stored or declared type), `start`
+and `end` (ISO timestamps with timezone), `limit` (1–500, default 100), and `cursor`.
+The default period is 24 hours; explicit periods must be positive and at most
+30 days. Start is inclusive, end exclusive. Results sort by event time descending,
+then ID descending; legacy rows use creation time. To continue, pass the returned
+opaque `cursor` and optionally `limit`, without repeating time/type filters. The
+cursor preserves the original period and filter. Downloads are not cached.
+
+Each item has `schema_version: 1`, `id`, `type`, `title`, `level`, `confidence`,
+`certainty` (`certain`, `probable` or `possible`), `occurred_at` (null for legacy
+rows), `created_at`, and `evidence`. Evidence includes only bounded counts, UTC
+windows, known evidence kind/version, sample truncation, and comparison counts and
+windows when available. Missing or invalid legacy summary fields are omitted.
+Each Insight is at most 8 KiB of UTF-8 JSON.
+
+Titles for built-in and bundled types use fixed shipped definitions. Stored or
+remote free-text titles are never exported. Unknown types use a stable
+`other.<24 hexadecimal SHA-256 characters>` identifier and title `Insight`, so
+foreign metadata cannot inject secrets or topic wildcards. This mapping is not an
+anonymity guarantee for guessable type IDs. The original type remains available
+locally and is used for the download's `type` filter.
+
+JSON downloads also include `example_event_ids` (at most 20) and `detail_path`
+(a local path). Example IDs remain even if raw-event retention removed the events;
+they do not promise that those examples are still available. Raw rows, event
+payloads, descriptions, IPs, hostnames, request paths, asset names and arbitrary
+stored JSON are excluded.
+
+The [optional MQTT export](../plugins/mqtt.md#optional-insight-publishing) uses the
+same serializer without example IDs or detail paths. It must be explicitly enabled,
+skips history on activation and may repeat messages after a failure or restart.
+
+
+## Reproducing checks with synthetic data
+
+Contributors can reproduce the scan/ban example using reserved example IPs and
+in-memory SQLite, with no broker or private logs:
+
+```bash
+cd backend
+.venv/bin/python -m pytest tests/test_insight_level2.py tests/test_insight_trends.py tests/test_insight_detail.py tests/test_insight_relationships.py tests/test_insight_export.py tests/test_mqtt_insight_export.py -q
+```
+
+The Level 2 fixture creates 20 failed requests across two IPs, assets and countries,
+then an observed ban. Tests also cover direct facts, uncertain relationships,
+legacy findings, retained summaries with missing examples, sample-only drill-down,
+JSON pagination and MQTT activation without replay. MQTT transport is mocked.
+These checks do not connect to a real broker or send email.

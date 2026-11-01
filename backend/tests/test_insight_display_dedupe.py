@@ -148,3 +148,40 @@ def test_asset_page_dedupes_system_and_host_insights_by_type_and_ip(monkeypatch,
     ]
     assert [(insight.type, insight.ip, insight.title) for insight in captured["insights"]] == expected
     assert [(insight.type, insight.ip, insight.title) for insight in captured["host_event_sections"][0]["insights"]] == expected
+
+
+def test_ip_order_uses_event_time_with_legacy_fallback(db_session):
+    db_session.add_all([
+        Insight(type='old', title='Imported today', ip='192.0.2.1', occurred_at=datetime(2026, 10, 1), timestamp=datetime(2026, 11, 1)),
+        Insight(type='new', title='Recent event', ip='192.0.2.1', occurred_at=datetime(2026, 10, 31), timestamp=datetime(2026, 10, 31)),
+        Insight(type='legacy', title='Legacy', ip='192.0.2.1', timestamp=datetime(2026, 10, 30)),
+    ])
+    db_session.commit()
+    assert [i.type for i in pages._insights_for_ip_target(db_session, '192.0.2.1', 20)] == ['new', 'legacy', 'old']
+
+
+def test_most_frequent_finding_uses_focused_asset_and_last_day(db_session, monkeypatch):
+    from datetime import timedelta
+
+    now = datetime(2026, 11, 1, 12)
+    db_session.add(Setting(key='plugin.json_assets.enabled', value='true'))
+    system = System(vmid='101', hostname='example.test', system_type='vm')
+    db_session.add(system)
+    db_session.flush()
+    first = Asset(system_id=system.id, name='First', is_active=True)
+    second = Asset(system_id=system.id, name='Second', is_active=True)
+    db_session.add_all([first, second])
+    db_session.flush()
+    db_session.add_all([
+        Insight(type='recent', title='Recent', asset_id=first.id, occurred_at=now - timedelta(hours=1)),
+        Insight(type='old', title='Old', asset_id=first.id, occurred_at=now - timedelta(days=2)),
+        Insight(type='old', title='Old', asset_id=first.id, occurred_at=now - timedelta(days=3)),
+        Insight(type='other', title='Other', asset_id=second.id, occurred_at=now),
+        Insight(type='other', title='Other', asset_id=second.id, occurred_at=now),
+    ])
+    db_session.commit()
+    monkeypatch.setattr(pages, 'utc_now', lambda: now)
+    monkeypatch.setattr(pages, 'render', lambda request, db, template, **context: context)
+    result = cast(Any, pages.asset_page(system.id, cast(Any, _request('/assets/system/1')), asset_id=first.id, db=db_session))
+    assert result['top_asset_insight'].type == 'recent'
+    assert {i.asset_id for i in result['insights']} == {first.id}

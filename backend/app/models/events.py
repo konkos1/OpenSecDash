@@ -17,6 +17,8 @@ class Event(Base):
     __tablename__ = "events"
     __table_args__ = (
         Index("ix_events_event_type_time", "event_type", "event_time"),
+        # Level 2 anchor selection follows ingestion time, including historical imports.
+        Index("ix_events_type_created", "event_type", "created_at"),
         # Partial index for the GeoIP backfill loop, which polls for
         # unchecked events every few seconds forever. Without it that poll is
         # a full table scan once the table has grown; with it the index only

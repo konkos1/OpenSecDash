@@ -231,3 +231,28 @@ successfully GeoIP-classified public IPs into ordinary seven-day CrowdSec IP dec
 It adds ASN-specific IP exceptions, exact decision ownership and release, debounced
 ASN-organization review, a direct historical Insight, and management on the CrowdSec page. It does not
 add native ASN decisions, prefix expansion, a historical sweep, or timer renewal.
+
+## Scope decision (2026-10-24)
+
+Level 2 correlation is brought forward into V1 for deterministic scan/ban relationships:
+HTTP probing by multiple IPs across multiple assets and observed countries, followed
+by an observed CrowdSec ban of a participating IP. This limited extension is
+**implemented as of 2026-11-01**, within the bounded contract in ADR-030.
+The bundled app ruleset includes `web.distributed_scan_then_ban`; public schema-2
+publication remains gated on a verified compatible app release.
+It supersedes the earlier Level 2 exclusion only for these relationships. Temporal
+proximity does not prove causality, a shared campaign, successful exploitation, or a
+currently active ban. Raw events remain unchanged and findings must explain their evidence.
+
+This decision does not authorize Torblock, LLM features, additional plugins in general,
+or other previously excluded V1 features. Rules remain validated declarative data under
+the existing security and plugin boundaries.
+
+
+## Scope clarification (2026-11-01)
+
+Level 1 keeps its same-IP relationships. The Level 2 exception permits multiple
+IPs to contribute to a rule's path-pattern family. The ban must still belong to
+an IP with a matching request within the configured follow-up interval. The
+shared family and observed countries do not establish a common identity or campaign.
+The app implementation is complete; publication of the public schema-2 ruleset remains a separate release gate.
