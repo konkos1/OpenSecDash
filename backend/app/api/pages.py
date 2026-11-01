@@ -1013,6 +1013,7 @@ def events_page(
     custom_to = parse_snapshot_before(to) if range_value == "custom" else None
     event_time_from = max([value for value in [hour_start, today_start(db) if today_enabled else None, range_start] if value is not None], default=None)
     event_time_to = min([value for value in [hour_end, snapshot_cutoff, custom_to] if value is not None], default=None)
+    trend_insights: list[Insight] = []
     insight_type_value = clean_filter_value(insight_type)
     if insight_type_value and len(insight_type_value) <= 100:
         insight_rows = db.query(Insight.related_event_ids).filter(Insight.type == insight_type_value)
@@ -1020,6 +1021,8 @@ def events_page(
             insight_rows = insight_rows.filter(Insight.timestamp >= event_time_from)
         if event_time_to is not None:
             insight_rows = insight_rows.filter(Insight.timestamp < event_time_to)
+        if insight_type_value in ("asset.access_errors_increased", "geo.geoblocks_increased"):
+            trend_insights = insight_rows.with_entities(Insight).order_by(Insight.timestamp.desc(), Insight.id.desc()).limit(20).all()
         related_event_ids = {
             int(event_id)
             for (event_ids,) in insight_rows.order_by(Insight.timestamp.desc()).limit(200).all()
@@ -1089,6 +1092,7 @@ def events_page(
         request,
         db,
         "events.html",
+        trend_insights=trend_insights,
         events=events,
         filters=form_values,
         event_asset_links=event_asset_links,

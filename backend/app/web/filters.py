@@ -49,9 +49,11 @@ def format_country_or_local(context, value: str | None, ip: str | None = None) -
 
 
 @pass_context
-def format_datetime(context, value: datetime | None) -> Markup | str:
+def format_datetime(context, value: datetime | str | None) -> Markup | str:
     if value is None:
         return "-"
+    if isinstance(value, str):
+        value = datetime.fromisoformat(value)
     timezone = str(context.get("timezone", "auto"))
     text = format_datetime_for_timezone(value, timezone)
     iso_utc = datetime_iso_utc(value)

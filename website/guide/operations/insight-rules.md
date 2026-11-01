@@ -76,6 +76,40 @@ Its stable type is `web.distributed_scan_then_ban`. This payload remains a test 
 it is not active in the bundled or public ruleset until the compatible-release rollout
 is approved. Validated plugin chain rules can use the implemented evaluator.
 
+## Observed count trends
+
+Two fixed local findings compare **observed** `access.error` counts per known asset
+(`asset.access_errors_increased`) and `security.geoblock` counts per known country
+(`geo.geoblocks_increased`). Other country events and general country rollups are not
+GeoBlock counts. Missing asset or country assignments do not form an unknown series.
+
+The engine compares the last seven completed UTC days with the seven before them.
+For example, an evaluation on October 24 compares `[October 17, October 24)` against
+`[October 10, October 17)`. The current incomplete day is excluded. A finding requires
+all three conditions: at least 50 previous events, at least twice that count now,
+and at least 50 additional events. Thus 50 → 100 qualifies; 1 → 20, 0 → 100 and
+100 → 149 do not. This is a fixed comparison, not a learned anomaly detector.
+
+Raw retention must be at least 14 days or unlimited. On first activation, the engine
+starts a persisted observation period separately for Access and GeoBlock. Changes to
+relevant enabled plugin/source IDs restart that metric's wait for 14 full UTC days;
+restarts preserve it. Currently failing sources skip evaluation. Diagnostics reports
+insufficient data coverage and worker progress. Retention is never extended.
+
+Even after waiting, OpenSecDash cannot prove continuous historical log coverage.
+Import gaps or changed logging may explain the increase. A trend does not establish
+an attack or trigger a ban. Findings retain exact windows, counts, difference,
+factor, dimension and `coverage="observed_only"`, with at most 20 newest example IDs.
+This summary survives deletion of raw events. Asset insights and the filtered Events
+view show exact half-open intervals in the configured UI timezone. The filtered view
+shows at most 20 trend summaries. Dashboard today continues to use the UI's local day.
+
+An hourly worker evaluates at most 100 groups per tick and resumes a persisted daily
+cutoff across ticks and restarts. Each dimension creates at most one finding per
+cutoff date; late imports never silently rewrite stored comparisons. New notification
+rules are disabled, require the matching Access/GeoBlock producer, and preserve the
+usual 15-minute event-time protection against delayed email bursts.
+
 ## Remote rule updates
 
 The Insights engine ships with a local fallback ruleset, imports active rules into the local database, and also checks for updated heuristic rules from:

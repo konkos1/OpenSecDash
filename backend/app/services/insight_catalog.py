@@ -27,6 +27,10 @@ class InsightAvailability:
 
 
 BUILTIN_INSIGHT_DEFINITIONS = (
+    InsightDefinition(type="asset.access_errors_increased", title="Observed access errors increased",
+        level="medium", event_type_requirements=(("access.error",),)),
+    InsightDefinition(type="geo.geoblocks_increased", title="Observed GeoBlocks increased",
+        level="medium", event_type_requirements=(("security.geoblock",),)),
     InsightDefinition(
         type="geoblock_denied_request",
         title="Request denied by GeoBlock",

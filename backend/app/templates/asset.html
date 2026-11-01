@@ -191,7 +191,7 @@
             {% for insight in insights %}
                 {% set badge, certainty = insight.level|insight_level_badge %}
                 <div class="row">
-                    <span>{{ insight.title }}<br><small class="muted">{{ insight.description }}</small></span>
+                    <span>{{ t("insight.title." ~ insight.type) if insight.evidence and insight.evidence.kind == "trend" else insight.title }}<br><small class="muted">{{ insight.description }}</small>{% include "insight_trend.html" %}</span>
                     <b>{{ badge }} {{ t("insight.certainty." ~ certainty) }}</b>
                 </div>
             {% else %}
@@ -209,7 +209,7 @@
                 {% for insight in section.insights %}
                     {% set badge, certainty = insight.level|insight_level_badge %}
                     <div class="row">
-                        <span>{{ insight.title }}<br><small class="muted">{{ insight.description }}</small></span>
+                        <span>{{ t("insight.title." ~ insight.type) if insight.evidence and insight.evidence.kind == "trend" else insight.title }}<br><small class="muted">{{ insight.description }}</small>{% include "insight_trend.html" %}</span>
                         <b>{{ badge }} {{ t("insight.certainty." ~ certainty) }}</b>
                     </div>
                 {% else %}

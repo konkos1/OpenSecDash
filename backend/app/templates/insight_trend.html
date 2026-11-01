@@ -1,0 +1,9 @@
+{% if insight.evidence and insight.evidence.kind == "trend" and insight.evidence.comparison %}
+    {% set comparison = insight.evidence.comparison %}
+    <br><small class="muted">
+        {{ t("insight.trend." ~ comparison.dimension) }}: {{ comparison.dimension_value }} · +{{ comparison.difference }} · {{ comparison.factor }}×<br>
+        {{ t("insight.trend.previous") }}: [{{ comparison.previous_start|datetime }}, {{ comparison.previous_end|datetime }}) · {{ comparison.previous_count }}<br>
+        {{ t("insight.trend.current") }}: [{{ comparison.current_start|datetime }}, {{ comparison.current_end|datetime }}) · {{ comparison.current_count }}<br>
+        {{ t("insight.trend.coverage") }}
+    </small>
+{% endif %}

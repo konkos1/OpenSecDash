@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import ipaddress
 import json
-from datetime import UTC, datetime
+import math
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy.exc import IntegrityError
@@ -34,7 +35,7 @@ def ip_correlation_key(ip: str) -> str:
 
 def validate_evidence(evidence: dict[str, Any]) -> dict[str, Any]:
     """Validate the closed version-1 summary without accepting raw payloads."""
-    allowed = {"version", "kind", "sample_truncated"} | _COUNT_FIELDS | _TEXT_FIELDS | _TIME_FIELDS
+    allowed = {"version", "kind", "sample_truncated", "comparison"} | _COUNT_FIELDS | _TEXT_FIELDS | _TIME_FIELDS
     if evidence.keys() - allowed:
         raise ValueError("Unknown insight evidence field")
     if type(evidence.get("version")) is not int or evidence["version"] != 1:
@@ -55,10 +56,50 @@ def validate_evidence(evidence: dict[str, Any]) -> dict[str, Any]:
             offset = parsed.utcoffset()
             if offset is None or offset.total_seconds() != 0:
                 raise ValueError("Insight evidence time must be UTC")
+    if "comparison" in evidence:
+        if evidence["kind"] != "trend":
+            raise ValueError("Comparison requires trend evidence")
+        _validate_comparison(evidence["comparison"])
     serialized = json.dumps(evidence, allow_nan=False)
     if len(serialized.encode("utf-8")) > MAX_EVIDENCE_BYTES:
         raise ValueError("Insight evidence exceeds 8 KiB")
     return json.loads(serialized)
+
+
+def _validate_comparison(value: Any) -> None:
+    fields = {"version", "previous_start", "previous_end", "current_start", "current_end",
+        "previous_count", "current_count", "difference", "factor", "dimension", "dimension_value", "coverage"}
+    if not isinstance(value, dict) or set(value) != fields:
+        raise ValueError("Invalid insight comparison fields")
+    if type(value["version"]) is not int or value["version"] != 1 or value["coverage"] != "observed_only":
+        raise ValueError("Invalid insight comparison version or coverage")
+    for key in ("previous_count", "current_count", "difference"):
+        if type(value[key]) is not int or value[key] < 0:
+            raise ValueError("Invalid insight comparison count")
+    previous, current = value["previous_count"], value["current_count"]
+    factor = value["factor"]
+    if (previous <= 0 or value["difference"] != current - previous or type(factor) not in (int, float)
+            or not math.isfinite(factor) or factor != current / previous):
+        raise ValueError("Invalid insight comparison factor or difference")
+    times = []
+    for key in ("previous_start", "previous_end", "current_start", "current_end"):
+        if not isinstance(value[key], str):
+            raise ValueError("Invalid insight comparison time")
+        time = datetime.fromisoformat(value[key])
+        offset = time.utcoffset()
+        if offset is None or offset.total_seconds() != 0:
+            raise ValueError("Insight comparison time must be UTC")
+        if time != time.replace(hour=0, minute=0, second=0, microsecond=0):
+            raise ValueError("Insight comparison boundaries must be UTC days")
+        times.append(time)
+    if times[1] != times[2] or times[1] - times[0] != timedelta(days=7) or times[3] - times[2] != timedelta(days=7):
+        raise ValueError("Invalid insight comparison intervals")
+    dimension = value["dimension_value"]
+    if value["dimension"] == "asset":
+        if type(dimension) is not int or dimension <= 0:
+            raise ValueError("Invalid insight comparison asset")
+    elif value["dimension"] != "country" or not isinstance(dimension, str) or len(dimension) != 2 or not dimension.isascii() or not dimension.isalpha() or not dimension.isupper() or dimension in ("XX", "ZZ"):
+        raise ValueError("Invalid insight comparison country")
 
 
 def record_insight(
@@ -82,7 +123,8 @@ def record_insight(
         raise ValueError("Insight dedupe key exceeds 255 characters")
     if occurred_at.tzinfo is not None:
         occurred_at = occurred_at.astimezone(UTC).replace(tzinfo=None)
-    existing = db.query(Insight).filter(Insight.type == type, Insight.related_event_ids == ids).first()
+    existing = (db.query(Insight).filter(Insight.type == type, Insight.related_event_ids == ids).first()
+        if snapshot["kind"] != "trend" else None)
     if existing is not None:
         return existing
     if dedupe_key is not None:
