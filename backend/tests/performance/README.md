@@ -35,6 +35,16 @@ profile builds a representative supported legacy schema from the first migration
 preserves synthetic legacy events, migrates secrets, runs startup maintenance,
 confirms auth remains off, and proves the second start skips the event scan.
 
+## Level 2 anchor history regression
+
+Run `.venv/bin/python -m pytest tests/test_insight_anchor_performance.py -q`
+from `backend/`. This in-memory check measures SQLite VM steps for the actual
+worker anchor query with 1,000 and 100,000 historical bans, zero or three current
+matches, and with and without `ANALYZE` statistics. Each case must stay below
+1,000 steps and use both creation-time bounds in `ix_events_type_created`.
+This catches historical scans that an indexed query plan and `LIMIT 100` alone
+would not exclude. Migration upgrade/downgrade is checked in the same test file.
+
 ## Results from 2026-07-22
 
 Environment: macOS/Darwin arm64, Python 3.13, repository SQLite runtime. Times are local

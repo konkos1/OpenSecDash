@@ -6,7 +6,7 @@ import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import case, func, or_
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.time import utc_now
@@ -144,9 +144,11 @@ def run_level2_tick(db: Session, *, now: datetime | None = None) -> dict[str, An
     remaining_rules = [rule for rule in active_rules(db)
         if rule.kind == "scan_ban_chain" and rule.id in available and rule.id > state["last_rule_id"]]
     rules = remaining_rules[:MAX_CHAIN_RULES]
-    anchors = db.query(Event).filter(Event.event_type == "security.ban", Event.ip.isnot(None), Event.ip != "",
-        Event.created_at >= lower, Event.created_at <= upper, Event.id > state["last_id"]).order_by(
-            Event.id).limit(MAX_BAN_ANCHORS).all()
+    # Select the time-bounded IDs separately so ID ordering cannot turn the
+    # creation window into a residual filter over the entire retained ban history.
+    candidates = select(Event.id).where(Event.event_type == "security.ban", Event.ip.isnot(None), Event.ip != "",
+        Event.created_at >= lower, Event.created_at <= upper, Event.id > state["last_id"])
+    anchors = db.query(Event).filter(Event.id.in_(candidates)).order_by(Event.id).limit(MAX_BAN_ANCHORS).all()
     errors = 0
     for ban in anchors:
         for rule in rules:

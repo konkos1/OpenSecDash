@@ -387,3 +387,8 @@ no single asset. The expression index `ix_insights_display_time` covers
 persist bounded chain/trend cycles, metric source observation starts and MQTT
 activation/cursor state. They are not freely editable rule configuration. Upgrades
 preserve legacy IDs/text, user notification choices and disabled export defaults.
+
+Level 2 anchor selection uses `(event_type, created_at)` to select candidate IDs
+inside the fixed creation-time window before ordering and limiting by event ID.
+This keeps retained bans outside the window out of the scan while preserving the
+existing persisted ID cursor, including for recently imported historical events.

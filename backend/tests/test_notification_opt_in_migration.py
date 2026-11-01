@@ -10,7 +10,7 @@ from app.core import settings as settings_module
 
 PREVIOUS_REVISION = "c3d4e5f6a7b8"
 REVISION = "d5e6f7a8b9c0"
-HEAD_REVISION = "c0d1e2f3a4b5"
+HEAD_REVISION = "d1e2f3a4b5c6"
 
 
 def _config() -> Config:
