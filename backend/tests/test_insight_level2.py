@@ -9,6 +9,8 @@ from app.models.events import Event
 from app.models.settings import Setting
 from app.services.insight_rules import import_ruleset
 from app.services.insight_correlation import run_level2_tick
+from app.services.events import store_event
+from conftest import import_plugin_module
 
 NOW = datetime(2026, 11, 1, 12)
 RULE_ID = "web.distributed_scan_then_ban"
@@ -65,6 +67,65 @@ def test_positive_snapshot_and_repeat_are_stable(chain_db):
     assert len(findings(chain_db)) == 1
     assert (insight.description, insight.evidence, insight.related_event_ids) == original
     assert "does not prove" in insight.description
+
+
+@pytest.mark.parametrize("scenario,event_type", [
+    ("opensecdash/manual-permanent-asn-ban/AS64500", "security.ban.asn_policy"),
+    ("manual-permanent-asn-ban/AS64500", "security.ban.asn_policy"),
+    ("crowdsecurity/http-probing", "security.ban"),
+])
+@pytest.mark.parametrize("quoted", [False, True])
+def test_imported_policy_bans_do_not_anchor_scan_chains(chain_db, scenario, event_type, quoted):
+    _, placeholder = wave(chain_db)
+    chain_db.delete(placeholder)
+    chain_db.commit()
+    plugin = import_plugin_module("crowdsec", "plugin").Plugin()
+    message = f'(machine/opensecdash) {scenario} by ip 192.0.2.2 : 7d ban on Ip 192.0.2.2'
+    line = f'time="2026-11-01T12:00:00Z" level=info msg="{message}"'
+    if quoted:
+        line = (f'time="2026-11-01T12:00:00Z" level=info scenario="{scenario}" '
+            'msg="7d ban on Ip 192.0.2.2"')
+    parsed = plugin.parse_log_line(line)
+    assert parsed is not None
+    ban = store_event(chain_db, **parsed, created_at=NOW)
+    chain_db.commit()
+    run_level2_tick(chain_db, now=NOW)
+
+    assert ban.event_type == event_type
+    assert ban.raw_data == line
+    assert ban.data_json is not None
+    assert ban.data_json["scenario"] == scenario
+    if event_type == "security.ban.asn_policy":
+        assert ban.data_json["asn"] == "AS64500"
+        assert findings(chain_db) == []
+        assert chain_db.query(Insight).filter_by(type="asn_policy_security_ban").one().related_event_ids == [ban.id]
+        assert chain_db.query(Insight).filter_by(type="security_ban_observed").count() == 0
+    else:
+        insight, = findings(chain_db)
+        assert ban.id in insight.related_event_ids
+
+
+@pytest.mark.parametrize("existing_type", ["security.ban.asn_policy", "security.ban"])
+def test_imported_policy_ban_only_merges_with_policy_event(chain_db, existing_type):
+    existing = store_event(chain_db, plugin="crowdsec", event_type=existing_type,
+        ip="192.0.2.2", event_time=NOW, created_at=NOW,
+        data_json={"action_id": 42, "asn": "AS64500", "provider_name": "Example"})
+    plugin = import_plugin_module("crowdsec", "plugin").Plugin()
+    parsed = plugin.parse_log_line('time="2026-11-01T12:00:00Z" level=info '
+        'msg="(machine/opensecdash) opensecdash/manual-permanent-asn-ban/AS64500 '
+        'by ip 192.0.2.2 : 7d ban on Ip 192.0.2.2"')
+    assert parsed is not None
+    imported = store_event(chain_db, **parsed, created_at=NOW)
+    chain_db.commit()
+
+    assert (imported.id == existing.id) == (existing_type == "security.ban.asn_policy")
+    assert imported.event_type == "security.ban.asn_policy"
+    assert chain_db.query(Event).count() == (1 if existing_type == "security.ban.asn_policy" else 2)
+    assert imported.data_json is not None
+    assert imported.data_json["scenario"] == "opensecdash/manual-permanent-asn-ban/AS64500"
+    assert existing.data_json is not None
+    assert existing.data_json["provider_name"] == "Example"
+    assert chain_db.query(Insight).filter_by(type="asn_policy_security_ban").count() == 1
 
 
 @pytest.mark.parametrize("field,value", [("ip", "192.0.2.1"), ("asset_id", 1),

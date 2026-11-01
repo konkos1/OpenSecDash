@@ -256,6 +256,17 @@ def policy_scenario(asn: str) -> str:
     return f"{POLICY_SCENARIO_PREFIX}{normalize_asn(asn)}"
 
 
+def policy_asn_from_scenario(scenario: str) -> str | None:
+    """Recognize current and legacy ASN policy scenarios at plugin boundaries."""
+    for prefix in (POLICY_SCENARIO_PREFIX, LEGACY_POLICY_SCENARIO_PREFIX):
+        if scenario.startswith(prefix):
+            try:
+                return normalize_asn(scenario.removeprefix(prefix))
+            except ValueError:
+                return None
+    return None
+
+
 def _actions_simulated(db: Session) -> bool:
     return get_setting_value(db, "action_dry_run", "true").lower() == "true"
 
