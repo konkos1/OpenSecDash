@@ -372,6 +372,18 @@ scan events or backfill guessed values.
 
 Indexes cover `occurred_at` and `(type, correlation_key, occurred_at)` for bounded
 historical cooldowns. The existing `(type, ip, timestamp)` index remains.
-`related_event_ids` contains a sorted sample of at most 20 IDs, with no foreign-key
+`related_event_ids` contains a sorted, unique sample of at most 20 IDs, with no foreign-key
 cascade from raw events. The closed version-1 evidence contract and its 8 KiB UTF-8
 limit are described in ADR-030; summary counts remain available after event retention.
+
+
+## Declarative matching and display indexes (2026-11-01)
+
+`insight_rules.kind` stores `web_probe` (including migrated legacy rules) or
+`scan_ban_chain`; nullable JSON `match_options` stores validated schema-2 data.
+`insights` also has `level`, `ip` and nullable `asset_id`; multi-asset chains have
+no single asset. The expression index `ix_insights_display_time` covers
+`coalesce(occurred_at, timestamp)` for display and JSON pagination. Internal settings
+persist bounded chain/trend cycles, metric source observation starts and MQTT
+activation/cursor state. They are not freely editable rule configuration. Upgrades
+preserve legacy IDs/text, user notification choices and disabled export defaults.

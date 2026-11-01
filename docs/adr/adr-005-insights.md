@@ -26,7 +26,7 @@ plus
 
 results in:
 
-`404 probably caused by geoblock`
+`Access failure near GeoBlock`
 
 
 ---
@@ -64,3 +64,14 @@ checks, and last-known-good fallback still apply. This renewal accepts the exist
 same-origin compromise risk described above and does not provide independent publisher
 authentication. An offline-key signature or another explicitly reviewed renewal is
 required before the new expiry.
+
+
+## Schema compatibility and rollout (2026-11-01)
+
+The app accepts schema majors 1 and 2. The bundled schema-2 fallback includes the
+bounded scan/ban chain defined in ADR-030. The public ruleset remains schema 1 until
+a compatible app release is verified available. Older clients reject schema 2 and
+retain their last valid or bundled rules, then receive no schema-2 updates. Release
+notes must explain that limit. Never publish new match conditions disguised as schema 1.
+The manifest filename versions its own contract and stays `insights-rules-v1.sha256.json`.
+Its existing exception ends on 2027-04-30; this decision does not extend it.

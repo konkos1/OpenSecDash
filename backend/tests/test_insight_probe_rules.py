@@ -258,7 +258,7 @@ def test_successful_probe_paths_do_not_claim_exposure(db_session, path, _rule_id
 def test_public_rules_match_bundled_rules_without_unreleased_path_grouping():
     bundled, public = [json.loads(path.read_text()) for path in RULESET_PATHS]
 
-    assert public["rules"] == [rule for rule in bundled["rules"] if rule["id"] != "web.scanner_wave"]
+    assert public["rules"] == [rule for rule in bundled["rules"] if rule["id"] not in {"web.scanner_wave", "web.distributed_scan_then_ban"}]
     assert all(rule.get("group_by", "ip") == "ip" for rule in public["rules"])
 
 

@@ -72,9 +72,9 @@ a successful finding or send another email. Historical bans still observe the us
 
 The conservative WordPress example uses 20 failures/denies, at least 2 IPs, 2 known
 assets and 2 observed countries within 5 minutes, followed by a ban within 60 seconds.
-Its stable type is `web.distributed_scan_then_ban`. This payload remains a test fixture;
-it is not active in the bundled or public ruleset until the compatible-release rollout
-is approved. Validated plugin chain rules can use the implemented evaluator.
+Its stable type is `web.distributed_scan_then_ban`. The bundled schema-2 fallback includes this rule. The public ruleset remains schema 1
+until a compatible app release is verified available. Validated plugin chain rules
+can also use the evaluator.
 
 ## Observed count trends
 
@@ -305,3 +305,20 @@ stored JSON are excluded.
 The [optional MQTT export](../plugins/mqtt.md#optional-insight-publishing) uses the
 same serializer without example IDs or detail paths. It must be explicitly enabled,
 skips history on activation and may repeat messages after a failure or restart.
+
+
+## Reproducing checks with synthetic data
+
+Contributors can reproduce the scan/ban example using reserved example IPs and
+in-memory SQLite, with no broker or private logs:
+
+```bash
+cd backend
+.venv/bin/python -m pytest tests/test_insight_level2.py tests/test_insight_trends.py tests/test_insight_detail.py tests/test_insight_relationships.py tests/test_insight_export.py tests/test_mqtt_insight_export.py -q
+```
+
+The Level 2 fixture creates 20 failed requests across two IPs, assets and countries,
+then an observed ban. Tests also cover direct facts, uncertain relationships,
+legacy findings, retained summaries with missing examples, sample-only drill-down,
+JSON pagination and MQTT activation without replay. MQTT transport is mocked.
+These checks do not connect to a real broker or send email.

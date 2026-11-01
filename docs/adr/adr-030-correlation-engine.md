@@ -1,10 +1,10 @@
 # ADR-030: Correlation Engine
 
-> **Implementation status (2026-07-12):** Implemented.
+> **Implementation status (2026-11-01):** Implemented.
 > - Stored insights use deterministic rules and fixed local count comparisons; remote rules are validated declarative data and never execute code.
 > - Path patterns can correlate multiple IPs, and plugins register rules through the same validation path.
-> - Certainty levels, a layoutable Top Insights dashboard widget, and the asset main-cause view are visible in the UI.
-> - Advanced Level 2 multi-asset/multi-country chains are planned for V1 only within the scope decision of 2026-10-24 below; they are not yet implemented.
+> - Certainty levels, a layoutable Top Insights dashboard widget, and the asset most-frequent-finding view are visible in the UI.
+> - Bounded Level 2 scan/ban chains are implemented under the limited V1 scope decision of 2026-10-24 below.
 > - Torblock correlation is not applicable because no Torblock plugin exists.
 
 
@@ -67,7 +67,7 @@ Insight
 
 # Insight types
 
-## Cause
+## Nearby access failure
 
 Example:
 
@@ -76,7 +76,7 @@ Example:
 +
 Geoblock
 ↓
-404 probably caused by geoblock
+Access failure near GeoBlock
 ```
 
 
@@ -151,7 +151,7 @@ List of involved events.
 
 # Confidence
 
-Every correlation receives a probability.
+Confidence is a fixed heuristic score, not a calibrated probability. Severity is separate.
 
 
 ---
@@ -204,11 +204,11 @@ Geoblock
 
 Insight:
 
-`Geoblock probably cause of error`
+`Access failure near GeoBlock`
 
 Confidence:
 
-`0.90`
+`0.8`
 
 
 ---
@@ -268,7 +268,7 @@ Ban
 
 ---
 
-## Torblock correlation
+## Torblock correlation (not implemented)
 
 ```none
 Access
@@ -530,7 +530,9 @@ read from the synchronized CrowdSec decisions.
 Level 2 correlation is brought forward into V1 for deterministic scan/ban relationships:
 HTTP probing by multiple IPs across multiple assets and observed countries, followed
 by an observed CrowdSec ban of a participating IP. This limited extension is
-**planned, not yet implemented**.
+**implemented as of 2026-11-01**, within the bounded contract in ADR-030.
+The bundled app ruleset includes `web.distributed_scan_then_ban`; public schema-2
+publication remains gated on a verified compatible app release.
 It supersedes the earlier Level 2 exclusion only for these relationships. Temporal
 proximity does not prove causality, a shared campaign, successful exploitation, or a
 currently active ban. Raw events remain unchanged and findings must explain their evidence.
@@ -584,7 +586,7 @@ Level 1 keeps its same-IP relationships. The Level 2 exception permits multiple
 IPs to contribute to a rule's path-pattern family. The ban must still belong to
 an IP with a matching request within the configured follow-up interval. The
 shared family and observed countries do not establish a common identity or campaign.
-This clarifies the authorized scope; the overall rollout status above remains pending.
+The app implementation is complete; publication of the public schema-2 ruleset remains a separate release gate.
 
 
 ## Observed count trends (2026-11-01)
@@ -615,3 +617,40 @@ must agree; a zero previous count cannot form a comparison. The snapshot keeps a
 most 20 newest current-window example IDs. Event time is the current window's end,
 level is medium and confidence is 0.7. Displayed intervals use the central timezone
 filter; Dashboard today retains its existing local-day semantics.
+
+
+## Bounded Level 2 implementation and certainty (2026-11-01)
+
+Schema 2 accepts `web_probe` and `scan_ban_chain` data, with literal case-insensitive
+substring/exact/prefix paths and optional status/method filters. Schema 1 retains
+its original semantics. Imports validate the complete payload and apply it in a
+savepoint; remote overrides survive failed refreshes and bundled reseeding.
+
+The bundled chain requires 20 denied/error requests to `/wp-login.php` or
+`/xmlrpc.php`, 2 IPs, 2 known assets and 2 observed countries in a closed five-minute
+window. It ends at the banned participant's latest matching request before an
+automatic `security.ban`, at most 60 seconds earlier. Manual, simulated and ASN-policy
+bans do not anchor chains. Unknown assets/countries do not increase distinct counts.
+GeoIP describes observed locations, not identities. The finding has the ban event
+time/IP, no single asset, confidence capped at 0.8, and at most 19 probe IDs plus the
+ban ID. A rule/ban dedupe key and rule-wide event-time cooldown prevent repetition.
+
+A thread worker runs every 60 seconds with at most 100 anchors and 20 available
+rules per tick. A persisted ID cursor retains a fixed creation-time window across
+unfinished batches. New cycles recheck bans created in the last 15 minutes, including
+recently imported historical bans. Later arrivals outside that overlap receive no
+full-history recheck. Failures are isolated per rule/anchor; no ban is issued.
+Arbitrary multistage graphs, campaign attribution, forecasts and learned baselines
+remain outside this implementation.
+
+Level 1 reports access errors/denials near GeoBlock in either time direction within
+60 seconds, or an observed ban at/after access within 60 seconds. Known asset/host
+conflicts exclude pairs; confidence is 0.8 with shared context, 0.6 without it.
+The closest pair wins, with smaller ID breaking ties. These are relationships, not
+proven causes. Direct evidence with confidence >=0.8 is Certain; other known evidence
+at that threshold is Probable; lower/legacy evidence is Possible, regardless of severity.
+
+Details preserve counts and windows after raw retention, distinguish missing examples
+from totals, and label legacy creation-time fallback. Asset Explorer counts the most
+frequent finding over 24 hours rather than assigning a cause. JSON and opt-in MQTT
+use the bounded serializer described in ADR-031.

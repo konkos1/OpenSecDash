@@ -58,7 +58,7 @@ Subjects intentionally remain stable per notification rule and do not contain ev
 When upgrading from the earlier shared **Scanner detected** rule, currently known high-severity Insights inherit its enabled state and the wildcard rule is retired to prevent duplicate email.
 
 Plugins declare the event types they can produce. An Insight rule is selectable and effective only while enabled plugins can produce all of its required input event types.
-For example, **CrowdSec ban after access errors** requires both CrowdSec ban events and an enabled access-log plugin that produces `access.error`. If a required plugin is disabled or unloaded, the Notifications page keeps the saved checkbox value but disables the control and explains which producer is missing. Re-enabling the plugin restores the rule with its previous choice. Temporary plugin health errors do not change availability.
+For example, **Security ban after access failures** requires both ban events and an enabled access-log plugin producing `access.error` or `access.denied`. If a required plugin is disabled or unloaded, the Notifications page keeps the saved checkbox value but disables the control and explains which producer is missing. Re-enabling the plugin restores the rule with its previous choice. Temporary plugin health errors do not change availability.
 
 Offline detection remembers the exact asset update for which it emitted an event. Restarting OpenSecDash or running multiple workers therefore does not repeat an offline event unless the asset was seen again and later becomes stale once more.
 
@@ -75,3 +75,7 @@ To avoid a mail flood during a first import of an existing log, OpenSecDash does
 OpenSecDash sends email in a background loop, never while an event is being stored. Failed deliveries are recorded in history and are not retried automatically in V1; the next matching event can create a new delivery.
 
 Each message contains a branded HTML version with clickable links and a plain text fallback. The OpenSecDash logo is embedded in the message; mail clients do not need to load it from an external server.
+
+Scan/ban chain notifications require enabled Access and automatic-ban producers;
+they start disabled just like other new Insight rules. Rechecks do not send another
+email for the same finding, and event-time backlog protection still applies.

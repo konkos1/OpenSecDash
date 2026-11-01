@@ -14,7 +14,7 @@ The bundled fallback copy lives in:
 backend/app/insights/rules/default-rules.json
 ```
 
-The bundled ruleset may gain `group_by: "path"` rules before the next app release. Do not add those rules to the public remote ruleset until that app release is available: older apps would reject the entire remote ruleset. After release, keep both files in sync.
+The bundled schema-2 fallback includes path grouping and a scan/ban chain. The public schema-1 ruleset deliberately lags behind it until the compatible app release is available. Do not synchronize them before that release gate.
 
 The public ruleset also has a release-pinned SHA-256 manifest:
 
@@ -261,7 +261,7 @@ Schema 2 validates and stores `kind: "scan_ban_chain"` using the same probe
 fields. A separate background worker evaluates chains; synchronous event ingestion
 skips them. See [Level 2 relationships](../operations/insight-rules#level-2-scan-ban-relationships)
 for event-time selection, evidence, bounded batches and the 15-minute recheck limit.
-No production chain rule is shipped.
+The bundled chain `web.distributed_scan_then_ban` uses the complete payload below.
 
 Chains require `group_by: "path"`, `min_distinct_ips` of at least 2, a window of
 at most 60 minutes, and only `access.denied` and/or `access.error` event types.
@@ -282,9 +282,82 @@ new notification rules remain disabled.
 
 ### Release and remote rollout
 
-Keep the bundled and public rulesets on schema 1 for now. Publish a compatible
+The bundled ruleset is schema 2; the public ruleset remains schema 1. Publish a compatible
 app release before considering schema 2 remotely: older clients reject the new
 major, and schema-2 conditions must never be disguised as schema 1 because older
-clients could ignore them and match too broadly. Activate chain rules only after
-the compatible-release rollout is approved. The fixed HTTPS URLs, manifest verification,
+clients could ignore them and match too broadly. Publish public chain rules only after
+the compatible app release is verified available. The fixed HTTPS URLs, manifest verification,
 size limits, and last-known-good fallback remain unchanged; no new feed is added.
+
+
+### Complete compatible examples
+
+Schema 1 retains the global pattern-family grouping:
+
+```json
+{
+  "schema_version": 1,
+  "ruleset_version": "2026-11-01",
+  "rules": [
+    {
+      "id": "web.scanner_wave",
+      "title": "Scanner wave detected",
+      "description": "Requests targeting WordPress login or XML-RPC endpoints were observed.",
+      "level": "high",
+      "confidence": 0.85,
+      "event_types": [
+        "access.denied",
+        "access.error"
+      ],
+      "path_contains_any": [
+        "/wp-login.php",
+        "/xmlrpc.php"
+      ],
+      "group_by": "path",
+      "window_minutes": 5,
+      "threshold": 20,
+      "min_distinct_ips": 5
+    }
+  ]
+}
+```
+
+Schema 2 bundled chain (all thresholds are required together):
+
+```json
+{
+  "schema_version": 2,
+  "ruleset_version": "2026-11-01",
+  "rules": [{
+    "id": "web.distributed_scan_then_ban",
+    "title": "Distributed probing followed by an observed ban",
+    "description": "WordPress endpoint failures across assets and observed countries preceded a ban of a participating IP. This does not prove a shared campaign or the cause of the ban.",
+    "kind": "scan_ban_chain",
+    "level": "high",
+    "confidence": 0.8,
+    "event_types": ["access.error", "access.denied"],
+    "path_contains_any": ["/wp-login.php", "/xmlrpc.php"],
+    "group_by": "path",
+    "window_minutes": 5,
+    "threshold": 20,
+    "min_distinct_ips": 2,
+    "match_options": {
+      "min_distinct_assets": 2,
+      "min_distinct_countries": 2,
+      "followup_seconds": 60
+    }
+  }]
+}
+```
+
+### Public release checklist
+
+The public rollout is pending. First release the app with its engine, migrations and
+bundled fallback, then verify the compatible version is available. In a separate
+release change, update `website/public/rules/insights-rules.json` to schema 2, raise
+its ruleset version, compute SHA-256 over its exact bytes and update
+`website/public/rules/insights-rules-v1.sha256.json`. Keep its filename and the
+2027-04-30 exception deadline. After that deadline, obtain the ADR-005 review first.
+Explain in release notes that older clients retain their last valid/bundled rules
+and receive no schema-2 updates. Test old-client rejection/fallback and the public
+JSON/manifest pair before publishing. A source commit is not a website publication.
