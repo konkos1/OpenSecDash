@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import math
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -16,6 +17,7 @@ from app.core.time import utc_now
 from app.models.core import Diagnostic, Insight, InsightRule as InsightRuleModel
 from app.models.events import Event
 from app.models.settings import Setting
+from app.services.insight_catalog import BUILTIN_INSIGHT_DEFINITIONS
 from app.services.notifications import handle_insight, sync_insight_notification_rules
 
 logger = logging.getLogger(__name__)
@@ -136,7 +138,11 @@ def _expected_ruleset_hash(manifest: dict[str, Any]) -> str:
 
 
 def _schema_major(value: Any) -> int:
+    if isinstance(value, bool) or not isinstance(value, (str, int, float)):
+        raise ValueError(f"Invalid insight rules schema_version: {value}")
     text = str(value)
+    if any(not part.isdigit() for part in text.split(".")):
+        raise ValueError(f"Invalid insight rules schema_version: {value}")
     major_text = text.split(".", 1)[0]
     if not major_text.isdigit():
         raise ValueError(f"Invalid insight rules schema_version: {value}")
@@ -146,11 +152,15 @@ def _schema_major(value: Any) -> int:
 def _validate_ruleset(data: dict[str, Any]) -> dict[str, Any]:
     if _schema_major(data.get("schema_version")) != SUPPORTED_SCHEMA_MAJOR:
         raise ValueError(f"Unsupported insight rules schema_version: {data.get('schema_version')}")
+    version = data.get("ruleset_version", "")
+    if not isinstance(version, str) or len(version) > 20:
+        raise ValueError("Insight ruleset has an invalid ruleset_version")
     rules = data.get("rules")
     if not isinstance(rules, list):
         raise ValueError("Insight ruleset must contain a rules list")
     if len(rules) > 200:
         raise ValueError("Insight ruleset contains too many rules")
+    seen_ids: set[str] = set()
     for item in rules:
         if not isinstance(item, dict):
             raise ValueError("Insight rule must be an object")
@@ -158,22 +168,42 @@ def _validate_ruleset(data: dict[str, Any]) -> dict[str, Any]:
         title = item.get("title")
         if not rule_id or not title:
             raise ValueError("Insight rule id/title is required")
-        if not isinstance(rule_id, str) or len(rule_id) > 100:
+        if not isinstance(rule_id, str) or not rule_id.strip() or len(rule_id) > 100:
             raise ValueError(f"Insight rule {rule_id} has an invalid id")
-        if not isinstance(title, str) or len(title) > 255:
+        if rule_id in seen_ids:
+            raise ValueError(f"Duplicate insight rule id: {rule_id}")
+        seen_ids.add(rule_id)
+        if not isinstance(title, str) or not title.strip() or len(title) > 255:
             raise ValueError(f"Insight rule {rule_id} has an invalid title")
-        if item.get("group_by", "ip") not in {"ip", "path"}:
+        description = item.get("description", title)
+        if not isinstance(description, str) or len(description) > 2000:
+            raise ValueError(f"Insight rule {rule_id} has an invalid description")
+        if item.get("level", "medium") not in ("low", "medium", "high", "critical"):
+            raise ValueError(f"Insight rule {rule_id} has an invalid level")
+        confidence = item.get("confidence", 0.7)
+        if (isinstance(confidence, bool) or not isinstance(confidence, (int, float))
+                or not 0 <= confidence <= 1 or not math.isfinite(confidence)):
+            raise ValueError(f"Insight rule {rule_id} has invalid confidence")
+        if item.get("group_by", "ip") not in ("ip", "path"):
             raise ValueError(f"Unsupported insight rule group_by for {item.get('id')}: {item.get('group_by')}")
         paths = item.get("path_contains_any", [])
         if not isinstance(paths, list) or not paths:
             raise ValueError(f"Insight rule {item.get('id')} must define path_contains_any")
-        if len(paths) > 50 or any(not isinstance(path, str) or len(path) > 200 for path in paths):
+        if len(paths) > 50 or any(not isinstance(path, str) or not path.strip() or len(path) > 200 for path in paths):
             raise ValueError(f"Insight rule {item.get('id')} has invalid path patterns")
         event_types = item.get("event_types", [])
         if not isinstance(event_types, list) or not event_types:
             raise ValueError(f"Insight rule {item.get('id')} must define event_types")
-        threshold = int(item.get("threshold", 1))
-        window_minutes = int(item.get("window_minutes", 5))
+        if len(event_types) > 50 or any(
+            not isinstance(value, str) or not value.strip() or len(value) > 50 for value in event_types
+        ):
+            raise ValueError(f"Insight rule {rule_id} has invalid event_types")
+        threshold = item.get("threshold", 1)
+        window_minutes = item.get("window_minutes", 5)
+        if isinstance(threshold, bool) or not isinstance(threshold, int):
+            raise ValueError(f"Insight rule {rule_id} has invalid threshold")
+        if isinstance(window_minutes, bool) or not isinstance(window_minutes, int):
+            raise ValueError(f"Insight rule {rule_id} has invalid window_minutes")
         min_distinct_ips_value = item.get("min_distinct_ips", 1)
         if not isinstance(min_distinct_ips_value, int) or isinstance(min_distinct_ips_value, bool):
             raise ValueError(f"Insight rule {item.get('id')} has invalid min_distinct_ips")
@@ -190,22 +220,22 @@ def _validate_ruleset(data: dict[str, Any]) -> dict[str, Any]:
 def parse_rules(data: dict[str, Any], *, source: str = "bundled") -> list[InsightRule]:
     validated = _validate_ruleset(data)
     schema_version = str(validated.get("schema_version"))
-    ruleset_version = str(validated.get("ruleset_version") or "")
+    ruleset_version = validated.get("ruleset_version", "")
     rules: list[InsightRule] = []
     for item in validated["rules"]:
         rules.append(
             InsightRule(
-                id=str(item["id"]),
-                title=str(item["title"]),
-                description=str(item.get("description") or item["title"]),
-                level=str(item.get("level") or "medium"),
-                confidence=float(item.get("confidence") or 0.7),
-                event_types=tuple(str(value) for value in item["event_types"]),
-                path_contains_any=tuple(str(value) for value in item["path_contains_any"]),
-                group_by=str(item.get("group_by", "ip")),
-                window_minutes=int(item.get("window_minutes", 5)),
-                threshold=int(item.get("threshold", 1)),
-                min_distinct_ips=int(item.get("min_distinct_ips", 1)),
+                id=item["id"],
+                title=item["title"],
+                description=item.get("description", item["title"]),
+                level=item.get("level", "medium"),
+                confidence=float(item.get("confidence", 0.7)),
+                event_types=tuple(item["event_types"]),
+                path_contains_any=tuple(item["path_contains_any"]),
+                group_by=item.get("group_by", "ip"),
+                window_minutes=item.get("window_minutes", 5),
+                threshold=item.get("threshold", 1),
+                min_distinct_ips=item.get("min_distinct_ips", 1),
                 source=source,
                 schema_version=schema_version,
                 ruleset_version=ruleset_version,
@@ -214,49 +244,68 @@ def parse_rules(data: dict[str, Any], *, source: str = "bundled") -> list[Insigh
     return rules
 
 
+def _apply_rule(db: Session, rule: InsightRule, existing: InsightRuleModel | None, now: datetime) -> None:
+    if existing is None:
+        existing = InsightRuleModel(rule_id=rule.id, title=rule.title, created_at=now)
+        db.add(existing)
+    existing.source = rule.source
+    existing.schema_version = rule.schema_version
+    existing.ruleset_version = rule.ruleset_version
+    existing.title = rule.title
+    existing.description = rule.description
+    existing.level = rule.level
+    existing.confidence = rule.confidence
+    existing.group_by = rule.group_by
+    existing.window_minutes = rule.window_minutes
+    existing.threshold = rule.threshold
+    existing.min_distinct_ips = rule.min_distinct_ips
+    existing.event_types = list(rule.event_types)
+    existing.path_contains_any = list(rule.path_contains_any)
+    existing.is_active = True
+    existing.updated_at = now
+    existing.last_seen_at = now
+
+
 def import_ruleset(db: Session, data: dict[str, Any], *, source: str) -> dict[str, Any]:
     rules = parse_rules(data, source=source)
+    bundled = {rule.id: rule for rule in parse_rules(_load_default_ruleset())}
+    builtin_ids = {definition.type for definition in BUILTIN_INSIGHT_DEFINITIONS}
     imported_rule_ids = {rule.id for rule in rules}
     now = utc_now().replace(tzinfo=None)
     imported = 0
     updated = 0
-    for rule in rules:
-        existing = db.query(InsightRuleModel).filter(InsightRuleModel.rule_id == rule.id).first()
-        if existing is None:
-            existing = InsightRuleModel(rule_id=rule.id, title=rule.title, created_at=now, updated_at=now, last_seen_at=now)
-            db.add(existing)
-            imported += 1
-        else:
-            updated += 1
-        existing.source = rule.source
-        existing.schema_version = rule.schema_version
-        existing.ruleset_version = rule.ruleset_version
-        existing.title = rule.title
-        existing.description = rule.description
-        existing.level = rule.level
-        existing.confidence = rule.confidence
-        existing.event_types = list(rule.event_types)
-        existing.path_contains_any = list(rule.path_contains_any)
-        existing.group_by = rule.group_by
-        existing.window_minutes = rule.window_minutes
-        existing.threshold = rule.threshold
-        existing.min_distinct_ips = rule.min_distinct_ips
-        existing.is_active = True
-        existing.updated_at = now
-        existing.last_seen_at = now
-    db.flush()
-    stale_rules = db.query(InsightRuleModel).filter(
-        InsightRuleModel.source == source,
-        InsightRuleModel.is_active == True,  # noqa: E712
-    )
-    if imported_rule_ids:
-        stale_rules = stale_rules.filter(InsightRuleModel.rule_id.notin_(imported_rule_ids))
-    for stale_rule in stale_rules.all():
-        stale_rule.is_active = False
-        stale_rule.updated_at = now
-    db.flush()
-    db.info.pop(_ACTIVE_RULES_CACHE_KEY, None)
-    sync_insight_notification_rules(db)
+    with db.begin_nested():
+        existing_rules = {row.rule_id: row for row in db.query(InsightRuleModel).all()}
+        for rule in rules:
+            existing = existing_rules.get(rule.id)
+            if source.startswith("plugin:") and (
+                rule.id in builtin_ids or rule.id in bundled
+                or (existing is not None and existing.source != source)
+            ):
+                raise ValueError(f"Insight rule {rule.id} conflicts with another source")
+            if source in ("bundled", "remote") and existing is not None and existing.source.startswith("plugin:"):
+                raise ValueError(f"Insight rule {rule.id} conflicts with another source")
+        for rule in rules:
+            existing = existing_rules.get(rule.id)
+            # Seeding must preserve the last verified remote override even offline.
+            if source == "bundled" and existing is not None and existing.source == "remote":
+                continue
+            if existing is None:
+                imported += 1
+            else:
+                updated += 1
+            _apply_rule(db, rule, existing, now)
+        for existing in existing_rules.values():
+            if existing.source != source or existing.rule_id in imported_rule_ids:
+                continue
+            if source == "remote" and existing.rule_id in bundled:
+                _apply_rule(db, bundled[existing.rule_id], existing, now)
+            elif existing.is_active:
+                existing.is_active = False
+                existing.updated_at = now
+        db.flush()
+        sync_insight_notification_rules(db)
+    invalidate_active_rules_cache(db)
     return {"version": data.get("ruleset_version"), "count": len(rules), "imported": imported, "updated": updated}
 
 
@@ -335,8 +384,6 @@ def active_rules(db: Session) -> list[InsightRule]:
 
 
 def refresh_insight_rules(db: Session, *, force: bool = False) -> dict[str, Any]:
-    db.info.pop(_ACTIVE_RULES_CACHE_KEY, None)
-    _delete_setting(db, "insight_rules.cache_json")
     bundled = import_bundled_rules(db)
     fetched_at_text = _setting(db, RULE_FETCHED_AT_KEY, "")
     if not force and fetched_at_text:
@@ -378,6 +425,7 @@ def refresh_insight_rules(db: Session, *, force: bool = False) -> dict[str, Any]
         if not isinstance(remote_data, dict):
             raise ValueError("Remote insight rules response must be an object")
         remote = import_ruleset(db, remote_data, source="remote")
+        _delete_setting(db, "insight_rules.cache_json")
         _save_setting(db, RULE_FETCHED_AT_KEY, utc_now().replace(tzinfo=None).isoformat())
         _save_setting(db, RULE_VERSION_KEY, str(remote.get("version") or ""))
         _save_setting(db, RULE_SOURCE_KEY, RULE_SOURCE_URL)

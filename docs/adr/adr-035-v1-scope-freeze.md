@@ -231,3 +231,16 @@ successfully GeoIP-classified public IPs into ordinary seven-day CrowdSec IP dec
 It adds ASN-specific IP exceptions, exact decision ownership and release, debounced
 ASN-organization review, a direct historical Insight, and management on the CrowdSec page. It does not
 add native ASN decisions, prefix expansion, a historical sweep, or timer renewal.
+
+## Scope decision (2026-10-24)
+
+Level 2 correlation is brought forward into V1 for deterministic scan/ban relationships:
+HTTP probing by the same IP across multiple assets or observed countries, followed by
+an observed CrowdSec ban. This limited extension is **planned, not yet implemented**.
+It supersedes the earlier Level 2 exclusion only for these relationships. Temporal
+proximity does not prove causality, a shared campaign, successful exploitation, or a
+currently active ban. Raw events remain unchanged and findings must explain their evidence.
+
+This decision does not authorize Torblock, LLM features, additional plugins in general,
+or other previously excluded V1 features. Rules remain validated declarative data under
+the existing security and plugin boundaries.

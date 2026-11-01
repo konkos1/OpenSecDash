@@ -28,7 +28,9 @@ OpenSecDash refreshes the rules:
 
 If the remote fetch fails, OpenSecDash continues using the rules already imported into the local database or the bundled fallback ruleset.
 
-Rules are deduplicated by `rule_id`. A remote rule with the same `rule_id` replaces the bundled version, while bundled-only rules remain active.
+Rules are deduplicated by `rule_id`. A remote rule with the same `rule_id` replaces the bundled version, while bundled-only rules remain active. That remote override survives startup seeding, cache hits, HTTP 304, and failed refreshes. A successfully validated replacement restores the bundled fallback for removed remote IDs; remote-only IDs are deactivated. An empty remote ruleset removes all remote overrides in the same way. Plugin rules remain separate and cannot take over IDs owned by built-in rules or another source.
+
+Every import validates the entire ruleset before writing and applies it atomically. Invalid field types, duplicate IDs, empty path patterns, invalid levels, and non-finite or out-of-range confidence values reject the whole import. Confidence `0` and `1` are both valid. Failed imports preserve active rule contents and the last successful remote fetch metadata. Existing notification choices and cooldowns are preserved.
 
 ## Privacy
 

@@ -68,7 +68,7 @@ Example:
 | `id` | yes | Stable unique rule ID. Use a namespace such as `web.wordpress_scan`. This is used for DB deduplication. |
 | `title` | yes | Short human-readable title shown in the UI. |
 | `description` | no | Longer explanation shown in the UI/debug output. Falls back to `title` if omitted. |
-| `level` | no | Severity-like level, usually `low`, `medium`, `high`, or `critical`. Defaults to `medium`. |
+| `level` | no | Severity-like level; only `low`, `medium`, `high`, or `critical`. Defaults to `medium`. |
 | `confidence` | no | Number from `0.0` to `1.0` describing confidence. Defaults to `0.7`. |
 | `event_types` | yes | Event types this rule can match, usually `access.denied` and/or `access.error`. |
 | `path_contains_any` | yes | List of case-insensitive substrings matched against the request path. |
@@ -99,9 +99,11 @@ Matching is intentionally simple and safe:
 
 ## Deduplication and overrides
 
-Rules are imported into the local database and deduplicated by `id` / `rule_id`.
+Rules are imported atomically into the local database and deduplicated by `id` / `rule_id`. The entire payload is validated before any rule is written; a validation or database failure rolls back the import.
 
-If a remote/public rule has the same `id` as a bundled fallback rule, the remote rule replaces the bundled version. Bundled-only rules stay active.
+If a remote/public rule has the same `id` as a bundled fallback rule, the remote rule replaces the bundled version. Bundled-only rules stay active. Startup seeding, a cached refresh, HTTP 304, and failed downloads preserve existing remote overrides. Only a fully validated remote replacement can remove remote rules: an omitted rule falls back to the bundled rule with the same ID, or is deactivated if no bundled fallback exists. An empty remote rules list applies the same removal behavior.
+
+Plugin rules cannot replace built-in, bundled, remote, or another plugin's rule IDs. A conflict rejects that plugin's entire import and records a diagnostic warning; other plugins can still load. Conflict-free plugin IDs do not require a namespace. Imports preserve existing notification enabled, window, and cooldown settings.
 
 This means rule IDs should be stable. Do not rename a rule ID unless you intentionally want OpenSecDash to treat it as a different rule.
 
@@ -159,12 +161,21 @@ OpenSecDash validates downloaded rules before activating them:
 
 - supported schema major version only
 - maximum 200 rules per ruleset
-- maximum 50 path patterns per rule
+- unique, nonempty rule IDs up to 100 characters; nonempty titles up to 255 characters
+- descriptions must be strings up to 2,000 characters; ruleset versions must be strings up to 20 characters
+- `level` must be `low`, `medium`, `high`, or `critical`
+- `confidence` must be a finite number from `0` through `1`, including both boundaries
+- 1 to 50 nonempty event-type strings, each up to 50 characters
+- maximum 50 nonempty path patterns per rule
 - maximum 200 characters per path pattern
 - `threshold` must be between `1` and `100`
 - `window_minutes` must be between `1` and `1440`
 - `min_distinct_ips` must be between `1` and `1000`
 - `group_by` must be `ip` or `path`
+
+Numeric thresholds and windows require integers; booleans and numeric strings are rejected. All declared fields must have their expected types. Whitespace-only IDs, titles, event types, and path patterns are rejected. Additional metadata fields are tolerated but do not affect rule execution.
+
+Schema 1 matching uses case-insensitive substrings without URL decoding or additional path normalization. For `group_by: "path"`, the group covers the rule's complete path-pattern list across IPs, rather than one exact request path.
 
 ## Testing changes
 

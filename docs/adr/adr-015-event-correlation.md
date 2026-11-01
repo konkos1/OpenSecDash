@@ -4,7 +4,7 @@
 > - Deterministic rule-based correlations cover IP, asset, path, and time-window views.
 > - Pattern rules can correlate one path across multiple IPs; plugins can register validated declarative rules.
 > - IP and asset views show Certain/Probable/Possible certainty, and the dashboard lists top insights.
-> - Level 2 multi-asset/multi-country chains remain deliberately out of scope for V1.
+> - Level 2 multi-asset/multi-country chains are planned for V1 only within the scope decision of 2026-10-24 below; they are not yet implemented.
 > - Torblock correlation is not applicable because no Torblock plugin exists.
 
 
@@ -119,7 +119,7 @@ Simple, understandable, and deterministic.
 
 ---
 
-## Level 2 (later, possibly in v2)
+## Level 2 (limited V1 exception; see scope decision 2026-10-24)
 
 More complex relationships.
 
@@ -135,7 +135,7 @@ multiple countries
 CrowdSec Ban
 ```
 
-This should deliberately **not** be done for V1.
+The original V1 exclusion is superseded only for the relationships in the scope decision of 2026-10-24 below.
 
 
 ---
@@ -249,3 +249,16 @@ Top Insights today
 
 
 ---
+
+## Scope decision (2026-10-24)
+
+Level 2 correlation is brought forward into V1 for deterministic scan/ban relationships:
+HTTP probing by the same IP across multiple assets or observed countries, followed by
+an observed CrowdSec ban. This limited extension is **planned, not yet implemented**.
+It supersedes the earlier Level 2 exclusion only for these relationships. Temporal
+proximity does not prove causality, a shared campaign, successful exploitation, or a
+currently active ban. Raw events remain unchanged and findings must explain their evidence.
+
+This decision does not authorize Torblock, LLM features, additional plugins in general,
+or other previously excluded V1 features. Rules remain validated declarative data under
+the existing security and plugin boundaries.
