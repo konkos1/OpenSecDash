@@ -636,8 +636,14 @@ time/IP, no single asset, confidence capped at 0.8, and at most 19 probe IDs plu
 ban ID. A rule/ban dedupe key and rule-wide event-time cooldown prevent repetition.
 
 A thread worker runs every 60 seconds with at most 100 anchors and 20 available
-rules per tick. A persisted ID cursor retains a fixed creation-time window across
-unfinished batches. The completed creation-time cutoff is persisted atomically with
+rules per tick. Persisted event-ID and rule-ID cursors retain a fixed creation-time
+window across unfinished batches and restarts. Each batch of up to 20 rules drains
+the entire window before the event cursor resets for the next rule batch. All
+available rules from bundled, remote and plugin sources are considered before the
+cycle completes; the per-tick limit never truncates the accepted rule set. Rule
+availability is checked each tick; newly added or re-enabled rules preceding the
+rule cursor are considered in the next cycle. Existing cycles without a rule cursor
+resume at the first rule batch. The completed creation-time cutoff is persisted atomically with
 the final batch. The next window starts 15 minutes before that cutoff and ends at
 the current time, so long backlogs cannot leave gaps between cycles. The first cycle
 uses the last 15 minutes, including recently imported historical bans. Enrichment

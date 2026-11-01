@@ -246,9 +246,59 @@ def test_combined_sources_cannot_exceed_twenty_rules_per_tick(chain_db):
     data["rules"] = [{**data["rules"][0], "id": f"a.chain.{index:02}"} for index in range(20)]
     import_ruleset(chain_db, data, source="remote")
     wave(chain_db)
-    correlation.run_level2_tick(chain_db, now=NOW)
+    result = correlation.run_level2_tick(chain_db, now=NOW)
     assert chain_db.query(Insight).count() == 20
     assert findings(chain_db) == []
+    assert not result["completed"]
+    assert chain_db.query(Setting).filter_by(key=correlation.COMPLETED_CUTOFF_KEY).first() is None
+    # A delayed restart must finish the original window, even beyond the overlap.
+    with Session(chain_db.get_bind()) as restarted:
+        result = correlation.run_level2_tick(restarted, now=NOW + timedelta(hours=1))
+        assert result["completed"] and result["errors"] == 0
+        assert len(findings(restarted)) == 1
+        assert restarted.query(Insight).count() == 21
+        assert restarted.query(Setting).filter_by(key=correlation.COMPLETED_CUTOFF_KEY).one().value == (
+            "2026-11-01T12:00:00+00:00")
+
+
+def test_all_rule_and_anchor_batches_resume_without_skipping_pairs(chain_db, monkeypatch):
+    from app.services.insight_rules import import_ruleset
+
+    data = json.loads((Path(__file__).parent / "fixtures" / "insight-level2.json").read_text())
+    for source, prefix in (("remote", "a"), ("plugin:traefik_log", "b")):
+        ruleset = {**data, "rules": [{**data["rules"][0], "id": f"{prefix}.chain.{index:02}"}
+            for index in range(20)]}
+        import_ruleset(chain_db, ruleset, source=source)
+    chain_db.add_all([Event(event_type="security.ban", ip="192.0.2.1",
+        event_time=NOW, created_at=NOW) for _ in range(101)])
+    chain_db.commit()
+    anchor_ids = {row.id for row in chain_db.query(Event).all()}
+    pairs = []
+    monkeypatch.setattr(correlation, "evaluate_chain", lambda db, rule, ban: pairs.append((rule.id, ban.id)))
+
+    for tick in range(6):
+        previous = len(pairs)
+        with Session(chain_db.get_bind()) as restarted:
+            result = correlation.run_level2_tick(restarted, now=NOW + timedelta(minutes=20 * tick))
+            assert result["processed"] <= 100
+            assert len(pairs) - previous <= 100 * 20
+            assert result["completed"] is (tick == 5)
+    rule_ids = {f"{prefix}.chain.{index:02}" for prefix in ("a", "b") for index in range(20)} | {RULE_ID}
+    assert len(pairs) == len(set(pairs)) == 41 * 101
+    assert set(pairs) == {(rule_id, anchor_id) for rule_id in rule_ids for anchor_id in anchor_ids}
+
+
+def test_legacy_cycle_cursor_keeps_original_window(chain_db):
+    wave(chain_db)
+    chain_db.add(Setting(key=correlation.CYCLE_KEY, value=json.dumps({
+        "started_at": "2026-11-01T12:00:00+00:00", "created_from": "2026-11-01T11:45:00+00:00",
+        "created_to": "2026-11-01T12:00:00+00:00", "last_id": 0,
+    })))
+    chain_db.commit()
+    result = correlation.run_level2_tick(chain_db, now=NOW + timedelta(hours=1))
+    assert result["completed"] and len(findings(chain_db)) == 1
+    assert chain_db.query(Setting).filter_by(key=correlation.COMPLETED_CUTOFF_KEY).one().value == (
+        "2026-11-01T12:00:00+00:00")
 
 
 def test_shutdown_cancels_chain_trend_and_notification_loops(monkeypatch):

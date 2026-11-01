@@ -53,9 +53,13 @@ successful exploitation or a currently active ban.
 
 A separate worker runs about every 60 seconds, processing at most 100 ban anchors per
 tick using an ID cursor and a fixed creation-time cutoff. It evaluates at most 20
-available chain rules in rule-ID order. All required input producers and any owner
-plugin must be enabled. A persisted cursor resumes unfinished cycles after restart;
-individual rule/anchor failures are isolated and counted in diagnostics.
+available chain rules per tick in rule-ID order. Each group of up to 20 rules checks
+the entire fixed ban window before the worker starts the next group. This includes
+all available rules across bundled, remote and plugin sources, even when their total
+exceeds 20. All required input producers and any owner plugin must be enabled.
+Persisted ban and rule cursors resume unfinished cycles after restart; newly added
+or re-enabled rules before the rule cursor are considered in the next cycle.
+Individual rule/anchor failures are isolated and counted in diagnostics.
 
 The first cycle checks bans **created in the previous 15 minutes**, including newly
 imported historical bans. Each completed cycle persists its cutoff; the next window
