@@ -104,9 +104,11 @@ def test_late_probes_and_geoip_are_rechecked_but_old_bans_expire(chain_db):
     chain_db.commit()
     run_level2_tick(chain_db, now=NOW + timedelta(minutes=14))
     assert len(findings(chain_db)) == 1
+    run_level2_tick(chain_db, now=NOW + timedelta(minutes=16))
+    assert len(findings(chain_db)) == 1
     chain_db.query(Insight).delete()
     chain_db.commit()
-    run_level2_tick(chain_db, now=NOW + timedelta(minutes=16))
+    run_level2_tick(chain_db, now=NOW + timedelta(minutes=30))
     assert findings(chain_db) == []
 
 

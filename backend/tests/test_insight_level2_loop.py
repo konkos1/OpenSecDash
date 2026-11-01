@@ -34,6 +34,67 @@ def test_201_anchors_resume_after_new_session_and_keep_cycle_cutoff(chain_db):
         assert len(findings(restarted)) == 1
 
 
+def test_new_ban_during_long_backlog_is_correlated_after_restart(chain_db):
+    chain_db.add_all([Event(event_type="security.ban", ip="192.0.2.99",
+        event_time=NOW, created_at=NOW) for _ in range(1601)])
+    chain_db.commit()
+    result = correlation.run_level2_tick(chain_db, now=NOW)
+    assert result["processed"] == 100
+    _, ban = wave(chain_db, created_at=NOW + timedelta(seconds=30))
+    ban_id = ban.id
+    for minute in range(1, 17):
+        result = correlation.run_level2_tick(chain_db, now=NOW + timedelta(minutes=minute))
+    assert result["completed"] and findings(chain_db) == []
+
+    with Session(chain_db.get_bind()) as restarted:
+        for minute in range(17, 35):
+            result = correlation.run_level2_tick(restarted, now=NOW + timedelta(minutes=minute))
+            if result["completed"]:
+                break
+        insight, = findings(restarted)
+        assert insight.dedupe_key == f"{RULE_ID}:ban:{ban_id}"
+
+
+def test_overlap_starts_before_completed_cutoff_even_after_long_idle(chain_db):
+    probes, ban = wave(chain_db)
+    for probe in probes:
+        probe.country = None
+    chain_db.commit()
+    correlation.run_level2_tick(chain_db, now=NOW)
+    for index, probe in enumerate(probes):
+        probe.country = ("DE", "FR")[index % 2]
+    chain_db.commit()
+    correlation.run_level2_tick(chain_db, now=NOW + timedelta(hours=1))
+    insight, = findings(chain_db)
+    assert insight.dedupe_key == f"{RULE_ID}:ban:{ban.id}"
+    assert chain_db.query(Setting).filter_by(key=correlation.COMPLETED_CUTOFF_KEY).one().value == (
+        "2026-11-01T13:00:00+00:00")
+
+
+@pytest.mark.parametrize("cutoff", ["not a timestamp", "2026-11-01T12:00:00", "2026-11-01T12:00:00+01:00"])
+def test_invalid_completed_cutoff_recovers_with_initial_overlap(chain_db, cutoff):
+    wave(chain_db)
+    chain_db.add(Setting(key=correlation.COMPLETED_CUTOFF_KEY, value=cutoff))
+    chain_db.commit()
+    assert correlation.run_level2_tick(chain_db, now=NOW)["completed"]
+    assert len(findings(chain_db)) == 1
+
+
+def test_failed_final_commit_preserves_completed_cutoff(chain_db, monkeypatch):
+    correlation.run_level2_tick(chain_db, now=NOW)
+    cutoff = chain_db.query(Setting).filter_by(key=correlation.COMPLETED_CUTOFF_KEY).one().value
+
+    def fail_commit():
+        raise RuntimeError("commit failed")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(chain_db, "commit", fail_commit)
+        with pytest.raises(RuntimeError, match="commit failed"):
+            correlation.run_level2_tick(chain_db, now=NOW + timedelta(hours=1))
+    chain_db.rollback()
+    assert chain_db.query(Setting).filter_by(key=correlation.COMPLETED_CUTOFF_KEY).one().value == cutoff
+
+
 def test_database_error_isolated_per_anchor_and_cursor_advances(chain_db, monkeypatch):
     _, ban = wave(chain_db)
     chain_db.add(Event(event_type="security.ban", ip=ban.ip, event_time=ban.event_time, created_at=NOW))

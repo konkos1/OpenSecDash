@@ -24,6 +24,7 @@ MAX_BAN_ANCHORS = 100
 MAX_CHAIN_RULES = 20
 RECHECK_MINUTES = 15
 CYCLE_KEY = "insights.level2.cycle"
+COMPLETED_CUTOFF_KEY = "insights.level2.completed_cutoff"
 
 
 def _cycle(db: Session, now: datetime) -> dict[str, Any]:
@@ -41,13 +42,25 @@ def _cycle(db: Session, now: datetime) -> dict[str, Any]:
                 if value.utcoffset() != timedelta(0):
                     raise ValueError("Cycle timestamps must be UTC")
                 times.append(value)
-            if times[0] != times[2] or times[1] != times[0] - timedelta(minutes=RECHECK_MINUTES):
+            if times[0] != times[2] or times[1] > times[0] - timedelta(minutes=RECHECK_MINUTES):
                 raise ValueError("Invalid cycle window")
             return state
         except (ValueError, TypeError, KeyError):
             logger.warning("Discarding invalid Level 2 cycle state")
-    return {"started_at": utc_iso(now), "created_from": utc_iso(now - timedelta(minutes=RECHECK_MINUTES)),
-            "created_to": utc_iso(now), "last_id": 0}
+    cutoff = db.query(Setting).filter(Setting.key == COMPLETED_CUTOFF_KEY).first()
+    previous = now
+    if cutoff is not None:
+        try:
+            value = datetime.fromisoformat(cutoff.value)
+            if value.utcoffset() != timedelta(0):
+                raise ValueError("Completed cutoff must be UTC")
+            previous = value.replace(tzinfo=None)
+        except (ValueError, TypeError):
+            logger.warning("Discarding invalid Level 2 completed cutoff")
+    # Advance from the completed window even if draining its batches took longer than the overlap.
+    upper = max(now, previous)
+    return {"started_at": utc_iso(upper), "created_from": utc_iso(previous - timedelta(minutes=RECHECK_MINUTES)),
+            "created_to": utc_iso(upper), "last_id": 0}
 
 
 def evaluate_chain(db: Session, rule: InsightRule, ban: Event) -> None:
@@ -142,6 +155,11 @@ def run_level2_tick(db: Session, *, now: datetime | None = None) -> dict[str, An
     completed = len(anchors) < MAX_BAN_ANCHORS
     row = db.query(Setting).filter(Setting.key == CYCLE_KEY).first()
     if completed:
+        cutoff = db.query(Setting).filter(Setting.key == COMPLETED_CUTOFF_KEY).first()
+        if cutoff is None:
+            db.add(Setting(key=COMPLETED_CUTOFF_KEY, value=state["created_to"]))
+        else:
+            cutoff.value = state["created_to"]
         if row is not None:
             db.delete(row)
     elif row is None:

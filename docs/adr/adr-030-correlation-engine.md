@@ -637,9 +637,12 @@ ban ID. A rule/ban dedupe key and rule-wide event-time cooldown prevent repetiti
 
 A thread worker runs every 60 seconds with at most 100 anchors and 20 available
 rules per tick. A persisted ID cursor retains a fixed creation-time window across
-unfinished batches. New cycles recheck bans created in the last 15 minutes, including
-recently imported historical bans. Later arrivals outside that overlap receive no
-full-history recheck. Failures are isolated per rule/anchor; no ban is issued.
+unfinished batches. The completed creation-time cutoff is persisted atomically with
+the final batch. The next window starts 15 minutes before that cutoff and ends at
+the current time, so long backlogs cannot leave gaps between cycles. The first cycle
+uses the last 15 minutes, including recently imported historical bans. Enrichment
+arriving outside that overlap receives no full-history recheck. Failures are isolated
+per rule/anchor; no ban is issued.
 Arbitrary multistage graphs, campaign attribution, forecasts and learned baselines
 remain outside this implementation.
 

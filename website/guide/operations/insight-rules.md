@@ -57,9 +57,12 @@ available chain rules in rule-ID order. All required input producers and any own
 plugin must be enabled. A persisted cursor resumes unfinished cycles after restart;
 individual rule/anchor failures are isolated and counted in diagnostics.
 
-Each new cycle rechecks bans **created in the previous 15 minutes**, including newly
-imported historical bans. Late requests and GeoIP enrichment can therefore produce a
-finding in a later cycle. Unfinished cycles retain their original window across ticks.
+The first cycle checks bans **created in the previous 15 minutes**, including newly
+imported historical bans. Each completed cycle persists its cutoff; the next window
+runs from **15 minutes before that cutoff** to the current time. New arrivals therefore
+remain eligible even when a backlog takes longer than 15 minutes to process. Late
+requests and GeoIP enrichment can produce a finding during the overlap. Unfinished
+cycles retain their original window across ticks and restarts.
 Data arriving after a ban leaves that overlap is not automatically correlated against
 the full history. There is no startup sweep of old bans or reconstruction of deleted
 raw events.
