@@ -25,6 +25,7 @@ from app.plugins.base import ActionDefinition, CURRENT_PLUGIN_API_VERSION, Actio
 from app.plugins.loader import env_disable_var, import_plugin_module, is_plugin_env_disabled
 from app.core.time import utc_now
 from app.services.events import cleanup_events_by_retention, clear_duplicate_rules, compact_completed_daily_rollups, register_duplicate_rules, store_event
+from app.services.insight_correlation import run_level2_tick
 from app.services.insight_rules import import_ruleset, invalidate_active_rules_cache, refresh_insight_rules
 from app.services.asset_updates import refresh_asset_updates
 from app.services.self_update import run_self_update_check
@@ -425,6 +426,7 @@ class PluginManager:
         logger.info("Starting %d plugin task groups", len(self.plugins))
         self.tasks.append(asyncio.create_task(self._asset_update_loop(), name="core-asset-update-checks"))
         self.tasks.append(asyncio.create_task(self._insight_rules_loop(), name="core-insight-rules"))
+        self.tasks.append(asyncio.create_task(self._insight_level2_loop(), name="core-insight-level2"))
         self.tasks.append(asyncio.create_task(self._rollup_compaction_loop(), name="core-rollup-compaction"))
         self.tasks.append(asyncio.create_task(self._retention_cleanup_loop(), name="core-retention-cleanup"))
         self.tasks.append(asyncio.create_task(self._self_update_check_loop(), name="core-self-update-check"))
@@ -525,6 +527,16 @@ class PluginManager:
             except Exception:
                 logger.exception("Insights engine rules refresh failed")
                 await asyncio.sleep(60 * 60)
+
+    async def _insight_level2_loop(self) -> None:
+        while True:
+            try:
+                await asyncio.to_thread(run_with_session, run_level2_tick)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.exception("Level 2 insight correlation failed")
+            await asyncio.sleep(60)
 
     async def _rollup_compaction_loop(self) -> None:
         while True:

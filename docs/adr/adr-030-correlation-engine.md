@@ -528,8 +528,9 @@ read from the synchronized CrowdSec decisions.
 ## Scope decision (2026-10-24)
 
 Level 2 correlation is brought forward into V1 for deterministic scan/ban relationships:
-HTTP probing by the same IP across multiple assets or observed countries, followed by
-an observed CrowdSec ban. This limited extension is **planned, not yet implemented**.
+HTTP probing by multiple IPs across multiple assets and observed countries, followed
+by an observed CrowdSec ban of a participating IP. This limited extension is
+**planned, not yet implemented**.
 It supersedes the earlier Level 2 exclusion only for these relationships. Temporal
 proximity does not prove causality, a shared campaign, successful exploitation, or a
 currently active ban. Raw events remain unchanged and findings must explain their evidence.
@@ -575,3 +576,12 @@ snapshot fields. Declarative evaluation uses SQL counts and a bounded determinis
 ID sample. Evidence survives raw-event retention without copying raw data. Existing
 findings retain their IDs and texts with NULL event time/evidence; no backfill or
 startup sweep attempts to reconstruct deleted data.
+
+
+## Scope clarification (2026-11-01)
+
+Level 1 keeps its same-IP relationships. The Level 2 exception permits multiple
+IPs to contribute to a rule's path-pattern family. The ban must still belong to
+an IP with a matching request within the configured follow-up interval. The
+shared family and observed countries do not establish a common identity or campaign.
+This clarifies the authorized scope; the overall rollout status above remains pending.

@@ -1,9 +1,10 @@
 # Insights engine
 
-The Insights engine is a core OpenSecDash feature. It creates insights from two kinds of logic:
+The Insights engine is a core OpenSecDash feature. It creates insights from these kinds of logic:
 
 - direct facts from datasources, such as CrowdSec bans or GeoBlock denies
 - heuristic web-probe rules, such as WordPress or phpMyAdmin scan patterns
+- Level 2 relationships from validated scan/ban chain rules when supplied by an active ruleset
 
 The heuristic rules are declarative JSON data. They are not executable code.
 
@@ -28,6 +29,52 @@ For each incoming event and relationship type, only the closest valid partner is
 selected; ties use the smaller event ID. Reprocessing the same pair creates no
 additional finding or notification. This does not enumerate all possible pairs.
 Direct ban and GeoBlock facts retain their own source-event identity and confidence.
+
+## Level 2 scan/ban relationships
+
+A `scan_ban_chain` rule groups matching failed or denied requests by its path-pattern
+family across multiple IPs, known assets and observed countries. Its anchor is an
+observed automatic `security.ban` for a participating IP. Manual bans, simulations
+and ASN-policy bans are excluded. This evaluator observes bans; it does not issue them.
+
+For each anchor, OpenSecDash selects that IP's latest matching request at or before
+the ban, within the configured follow-up interval (ties use the larger event ID).
+It counts matching probes from all IPs in the closed window ending at that request.
+Event, distinct-IP, known-asset and known-country thresholds must all hold. Missing,
+empty or unknown asset/country values add no distinct asset or country. GeoIP is
+changeable descriptive enrichment, not an identity or campaign attribution.
+
+The finding records the ban's event time and IP, without assigning a single asset.
+Its retained evidence includes exact counts, the probe window, rule source/version
+when known, the follow-up limit and observed gap. Examples contain the ban and up to
+19 newest probes, ordered by event time then ID. Confidence is at most `0.8`.
+Temporal proximity proves neither the cause of a ban nor a shared campaign,
+successful exploitation or a currently active ban.
+
+A separate worker runs about every 60 seconds, processing at most 100 ban anchors per
+tick using an ID cursor and a fixed creation-time cutoff. It evaluates at most 20
+available chain rules in rule-ID order. All required input producers and any owner
+plugin must be enabled. A persisted cursor resumes unfinished cycles after restart;
+individual rule/anchor failures are isolated and counted in diagnostics.
+
+Each new cycle rechecks bans **created in the previous 15 minutes**, including newly
+imported historical bans. Late requests and GeoIP enrichment can therefore produce a
+finding in a later cycle. Unfinished cycles retain their original window across ticks.
+Data arriving after a ban leaves that overlap is not automatically correlated against
+the full history. There is no startup sweep of old bans or reconstruction of deleted
+raw events.
+
+Each rule/ban pair creates at most one finding and eligible opt-in notification.
+An additional rule-wide event-time cooldown suppresses other bans in the same window;
+those suppressed bans are not included as evidence. Later GeoIP changes do not rewrite
+a successful finding or send another email. Historical bans still observe the usual
+15-minute event-time notification protection.
+
+The conservative WordPress example uses 20 failures/denies, at least 2 IPs, 2 known
+assets and 2 observed countries within 5 minutes, followed by a ban within 60 seconds.
+Its stable type is `web.distributed_scan_then_ban`. This payload remains a test fixture;
+it is not active in the bundled or public ruleset until the compatible-release rollout
+is approved. Validated plugin chain rules can use the implemented evaluator.
 
 ## Remote rule updates
 

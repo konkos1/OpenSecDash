@@ -255,11 +255,13 @@ exact total and distinct counts. `group_by: "path"` still groups all matching
 paths for the rule across IPs. Importing schema 1 over the same rule ID resets
 `kind` to `web_probe` and clears all schema-2 options.
 
-### Reserved scan/ban chain contract
+### Scan/ban chain contract
 
 Schema 2 validates and stores `kind: "scan_ban_chain"` using the same probe
-fields. Chain evaluation is not yet implemented; these rules are skipped during
-synchronous event ingestion. No production chain rule is shipped.
+fields. A separate background worker evaluates chains; synchronous event ingestion
+skips them. See [Level 2 relationships](../operations/insight-rules#level-2-scan-ban-relationships)
+for event-time selection, evidence, bounded batches and the 15-minute recheck limit.
+No production chain rule is shipped.
 
 Chains require `group_by: "path"`, `min_distinct_ips` of at least 2, a window of
 at most 60 minutes, and only `access.denied` and/or `access.error` event types.
@@ -284,5 +286,5 @@ Keep the bundled and public rulesets on schema 1 for now. Publish a compatible
 app release before considering schema 2 remotely: older clients reject the new
 major, and schema-2 conditions must never be disguised as schema 1 because older
 clients could ignore them and match too broadly. Activate chain rules only after
-the chain evaluator is complete. The fixed HTTPS URLs, manifest verification,
+the compatible-release rollout is approved. The fixed HTTPS URLs, manifest verification,
 size limits, and last-known-good fallback remain unchanged; no new feed is added.
