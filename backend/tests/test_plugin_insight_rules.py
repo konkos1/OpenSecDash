@@ -149,3 +149,56 @@ def test_database_import_failure_keeps_seeding_transaction_usable(monkeypatch, d
     assert db_session.query(Setting).filter_by(key="test.outer").one().value == "preserved"
     diagnostic = db_session.query(Diagnostic).filter_by(plugin="test_insights", component="plugin").one()
     assert diagnostic.status == "warning" and "NOT NULL" in diagnostic.last_error
+
+
+def test_schema_two_plugin_chain_catalog_and_reseeding_preserve_opt_in(db_session):
+    from app.core import plugin_registry
+    from app.models.core import NotificationRule
+    from app.plugins.manager import get_plugin_manager
+    from app.services.insight_catalog import insight_availability, insight_definitions
+    from app.services.notifications import insight_notification_rule_id
+    from app.services.settings import save_setting
+
+    class ChainPlugin(InsightRulesPlugin):
+        def insight_rules(self) -> dict:
+            return {"schema_version": 2, "rules": [{"id": "test.chain", "title": "Chain",
+                "kind": "scan_ban_chain", "event_types": ["access.error", "access.denied"],
+                "path_contains_any": ["/probe"], "group_by": "path", "min_distinct_ips": 2}]}
+
+    original_manager = get_plugin_manager()
+    plugin_registry.register_plugins([
+        plugin_registry.RegisteredPlugin(id="test_insights", name="Owner", capabilities=("insight",)),
+        plugin_registry.RegisteredPlugin(id="access", name="Access", capabilities=("datasource",),
+                                        event_types=("access.denied",)),
+        plugin_registry.RegisteredPlugin(id="ban", name="Ban", capabilities=("datasource",),
+                                        event_types=("security.ban",)),
+    ])
+    try:
+        manager = PluginManager(Path("/not-used"))
+        manager.plugins = {"test_insights": ChainPlugin()}
+        manager.seed_database(db_session)
+        definition = insight_definitions(db_session)["test.chain"]
+        assert definition.event_type_requirements == (("access.error", "access.denied"), ("security.ban",))
+        notification = db_session.query(NotificationRule).filter_by(
+            rule_id=insight_notification_rule_id("test.chain")).one()
+        assert notification.enabled is False
+        notification.enabled = True
+        notification.cooldown_minutes = 31
+        notification.window_minutes = 7
+        for plugin_id in ("test_insights", "access", "ban"):
+            save_setting(db_session, f"plugin.{plugin_id}.enabled", "true")
+        db_session.flush()
+        assert insight_availability(db_session, definition).available is True
+        for plugin_id in ("test_insights", "access", "ban"):
+            save_setting(db_session, f"plugin.{plugin_id}.enabled", "false")
+            assert insight_availability(db_session, definition).available is False
+            manager.seed_database(db_session)
+            assert notification.enabled is True
+            assert notification.cooldown_minutes == 31 and notification.window_minutes == 7
+            save_setting(db_session, f"plugin.{plugin_id}.enabled", "true")
+            assert insight_availability(db_session, definition).available is True
+        rule = next(rule for rule in active_rules(db_session) if rule.id == "test.chain")
+        assert rule.kind == "scan_ban_chain" and rule.match_options is not None
+        assert rule.match_options["followup_seconds"] == 60
+    finally:
+        original_manager.discover()

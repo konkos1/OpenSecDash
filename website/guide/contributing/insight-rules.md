@@ -36,7 +36,7 @@ After every public ruleset change, update the manifest digest with `shasum -a 25
 
 | Field | Required | Meaning |
 | --- | --- | --- |
-| `schema_version` | yes | Compatibility version of the JSON format. Apps accepting schema major `1` also accept `1.1`, `1.2`, etc. Schema major `2` is breaking and requires a newer app version. |
+| `schema_version` | yes | Compatibility version of the JSON format. Apps accepting schema major `1` also accept `1.1`, `1.2`, etc. This app accepts majors `1` and `2`, including their minor versions. Major `2` requires a compatible app release; older apps reject it. |
 | `ruleset_version` | yes | Date/version of this ruleset in `yyyy-mm-dd` format. Update this when changing rules. |
 | `rules` | yes | Array of rule objects. |
 
@@ -204,3 +204,85 @@ The built file should exist at:
 website/.vitepress/dist/rules/insights-rules.json
 website/.vitepress/dist/rules/insights-rules-v1.sha256.json
 ```
+
+## Schema 2: precise probe matching
+
+Apps supporting schema 2 also read schema 1 with its original substring semantics.
+Schema 2 adds `kind` directly on the rule (`web_probe` by default, or
+`scan_ban_chain`) and a `match_options` object. Existing fields stay at their
+original positions. Unknown keys inside `match_options` are rejected.
+
+For example, this is a local test rule, not an additional bundled probe type:
+
+```json
+{
+  "schema_version": 2,
+  "ruleset_version": "2026-11-01",
+  "rules": [{
+    "id": "test.exact_probe",
+    "title": "Possible diagnostic file probe",
+    "kind": "web_probe",
+    "event_types": ["access.denied", "access.error"],
+    "threshold": 2,
+    "match_options": {
+      "path_equals_any": ["/phpinfo.php"],
+      "status_codes": [403, 404],
+      "methods": ["GET", "HEAD"]
+    }
+  }]
+}
+```
+
+| Match option | Limits and behavior |
+| --- | --- |
+| `path_equals_any` | At most 50 nonempty strings of at most 200 characters; matches the entire stored path. |
+| `path_prefix_any` | Same limits; matches the beginning of the stored path. |
+| `status_codes` | If present, 1–100 distinct integers between 100 and 599. |
+| `methods` | If present, 1–10 values from GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS, CONNECT, TRACE; stored uppercase. |
+
+At least one of `path_contains_any`, `path_equals_any`, or `path_prefix_any` must
+be nonempty. Path lists combine with OR; event type, path, status, and method
+combine with AND. A missing status or method option adds no restriction; an empty
+status or method list is invalid. A missing event method cannot match a method
+filter. Paths remain case-insensitive, `%` and `_` are literal characters, and
+there is no URL decoding or additional normalization. Query-like characters are
+part of the stored path, so `/phpinfo.php?x=1` differs from `/phpinfo.php` for exact
+matching. Methods match case-insensitively.
+
+Counts use SQL aggregates over the closed event-time window. Schema-2 samples
+contain at most the newest 20 events by event time, then ID, while evidence keeps
+exact total and distinct counts. `group_by: "path"` still groups all matching
+paths for the rule across IPs. Importing schema 1 over the same rule ID resets
+`kind` to `web_probe` and clears all schema-2 options.
+
+### Reserved scan/ban chain contract
+
+Schema 2 validates and stores `kind: "scan_ban_chain"` using the same probe
+fields. Chain evaluation is not yet implemented; these rules are skipped during
+synchronous event ingestion. No production chain rule is shipped.
+
+Chains require `group_by: "path"`, `min_distinct_ips` of at least 2, a window of
+at most 60 minutes, and only `access.denied` and/or `access.error` event types.
+The follow-up endpoint is fixed to `security.ban` and cannot be configured.
+Additional `match_options` are:
+
+| Option | Default | Range |
+| --- | --- | --- |
+| `min_distinct_assets` | 2 | 2–100 |
+| `min_distinct_countries` | 2 | 1–100 |
+| `followup_seconds` | 60 | 1–300 |
+
+A ruleset contains at most 200 rules, including at most 20 chains. Booleans are
+not integers. Catalog availability requires an enabled Access producer **and**
+an enabled `security.ban` producer, plus the owner plugin when applicable.
+Imports and reseeding preserve notification opt-ins, windows, and cooldowns;
+new notification rules remain disabled.
+
+### Release and remote rollout
+
+Keep the bundled and public rulesets on schema 1 for now. Publish a compatible
+app release before considering schema 2 remotely: older clients reject the new
+major, and schema-2 conditions must never be disguised as schema 1 because older
+clients could ignore them and match too broadly. Activate chain rules only after
+the chain evaluator is complete. The fixed HTTPS URLs, manifest verification,
+size limits, and last-known-good fallback remain unchanged; no new feed is added.

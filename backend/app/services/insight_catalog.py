@@ -84,7 +84,8 @@ def insight_definitions(db: Session) -> dict[str, InsightDefinition]:
             type=row.rule_id,
             title=row.title,
             level=row.level,
-            event_type_requirements=(tuple(str(value) for value in (row.event_types or [])),),
+            event_type_requirements=(tuple(str(value) for value in (row.event_types or [])),)
+            + ((("security.ban",),) if row.kind == "scan_ban_chain" else ()),
             owner_plugin_id=owner_plugin_id,
         )
     return definitions

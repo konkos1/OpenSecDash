@@ -91,6 +91,8 @@ class InsightRule(Base):
     confidence: Mapped[float] = mapped_column(Float, default=0.7)
     event_types: Mapped[list] = mapped_column(JSON, default=list)
     path_contains_any: Mapped[list] = mapped_column(JSON, default=list)
+    kind: Mapped[str] = mapped_column(String(30), default="web_probe", server_default="web_probe")
+    match_options: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     group_by: Mapped[str] = mapped_column(String(50), default="ip")
     window_minutes: Mapped[int] = mapped_column(default=5)
     threshold: Mapped[int] = mapped_column(default=1)

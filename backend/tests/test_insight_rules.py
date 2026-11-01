@@ -293,7 +293,7 @@ def test_schema_version_rejects_breaking_major_updates():
     with pytest.raises(ValueError, match="Unsupported insight rules schema_version"):
         parse_rules(
             {
-                "schema_version": 2,
+                "schema_version": 3,
                 "ruleset_version": "2026-07-02",
                 "rules": [
                     {

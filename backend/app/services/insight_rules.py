@@ -30,7 +30,7 @@ RULE_TIMEOUT_SECONDS = 5
 RULE_MANIFEST_MAX_BYTES = 8 * 1024
 RULESET_MAX_BYTES = 256 * 1024
 _READ_CHUNK_BYTES = 32 * 1024
-SUPPORTED_SCHEMA_MAJOR = 1
+SUPPORTED_SCHEMA_MAJOR = 2
 RULE_FETCHED_AT_KEY = "insight_rules.fetched_at"
 RULE_VERSION_KEY = "insight_rules.version"
 RULE_SOURCE_KEY = "insight_rules.source"
@@ -55,6 +55,8 @@ class InsightRule:
     source: str = "bundled"
     schema_version: str = "1"
     ruleset_version: str = ""
+    kind: str = "web_probe"
+    match_options: dict[str, Any] | None = None
 
 
 def _setting(db: Session, key: str, default: str = "") -> str:
@@ -150,8 +152,55 @@ def _schema_major(value: Any) -> int:
     return int(major_text)
 
 
+def _match_options(item: dict[str, Any], major: int) -> dict[str, Any] | None:
+    if major == 1:
+        return None
+    kind = item.get("kind", "web_probe")
+    if kind not in ("web_probe", "scan_ban_chain"):
+        raise ValueError(f"Insight rule {item.get('id')} has an invalid kind")
+    options = item.get("match_options", {})
+    if not isinstance(options, dict):
+        raise ValueError("Insight rule match_options must be an object")
+    allowed = {"path_equals_any", "path_prefix_any", "status_codes", "methods"}
+    if kind == "scan_ban_chain":
+        allowed.update(("min_distinct_assets", "min_distinct_countries", "followup_seconds"))
+    if options.keys() - allowed:
+        raise ValueError("Insight rule has unknown match_options")
+    options = dict(options)
+    for name in ("path_equals_any", "path_prefix_any"):
+        if name in options:
+            paths = options[name]
+            if (not isinstance(paths, list) or len(paths) > 50
+                    or any(not isinstance(path, str) or not path.strip() or len(path) > 200 for path in paths)):
+                raise ValueError(f"Insight rule has invalid {name}")
+    if "status_codes" in options:
+        codes = options["status_codes"]
+        if (not isinstance(codes, list) or not 1 <= len(codes) <= 100
+                or any(isinstance(code, bool) or not isinstance(code, int) or not 100 <= code <= 599 for code in codes)
+                or len(set(codes)) != len(codes)):
+            raise ValueError("Insight rule has invalid status_codes")
+    if "methods" in options:
+        methods = options["methods"]
+        allowed_methods = {"GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "CONNECT", "TRACE"}
+        if (not isinstance(methods, list) or not 1 <= len(methods) <= 10
+                or any(not isinstance(method, str) or method.upper() not in allowed_methods for method in methods)):
+            raise ValueError("Insight rule has invalid methods")
+        options["methods"] = [method.upper() for method in methods]
+    if kind == "scan_ban_chain":
+        for name, default, minimum, maximum in (
+            ("min_distinct_assets", 2, 2, 100), ("min_distinct_countries", 2, 1, 100),
+            ("followup_seconds", 60, 1, 300),
+        ):
+            value = options.get(name, default)
+            if isinstance(value, bool) or not isinstance(value, int) or not minimum <= value <= maximum:
+                raise ValueError(f"Insight rule has invalid {name}")
+            options[name] = value
+    return options
+
+
 def _validate_ruleset(data: dict[str, Any]) -> dict[str, Any]:
-    if _schema_major(data.get("schema_version")) != SUPPORTED_SCHEMA_MAJOR:
+    major = _schema_major(data.get("schema_version"))
+    if major not in (1, SUPPORTED_SCHEMA_MAJOR):
         raise ValueError(f"Unsupported insight rules schema_version: {data.get('schema_version')}")
     version = data.get("ruleset_version", "")
     if not isinstance(version, str) or len(version) > 20:
@@ -162,6 +211,7 @@ def _validate_ruleset(data: dict[str, Any]) -> dict[str, Any]:
     if len(rules) > 200:
         raise ValueError("Insight ruleset contains too many rules")
     seen_ids: set[str] = set()
+    chain_count = 0
     for item in rules:
         if not isinstance(item, dict):
             raise ValueError("Insight rule must be an object")
@@ -187,11 +237,14 @@ def _validate_ruleset(data: dict[str, Any]) -> dict[str, Any]:
             raise ValueError(f"Insight rule {rule_id} has invalid confidence")
         if item.get("group_by", "ip") not in ("ip", "path"):
             raise ValueError(f"Unsupported insight rule group_by for {item.get('id')}: {item.get('group_by')}")
+        options = _match_options(item, major)
         paths = item.get("path_contains_any", [])
-        if not isinstance(paths, list) or not paths:
+        if not isinstance(paths, list) or (major == 1 and not paths):
             raise ValueError(f"Insight rule {item.get('id')} must define path_contains_any")
         if len(paths) > 50 or any(not isinstance(path, str) or not path.strip() or len(path) > 200 for path in paths):
             raise ValueError(f"Insight rule {item.get('id')} has invalid path patterns")
+        if major == 2 and not (paths or (options or {}).get("path_equals_any") or (options or {}).get("path_prefix_any")):
+            raise ValueError(f"Insight rule {rule_id} must define a path list")
         event_types = item.get("event_types", [])
         if not isinstance(event_types, list) or not event_types:
             raise ValueError(f"Insight rule {item.get('id')} must define event_types")
@@ -215,6 +268,13 @@ def _validate_ruleset(data: dict[str, Any]) -> dict[str, Any]:
             raise ValueError(f"Insight rule {item.get('id')} has invalid window_minutes")
         if min_distinct_ips < 1 or min_distinct_ips > 1000:
             raise ValueError(f"Insight rule {item.get('id')} has invalid min_distinct_ips")
+        if major == 2 and item.get("kind", "web_probe") == "scan_ban_chain":
+            chain_count += 1
+            if (item.get("group_by", "ip") != "path" or min_distinct_ips < 2 or window_minutes > 60
+                    or not set(event_types) <= {"access.denied", "access.error"}):
+                raise ValueError(f"Insight rule {rule_id} has invalid scan_ban_chain constraints")
+    if chain_count > 20:
+        raise ValueError("Insight ruleset contains too many chain rules")
     return data
 
 
@@ -232,7 +292,9 @@ def parse_rules(data: dict[str, Any], *, source: str = "bundled") -> list[Insigh
                 level=item.get("level", "medium"),
                 confidence=float(item.get("confidence", 0.7)),
                 event_types=tuple(item["event_types"]),
-                path_contains_any=tuple(item["path_contains_any"]),
+                path_contains_any=tuple(item.get("path_contains_any", [])),
+                kind=item.get("kind", "web_probe") if _schema_major(schema_version) == 2 else "web_probe",
+                match_options=_match_options(item, _schema_major(schema_version)),
                 group_by=item.get("group_by", "ip"),
                 window_minutes=item.get("window_minutes", 5),
                 threshold=item.get("threshold", 1),
@@ -262,6 +324,8 @@ def _apply_rule(db: Session, rule: InsightRule, existing: InsightRuleModel | Non
     existing.min_distinct_ips = rule.min_distinct_ips
     existing.event_types = list(rule.event_types)
     existing.path_contains_any = list(rule.path_contains_any)
+    existing.kind = rule.kind
+    existing.match_options = rule.match_options
     existing.is_active = True
     existing.updated_at = now
     existing.last_seen_at = now
@@ -377,6 +441,8 @@ def active_rules(db: Session) -> list[InsightRule]:
             source=row.source,
             schema_version=row.schema_version,
             ruleset_version=row.ruleset_version,
+            kind=row.kind,
+            match_options=row.match_options,
         )
         for row in rows
     ]
@@ -480,9 +546,18 @@ def apply_declarative_insight_rules(db: Session, event: Event) -> None:
         return
     path = event.path.lower()
     for rule in active_rules(db):
+        if rule.kind != "web_probe":
+            continue
+        options = rule.match_options or {}
         if event.event_type not in rule.event_types:
             continue
-        if not any(pattern.lower() in path for pattern in rule.path_contains_any):
+        if not (any(pattern.lower() in path for pattern in rule.path_contains_any)
+                or any(pattern.lower() == path for pattern in options.get("path_equals_any", []))
+                or any(path.startswith(pattern.lower()) for pattern in options.get("path_prefix_any", []))):
+            continue
+        if options.get("status_codes") and event.status_code not in options["status_codes"]:
+            continue
+        if options.get("methods") and (not event.method or event.method.upper() not in options["methods"]):
             continue
         window_start = event.event_time - timedelta(minutes=rule.window_minutes)
         insight_ip = event.ip if rule.group_by == "ip" else None
@@ -491,7 +566,9 @@ def apply_declarative_insight_rules(db: Session, event: Event) -> None:
                                 window_start=window_start, window_end=event.event_time):
             continue
         path_matches = or_(
-            *(func.lower(Event.path).contains(pattern.lower(), autoescape=True) for pattern in rule.path_contains_any)
+            *(func.lower(Event.path).contains(pattern.lower(), autoescape=True) for pattern in rule.path_contains_any),
+            *(func.lower(Event.path) == pattern.lower() for pattern in options.get("path_equals_any", [])),
+            *(func.lower(Event.path).startswith(pattern.lower(), autoescape=True) for pattern in options.get("path_prefix_any", [])),
         )
         matching_query = db.query(Event.id, Event.ip, Event.asset_id).filter(
             Event.event_type.in_(rule.event_types),
@@ -500,6 +577,10 @@ def apply_declarative_insight_rules(db: Session, event: Event) -> None:
             Event.path.isnot(None),
             path_matches,
         )
+        if options.get("status_codes"):
+            matching_query = matching_query.filter(Event.status_code.in_(options["status_codes"]))
+        if options.get("methods"):
+            matching_query = matching_query.filter(func.upper(Event.method).in_(options["methods"]))
         if rule.group_by == "ip":
             matching_query = matching_query.filter(Event.ip == event.ip)
         event_count, distinct_ip_count, distinct_asset_count = matching_query.with_entities(
@@ -508,7 +589,8 @@ def apply_declarative_insight_rules(db: Session, event: Event) -> None:
         ).one()
         if event_count < rule.threshold or distinct_ip_count < rule.min_distinct_ips:
             continue
-        matching_events = matching_query.order_by(Event.id.desc()).limit(MAX_SAMPLE_IDS).all()
+        sample_order = (Event.event_time.desc(), Event.id.desc()) if _schema_major(rule.schema_version) == 2 else (Event.id.desc(),)
+        matching_events = matching_query.order_by(*sample_order).limit(MAX_SAMPLE_IDS).all()
         related_ids = sorted(candidate_id for candidate_id, _ip, _asset_id in matching_events)
         if _insight_exists(db, rule.id, related_ids):
             continue
