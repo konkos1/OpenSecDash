@@ -486,3 +486,55 @@ def test_a_secret_behind_two_conditions_needs_both_of_them(settings_client, two_
     db.expire_all()
     assert get_setting_value(db, "plugin.two_conditions.enabled") == "false"
     assert get_setting_value(db, "plugin.two_conditions.api_key") == "dummy-key"
+
+
+@pytest.mark.parametrize("transport", ["form", "api"])
+@pytest.mark.parametrize("toggle,off,on", [("enabled", "false", "true"), ("publish_insights", "false", "true"), ("publish_interval", "0", "auto")])
+def test_mqtt_settings_hook_persists_both_toggle_directions(settings_client, monkeypatch, transport, toggle, off, on):
+    from app.models.core import Insight
+    db, client = settings_client
+    manager = get_plugin_manager()
+    monkeypatch.setattr(manager, "refresh_health_diagnostics", lambda db: None)
+    for key, value in {"enabled": "true", "publish_insights": "true", "publish_interval": "auto"}.items():
+        save_setting(db, f"plugin.mqtt-hass.{key}", value)
+    manager.on_settings_changed(db, "mqtt-hass")
+    db.commit()
+
+    def update(value):
+        if transport == "form":
+            response = client.post("/settings/plugins/mqtt-hass", data={f"plugin.mqtt-hass.{toggle}": value}, follow_redirects=False)
+            assert response.status_code == 303
+        else:
+            response = client.put(f"/api/settings/plugin.mqtt-hass.{toggle}", params={"value": value})
+            assert response.status_code == 200
+        db.expire_all()
+
+    update(off)
+    assert get_setting_value(db, "plugin.mqtt-hass.insights_was_active") == "false"
+    history = Insight(type="security_ban_observed", title="Ban while disabled")
+    db.add(history)
+    db.commit()
+    update(on)
+    assert get_setting_value(db, "plugin.mqtt-hass.insights_was_active") == "true"
+    assert get_setting_value(db, "plugin.mqtt-hass.insights_cursor") == str(history.id)
+
+
+def test_settings_hook_failure_rolls_back_settings_and_local_state(settings_client, monkeypatch):
+    db, client = settings_client
+    manager = get_plugin_manager()
+    plugin = manager.plugins["mqtt-hass"]
+    save_setting(db, "plugin.mqtt-hass.enabled", "true")
+    db.commit()
+
+    def fail(context):
+        assert context.get("enabled") == "false"
+        save_setting(context.db, "plugin.mqtt-hass.insights_was_active", "false")
+        context.db.flush()
+        raise ValueError("simulated settings hook failure")
+
+    monkeypatch.setattr(plugin, "on_settings_changed", fail)
+    with pytest.raises(ValueError, match="simulated settings hook failure"):
+        client.put("/api/settings/plugin.mqtt-hass.enabled", params={"value": "false"})
+    db.expire_all()
+    assert get_setting_value(db, "plugin.mqtt-hass.enabled") == "true"
+    assert get_setting_value(db, "plugin.mqtt-hass.insights_was_active", "missing") == "missing"

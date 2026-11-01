@@ -277,3 +277,14 @@ def test_viewer_investigates_evidence_with_escaping_and_retention(role_clients, 
     db.query(Setting).filter(Setting.key == 'plugin.traefik_log.enabled').update({'value': 'false'})
     db.commit()
     assert clients['viewer'].get(f'/insights/{insight.id}').status_code == 404
+
+
+def test_insight_export_is_viewer_read_only_and_requires_sign_in(role_clients):
+    _db, clients = role_clients
+    for client in clients.values():
+        assert client.get('/api/insights/export').status_code == 200
+    anonymous = TestClient(app, base_url='https://testserver')
+    try:
+        assert anonymous.get('/api/insights/export', follow_redirects=False).status_code == 401
+    finally:
+        anonymous.close()

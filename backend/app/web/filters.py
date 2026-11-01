@@ -6,8 +6,8 @@ from jinja2 import Environment, pass_context
 from markupsafe import Markup, escape
 
 from app.core.time import datetime_iso_utc, format_datetime_for_timezone
-from app.models.core import Insight
 from app.models.events import Event
+from app.services.insight_export import insight_certainty
 from app.services.events import is_local_ip_value
 
 # Jinja filters and template globals shared by core pages and plugin pages.
@@ -79,17 +79,6 @@ def http_status_label(value: int | None) -> str:
         return f"{status.value} {status.phrase}"
     except ValueError:
         return str(value)
-
-
-def insight_certainty(insight: Insight) -> tuple[str, str]:
-    """Describe evidence strength independently of finding severity."""
-    evidence = insight.evidence or {}
-    if evidence.get("version") == 1 and (insight.confidence or 0) >= 0.8:
-        if evidence.get("kind") == "direct":
-            return "✓", "certain"
-        if evidence.get("kind") in {"heuristic", "correlation", "trend"}:
-            return "≈", "probable"
-    return "?", "possible"
 
 
 def event_url(event: Event) -> str:

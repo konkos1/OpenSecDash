@@ -20,6 +20,7 @@ from app.core.version import get_app_version
 
 setup_service_logging()
 
+from app.api.insights import router as insights_router
 from app.api import action_forms_router, actions_router, assets_router, auth_router, events_router, instance_router, oidc_auth_router, oidc_settings_router, onboarding_router, pages_router, settings_router, users_router
 from app.database.init_db import init_db
 from app.database.migrations import run_auto_migrations_if_enabled, update_migration_diagnostic
@@ -102,6 +103,7 @@ app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 app.include_router(settings_router)
 app.include_router(events_router)
+app.include_router(insights_router)
 app.include_router(actions_router)
 app.include_router(action_forms_router)
 app.include_router(assets_router)

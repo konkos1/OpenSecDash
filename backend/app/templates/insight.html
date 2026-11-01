@@ -5,6 +5,7 @@
     <h2 class="text-2xl font-semibold mb-3">{{ insight.title }}</h2>
     <p>{{ insight.description }}</p>
     {% include "insight_metadata.html" %}
+    <p><a href="{{ export_url }}">{{ t("insight.export_json") }}</a></p>
     <p class="info-text mt-3">{{ t("insight.certainty_help") }}</p>
     <p>{{ t("insight.confidence") }}: {{ insight.confidence }}</p>
     <p>{{ t("insight.evidence.rule_source") }}: {{ (insight.evidence or {}).get("rule_source", "-") }} · {{ t("insight.evidence.ruleset_version") }}: {{ (insight.evidence or {}).get("ruleset_version", "-") }}</p>

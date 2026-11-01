@@ -450,6 +450,7 @@ DE = {
     "insight.level.high": "hoch",
     "insight.level.critical": "kritisch",
     "insight.time_basis": "Nach Ereigniszeit; bei Altbestand wird die Erstellungszeit verwendet, da die Ereigniszeit unbekannt ist.",
+    "insight.export_json": "JSON herunterladen",
     "insight.confidence": "Confidence (heuristischer Wert)",
     "insight.certainty": "Sicherheit der Aussage",
     "insight.details": "Evidenz untersuchen",

@@ -265,3 +265,43 @@ for legacy records. Asset Explorer's **Most frequent finding** uses the displaye
 remain accessible through Top Insights, details and examples; a chain's IP is the banned
 participant, and its empty asset association represents multiple assets. The examples
 do not promise complete coverage of participating IPs/assets or an asset's history.
+
+## Exporting Insights
+
+The detail page offers **Download JSON**, which downloads findings of the same type
+at that precise event time (creation time for legacy findings). It is a local
+download and does not upload data. The endpoint requires the same viewer access
+and enabled events feature as Insight details.
+
+`GET /api/insights/export` returns `items`, `next_cursor` and `period` with UTC `start`
+and `end`. Optional parameters are `type` (a known stored or declared type), `start`
+and `end` (ISO timestamps with timezone), `limit` (1–500, default 100), and `cursor`.
+The default period is 24 hours; explicit periods must be positive and at most
+30 days. Start is inclusive, end exclusive. Results sort by event time descending,
+then ID descending; legacy rows use creation time. To continue, pass the returned
+opaque `cursor` and optionally `limit`, without repeating time/type filters. The
+cursor preserves the original period and filter. Downloads are not cached.
+
+Each item has `schema_version: 1`, `id`, `type`, `title`, `level`, `confidence`,
+`certainty` (`certain`, `probable` or `possible`), `occurred_at` (null for legacy
+rows), `created_at`, and `evidence`. Evidence includes only bounded counts, UTC
+windows, known evidence kind/version, sample truncation, and comparison counts and
+windows when available. Missing or invalid legacy summary fields are omitted.
+Each Insight is at most 8 KiB of UTF-8 JSON.
+
+Titles for built-in and bundled types use fixed shipped definitions. Stored or
+remote free-text titles are never exported. Unknown types use a stable
+`other.<24 hexadecimal SHA-256 characters>` identifier and title `Insight`, so
+foreign metadata cannot inject secrets or topic wildcards. This mapping is not an
+anonymity guarantee for guessable type IDs. The original type remains available
+locally and is used for the download's `type` filter.
+
+JSON downloads also include `example_event_ids` (at most 20) and `detail_path`
+(a local path). Example IDs remain even if raw-event retention removed the events;
+they do not promise that those examples are still available. Raw rows, event
+payloads, descriptions, IPs, hostnames, request paths, asset names and arbitrary
+stored JSON are excluded.
+
+The [optional MQTT export](../plugins/mqtt.md#optional-insight-publishing) uses the
+same serializer without example IDs or detail paths. It must be explicitly enabled,
+skips history on activation and may repeat messages after a failure or restart.

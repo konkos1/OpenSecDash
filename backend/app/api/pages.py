@@ -17,7 +17,6 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse, RedirectResponse, Response
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Query as ORMQuery, Session
-from sqlalchemy.sql.elements import ColumnElement
 
 from app.core import plugin_registry
 from app.core.logging import configure_logging_from_db, redact_sensitive, redacted_setting_value
@@ -41,6 +40,8 @@ from app.services.dashboard_metrics import (
     dashboard_yesterday_rollup_key as _dashboard_yesterday_rollup_key,
     dashboard_yesterday_summary as _dashboard_yesterday_summary,
 )
+from app.services.insight_export import insight_display_time, insight_sample_ids
+from app.services.insights import utc_iso
 from app.services.insight_rules import debug_summary as insight_rules_debug_summary
 from app.services.instance_branding import get_instance_file
 from app.services.legal_notices import (
@@ -948,11 +949,6 @@ def rollups_page(request: Request, db: Session = Depends(get_db)):
     )
 
 
-def insight_display_time() -> ColumnElement[datetime]:
-    """Use event time, falling back to creation time only for legacy findings."""
-    return func.coalesce(Insight.occurred_at, Insight.timestamp)
-
-
 def insight_counts_query(db: Session, since: datetime, asset_ids: list[int] | None = None) -> ORMQuery:
     """Aggregate the indexed time window without scanning the type index."""
     rows = db.query(Insight.id, Insight.type, Insight.title).filter(insight_display_time() >= since)
@@ -965,12 +961,6 @@ def insight_counts_query(db: Session, since: datetime, asset_ids: list[int] | No
         .group_by(window.c.type).order_by(func.count().desc()))
 
 
-def insight_sample_ids(insight: Insight) -> list[int]:
-    """Read at most twenty stored example IDs, including legacy data."""
-    return list(dict.fromkeys(value for value in (insight.related_event_ids or [])
-        if type(value) is int and value > 0))[:20]
-
-
 @router.get("/insights/{insight_id}")
 def insight_page(request: Request, insight_id: int, db: Session = Depends(get_db)):
     require_events_feature_enabled(db)
@@ -980,7 +970,10 @@ def insight_page(request: Request, insight_id: int, db: Session = Depends(get_db
     ids = insight_sample_ids(insight)
     examples = db.query(Event).filter(Event.id.in_(ids)).order_by(Event.event_time, Event.id).limit(20).all()
     return render(request, db, "insight.html", insight=insight, example_events=examples,
-        sample_count=len(ids), event_asset_links=asset_links_for_events(db, examples))
+        sample_count=len(ids), event_asset_links=asset_links_for_events(db, examples),
+        export_url="/api/insights/export?" + urlencode({"type": insight.type,
+            "start": utc_iso(insight.occurred_at or insight.timestamp),
+            "end": utc_iso((insight.occurred_at or insight.timestamp) + timedelta(microseconds=1))}))
 
 
 @router.get("/events")
@@ -2329,6 +2322,7 @@ async def save_plugin_settings(plugin_id: str, request: Request, db: Session = D
             if plugin_setting_types[key] == "password" and not text_value:
                 continue
             save_setting(db, key, text_value)
+        get_plugin_manager().on_settings_changed(db, plugin_id)
         db.commit()
         get_plugin_manager().refresh_health_diagnostics(db)
         invalidate_rules_cache()
@@ -2342,6 +2336,7 @@ async def delete_plugin_secret(plugin_id: str, short_key: str, db: Session = Dep
     def _delete() -> None:
         if not get_plugin_manager().clear_plugin_secret(db, plugin_id, short_key):
             return
+        get_plugin_manager().on_settings_changed(db, plugin_id)
         db.commit()
         get_plugin_manager().refresh_health_diagnostics(db)
 

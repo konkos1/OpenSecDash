@@ -449,6 +449,7 @@ EN = {
     "insight.level.high": "high",
     "insight.level.critical": "critical",
     "insight.time_basis": "Uses event time; legacy findings use creation time because their event time is unknown.",
+    "insight.export_json": "Download JSON",
     "insight.confidence": "Confidence (heuristic score)",
     "insight.certainty": "Certainty",
     "insight.details": "Investigate evidence",

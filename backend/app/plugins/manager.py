@@ -402,6 +402,13 @@ class PluginManager:
                 groups.append({"id": plugin.metadata.id, "name": plugin.metadata.name, "settings": settings})
         return groups
 
+    def on_settings_changed(self, db: Session, plugin_id: str) -> None:
+        """Dispatch settings transitions atomically, even when disabling a plugin."""
+        plugin = self.plugins.get(plugin_id)
+        if plugin is not None:
+            db.flush()
+            plugin.on_settings_changed(self.context(db, plugin))
+
     def context(self, db: Session, plugin: Plugin, manual_export: bool = False) -> PluginContext:
         values = {}
         for setting in plugin.settings:

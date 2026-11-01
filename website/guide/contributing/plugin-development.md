@@ -123,6 +123,16 @@ event_types=["security.firewall_block", "security.firewall_unblock"]
 
 OpenSecDash uses this metadata together with the plugin's enabled state to determine whether dependent Insight notification rules are available. Do not declare wildcard values such as `security.*`; list each emitted type so dependencies stay explicit.
 
+## Settings transitions
+
+Override synchronous `on_settings_changed(context)` to maintain local plugin state
+when settings are saved, including when the master switch is turned off. The
+settings form, secret deletion and plugin setting API dispatch this hook after
+flushing updated settings and before committing. State changes in `context.db`
+commit atomically with the settings; an exception aborts the settings transaction.
+Do not commit or perform external I/O in this hook. Use the existing periodic
+worker for broker/network work; do not move its session into another thread.
+
 ## Settings
 
 Plugins declare settings with `PluginSetting`. OpenSecDash renders them automatically on the Settings page.

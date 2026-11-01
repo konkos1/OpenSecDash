@@ -33,6 +33,7 @@ Asset data can come from any supported asset source, for example JSON Assets or 
 | Setting | What it does |
 | --- | --- |
 | Enabled | Enables MQTT export. |
+| Publish new Insights | Separate opt-in, off by default; sends minimal new findings to the configured broker. |
 | MQTT host | MQTT broker hostname or IP. |
 | MQTT port | Broker port, usually `1883` for plain MQTT. |
 | MQTT username | Optional broker username. Use a dedicated MQTT user if possible. |
@@ -178,3 +179,29 @@ max: 10
 ## Diagnostics
 
 Diagnostics verifies whether the configured broker host/port is reachable. In TLS mode it completes a certificate- and hostname-verified TLS handshake. Plain MQTT is reported as a warning. Publish failures are reported on the MQTT plugin diagnostic row.
+
+## Optional Insight publishing
+
+Enable **Publish new Insights** as well as the MQTT master switch to feed new
+findings into your own broker automations. This is a new outbound data flow to the
+broker configured above; it does not contact another service. It is off by default.
+Enabling or re-enabling skips all existing Insights, including findings created
+while publishing was disabled. Restarting preserves the saved cursor.
+
+With `auto`, new committed Insights are checked every 60 seconds. A positive publish
+interval uses that interval; `0` disables automatic Insight publishing. Each tick
+publishes at most 100 new IDs. Asset publishing and its manual controls keep their
+existing behavior; the manual asset button does not publish Insights.
+
+Topics are `<state topic prefix>/insights/<safe-type>`. Prefix segments must contain
+only letters, digits, underscores, hyphens or dots. Messages use QoS 1 and
+`retain=false`; no Home Assistant entity is created for each Insight. The payload
+uses the [Insight JSON schema](../operations/insight-rules.md#exporting-insights),
+without example event IDs or detail paths. It contains IDs, safe types, fixed titles,
+severity, confidence, certainty, times and bounded evidence counts/windows. Stored
+free-text titles, descriptions, IPs, hostnames, paths and asset names are excluded.
+
+Broker failures appear in Diagnostics and keep the cursor for retry. Delivery is
+**at least once**: a partial send or crash after sending but before saving the cursor
+can cause duplicates. Deduplicate using the Insight `id`. There is no historical
+replay or retained Insight message; an offline subscriber may miss messages.

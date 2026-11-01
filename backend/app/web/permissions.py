@@ -59,6 +59,7 @@ ROUTE_PERMISSIONS = (
         ("GET", "/notifications"),
         ("GET", "/account"),
         ("GET", "/api/events"),
+        ("GET", "/api/insights/export"),
         ("GET", "/api/events/{event_id}"),
         ("GET", "/api/actions"),
         ("GET", "/api/actions/available"),

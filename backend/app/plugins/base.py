@@ -215,6 +215,13 @@ class Plugin:
     async def health(self, context: PluginContext) -> dict[str, str]:
         return {"status": "healthy"}
 
+    def on_settings_changed(self, context: PluginContext) -> None:
+        """Update local state before settings commit, including while disabled.
+
+        No external I/O: failures roll back the settings and state together.
+        """
+        return None
+
     def refresh_diagnostics(self, db: Session) -> None:
         """Refresh extra diagnostic components after settings are saved.
 
