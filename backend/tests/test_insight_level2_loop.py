@@ -319,3 +319,52 @@ def test_shutdown_cancels_chain_trend_and_notification_loops(monkeypatch):
         assert manager.tasks == []
 
     asyncio.run(run())
+
+
+@pytest.mark.parametrize("removed_count", [1, 20])
+def test_remote_refresh_between_anchor_batches_keeps_all_continuously_active_rules(chain_db, removed_count):
+    from app.services.insight_rules import import_ruleset
+
+    data = json.loads((Path(__file__).parent / "fixtures" / "insight-level2.json").read_text())
+    data["rules"] = [{**data["rules"][0], "id": f"a.chain.{index:02}",
+        "path_contains_any": ["/unrelated"]} for index in range(20)]
+    import_ruleset(chain_db, data, source="remote")
+    chain_db.add(Setting(key=correlation.COMPLETED_CUTOFF_KEY,
+        value="2026-11-01T11:00:00+00:00"))
+    _, ban = wave(chain_db, created_at=NOW - timedelta(minutes=30))
+    ban_id = ban.id
+    chain_db.add_all([Event(event_type="security.ban", ip="192.0.2.99",
+        event_time=NOW, created_at=ban.created_at) for _ in range(100)])
+    chain_db.commit()
+    first = correlation.run_level2_tick(chain_db, now=NOW)
+    assert first == {"processed": 100, "errors": 0, "completed": False}
+    assert findings(chain_db) == []
+
+    data["rules"] = data["rules"][removed_count:]
+    import_ruleset(chain_db, data, source="remote")
+    chain_db.commit()
+    for tick in range(1, 5):
+        with Session(chain_db.get_bind()) as restarted:
+            result = correlation.run_level2_tick(restarted, now=NOW + timedelta(hours=tick))
+            assert result["processed"] <= 100 and result["errors"] == 0
+            if result["completed"]:
+                insight, = findings(restarted)
+                assert insight.dedupe_key == f"{RULE_ID}:ban:{ban_id}"
+                break
+    else:
+        pytest.fail("Refreshed rule cycle did not complete")
+
+
+@pytest.mark.parametrize("with_rule_cursor", [False, True])
+def test_legacy_partial_batch_replays_original_window(chain_db, with_rule_cursor):
+    _, ban = wave(chain_db, created_at=NOW - timedelta(minutes=30))
+    state = {"started_at": "2026-11-01T12:00:00+00:00",
+        "created_from": "2026-11-01T11:00:00+00:00", "created_to": "2026-11-01T12:00:00+00:00",
+        "last_id": ban.id}
+    if with_rule_cursor:
+        state["last_rule_id"] = ""
+    chain_db.add(Setting(key=correlation.CYCLE_KEY, value=json.dumps(state)))
+    chain_db.commit()
+    result = correlation.run_level2_tick(chain_db, now=NOW + timedelta(hours=1))
+    assert result["completed"] and result["processed"] == 1
+    assert len(findings(chain_db)) == 1

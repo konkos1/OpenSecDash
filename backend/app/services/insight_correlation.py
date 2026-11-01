@@ -33,7 +33,8 @@ def _cycle(db: Session, now: datetime) -> dict[str, Any]:
         try:
             state = json.loads(row.value)
             fields = {"started_at", "created_from", "created_to", "last_id"}
-            if not isinstance(state, dict) or set(state) not in (fields, fields | {"last_rule_id"}):
+            if not isinstance(state, dict) or set(state) not in (
+                    fields, fields | {"last_rule_id"}, fields | {"last_rule_id", "batch_rule_ids"}):
                 raise ValueError("Invalid cycle fields")
             # Existing cycles resume at the first rule batch after upgrading.
             state.setdefault("last_rule_id", "")
@@ -41,6 +42,16 @@ def _cycle(db: Session, now: datetime) -> dict[str, Any]:
                 raise ValueError("Invalid rule cursor")
             if type(state["last_id"]) is not int or state["last_id"] < 0:
                 raise ValueError("Invalid cycle cursor")
+            if "batch_rule_ids" not in state:
+                # Older batches had no stable assignment; replay their window to avoid gaps.
+                state["last_id"] = 0
+                state["batch_rule_ids"] = []
+            batch_ids = state["batch_rule_ids"]
+            if (not isinstance(batch_ids, list) or len(batch_ids) > MAX_CHAIN_RULES
+                    or any(not isinstance(rule_id, str) or rule_id <= state["last_rule_id"] for rule_id in batch_ids)
+                    or batch_ids != sorted(set(batch_ids))
+                    or (state["last_id"] > 0 and not batch_ids)):
+                raise ValueError("Invalid rule batch")
             times = []
             for key in ("started_at", "created_from", "created_to"):
                 value = datetime.fromisoformat(state[key])
@@ -65,7 +76,7 @@ def _cycle(db: Session, now: datetime) -> dict[str, Any]:
     # Advance from the completed window even if draining its batches took longer than the overlap.
     upper = max(now, previous)
     return {"started_at": utc_iso(upper), "created_from": utc_iso(previous - timedelta(minutes=RECHECK_MINUTES)),
-            "created_to": utc_iso(upper), "last_id": 0, "last_rule_id": ""}
+            "created_to": utc_iso(upper), "last_id": 0, "last_rule_id": "", "batch_rule_ids": []}
 
 
 def evaluate_chain(db: Session, rule: InsightRule, ban: Event) -> None:
@@ -143,7 +154,11 @@ def run_level2_tick(db: Session, *, now: datetime | None = None) -> dict[str, An
     available = available_insight_types(db)
     remaining_rules = [rule for rule in active_rules(db)
         if rule.kind == "scan_ban_chain" and rule.id in available and rule.id > state["last_rule_id"]]
-    rules = remaining_rules[:MAX_CHAIN_RULES]
+    if not state["batch_rule_ids"]:
+        state["batch_rule_ids"] = [rule.id for rule in remaining_rules[:MAX_CHAIN_RULES]]
+    # Refresh availability without letting another rule inherit a partially drained window.
+    rules = [rule for rule in remaining_rules if rule.id in state["batch_rule_ids"]]
+    batch_end = state["batch_rule_ids"][-1] if state["batch_rule_ids"] else state["last_rule_id"]
     # Select the time-bounded IDs separately so ID ordering cannot turn the
     # creation window into a residual filter over the entire retained ban history.
     candidates = select(Event.id).where(Event.event_type == "security.ban", Event.ip.isnot(None), Event.ip != "",
@@ -161,12 +176,13 @@ def run_level2_tick(db: Session, *, now: datetime | None = None) -> dict[str, An
                 errors += 1
                 logger.exception("Level 2 evaluation failed for rule %s, event %s", rule.id, ban.id)
         state["last_id"] = ban.id
-    rules_completed = len(anchors) < MAX_BAN_ANCHORS
-    completed = rules_completed and len(remaining_rules) <= MAX_CHAIN_RULES
+    rules_completed = not state["batch_rule_ids"] or len(anchors) < MAX_BAN_ANCHORS
+    completed = rules_completed and not any(rule.id > batch_end for rule in remaining_rules)
     if rules_completed and not completed:
         # Drain the same fixed window for every rule batch before advancing its cutoff.
-        state["last_rule_id"] = rules[-1].id
+        state["last_rule_id"] = batch_end
         state["last_id"] = 0
+        state["batch_rule_ids"] = []
     row = db.query(Setting).filter(Setting.key == CYCLE_KEY).first()
     if completed:
         cutoff = db.query(Setting).filter(Setting.key == COMPLETED_CUTOFF_KEY).first()

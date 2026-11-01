@@ -57,8 +57,12 @@ available chain rules per tick in rule-ID order. Each group of up to 20 rules ch
 the entire fixed ban window before the worker starts the next group. This includes
 all available rules across bundled, remote and plugin sources, even when their total
 exceeds 20. All required input producers and any owner plugin must be enabled.
-Persisted ban and rule cursors resume unfinished cycles after restart; newly added
-or re-enabled rules before the rule cursor are considered in the next cycle.
+Persisted ban and rule cursors and the running group's assigned rule IDs resume
+unfinished cycles after restart. Removed or unavailable rules are skipped; replacement
+rules start their own group from the first ban in the window. Newly added or re-enabled
+rules omitted from a running group at or before its final rule ID wait until the next
+cycle. On upgrade, older unfinished groups without persisted rule IDs restart from
+their first ban in the original window.
 Individual rule/anchor failures are isolated and counted in diagnostics.
 
 The first cycle checks bans **created in the previous 15 minutes**, including newly
