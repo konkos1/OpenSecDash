@@ -500,3 +500,36 @@ def test_invalid_remote_replacement_preserves_rules_and_refresh_metadata(monkeyp
     assert db_session.query(InsightRule).filter_by(rule_id="test.invalid").first() is None
     for key, value in metadata.items():
         assert db_session.query(Setting).filter_by(key=f"insight_rules.{key}").one().value == value
+
+
+@pytest.mark.parametrize("failure", ["hash", "expired", "changed_304"])
+def test_remote_verification_failures_keep_override_and_refresh_metadata(db_session, monkeypatch, failure):
+    from app.models.core import InsightRule
+    from app.services.insight_rules import import_ruleset
+
+    import_ruleset(db_session, _ruleset(_rule()), source="remote")
+    saved = {"sha256": "a" * 64, "etag": "old", "fetched_at": "2026-01-01T00:00:00"}
+    for key, value in saved.items():
+        db_session.add(Setting(key=f"insight_rules.{key}", value=value))
+    db_session.commit()
+
+    class Manifest(_ManifestResponse):
+        @property
+        def content(self):
+            data = json.loads(super().content)
+            if failure == "expired":
+                data["expires"] = "2000-01-01"
+            if failure == "hash":
+                data["sha256"] = "b" * 64
+            return json.dumps(data).encode()
+
+    class Response(_Response):
+        status_code = 304 if failure == "changed_304" else 200
+
+    monkeypatch.setattr("app.services.insight_rules.requests.get", lambda url, **kwargs:
+        Manifest() if url == RULE_MANIFEST_URL else Response())
+    assert refresh_insight_rules(db_session, force=True)["status"] == "failed"
+    rule = db_session.query(InsightRule).filter_by(rule_id="web.wordpress_scan").one()
+    assert (rule.source, rule.title, rule.path_contains_any) == ("remote", "Remote override", ["/override"])
+    for key, value in saved.items():
+        assert db_session.query(Setting).filter_by(key=f"insight_rules.{key}").one().value == value

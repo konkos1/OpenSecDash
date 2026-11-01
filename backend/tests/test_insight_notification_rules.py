@@ -184,3 +184,20 @@ def test_denied_only_producer_enables_relationships_without_resetting_user_choic
             assert rule.enabled is True and rule.cooldown_minutes == 37
     finally:
         manager.discover()
+
+
+def test_rapid_plugin_toggles_keep_notification_choice_and_catalog_in_sync(db_session):
+    import_bundled_rules(db_session)
+    rule_id = insight_notification_rule_id("web.wordpress_scan")
+    rule = db_session.query(NotificationRule).filter_by(rule_id=rule_id).one()
+    rule.enabled = True
+    db_session.commit()
+    for enabled in (True, False, True, False, True):
+        save_setting(db_session, "plugin.traefik_log.enabled", "true" if enabled else "false")
+        db_session.commit()
+        invalidate_rules_cache()
+        view = next(item for item in notification_rule_views(db_session, "en") if item.rule.rule_id == rule_id)
+        assert view.available is enabled
+        assert insight_availability(db_session, insight_definitions(db_session)["web.wordpress_scan"]).available is enabled
+        assert view.rule.enabled is True
+    assert db_session.query(Notification).count() == 0

@@ -98,7 +98,12 @@ def test_201_groups_resume_fixed_cutoff(trend_db):
         if asset_id != 1:
             trend_db.add(Asset(id=asset_id, system_id=1, name=f"Example {asset_id}"))
         counts(trend_db, asset_id=asset_id)
-    results = [run_trend_tick(trend_db, now=NOW + timedelta(days=offset)) for offset in (0,1,1)]
+    from sqlalchemy.orm import Session
+
+    results = [run_trend_tick(trend_db, now=NOW)]
+    for _ in range(2):
+        with Session(trend_db.get_bind(), autoflush=False) as restarted:
+            results.append(run_trend_tick(restarted, now=NOW + timedelta(days=1)))
     assert [r["processed"] for r in results] == [100,100,1]
     assert [r["completed"] for r in results] == [False,False,True]
     assert trend_db.query(Insight).count() == 201

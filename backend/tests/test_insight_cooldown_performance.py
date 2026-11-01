@@ -85,3 +85,34 @@ def test_cooldown_query_uses_composite_index_with_large_insights_table(db_sessio
     assert cooldown_query.first() is not None
     index_name = "ix_insights_type_correlation_occurred" if event_time_cooldown else "ix_insights_type_ip_timestamp"
     assert any(f"USING INDEX {index_name}" in row.detail for row in query_plan)
+
+
+@pytest.mark.parametrize("path", ["opensecdash.db", "/tmp/opensecdash.db", "/tmp/fixture.sqlite", "/var/fixture.db"])
+def test_benchmark_rejects_non_scratch_or_development_database(path):
+    from performance.insight_engine_benchmark import scratch_path
+
+    with pytest.raises(ValueError):
+        scratch_path(path)
+
+
+def test_benchmark_rejects_symlink_and_accepts_explicit_temporary_file(tmp_path):
+    from performance.insight_engine_benchmark import scratch_path
+
+    path = tmp_path / "fixture.db"
+    assert scratch_path(str(path)) == path.resolve()
+    path.touch()
+    link = tmp_path / "linked.db"
+    link.symlink_to(path)
+    with pytest.raises(ValueError):
+        scratch_path(str(link))
+
+
+def test_legacy_and_event_time_export_filter_uses_display_index(db_session):
+    from sqlalchemy import func
+
+    display = func.coalesce(Insight.occurred_at, Insight.timestamp)
+    query = db_session.query(Insight).filter(display >= datetime(2026, 10, 1), display < datetime(2026, 11, 1))
+    compiled = query.order_by(display.desc(), Insight.id.desc()).limit(501).statement.compile(
+        dialect=sqlite.dialect(), compile_kwargs={"literal_binds": True})
+    plan = db_session.execute(text(f"EXPLAIN QUERY PLAN {compiled}")).all()
+    assert any("ix_insights_display_time" in row.detail and "SEARCH" in row.detail for row in plan)

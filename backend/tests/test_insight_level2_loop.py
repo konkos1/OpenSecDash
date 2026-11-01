@@ -188,3 +188,23 @@ def test_combined_sources_cannot_exceed_twenty_rules_per_tick(chain_db):
     correlation.run_level2_tick(chain_db, now=NOW)
     assert chain_db.query(Insight).count() == 20
     assert findings(chain_db) == []
+
+
+def test_shutdown_cancels_chain_trend_and_notification_loops(monkeypatch):
+    async def thread(work, *args):
+        return {}
+
+    monkeypatch.setattr(manager_module.asyncio, "to_thread", thread)
+
+    async def run():
+        manager = PluginManager(Path("plugins"))
+        manager.tasks = [asyncio.create_task(loop()) for loop in (
+            manager._insight_level2_loop, manager._insight_trends_loop,
+            manager._notification_dispatch_loop)]
+        tasks = list(manager.tasks)
+        await asyncio.sleep(0)
+        await manager.shutdown()
+        assert all(task.cancelled() for task in tasks)
+        assert manager.tasks == []
+
+    asyncio.run(run())
