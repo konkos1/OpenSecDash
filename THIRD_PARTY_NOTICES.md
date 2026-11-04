@@ -21,7 +21,7 @@ are licensed under GNU AGPL-3.0 as described in `LICENSE`.
 | charset-normalizer | 3.4.9 | MIT | [source](https://files.pythonhosted.org/packages/bd/2a/23f34ec9d04624958e137efdc394888716353190e75f25dd22c7a2c7a8aa/charset_normalizer-3.4.9.tar.gz) |
 | click | 8.4.2 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/76/d4/81420972a676e8ffea40450d8c8c92943e7218a78fe9b64359836cc9876b/click-8.4.2.tar.gz) |
 | cryptography | 50.0.2 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/9d/af/182eb91b0df3fe75c4d9f26fe70684569566745f6ba7e5c9c73a862c5252/cryptography-50.0.2.tar.gz) |
-| fastapi | 0.161.1 | MIT | [source](https://files.pythonhosted.org/packages/ed/3d/2cc1a0dbc2dac6e157b4ef12bac063e1016cb7c6d7395f76665e439cf1aa/fastapi-0.161.1.tar.gz) |
+| fastapi | 0.162.0 | MIT | [source](https://files.pythonhosted.org/packages/e9/eb/2cf8c80abf09b2800aef0a83b41066fbfda8ee5495b7a08b9d1af40f7046/fastapi-0.162.0.tar.gz) |
 | greenlet | 3.5.6 | MIT AND PSF-2.0 | [source](https://files.pythonhosted.org/packages/3e/6e/0091f175ccd02b02bc8811bbcbcc6ac2e980be116e3b2f7a736ca322bf84/greenlet-3.5.6.tar.gz) |
 | h11 | 0.16.0 | MIT | [source](https://files.pythonhosted.org/packages/01/ee/02a2c011bdab74c6fb3c75474d40b3052059d95df7e73351460c8588d963/h11-0.16.0.tar.gz) |
 | httpcore | 1.0.9 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/06/94/82699a10bca87a5556c9c59b5963f2d039dbd239f25bc2a63907a05a14cb/httpcore-1.0.9.tar.gz) |
@@ -31,14 +31,14 @@ are licensed under GNU AGPL-3.0 as described in `LICENSE`.
 | idna | 3.18 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/cd/63/9496c57188a2ee585e0f1db071d75089a11e98aa86eb99d9d7618fc1edce/idna-3.18.tar.gz) |
 | itsdangerous | 2.2.0 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/9c/cb/8ac0172223afbccb63986cc25049b154ecfb5e85932587206f42317be31d/itsdangerous-2.2.0.tar.gz) |
 | Jinja2 | 3.1.6 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/df/bf/f7da0350254c0ed7c72f3e33cef02e048281fec7ecec5f032d4aac52226b/jinja2-3.1.6.tar.gz) |
-| joserfc | 1.7.4 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/c7/e0/27a6a081ae25420eda6768ceae05d7022a7f2447f420588843f2a44e4298/joserfc-1.7.4.tar.gz) |
+| joserfc | 1.7.6 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/cd/db/ec5b5fe07a7bda62cd2c2d619daf160eb7442b979c7cd61bbe0262108de9/joserfc-1.7.6.tar.gz) |
 | Mako | 1.4.2 | MIT | [source](https://files.pythonhosted.org/packages/05/7f/0b891a82379ffd96d2d8cc6d435fb1055cdaed52829287f81d2a43fd71cb/mako-1.4.2.tar.gz) |
 | MarkupSafe | 3.0.3 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/7e/99/7690b6d4034fffd95959cbe0c02de8deb3098cc577c67bb6a24fe5d7caa7/markupsafe-3.0.3.tar.gz) |
 | opentelemetry-api | 1.45.1 | Apache-2.0 | [source](https://files.pythonhosted.org/packages/2e/02/6e0ae9cc61bd3169d401077b507b3ebc344745171e1051ab430be012dcd9/opentelemetry_api-1.45.1.tar.gz) |
 | paho-mqtt | 2.1.0 | EDL-1.0 | [source](https://files.pythonhosted.org/packages/39/15/0a6214e76d4d32e7f663b109cf71fb22561c2be0f701d67f93950cd40542/paho_mqtt-2.1.0.tar.gz) |
 | pycparser | 3.0 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/1b/7d/92392ff7815c21062bea51aa7b87d45576f649f16458d78b7cf94b9ab2e6/pycparser-3.0.tar.gz) |
 | pydantic | 2.13.4 | MIT | [source](https://files.pythonhosted.org/packages/18/a5/b60d21ac674192f8ab0ba4e9fd860690f9b4a6e51ca5df118733b487d8d6/pydantic-2.13.4.tar.gz) |
-| pydantic-settings | 2.16.1 | MIT | [source](https://files.pythonhosted.org/packages/05/ca/7817b4bf0c4b15c6a6ab8cdf4cb96c268335a8ca2f525de93b6ebe4c7d28/pydantic_settings-2.16.1.tar.gz) |
+| pydantic-settings | 2.16.2 | MIT | [source](https://files.pythonhosted.org/packages/d0/31/21d21e0e38a8f5f7a7f0cde22820117b6d17d6bc36f348129527f915d7f4/pydantic_settings-2.16.2.tar.gz) |
 | pydantic_core | 2.46.4 | MIT | [source](https://files.pythonhosted.org/packages/9d/56/921726b776ace8d8f5db44c4ef961006580d91dc52b803c489fafd1aa249/pydantic_core-2.46.4.tar.gz) |
 | python-dotenv | 1.2.2 | BSD-3-Clause | [source](https://files.pythonhosted.org/packages/82/ed/0301aeeac3e5353ef3d94b6ec08bbcabd04a72018415dcb29e588514bba8/python_dotenv-1.2.2.tar.gz) |
 | python-multipart | 0.0.32 | Apache-2.0 | [source](https://files.pythonhosted.org/packages/5b/42/55c32bb9b12693c092ad250a0e82edb5b31ddeda6eb772de5f308b3804ad/python_multipart-0.0.32.tar.gz) |
@@ -475,7 +475,7 @@ License: `BSD-3-Clause`
     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
     SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-### fastapi 0.161.1
+### fastapi 0.162.0
 
 License: `MIT`
 
@@ -855,7 +855,7 @@ Project: https://github.com/pallets/jinja/
     NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
     SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-### joserfc 1.7.4
+### joserfc 1.7.6
 
 License: `BSD-3-Clause`
 
@@ -1277,7 +1277,7 @@ Project: https://github.com/pydantic/pydantic
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 
-### pydantic-settings 2.16.1
+### pydantic-settings 2.16.2
 
 License: `MIT`
 
