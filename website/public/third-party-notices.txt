@@ -624,10 +624,10 @@ vfile-message 4.0.3
   Project: vfile/vfile-message
   Exact source archive: https://registry.npmjs.org/vfile-message/-/vfile-message-4.0.3.tgz
 
-vite 6.4.4
+vite 6.4.5
   License: MIT
   Project: https://vite.dev
-  Exact source archive: https://registry.npmjs.org/vite/-/vite-6.4.4.tgz
+  Exact source archive: https://registry.npmjs.org/vite/-/vite-6.4.5.tgz
 
 vitepress 1.6.4
   License: MIT
@@ -2605,7 +2605,7 @@ THE SOFTWARE.
 
 ------------------------------------------------------------------------
 
-Applies to: vite 6.4.4
+Applies to: vite 6.4.5
 Evidence: LICENSE.md
 
 # Vite core license
