@@ -111,7 +111,7 @@ jobs:
 
       - name: Run upgrade benchmark gate
         # Catch migration/startup regressions in PR CI, not only at release time.
-        # The 10k-event benchmark takes ~240ms locally, so it is a cheap gate.
+        # Includes legacy insight payloads large enough to exercise table rebuilds.
         working-directory: backend
         run: .venv/bin/python -m tests.performance.upgrade_benchmark --events 10000 --enforce-gates
 
@@ -186,7 +186,7 @@ jobs:
             -c 'touch /data/root-owned && chown root:root /data/root-owned'
           docker run -d --name opensecdash-ci-smoke \
             --read-only \
-            --tmpfs /tmp:size=16m,mode=1777 \
+            --tmpfs /tmp:size=1g,mode=1777 \
             --security-opt no-new-privileges:true \
             --cap-drop ALL --cap-add CHOWN --cap-add SETGID --cap-add SETUID \
             --pids-limit 256 --memory 1g --cpus 2 \

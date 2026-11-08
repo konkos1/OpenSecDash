@@ -23,6 +23,7 @@ from app.core.settings import settings
 from app.database import init_db as init_db_module
 from app.database import session as session_module
 from app.database.migrations import alembic_config
+from app.models.core import Insight
 from app.models.events import Event
 from app.models.settings import Setting
 from app.models.users import User, UserSession
@@ -35,6 +36,9 @@ from app.services.auth import (
 
 LEGACY_REVISION = "7f4a4a9c2b1e"
 DEFAULT_EVENT_COUNT = 10_000
+# A batch rebuild must spill more than the former 16 MiB /tmp allowance.
+LEGACY_INSIGHT_COUNT = 10_000
+LEGACY_INSIGHT_DESCRIPTION = "Synthetic legacy probe evidence. " * 128
 
 
 # A real v0.4.2 install carries its general settings but predates auth, so the
@@ -88,17 +92,31 @@ def _insert_legacy_rows(database_path: Path, event_count: int) -> None:
         connection.commit()
 
 
-def run(event_count: int) -> dict[str, object]:
+def _insert_legacy_insights(database_path: Path) -> None:
+    with sqlite3.connect(database_path) as connection:
+        # Existing application databases use WAL, including during batch rebuilds.
+        connection.execute("PRAGMA journal_mode=WAL")
+        connection.executemany(
+            "INSERT INTO insights (id, timestamp, type, title, description) VALUES (?, ?, ?, ?, ?)",
+            (
+                (index + 1, "2026-11-01 12:00:00", "web.scan", "Legacy probe", LEGACY_INSIGHT_DESCRIPTION)
+                for index in range(LEGACY_INSIGHT_COUNT)
+            ),
+        )
+
+
+def run(event_count: int, data_dir: Path | None = None) -> dict[str, object]:
     original_database_url = settings.database_url
     original_engine = init_db_module.engine
     original_session_factory = session_module.SessionLocal
     try:
-        with tempfile.TemporaryDirectory(prefix="opensecdash-upgrade-benchmark-") as directory:
+        with tempfile.TemporaryDirectory(prefix="opensecdash-upgrade-benchmark-", dir=data_dir) as directory:
             database_path = Path(directory) / "legacy.db"
             settings.database_url = f"sqlite:///{database_path}"
             config = alembic_config()
             command.upgrade(config, LEGACY_REVISION)
             _insert_legacy_rows(database_path, event_count)
+            _insert_legacy_insights(database_path)
 
             migration_started = time.perf_counter()
             command.upgrade(config, "head")
@@ -132,6 +150,13 @@ def run(event_count: int) -> dict[str, object]:
             db = session_factory()
             try:
                 events_after = db.query(func.count(Event.id)).scalar() or 0
+                insights_after = db.query(func.count(Insight.id)).scalar() or 0
+                preserved_insights = db.query(func.count(Insight.id)).filter(
+                    Insight.id.between(1, LEGACY_INSIGHT_COUNT),
+                    Insight.type == "web.scan",
+                    Insight.title == "Legacy probe",
+                    Insight.description == LEGACY_INSIGHT_DESCRIPTION,
+                ).scalar() or 0
                 auth_enabled = db.query(Setting).filter(Setting.key == AUTH_ENABLED_SETTING).first()
                 onboarding = db.query(Setting).filter(Setting.key == AUTH_ONBOARDING_STATE_SETTING).first()
                 users_after = db.query(func.count(User.id)).scalar() or 0
@@ -151,6 +176,7 @@ def run(event_count: int) -> dict[str, object]:
                 # The open legacy install stays open and fully readable, proving
                 # the review state blocks no data path.
                 "all_legacy_events_preserved": events_after == event_count,
+                "all_legacy_insights_preserved": insights_after == preserved_insights == LEGACY_INSIGHT_COUNT,
                 "auth_remains_disabled": auth_enabled is not None and auth_enabled.value == "false",
                 "onboarding_review_required": onboarding is not None
                 and onboarding.value == AUTH_ONBOARDING_LEGACY_REVIEW_REQUIRED,
@@ -163,6 +189,10 @@ def run(event_count: int) -> dict[str, object]:
                 "profile": "upgrade",
                 "legacy_revision": LEGACY_REVISION,
                 "events": event_count,
+                "insights": LEGACY_INSIGHT_COUNT,
+                "insight_payload_mib": round(
+                    LEGACY_INSIGHT_COUNT * len(LEGACY_INSIGHT_DESCRIPTION.encode("utf-8")) / (1024 * 1024), 2
+                ),
                 "database_mib": round(database_path.stat().st_size / (1024 * 1024), 2),
                 "migration_ms": round(migration_ms, 2),
                 "first_start_ms": round(first_start_ms, 2),
@@ -181,10 +211,11 @@ def main() -> None:
     parser.add_argument("--events", type=int, default=DEFAULT_EVENT_COUNT)
     parser.add_argument("--enforce-gates", action="store_true")
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--data-dir", type=Path, help="Parent directory for the temporary legacy database")
     arguments = parser.parse_args()
     if arguments.events < 1:
         parser.error("--events must be positive")
-    report = run(arguments.events)
+    report = run(arguments.events, arguments.data_dir)
     serialized = json.dumps(report, indent=2)
     if arguments.output is None:
         print(serialized)

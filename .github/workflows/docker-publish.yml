@@ -191,10 +191,12 @@ jobs:
             --iterations 20 --default-range 24h --enforce-gates \
             --output /reports/profile-large.json
           docker run --rm --user "${runner_user}" --memory 1g --cpus 2 \
+            --read-only --tmpfs /tmp:size=1g,mode=1777 \
+            --tmpfs /data:size=256m,mode=1777 \
             --entrypoint python -v "${report_dir}:/reports" \
             opensecdash:release-candidate-a \
             -m tests.performance.upgrade_benchmark --events 10000 \
-            --enforce-gates --output /reports/profile-upgrade.json
+            --data-dir /data --enforce-gates --output /reports/profile-upgrade.json
 
       - name: Smoke test hardened image with scratch storage
         shell: bash
@@ -212,7 +214,7 @@ jobs:
             -c 'touch /data/root-owned && chown root:root /data/root-owned'
           docker run -d --name opensecdash-release-smoke \
             --read-only \
-            --tmpfs /tmp:size=16m,mode=1777 \
+            --tmpfs /tmp:size=1g,mode=1777 \
             --security-opt no-new-privileges:true \
             --cap-drop ALL --cap-add CHOWN --cap-add SETGID --cap-add SETUID \
             --pids-limit 256 --memory 1g --cpus 2 \

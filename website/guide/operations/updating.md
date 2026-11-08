@@ -96,6 +96,30 @@ After the container or service restarts:
 
 ### Interrupted insights migration
 
+SQLite table rebuilds can require temporary storage in `/tmp` as well as free
+space in `/data`. Compose examples before this correction limited `/tmp` to
+16 MiB, which can cause `database or disk is full` during an upgrade with existing
+insights even when the data volume has ample free space. A subsequent
+`no such savepoint` error can hide this initial failure.
+
+Set the temporary storage limit in your Compose service to 1 GiB:
+
+```yaml
+tmpfs:
+  - /tmp:size=1g,mode=1777
+```
+
+Recreate the container to apply the mount change and retry the migration:
+
+```bash
+docker compose up -d --force-recreate opensecdash
+docker compose logs -f --tail=100 opensecdash
+```
+
+The tmpfs limit is a ceiling, with memory consumed as files are written. Its usage
+counts toward the container's memory limit alongside the application. Larger
+databases may require more temporary storage and a corresponding memory allowance.
+
 The insight evidence migration automatically retries an interrupted SQLite table
 rebuild when its temporary table is empty or all its rows are preserved in
 `insights`. The rebuild runs inside a savepoint so a failed retry rolls back its

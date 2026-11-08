@@ -34,6 +34,11 @@ readiness calls, connection cleanup, and a machine-readable gate result. The upg
 profile builds a representative supported legacy schema from the first migration,
 preserves synthetic legacy events, migrates secrets, runs startup maintenance,
 confirms auth remains off, and proves the second start skips the event scan.
+It also preserves 10,000 legacy insights with about 40 MiB of description payload
+through the table rebuild. The Docker Upgrade profile uses a read-only root
+filesystem and the documented 1 GiB `/tmp` tmpfs. Its scratch database lives on a
+separate writable `/data` mount via `--data-dir /data`, so database storage cannot
+consume the temporary SQLite workspace being tested.
 
 ## Level 2 anchor history regression
 
