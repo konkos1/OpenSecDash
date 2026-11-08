@@ -55,7 +55,7 @@ services:
       - opensecdash-data:/data
     read_only: true
     tmpfs:
-      - /tmp:size=16m,mode=1777
+      - /tmp:size=1g,mode=1777
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -99,7 +99,7 @@ services:
       - ./assets/assets.json:/assets/assets.json:ro
     read_only: true
     tmpfs:
-      - /tmp:size=16m,mode=1777
+      - /tmp:size=1g,mode=1777
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -136,6 +136,12 @@ volumes:
 With `network_mode: "host"` the container shares the host's network stack, so the `ports` mapping is dropped and the app is reachable directly on host port `8000` instead of `8765`.
 
 </details>
+
+The examples allow up to 1 GiB of temporary files in `/tmp` for SQLite migrations
+on existing databases. Memory is consumed as files are written and shares the
+container's memory allowance with the application. When upgrading a Compose file
+that still uses `size=16m`, update the mount and follow the
+[migration recovery instructions](../operations/updating.md#interrupted-insights-migration).
 
 Start the app:
 

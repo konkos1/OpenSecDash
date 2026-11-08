@@ -15,7 +15,7 @@ services:
       - opensecdash-data:/data
     read_only: true
     tmpfs:
-      - /tmp:size=16m,mode=1777
+      - /tmp:size=1g,mode=1777
     security_opt:
       - no-new-privileges:true
     cap_drop:
