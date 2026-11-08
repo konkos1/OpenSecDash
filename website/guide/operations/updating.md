@@ -93,3 +93,12 @@ After the container or service restarts:
 3. If CrowdSec is enabled, confirm `plugin · crowdsec` reports the log reader and `crowdsec · lapi` reports decision synchronization separately.
 4. Send a test notification if SMTP is enabled.
 5. Reload an open browser tab so versioned JavaScript and CSS assets are refreshed.
+
+### Interrupted insights migration
+
+The insight evidence migration automatically retries an interrupted SQLite table
+rebuild when its temporary table is empty or all its rows are preserved in
+`insights`. The rebuild runs inside a savepoint so a failed retry rolls back its
+schema changes. If the temporary table contains differing rows or columns, startup
+stops with a recovery error and preserves both tables for investigation. Back up
+the stopped instance's data directory before attempting manual database recovery.

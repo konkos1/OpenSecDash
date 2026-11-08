@@ -18,6 +18,12 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    # SQLite DDL can outlive a failed migration unless a real transaction exists.
+    with op.get_bind().begin_nested():
+        _upgrade()
+
+
+def _upgrade() -> None:
     inspector = sa.inspect(op.get_bind())
     columns = {column["name"] for column in inspector.get_columns("insights")}
     for column in (
@@ -36,6 +42,19 @@ def upgrade() -> None:
     # Prototype installations may already have the current metadata schema.
     constraints = {constraint["name"] for constraint in inspector.get_unique_constraints("insights")}
     if "uq_insights_dedupe_key" not in constraints:
+        if inspector.has_table("_alembic_tmp_insights"):
+            metadata = sa.MetaData()
+            insights = sa.Table("insights", metadata, autoload_with=op.get_bind())
+            temporary = sa.Table("_alembic_tmp_insights", metadata, autoload_with=op.get_bind())
+            # Only discard a failed batch copy when every row survives in the source.
+            if set(temporary.c.keys()) != set(insights.c.keys()):
+                raise RuntimeError("Cannot safely recover interrupted insights migration: column mismatch")
+            missing = sa.select(*temporary.c).except_(
+                sa.select(*(insights.c[column.name] for column in temporary.c))
+            ).limit(1)
+            if op.get_bind().scalar(sa.select(missing.exists())):
+                raise RuntimeError("Cannot safely recover interrupted insights migration: unpreserved rows")
+            op.drop_table("_alembic_tmp_insights")
         with op.batch_alter_table("insights") as batch_op:
             batch_op.create_unique_constraint("uq_insights_dedupe_key", ["dedupe_key"])
 
